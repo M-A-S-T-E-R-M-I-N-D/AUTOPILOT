@@ -173,6 +173,7 @@ import {
   type PrReviewExecuteResult,
 } from '../flight/pr-review-execute.js';
 import type { IssueTriagePlan, IssueTriageRitualResult } from '../flight/issue-triage.js';
+import { IssueTriageRepoUnboundError } from '../flight/issue-triage-execute.js';
 import type {
   DiscussionsTriagePreviewReport,
   DiscussionsTriageExecuteReport,
@@ -2693,13 +2694,14 @@ async function handleControlExecute(
  * shells to `gh issue list` fresh on every call, judging every open issue
  * against the project's open board tasks and backlog file. Degrades to
  * `{ triage: null }` instead of crashing when the read throws (a flaky `gh`
- * call shouldn't take the dashboard down) — plus, when `main.ts` wraps the
- * injected `api` in `refuseRepoMismatchedPreview` (EPIC 0019 S3's
- * repo-mismatch guard, ported from MIRROR PASS: debrief
- * 2026-10-01-verdict-ap-munfszto-0) and it refuses a project whose origin is
- * another GitHub repository, {@link mirrorPassPreviewFailureBody} adds why —
- * every `gh` call triage makes is bound to the ONE repository the dashboard
- * process itself runs in, so a mismatched project must never see that
+ * call shouldn't take the dashboard down) — plus, when `main.ts`'s
+ * `refuseUnboundIssueTriage` (board ap-mupqfryv-0, the strict form of EPIC
+ * 0019 S3's repo-mismatch guard: debrief 2026-10-01-verdict-ap-munfszto-0)
+ * refuses a project whose origin is another GitHub repository, {@link
+ * mirrorPassPreviewFailureBody} adds why, and a project with no GitHub
+ * origin at all gets `'repo-unbound'` naming only the repository `gh` acts
+ * on — every `gh` call triage makes is bound to the ONE repository the
+ * dashboard process itself runs in, so no other project may see that
  * repository's issues treated as its own.
  */
 async function handleIssueTriage(
@@ -2726,6 +2728,10 @@ async function handleIssueTriage(
   try {
     send(200, { triage: await api(project) });
   } catch (error) {
+    if (error instanceof IssueTriageRepoUnboundError) {
+      send(200, { triage: null, skippedReason: error.skippedReason, ghRepo: error.ghRepo });
+      return;
+    }
     send(200, mirrorPassPreviewFailureBody('triage', error));
   }
 }
@@ -2736,13 +2742,13 @@ async function handleIssueTriage(
  * creates board tasks for accepted ones — so it is a CSRF-guarded JSON POST
  * like every other write, and separately rate-limited (same
  * heavier-than-a-quota-spend reasoning as `handlePrReviewExecute`). 404 only
- * for an unknown project or an unwired API. When `main.ts` wraps the
- * injected `api` in `refuseRepoMismatchedPreview` (EPIC 0019 S3's
- * repo-mismatch guard, ported from MIRROR PASS: debrief
- * 2026-10-01-verdict-ap-munfszto-0) and it throws for a project whose origin
- * is another GitHub repository, this reports the refusal as a 200 with a
- * zero-mutation result instead of a 500 — a known repo-mismatch is a refusal
- * to act, not a server error.
+ * for an unknown project or an unwired API. When `main.ts`'s
+ * `refuseUnboundIssueTriage` (board ap-mupqfryv-0, the strict form of EPIC
+ * 0019 S3's repo-mismatch guard: debrief 2026-10-01-verdict-ap-munfszto-0)
+ * throws for a project whose origin is another GitHub repository or no
+ * GitHub repository at all, this reports the refusal as a 200 with a
+ * zero-mutation result instead of a 500 — a known refusal to act is not a
+ * server error.
  */
 async function handleIssueTriageExecute(
   req: IncomingMessage,
@@ -2803,6 +2809,17 @@ async function handleIssueTriageExecute(
         commandResults: [],
         tasksCreated: 0,
         error: `issue triage: project origin ${error.projectRepo} is not ${error.ghRepo}, the repository gh acts on`,
+      });
+      return;
+    }
+    if (error instanceof IssueTriageRepoUnboundError) {
+      send(200, {
+        skippedReason: error.skippedReason,
+        ghRepo: error.ghRepo,
+        plans: [],
+        commandResults: [],
+        tasksCreated: 0,
+        error: error.message,
       });
       return;
     }

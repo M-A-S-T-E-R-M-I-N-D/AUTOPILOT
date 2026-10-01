@@ -2242,6 +2242,14 @@ const EN_STRINGS = {
   // data-i18n-args map firing-timeline.ts's replayPosition established.
   issueTriageGuestNote:
     'Issue triage on this repo is run by its maintainer ({owner}) — you are signed in as {login}.',
+  // web/issue-triage-panel.ts's issueTriageRefusalNote() (board
+  // ap-mupqfryv-0): the triage preview refused a project that is not a
+  // checkout of the repository gh acts on. {ghRepo}/{projectRepo} are the
+  // refusal body's live owner/repo names.
+  issueTriageRepoUnboundNote:
+    'KEEPER triage acts on {ghRepo}, the repository this dashboard runs in. This project has no GitHub origin, so none of those issues are triaged onto its board.',
+  issueTriageRepoMismatchNote:
+    'KEEPER triage acts on {ghRepo}, the repository this dashboard runs in. This project is a checkout of {projectRepo}, so none of those issues are triaged onto its board.',
   prReviewGuestNote:
     'PR review actions on this repo are taken by its maintainer ({owner}) — you are signed in as {login}.',
   releaseGuestNote:
@@ -3522,6 +3530,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightMapAria: 'קבצים בטיסה',
     issueTriageGuestNote:
       'טריאז׳ ה-issues במאגר זה מנוהל על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
+    issueTriageRepoUnboundNote:
+      'טריאז׳ KEEPER פועל על {ghRepo}, המאגר שבו הדשבורד הזה רץ. לפרויקט הזה אין origin ב-GitHub, ולכן אף אחד מה-issues האלה לא ממוין אל הלוח שלו.',
+    issueTriageRepoMismatchNote:
+      'טריאז׳ KEEPER פועל על {ghRepo}, המאגר שבו הדשבורד הזה רץ. הפרויקט הזה הוא עותק של {projectRepo}, ולכן אף אחד מה-issues האלה לא ממוין אל הלוח שלו.',
     prReviewGuestNote:
       'פעולות סקירת ה-PR במאגר זה מתבצעות על ידי המתחזק שלו ({owner}) — אתם מחוברים בתור {login}.',
     releaseGuestNote:

@@ -93,6 +93,7 @@ import { createCheckDiagnosisApi } from '../flight/check-diagnosis.js';
 import {
   createIssueTriagePreviewApi,
   createIssueTriageExecuteApi,
+  refuseUnboundIssueTriage,
 } from '../flight/issue-triage-execute.js';
 import {
   createDiscussionsTriagePreviewApi,
@@ -814,13 +815,14 @@ const server = createServer({
   // file, unlike KEEPER REVIEW's single canonical repo above. Every `gh` call
   // triage makes is bound to the ONE repository the dashboard process itself
   // runs in (unlike its board reads/writes, bound to whatever project id the
-  // caller names) — both wrapped in refuseRepoMismatchedPreview (EPIC 0019
-  // S3's repo-mismatch guard, ported from MIRROR PASS: debrief
-  // 2026-10-01-verdict-ap-munfszto-0) so a project checked out of another
-  // GitHub repository never has that repository's issues judged against it
-  // and filed onto its own board.
-  issueTriage: refuseRepoMismatchedPreview(dbPath, createIssueTriagePreviewApi(dbPath)),
-  issueTriageExecute: refuseRepoMismatchedPreview(dbPath, createIssueTriageExecuteApi(dbPath)),
+  // caller names) — both wrapped in refuseUnboundIssueTriage (board
+  // ap-mupqfryv-0), the strict form of MIRROR PASS's
+  // refuseRepoMismatchedPreview (debrief 2026-10-01-verdict-ap-munfszto-0):
+  // a project checked out of another GitHub repository, or with no GitHub
+  // origin at all, never has this repository's issues judged against it and
+  // filed onto its own board.
+  issueTriage: refuseUnboundIssueTriage(dbPath, createIssueTriagePreviewApi(dbPath)),
+  issueTriageExecute: refuseUnboundIssueTriage(dbPath, createIssueTriageExecuteApi(dbPath)),
   // KEEPER DISCUSSIONS ritual (epic 0007 S8, board web-mtlsiac0-v8rksh): like
   // KEEPER REVIEW above, acts on the ONE canonical repo this dashboard process
   // runs in — no project id, gh resolves {owner}/{repo} from its own cwd —
