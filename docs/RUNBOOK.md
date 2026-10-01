@@ -368,8 +368,7 @@ pin describes, never restricts: a name this build has never heard of is passed t
 unchanged, like the catalogue. The operator's env levers above still win — `AUTOPILOT_MODEL`
 flight-wide, a per-tier variable for that tier's routed tasks — so the SOUL replaces routing, not
 your launch-time pin; `Model: off` means no pin. Like every SOUL override it is read when a flight
-starts. The SOUL editor names the six earlier override lines under its text; this one's hint is
-pending (the editor file was under the icon-system sweep when the line landed).
+starts. The SOUL editor names it under its text, the seventh of its override hints.
 
 ## 7. Self-mined ritual proposals (CLOSED-TASK AUDIT / DOC-FRESHNESS)
 

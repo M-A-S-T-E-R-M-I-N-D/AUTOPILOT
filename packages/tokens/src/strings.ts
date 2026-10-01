@@ -761,6 +761,12 @@ const EN_STRINGS = {
   // locale too; $5 is an example, any positive amount is a cap.
   soulEditorBudgetHint:
     'Add a line “Budget: $5” to cap what each of this project’s firings may spend, under the fleet-wide per-firing budget — an amount above it leaves the fleet figure in force.',
+  // The seventh per-project override (MODEL_PIN_LINE_PREFIX in
+  // packages/engine/src/config.ts) — the "Model:" prefix verbatim in every
+  // locale too; sonnet is an example, any alias or model id the CLI spells
+  // is a pin.
+  soulEditorModelHint:
+    'Add a line “Model: sonnet” to fly every one of this project’s firings on that model in place of the fleet’s routing — a family alias or a full model id, as the CLI spells it; a model set flight-wide at launch still wins.',
   soulProposed: 'Proposed — review it above to ratify or dismiss.',
   soulProposeFailed: 'Could not propose the edit — try again.',
   soulProposalSummary: 'SOUL proposal pending — review',
@@ -2496,6 +2502,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'הוסיפו שורה “Turns: 60” כדי להגביל את ההפעלות של הפרויקט הזה למספר התורות הזה, מתחת לתקרה של כל הצי — מספר מעל התקרה משאיר אותה בתוקף.',
     soulEditorBudgetHint:
       'הוסיפו שורה “Budget: $5” כדי להגביל כמה כל הפעלה של הפרויקט הזה רשאית להוציא, מתחת לתקציב-להפעלה של כל הצי — סכום מעל התקציב משאיר אותו בתוקף.',
+    soulEditorModelHint:
+      'הוסיפו שורה “Model: sonnet” כדי להטיס את כל ההפעלות של הפרויקט הזה על המודל הזה במקום הניתוב של הצי — כינוי משפחה או מזהה מודל מלא, כפי שה-CLI כותב אותו; מודל שנקבע לכל הצי בהמראה עדיין גובר.',
     soulProposed: 'ההצעה נשלחה — סקרו אותה למעלה כדי לאשר או לדחות.',
     soulProposeFailed: 'לא ניתן היה להציע את העריכה — נסו שוב.',
     soulProposalSummary: 'הצעת SOUL ממתינה — יש לסקור',
