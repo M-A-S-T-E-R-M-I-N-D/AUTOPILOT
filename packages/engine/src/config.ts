@@ -132,6 +132,36 @@ export function soulOptsOutOfInternet(soul: string): boolean {
   return INTERNET_OPT_OUT.test(soul);
 }
 
+/** The SOUL line an operator writes to cap ONE project's firings at fewer
+ *  turns than the fleet-wide ceiling (`maxTurns`) — a small or docs-only repo
+ *  whose units never need the full budget. Written as `Turns: 60`; this is
+ *  the prefix the editor's hint quotes. The fifth per-project override
+ *  (MASTER-PLAN §5.4, board ap-muo35gzl-2); it travels with the SOUL, so it
+ *  is locked and ratified like every other SOUL edit. */
+export const TURN_CAP_LINE_PREFIX = 'Turns:';
+
+/** The cap on a line of its own — same shape as {@link SUBAGENTS_OPT_OUT},
+ *  with a positive integer where the others say off. `Turns: 0`, a word, a
+ *  sign, a fraction, or a trailing unit (`Turns: 60 turns`) is not a cap. */
+const TURN_CAP = /^[ \t]*(?:[-*][ \t]+)?turns:[ \t]*([1-9]\d{0,4})[ \t\r]*$/im;
+
+/** The turn cap this project's SOUL asks for, or null when it carries no
+ *  {@link TURN_CAP_LINE_PREFIX} line. Parsed only — {@link firingMaxTurns}
+ *  applies it against the ceiling. */
+export function soulTurnCap(soul: string): number | null {
+  const match = TURN_CAP.exec(soul);
+  return match ? Number(match[1]) : null;
+}
+
+/** The turn ceiling one firing runs under: the fleet-wide ceiling, or the
+ *  project's own lower cap. A SOUL can tighten its project's ceiling, never
+ *  loosen it — a cap at or above the ceiling leaves the ceiling in force, so
+ *  one project's SOUL cannot spend past what the operator set for the fleet. */
+export function firingMaxTurns(soul: string, fleetCeiling: number): number {
+  const cap = soulTurnCap(soul);
+  return cap === null ? fleetCeiling : Math.min(cap, fleetCeiling);
+}
+
 /** The `--allowedTools`/`--disallowedTools` pair one firing runs with. */
 export interface FiringToolGrant {
   readonly allowedTools: readonly string[];

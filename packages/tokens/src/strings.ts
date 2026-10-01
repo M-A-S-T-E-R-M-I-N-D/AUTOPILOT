@@ -751,6 +751,11 @@ const EN_STRINGS = {
   // packages/engine/src/config.ts) — verbatim in every locale too.
   soulEditorInternetHint:
     'Add the line “Internet: off” to keep this project’s firings off the open internet (no WebSearch or WebFetch).',
+  // The fifth per-project override (TURN_CAP_LINE_PREFIX in
+  // packages/engine/src/config.ts) — the "Turns:" prefix verbatim in every
+  // locale too; 60 is an example, any positive number is a cap.
+  soulEditorTurnsHint:
+    'Add a line “Turns: 60” to cap this project’s firings at that many turns, under the fleet-wide ceiling — a number above the ceiling leaves it in force.',
   soulProposed: 'Proposed — review it above to ratify or dismiss.',
   soulProposeFailed: 'Could not propose the edit — try again.',
   soulProposalSummary: 'SOUL proposal pending — review',
@@ -2481,6 +2486,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'הוסיפו את השורה “Subagents: off” כדי למנוע מההפעלות של הפרויקט הזה להאציל עבודה לסוכני-משנה.',
     soulEditorInternetHint:
       'הוסיפו את השורה “Internet: off” כדי להשאיר את ההפעלות של הפרויקט הזה מחוץ לאינטרנט הפתוח (בלי WebSearch או WebFetch).',
+    soulEditorTurnsHint:
+      'הוסיפו שורה “Turns: 60” כדי להגביל את ההפעלות של הפרויקט הזה למספר התורות הזה, מתחת לתקרה של כל הצי — מספר מעל התקרה משאיר אותה בתוקף.',
     soulProposed: 'ההצעה נשלחה — סקרו אותה למעלה כדי לאשר או לדחות.',
     soulProposeFailed: 'לא ניתן היה להציע את העריכה — נסו שוב.',
     soulProposalSummary: 'הצעת SOUL ממתינה — יש לסקור',
