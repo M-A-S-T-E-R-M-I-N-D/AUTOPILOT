@@ -328,6 +328,15 @@ describe('the report dialog offers no action the page cannot run (#41)', () => {
     expect(STRINGS.he.reportActionNeedsProject).not.toBe(STRINGS.en.reportActionNeedsProject);
   });
 
+  it("says so when the composition is an English stand-in for the note's language (doctrine rule 3)", () => {
+    const out = reportMenuJs();
+    expect(out).toContain(
+      "if (j.languageFallback === true) composeStatusEl.textContent += ' ' + tr('composeLanguageFallback');",
+    );
+    expect(STRINGS.en.composeLanguageFallback).toContain('English');
+    expect(STRINGS.he.composeLanguageFallback).not.toBe(STRINGS.en.composeLanguageFallback);
+  });
+
   it('renders a compose refusal by key, falling back to the English reasoning', () => {
     const out = reportMenuJs();
     expect(out).toContain(
