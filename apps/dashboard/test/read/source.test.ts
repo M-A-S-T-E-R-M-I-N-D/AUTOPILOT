@@ -27,6 +27,7 @@ import {
   gatherProjectMap,
   gatherProjectRoot,
   gatherLiveState,
+  projectQueuedTaskCount,
   readFlightLogForProject,
   readFiringsPage,
   readFiringActivity,
@@ -1515,6 +1516,46 @@ describe('gatherProjectRoot', () => {
     const { dir, dbPath } = unmigratedDbPath('ap-dash-root-bad-');
     try {
       expect(gatherProjectRoot(dbPath, 'p1')).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe('projectQueuedTaskCount', () => {
+  it('returns 0 when the DB file does not exist', () => {
+    expect(
+      projectQueuedTaskCount(join(tmpdir(), 'ap-dash-queued-missing-9006', 'missing.db'), 'p1'),
+    ).toBe(0);
+  });
+
+  it('degrades to 0 when the store throws (unmigrated DB)', () => {
+    const { dir, dbPath } = unmigratedDbPath('ap-dash-queued-bad-');
+    try {
+      expect(projectQueuedTaskCount(dbPath, 'p1')).toBe(0);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it("counts only this project's queued tasks, past recentTasks' 30-row page", () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-queued-'));
+    const dbPath = join(dir, 'a.db');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      project('p1', 'alpha', 'flying', null, s);
+      project('p2', 'beta', 'flying', null, s);
+      // 35 queued: deeper than the 30-row page the lucky roll used to size from.
+      for (let i = 0; i < 35; i++) task(`q${i}`, 'p1', `queued ${i}`, 'queued', 0, s);
+      task('ip', 'p1', 'claimed', 'in_progress', 0, s);
+      task('dn', 'p1', 'shipped', 'done', 0, s);
+      task('other', 'p2', 'sibling project', 'queued', 0, s);
+      s.close();
+
+      expect(projectQueuedTaskCount(dbPath, 'p1')).toBe(35);
+      expect(projectQueuedTaskCount(dbPath, 'p2')).toBe(1);
+      expect(projectQueuedTaskCount(dbPath, 'nope')).toBe(0);
     } finally {
       cleanupDir(dir);
     }

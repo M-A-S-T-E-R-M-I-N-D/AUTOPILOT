@@ -495,7 +495,6 @@ export function readSearchFromStore(
   }
 }
 
-/** Doc-ish indexed paths for the Docs reader panel (README, licenses, docs/, *.md). */
 /** {@link queuedTaskCount} against the real store — the count the Fly bar's
  *  lucky roll sizes its lanes from. Zero when the db is missing or the read
  *  throws, the same degrade-don't-crash stance {@link listProjectDocs} takes. */
@@ -512,6 +511,7 @@ export function projectQueuedTaskCount(dbPath: string, projectId: string): numbe
   }
 }
 
+/** Doc-ish indexed paths for the Docs reader panel (README, licenses, docs/, *.md). */
 export function listProjectDocs(dbPath: string, projectId: string): readonly string[] {
   if (!existsSync(dbPath)) return [];
   let store: Store | undefined;
