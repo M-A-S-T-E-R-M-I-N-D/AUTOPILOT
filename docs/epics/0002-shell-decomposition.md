@@ -3351,6 +3351,18 @@ check touch only already-extracted modules or `shell.ts` itself — ordinary
 feature work, no decomposition cuts. No code changed this pass; gate green
 (typecheck/lint/format:check/build; docs-only change).
 
+Freshness check (2026-10-01): `web/shell.ts` and `web/features/` module
+inventory remain stable since the 2026-09-27 evening check. `web/features/`
+holds exactly 47 discoverable modules (`web/features/index.ts` carries
+exactly 47 imports in directory order, so barrel and folder agree) — no new
+modules added, no decomposition regression. Every module this doc's own
+progress log names by its whole-region-move cut is still present. The barrel
+file (`web/features/index.ts`), `chunks.ts`, and `scripts/codemod/
+generate-splice-manifest.mjs` are stable. All commits since the prior check
+touch only already-extracted modules or orthogonal feature work — no new
+whole-region moves landed. No code changed this pass; gate green
+(typecheck/lint/format:check/build; docs-only freshness update).
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),
