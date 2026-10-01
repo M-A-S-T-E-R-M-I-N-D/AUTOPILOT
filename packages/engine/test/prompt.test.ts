@@ -290,8 +290,12 @@ describe('buildFiringPrompt', () => {
     expect(p).toContain(
       `## SUBAGENTS — off for this project (its SOUL says "${SUBAGENTS_OPT_OUT_LINE}")`,
     );
-    for (const tool of SUBAGENT_TOOLS) expect(p).toContain(tool);
-    expect(p).toMatch(/Do every step of the unit yourself/);
+    // The whole replacement, word for word, down to the blank line that keeps
+    // the next section where it always started.
+    expect(p).toContain(
+      `- Do every step of the unit yourself. ${SUBAGENT_TOOLS.join(', ')} are not granted to this\n` +
+        '  firing, so plan no step around delegating it.\n\n## ',
+    );
     // Same slot PARALLEL held: after TDD-FIRST, ahead of NOOP→VERDICT.
     expect(p.indexOf('## TDD-FIRST')).toBeLessThan(p.indexOf('## SUBAGENTS'));
     expect(p.indexOf('## SUBAGENTS')).toBeLessThan(p.indexOf('## NOOP→VERDICT'));
@@ -308,8 +312,13 @@ describe('buildFiringPrompt', () => {
     expect(p).toContain(
       `## INTERNET — off for this project (its SOUL says "${INTERNET_OPT_OUT_LINE}")`,
     );
-    for (const tool of WEB_TOOLS) expect(p).toContain(tool);
-    expect(p).toMatch(/Research from what is on disk/);
+    // The whole replacement, word for word, down to the blank line that keeps
+    // the next section where it always started.
+    expect(p).toContain(
+      `- ${WEB_TOOLS.join(', ')} are not granted to this firing. Research from what is on disk: the\n` +
+        "  repo's own docs, its tests, and the existing usages of any library API you touch. Where a\n" +
+        '  behavior cannot be verified offline, prefer the smaller change the gate can verify over a guess.\n\n## ',
+    );
     // Same slot Research first held: after the COMMIT step, ahead of UX-EXPRESSION.
     expect(p.indexOf('5. COMMIT')).toBeLessThan(p.indexOf('## INTERNET'));
     expect(p.indexOf('## INTERNET')).toBeLessThan(p.indexOf('## UX-EXPRESSION'));

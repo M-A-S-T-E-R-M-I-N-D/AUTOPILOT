@@ -1259,6 +1259,23 @@ describe('checkWebFetchDnsRebinding', () => {
     expect(verdict.allowed).toBe(false);
   });
 
+  it('denies when the resolved address is an IPv4-mapped IPv6 literal for loopback, in its dotted form', async () => {
+    // A resolver hands the dotted-quad shape straight through (`new URL` is not
+    // in this path to compress it to hex), so the decoder's dotted branch is
+    // the one that judges it.
+    const verdict = await checkWebFetchDnsRebinding(
+      'https://attacker-controlled.example/',
+      resolvesTo([{ address: '::ffff:127.0.0.1', family: 6 }]),
+    );
+    expect(verdict.allowed).toBe(false);
+    expect(verdict.reason).toContain('resolves to ::ffff:127.0.0.1, a loopback/private-network');
+    const publicMapped = await checkWebFetchDnsRebinding(
+      'https://example.com/',
+      resolvesTo([{ address: '::ffff:93.184.216.34', family: 6 }]),
+    );
+    expect(publicMapped.allowed).toBe(true);
+  });
+
   it('allows when every resolved address is public', async () => {
     const verdict = await checkWebFetchDnsRebinding(
       'https://example.com/',
