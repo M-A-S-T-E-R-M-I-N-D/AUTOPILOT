@@ -15,6 +15,8 @@ import {
   firingPoints,
   scoreboardTiers,
   readBenchmark,
+  readBenchmarkAt,
+  readBenchmarkEmpty,
   type BenchmarkFiring,
 } from '../../src/read/benchmark.js';
 import { routeTaskModel } from '../../src/flight/model-scoreboard.js';
@@ -189,5 +191,56 @@ describe('readBenchmark', () => {
       .run(JSON.stringify({ globalExhaust: true, isError: true }), now - 400);
     const opus = readBenchmark(store, now).models.find((m) => m.modelId === 'claude-opus-5-5')!;
     expect([opus.firings, opus.shipped]).toEqual([1, 1]);
+  });
+});
+
+describe('readBenchmarkAt', () => {
+  const now = 200 * 24 * 60 * 60 * 1000;
+
+  it('reads a dashboard with no database yet as nothing flown', () => {
+    const b = readBenchmarkAt(join(tmpdir(), 'ap-benchmark-nope', 'missing.db'), now);
+    expect(b).toEqual(readBenchmarkEmpty(now));
+    expect(b).toMatchObject({ generatedAt: now, scope: null, models: [], points: [] });
+    expect(b.tiers.map((t) => [t.tier, t.phase, t.leader])).toEqual([
+      ['escalated', 'explore', null],
+      ['default', 'explore', null],
+      ['mechanical', 'explore', null],
+    ]);
+  });
+
+  it('reads the database at the path, for the fleet or one project, and lets go of it', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-benchmark-at-'));
+    const dbPath = join(dir, 'db.sqlite');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      s.db
+        .prepare(
+          `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+           VALUES ('p1', 'p1', 'alpha', '/tmp/x', 'flying', NULL, 1, 1)`,
+        )
+        .run();
+      s.db
+        .prepare(
+          `INSERT INTO metrics (project_id, firing_id, item, kind, sha, shipped, gate_result, cost_usd, duration_ms, turns, model, created_at)
+           VALUES ('p1', 'p1:firing-1', 't', 'feat', NULL, 1, 'passed', 2, 600000, 20, 'claude-opus-5-5', ?)`,
+        )
+        .run(now - 500);
+      s.close();
+
+      const fleet = readBenchmarkAt(dbPath, now);
+      expect(fleet.scope).toBeNull();
+      expect(fleet.models.map((m) => [m.modelId, m.firings, m.shipped])).toEqual([
+        ['claude-opus-5-5', 1, 1],
+      ]);
+      expect(fleet.points).toHaveLength(1);
+
+      const p1 = readBenchmarkAt(dbPath, now, 'p1');
+      expect(p1.scope).toEqual({ projectId: 'p1', name: 'alpha' });
+      expect(p1.models.map((m) => m.modelId)).toEqual(['claude-opus-5-5']);
+    } finally {
+      // Throws (EBUSY) on Windows if a read left the database open.
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
