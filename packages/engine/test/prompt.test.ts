@@ -660,15 +660,32 @@ describe('buildFiringPrompt', () => {
     expect(lines[bare + 1]).toBe('<<< END BOARD_ITEMS >>>');
   });
 
+  it('quotes a binding operator addendum past 1000 characters whole, so its later rules reach the firing', () => {
+    // The composer language doctrine reached three firings cut at 1000
+    // characters: every rule after the first stayed unread.
+    const addendum = `# BINDING ADDENDUM\n${'rule text. '.repeat(250)}\nLAST RULE: the tail.`;
+    const p = buildFiringPrompt({
+      soul: SOUL,
+      firing: 3,
+      retro: false,
+      board: [
+        { id: 'ap-human', title: 'A human-required task' },
+        { id: 'inbox-addendum', title: 'BINDING ADDENDUM', note: addendum },
+      ],
+    });
+    expect(p).toContain('    │ LAST RULE: the tail.');
+    expect(p).not.toContain('note cut at');
+  });
+
   it("bounds a task's note and says when it was cut", () => {
     const p = buildFiringPrompt({
       soul: SOUL,
       firing: 3,
       retro: false,
-      board: [{ id: 'inbox-a', title: 'Long note', note: 'x'.repeat(5000) }],
+      board: [{ id: 'inbox-a', title: 'Long note', note: 'x'.repeat(9000) }],
     });
-    expect(p).toContain(`    │ ${'x'.repeat(1000)}\n    │ … (note cut at 1000 characters)`);
-    expect(p).not.toContain('x'.repeat(1001));
+    expect(p).toContain(`    │ ${'x'.repeat(8000)}\n    │ … (note cut at 8000 characters)`);
+    expect(p).not.toContain('x'.repeat(8001));
   });
 
   it('a note of exactly the bound is whole, so it says nothing was cut', () => {
@@ -676,10 +693,41 @@ describe('buildFiringPrompt', () => {
       soul: SOUL,
       firing: 3,
       retro: false,
-      board: [{ id: 'inbox-a', title: 'Full note', note: 'y'.repeat(1000) }],
+      board: [{ id: 'inbox-a', title: 'Full note', note: 'y'.repeat(8000) }],
     });
-    expect(p).toContain(`    │ ${'y'.repeat(1000)}\n${BOARD_ITEMS_CLOSE}`);
+    expect(p).toContain(`    │ ${'y'.repeat(8000)}\n${BOARD_ITEMS_CLOSE}`);
     expect(p).not.toContain('note cut at');
+  });
+
+  it('later notes get what the earlier ones left of the budget, never less than 1000 characters', () => {
+    const p = buildFiringPrompt({
+      soul: SOUL,
+      firing: 3,
+      retro: false,
+      board: [
+        { id: 'inbox-a', title: 'First', note: 'a'.repeat(3000) },
+        { id: 'inbox-b', title: 'Second', note: 'b'.repeat(6000) },
+        { id: 'inbox-c', title: 'Third', note: 'c'.repeat(2000) },
+      ],
+    });
+    expect(p).toContain(`    │ ${'a'.repeat(3000)}\n- [inbox-b]`);
+    expect(p).toContain(`    │ ${'b'.repeat(5000)}\n    │ … (note cut at 5000 characters)`);
+    expect(p).toContain(`    │ ${'c'.repeat(1000)}\n    │ … (note cut at 1000 characters)`);
+    expect(p).not.toContain('c'.repeat(1001));
+  });
+
+  it('ten long notes stay bounded: the budget once, then 1000 characters each', () => {
+    const board = Array.from({ length: 10 }, (_, i) => ({
+      id: `inbox-${i}`,
+      title: `Note ${i}`,
+      note: 'z'.repeat(9000),
+    }));
+    const p = buildFiringPrompt({ soul: SOUL, firing: 3, retro: false, board });
+    const quoted = p
+      .split('\n')
+      .filter((l) => l.startsWith('    │ z'))
+      .reduce((sum, l) => sum + l.length - '    │ '.length, 0);
+    expect(quoted).toBe(8000 + 9 * 1000);
   });
 
   it("drops a note's whitespace-only lines, not just its empty ones", () => {
