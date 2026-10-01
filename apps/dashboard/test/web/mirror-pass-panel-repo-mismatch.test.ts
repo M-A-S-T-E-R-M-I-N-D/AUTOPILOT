@@ -59,8 +59,21 @@ const RECONCILE_FINDING = [
 
 const MAINTAINER = { login: 'octocat', nameWithOwner: 'octocat/hello-world', role: 'maintainer' };
 
-function boot(githubRepo: string | null | undefined, identity: unknown): void {
+/** What a gated preview route answers for a checkout of another repo
+ *  (board ap-muhqoogl-0): its usual null body plus why. */
+const SERVER_REFUSAL = {
+  skippedReason: 'repo-mismatch',
+  projectRepo: 'someone-else/their-project',
+  ghRepo: 'octocat/hello-world',
+};
+
+function boot(
+  githubRepo: string | null | undefined,
+  identity: unknown,
+  options: { readonly serverRefuses?: boolean } = {},
+): void {
   const project = githubRepo === undefined ? PROJECT : { ...PROJECT, githubRepo };
+  const refusal = options.serverRefuses ? SERVER_REFUSAL : {};
   const state = {
     generatedAt: 1,
     totals: {
@@ -82,6 +95,18 @@ function boot(githubRepo: string | null | undefined, identity: unknown): void {
     const url = String(input);
     if (url.includes('/api/social-identity')) {
       return { ok: true, json: async () => ({ identity }) } as unknown as Response;
+    }
+    if (options.serverRefuses && url.includes('/api/mirror-pass')) {
+      const key = url.includes('/landing-note')
+        ? 'landingNote'
+        : url.includes('/drift')
+          ? 'drift'
+          : url.includes('/stale-claims')
+            ? 'staleClaims'
+            : url.includes('/priority-follow')
+              ? 'priorityFollow'
+              : 'mirrorPass';
+      return { ok: true, json: async () => ({ [key]: null, ...refusal }) } as unknown as Response;
     }
     // Most specific mirror-pass paths first — every one of them contains the
     // bare `/api/mirror-pass` substring the reconcile preview matches on.
@@ -182,5 +207,25 @@ describe('the MIRROR PASS panel says up front when the project is a checkout of 
     });
     expect(mismatchLine()).toBeNull();
     expect(previewCalls()).toBe(5);
+  });
+
+  // Board ap-muhqoogl-0: the previews refuse a checkout of another repo
+  // server-side too. When the page had no origin to compare (an older fleet
+  // state without `githubRepo`), the refusal is what says it — never "Board
+  // and GitHub agree".
+  it('says the server-side refusal in the same line when the page had no origin to compare', async () => {
+    boot(undefined, MAINTAINER, { serverRefuses: true });
+
+    await waitFor(() => {
+      expect(mismatchLine()).not.toBeNull();
+    });
+    expect(mismatchLine()?.textContent).toBe(
+      STRINGS.en.mirrorPassRepoMismatch
+        .replace('{projectRepo}', 'someone-else/their-project')
+        .replace('{ghRepo}', 'octocat/hello-world'),
+    );
+    expect(document.querySelector('[data-i18n="mirrorPassEmpty"]')).toBeNull();
+    expect(document.querySelector('.mirror-pass-item')).toBeNull();
+    expect(document.querySelector('[data-mirror-pass-execute]')).toBeNull();
   });
 });

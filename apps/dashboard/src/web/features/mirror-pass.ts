@@ -285,6 +285,17 @@ function loadMirrorPassBody(body, pid) {
         return;
       }
       var results = loaded.previews;
+      // Board ap-muhqoogl-0: the previews refuse a checkout of another repo
+      // server-side too, naming both repositories. When the page had no
+      // origin to compare above, that refusal says the same line — never
+      // "Board and GitHub agree" over five null previews.
+      for (var r = 0; r < results.length; r++) {
+        var refused = results[r];
+        if (refused && refused.skippedReason === 'repo-mismatch' && refused.projectRepo && refused.ghRepo) {
+          renderMirrorPassRepoMismatch(body, { projectRepo: refused.projectRepo, ghRepo: refused.ghRepo });
+          return;
+        }
+      }
       var reconcile = results[0] && results[0].mirrorPass;
       var landingNote = results[1] && results[1].landingNote;
       var drift = results[2] && results[2].drift;

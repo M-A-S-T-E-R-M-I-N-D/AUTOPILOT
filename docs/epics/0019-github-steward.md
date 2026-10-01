@@ -45,6 +45,23 @@ into a per-project ritual any instance can run on any repo it owns.
 - **S3 — issues⇄board mirror per project:** generalize mirror-pass —
   board task done ⇒ close linked issue with the landing SHA; issue
   labeled/milestoned by the maintainer ⇒ board priority follows (law 2).
+  **Per-project previews 2026-10-01 (board ap-muhqoogl-0):** `gh` acts on
+  one repository, and the five EXECUTE apis already refused a project whose
+  origin is another one (0a6a70b7). The four previews that read issues did
+  not: called for such a project, they read `gh`'s repository and returned
+  its issues as that project's findings. The panel stopped asking once it
+  knew, but a page with no origin to compare, or a direct call, still got
+  them. `main.ts` now wraps each of the five previews in
+  `refuseRepoMismatchedPreview` (drift reads only the project's own tree,
+  and is wrapped so all five answer alike), which runs the same check as
+  the execute gate before the preview reads anything. The check is role-blind, because a preview is a read. A known
+  mismatch throws `MirrorPassRepoMismatchError`. The route still answers
+  its usual null body and adds `skippedReason: 'repo-mismatch'` plus both
+  repository names, and the panel shows its "not the repository gh acts on"
+  line instead of "Board and GitHub agree". An unknown project, an
+  unresolved identity, or a project with no GitHub origin runs the preview
+  as before. Making `gh` act on the project's own repository
+  (`--repo`/`GH_REPO`) is still open.
 - **S4 — operator routing console:** the dashboard surfaces "what the
   page says" (milestone progress, label queues, claims) next to the
   board, so steering happens from either side with one truth.
