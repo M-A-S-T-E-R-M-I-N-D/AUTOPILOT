@@ -30,6 +30,7 @@
 import {
   CHECKPOINT_SOUL_AMENDMENT_MARKER,
   NOOP_SOUL_AMENDMENT_MARKER,
+  REVERT_SOUL_AMENDMENT_MARKER,
   stripMarkedSection,
 } from './soul-mining.js';
 
@@ -71,6 +72,17 @@ export const LEARNING_KINDS: readonly FleetLearningKind[] = [
       `scoped away from the project. Spend such firings on VERDICT proposals ` +
       `(split/close/deprioritize/blocked) so the operator can unblock or retire the work, ` +
       `instead of re-scanning the same ground.\n`,
+  },
+  {
+    marker: REVERT_SOUL_AMENDMENT_MARKER,
+    fleetTemplate: (confirmingCount) =>
+      `${REVERT_SOUL_AMENDMENT_MARKER}\n` +
+      `- Confirmed independently across ${confirmingCount} projects: a streak of firings ` +
+      `whose commits the gate reverted (gate_result: reverted) means what the firing verified ` +
+      `is not what the gate checks. Run every command the project's Gate section names before ` +
+      `committing — lint and format checks included — keep the diff small enough to verify ` +
+      `whole in one firing, and when the gate is already red on the untouched tree, report it ` +
+      `through PROPOSALS instead of committing on top of it.\n`,
   },
 ];
 

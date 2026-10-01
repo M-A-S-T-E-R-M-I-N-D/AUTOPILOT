@@ -57,6 +57,8 @@ import {
   pruneSoulAmendment,
   mineNoopSoulAmendment,
   pruneNoopSoulAmendment,
+  mineRevertSoulAmendment,
+  pruneRevertSoulAmendment,
   SOUL_MINING_GATE_LOOKBACK,
 } from './soul-mining.js';
 import { mineFleetWisdom } from './fleet-wisdom-mining.js';
@@ -494,9 +496,10 @@ export function runSoulMiningSweep(store: Store, projectId: string, now: () => n
         soulProposed: soulState.soul_proposed,
         recentGateResults: recentGateRows.map((r) => r.gate_result),
       };
-      // With two learning kinds (epic 0014 slice 2) and ONE soul_proposed
-      // slot, actions across kinds are no longer mutually exclusive (e.g. a
-      // noop streak can both qualify the noop mine AND break the checkpoint
+      // With several learning kinds (epic 0014 slice 2 added the noop kind,
+      // board ap-muo35gzl-2 the revert kind) and ONE soul_proposed slot,
+      // actions across kinds are no longer mutually exclusive (e.g. a noop
+      // streak can both qualify the noop mine AND break the checkpoint
       // streak its note described) — and proposeSoulAmendment overwrites
       // unconditionally. So: walk in priority order and STOP at the first
       // action that proposes; the rest wait for the sweep after the
@@ -508,6 +511,8 @@ export function runSoulMiningSweep(store: Store, projectId: string, now: () => n
         { decide: pruneSoulAmendment, summary: 'retract stale checkpoint-pattern note' },
         { decide: mineNoopSoulAmendment, summary: 'recurring noop pattern' },
         { decide: pruneNoopSoulAmendment, summary: 'retract stale noop-pattern note' },
+        { decide: mineRevertSoulAmendment, summary: 'recurring revert pattern' },
+        { decide: pruneRevertSoulAmendment, summary: 'retract stale revert-pattern note' },
       ];
       for (const action of soulActions) {
         const proposed = action.decide(soulMiningInput);

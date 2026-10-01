@@ -335,9 +335,11 @@ lifecycle, all shipped:
   marker match against the `LEARNING_KINDS` registry (one `{ marker,
   fleetTemplate }` entry per machine-mined `## Learned: …` note), never a
   free-text similarity engine — the design and its invariants live in
-  `docs/epics/0014-fleet-wisdom-generalization.md`. Two kinds are live: the
-  checkpoint-streak "size the unit smaller" note and the noop-streak "spend
-  no-commit streaks on VERDICT proposals" note. Registry order is priority
+  `docs/epics/0014-fleet-wisdom-generalization.md`. Three kinds are live: the
+  checkpoint-streak "size the unit smaller" note, the noop-streak "spend
+  no-commit streaks on VERDICT proposals" note, and the revert-streak "run
+  the whole gate before committing" note (`gate_result: reverted` three
+  firings running — board ap-muo35gzl-2). Registry order is priority
   order: with the single pending-proposal slot, mining proposes the FIRST
   kind that qualifies and the rest wait for the sweep after the operator
   acts. Adding a kind is adding a registry entry — storage, routes, and the
