@@ -1762,15 +1762,25 @@ function soulEditorPanel(projectId, soulText) {
   textarea.readOnly = true;
   // The per-project overrides (FLEET_WISDOM_OPT_OUT_LINE in
   // flight/fleet-wisdom-mining.ts, ATTRIBUTION_OPT_OUT_LINE in
-  // flight/attribution.ts) are SOUL lines, so they are named right where they
-  // are written — and read out with the text they describe.
+  // flight/attribution.ts, SUBAGENTS_OPT_OUT_LINE and INTERNET_OPT_OUT_LINE
+  // in packages/engine config.ts) are SOUL lines, so they are named right
+  // where they are written — and read out with the text they describe.
   var hint = el('p', 'soul-editor-hint', 'Per-project override: add the line “Fleet wisdom: off” to keep shared fleet wisdom out of this project’s firings.');
   hint.id = 'soul-editor-hint-' + projectId;
   hint.setAttribute('data-i18n', 'soulEditorWisdomHint');
   var attributionHint = el('p', 'soul-editor-hint', 'Add the line “Attribution: off” to leave the Assisted-by: credit trailer off this project’s commits.');
   attributionHint.id = 'soul-editor-attribution-hint-' + projectId;
   attributionHint.setAttribute('data-i18n', 'soulEditorAttributionHint');
-  textarea.setAttribute('aria-describedby', hint.id + ' ' + attributionHint.id);
+  var subagentsHint = el('p', 'soul-editor-hint', 'Add the line “Subagents: off” to keep this project’s firings from delegating work to subagents.');
+  subagentsHint.id = 'soul-editor-subagents-hint-' + projectId;
+  subagentsHint.setAttribute('data-i18n', 'soulEditorSubagentsHint');
+  var internetHint = el('p', 'soul-editor-hint', 'Add the line “Internet: off” to keep this project’s firings off the open internet (no WebSearch or WebFetch).');
+  internetHint.id = 'soul-editor-internet-hint-' + projectId;
+  internetHint.setAttribute('data-i18n', 'soulEditorInternetHint');
+  textarea.setAttribute(
+    'aria-describedby',
+    hint.id + ' ' + attributionHint.id + ' ' + subagentsHint.id + ' ' + internetHint.id,
+  );
   var unlock = el('button', 'soul-editor-unlock');
   unlock.appendChild(iconEl('lock'));
   unlock.appendChild(document.createTextNode('Unlock to edit'));
@@ -1793,6 +1803,8 @@ function soulEditorPanel(projectId, soulText) {
   form.appendChild(textarea);
   form.appendChild(hint);
   form.appendChild(attributionHint);
+  form.appendChild(subagentsHint);
+  form.appendChild(internetHint);
   var row = el('div', 'soul-editor-row');
   row.appendChild(unlock);
   row.appendChild(btn);
@@ -4507,11 +4519,14 @@ function renderProjectPage(state, pid) {
   // what it changed. A landed firing is a new version, so it rides dataKey.
   fleet.appendChild(subj(cachedPanel(pid, 'versions', dataKey, function () { return versionsSection(pid); }), 'data'));
   // Start over: a DECLARED telemetry reset (fresh 0/0 round) — the project,
-  // its tasks, its index, and its git backups are untouched.
+  // its tasks, its index, and its git backups are untouched. Epic 0025: a
+  // leading rotate-ccw icon replaces the baked-in ↺ glyph; setSweptText()
+  // keeps it across a locale switch and the click handler's busy label.
   var so = el('section', 'start-over');
   var soBtn = document.createElement('button');
   soBtn.type = 'button';
-  soBtn.textContent = tr('startOver');
+  soBtn.appendChild(iconEl('rotate-ccw'));
+  soBtn.appendChild(document.createTextNode(tr('startOver')));
   soBtn.setAttribute('data-i18n', 'startOver');
   soBtn.setAttribute('data-start-over', c.id);
   soBtn.setAttribute('data-name', c.name);
@@ -5221,7 +5236,14 @@ document.addEventListener('click', function (e) {
   }
 });
 // "Start over" (event-delegated): clears telemetry ONLY after an explicit,
-// honest confirm. Counters restart at 0/0; nothing else is touched.
+// honest confirm. Counters restart at 0/0; nothing else is touched. The busy
+// label swaps the data-i18n tag with the text (the GitHub sync button's
+// route), so a mid-request sweep repaints "Resetting…", not the idle label;
+// setSweptText() (features/locale.ts) keeps the leading rotate-ccw icon.
+function setStartOverLabel(b, key) {
+  b.setAttribute('data-i18n', key);
+  setSweptText(b, tr(key));
+}
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-start-over]');
   if (!b) return;
@@ -5229,7 +5251,11 @@ document.addEventListener('click', function (e) {
   var name = b.getAttribute('data-name') || 'this project';
   if (!window.confirm(tr('startOverConfirm', name))) return;
   b.disabled = true;
-  b.textContent = tr('resetting');
+  setStartOverLabel(b, 'resetting');
+  function restoreIdle() {
+    b.disabled = false;
+    setStartOverLabel(b, 'startOver');
+  }
   fetch('/api/project/reset', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -5238,10 +5264,9 @@ document.addEventListener('click', function (e) {
     .then(function (res) {
       if (!res.ok) throw new Error('reset failed');
       refresh();
-      b.disabled = false;
-      b.textContent = tr('startOver');
+      restoreIdle();
     })
-    .catch(function () { b.disabled = false; b.textContent = tr('startOver'); });
+    .catch(restoreIdle);
 });
 startFleetStream();
 `.trim();

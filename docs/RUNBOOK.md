@@ -328,6 +328,15 @@ SOUL. Its flights then move those three tools from the CLI's `--allowedTools` to
 step itself (`firingToolGrant()` in `packages/engine/src/config.ts`). The SOUL is read when a
 flight starts, so a ratified edit takes effect on the next flight.
 
+**Internet access, per project** (board ap-muo35gzl-2): a firing may reach the open internet
+through the WebSearch and WebFetch tools (the prompt's "Research first" section; THREAT-MODEL T6).
+To keep ONE project's firings offline — a private repo whose contents must not leave the machine
+in a search query or a fetched URL — add the line `Internet: off` to that project's SOUL. Its
+flights then move both tools from the CLI's `--allowedTools` to its `--disallowedTools`, and
+"Research first" gives way to a line telling the firing to research from what is on disk (the same
+`firingToolGrant()`). Like every SOUL override it is read when a flight starts, so a ratified edit
+takes effect on the next flight. The SOUL editor names all four override lines under its text.
+
 ## 7. Self-mined ritual proposals (CLOSED-TASK AUDIT / DOC-FRESHNESS)
 
 Not a failure mode — the intended behavior, written down so a `CLOSED-TASK AUDIT:` or

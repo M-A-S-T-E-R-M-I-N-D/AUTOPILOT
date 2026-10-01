@@ -42,7 +42,14 @@ agent edit files and run the gate. Folder trust is on by default and headless mo
 (`FatalUntrustedWorkspaceError`) in an untrusted folder; `--skip-trust` is opt-in, because trusting
 a folder also loads its `.gemini/settings.json` and MCP servers. It shares Codex's routing gap and
 still has no idle cap: `--output-format json` writes its one object only when the run ends, so
-there is no stdout to watch until then. An idle cap would need `stream-json` first. Since 2026-09-28
+there is no stdout to watch until then. An idle cap needs `stream-json`, and its parse landed
+2026-10-01: `parseGeminiStreamJsonOutput` reads the `JsonStreamEvent` lines
+(`packages/core/src/output/types.ts`, all on stdout via `StreamJsonFormatter.emitEvent`, a fatal
+error included as a `result` with `status: 'error'`, `packages/cli/src/utils/errors.ts`), fixture-tested.
+Its `result` is the text streamed after the last tool event, since JSON mode's `response` restarts
+every turn too (`nonInteractiveCli.ts`). Tokens come from the CLI's own `convertToStreamStats`
+totals, and a run killed before its `result` keeps the `init` session id. The next slice switches
+`GeminiCliModel` to `stream-json` with Codex's idle timer and retires the JSON-object parse. Since 2026-09-28
 it has Codex's resume fallback too: `resolveSessionId`
 (`packages/cli/src/gemini.tsx`) looks a `--resume` id up before the run starts and exits
 `FATAL_INPUT_ERROR` (42, `packages/core/src/utils/exitCodes.ts`) on an unknown one, writing no
@@ -142,8 +149,8 @@ detached (the gate's shape), with every prompt on stdin so cmd.exe never parses 
 no argument free of whitespace, so a model name or resume id holding cmd.exe syntax (`&`, `|`,
 `%`) is refused before the spawn; a refused resume id retries cold, like a stale one. The idle-cap
 kill closes our end of the pipes first, as `execFile`'s own timeout kill does, since the node
-shim behind cmd.exe outlives the kill and holds them open. `GeminiCliModel` still spawns a bare
-`gemini` directly, so it cannot start on Windows until it gets the same route.
+shim behind cmd.exe outlives the kill and holds them open. `GeminiCliModel` had the same trap
+(npm's `gemini.cmd`) and took the same route the same day; see its section below.
 
 **4. Google Gemini CLI** — headless mode triggers on a non-TTY or `-p`/`--prompt`; `--output-format
 json` returns one JSON object with response + usage statistics, or JSONL for a stream
@@ -163,6 +170,14 @@ fatal error (turn limit, API failure) writes its error-only object to **stderr**
 first and falls back to stderr. Tokens follow the CLI's own `convertToStreamStats` mapping —
 `tokens.input` (already `prompt − cached`) to `tokensIn`, `candidates` to `tokensOut`, `cached` to
 `cacheRead` — summed over every model in `stats.models`, since the CLI's router can add its own.
+A Windows trap, fixed 2026-10-01, the same one Codex had: npm installs `gemini` as a `gemini.cmd`
+shim that `execFile` cannot launch (ENOENT), so the adapter could not start on Windows. A bare
+`gemini` now runs through `cmd.exe /c`, attached, with every prompt on stdin instead of `--prompt`
+(headless mode already triggers on a non-TTY stdin). The model, approval mode and resume id still
+ride argv, so any holding cmd.exe syntax is refused before the spawn with the CLI's own
+unknown-session exit (42); a refused resume id retries cold. Both adapters share that check as
+`gate.ts`'s `CMD_SAFE_ARG`, which admits `_` so `auto_edit` passes. Gemini needs no pipe-closing
+step on this route: it has no idle cap, and `execFile`'s own timeout kill already closes the pipes.
 
 **5. GitHub Copilot CLI** — non-interactive mode (`-p`) exists, but by default mixes model output
 with UI chrome (Braille spinner glyphs) and tool-execution annotations on stdout

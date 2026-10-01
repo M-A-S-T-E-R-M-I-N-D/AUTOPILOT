@@ -10,7 +10,12 @@
  */
 
 import { AUTOPILOT_REPO_URL } from './github-identity-disclosure.js';
-import { SUBAGENT_TOOLS, SUBAGENTS_OPT_OUT_LINE } from './config.js';
+import {
+  SUBAGENT_TOOLS,
+  SUBAGENTS_OPT_OUT_LINE,
+  WEB_TOOLS,
+  INTERNET_OPT_OUT_LINE,
+} from './config.js';
 
 export interface FiringPromptInput {
   /** The project's SOUL (persona + stack + gate + operating rules). */
@@ -95,11 +100,20 @@ export interface FiringPromptInput {
    * False only when this project's SOUL carries the `Subagents: off` line
    * (`config.ts`'s `soulOptsOutOfSubagents()`): the PARALLEL delegation
    * section gives way to a do-it-yourself line, matching the tool grant
-   * `firingToolGrant(false)` hands the CLI. Computed by the caller from the
-   * project's own SOUL, like `attributionEnabled`. Undefined or true renders
-   * the PARALLEL section unchanged.
+   * `firingToolGrant({ subagentsEnabled: false })` hands the CLI. Computed by
+   * the caller from the project's own SOUL, like `attributionEnabled`.
+   * Undefined or true renders the PARALLEL section unchanged.
    */
   readonly subagentsEnabled?: boolean;
+  /**
+   * False only when this project's SOUL carries the `Internet: off` line
+   * (`config.ts`'s `soulOptsOutOfInternet()`): the Research first section
+   * gives way to an on-disk research line, matching the tool grant
+   * `firingToolGrant({ internetEnabled: false })` hands the CLI. Computed by
+   * the caller from the project's own SOUL, like `subagentsEnabled`.
+   * Undefined or true renders Research first unchanged.
+   */
+  readonly internetEnabled?: boolean;
 }
 
 /** One open task handed to a firing (the assign→fly loop). */
@@ -526,6 +540,30 @@ function commitTrailerLines(
   ];
 }
 
+/** The Research first doctrine, or — for a project whose SOUL says
+ *  {@link INTERNET_OPT_OUT_LINE} — the on-disk line that takes its place, naming
+ *  the web tools the grant denies. Either way it ends on a blank line, so the
+ *  next section starts where it always did. */
+function researchSection(internetEnabled: boolean | undefined): readonly string[] {
+  if (internetEnabled === false) {
+    return [
+      `## INTERNET — off for this project (its SOUL says "${INTERNET_OPT_OUT_LINE}")`,
+      `- ${WEB_TOOLS.join(', ')} are not granted to this firing. Research from what is on disk: the`,
+      "  repo's own docs, its tests, and the existing usages of any library API you touch. Where a",
+      '  behavior cannot be verified offline, prefer the smaller change the gate can verify over a guess.',
+      '',
+    ];
+  }
+  return [
+    '## Research first',
+    '- Before writing non-trivial code, check official docs and trusted sources for the',
+    '  libraries/APIs involved rather than guessing at behavior.',
+    '- Prefer a battle-tested, actively-maintained open-source package over hand-rolled code',
+    '  when one already solves the problem — vet it for maintenance and adoption first.',
+    '',
+  ];
+}
+
 /** The PARALLEL delegation doctrine, or — for a project whose SOUL says
  *  {@link SUBAGENTS_OPT_OUT_LINE} — the line that takes its place. Either way
  *  it ends on a blank line, so the next section starts where it always did. */
@@ -598,12 +636,7 @@ export function buildFiringPrompt(input: FiringPromptInput): string {
     '   When a BOARD is assigned, also see PICK DISCIPLINE above for "picked_rank" /',
     '   "deviation_reason" — required whenever you did not work the topmost task.',
     input.retro ? RETRO_APPENDIX : '',
-    '## Research first',
-    '- Before writing non-trivial code, check official docs and trusted sources for the',
-    '  libraries/APIs involved rather than guessing at behavior.',
-    '- Prefer a battle-tested, actively-maintained open-source package over hand-rolled code',
-    '  when one already solves the problem — vet it for maintenance and adoption first.',
-    '',
+    ...researchSection(input.internetEnabled),
     '## UX-EXPRESSION DOCTRINE (non-negotiable)',
     '- A capability without a user-facing, accessible expression is NOT complete — it is a slice,',
     '  no matter how finished the backend logic is or how green the gate is.',

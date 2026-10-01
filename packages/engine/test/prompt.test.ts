@@ -12,7 +12,12 @@ import {
   FLEET_ITEMS_OPEN,
   FLEET_ITEMS_CLOSE,
 } from '../src/prompt.js';
-import { SUBAGENT_TOOLS, SUBAGENTS_OPT_OUT_LINE } from '../src/config.js';
+import {
+  SUBAGENT_TOOLS,
+  SUBAGENTS_OPT_OUT_LINE,
+  WEB_TOOLS,
+  INTERNET_OPT_OUT_LINE,
+} from '../src/config.js';
 
 const SOUL = '# SOUL — demo\n\nStack: js\n\n## Operating rules\n- Gate every change.';
 
@@ -293,6 +298,26 @@ describe('buildFiringPrompt', () => {
     // Subagents on, or unsaid, renders the PARALLEL doctrine byte for byte.
     expect(buildFiringPrompt({ ...base, subagentsEnabled: true })).toBe(buildFiringPrompt(base));
     expect(buildFiringPrompt(base)).not.toContain('## SUBAGENTS');
+  });
+
+  it('swaps Research first for an on-disk research line when the project opted out of the internet', () => {
+    const base = { soul: SOUL, firing: 1, retro: false };
+    const p = buildFiringPrompt({ ...base, internetEnabled: false });
+    expect(p).not.toContain('## Research first');
+    expect(p).not.toMatch(/check official docs and trusted sources/);
+    expect(p).toContain(
+      `## INTERNET — off for this project (its SOUL says "${INTERNET_OPT_OUT_LINE}")`,
+    );
+    for (const tool of WEB_TOOLS) expect(p).toContain(tool);
+    expect(p).toMatch(/Research from what is on disk/);
+    // Same slot Research first held: after the COMMIT step, ahead of UX-EXPRESSION.
+    expect(p.indexOf('5. COMMIT')).toBeLessThan(p.indexOf('## INTERNET'));
+    expect(p.indexOf('## INTERNET')).toBeLessThan(p.indexOf('## UX-EXPRESSION'));
+    // The PARALLEL doctrine is untouched by this override.
+    expect(p).toContain('## PARALLEL');
+    // Internet on, or unsaid, renders Research first byte for byte.
+    expect(buildFiringPrompt({ ...base, internetEnabled: true })).toBe(buildFiringPrompt(base));
+    expect(buildFiringPrompt(base)).not.toContain('## INTERNET');
   });
 
   it('states the NOOP→VERDICT doctrine (a no-commit firing must name a verdict via PROPOSALS)', () => {

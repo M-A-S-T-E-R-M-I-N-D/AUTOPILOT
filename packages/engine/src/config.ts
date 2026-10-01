@@ -114,23 +114,54 @@ export function soulOptsOutOfSubagents(soul: string): boolean {
   return SUBAGENTS_OPT_OUT.test(soul);
 }
 
+/** The granted tools a firing reaches the open internet through. */
+export const WEB_TOOLS = ['WebSearch', 'WebFetch'] as const;
+
+/** The SOUL line an operator writes to keep ONE project's firings off the
+ *  open internet — a private repo whose contents must not leave the machine
+ *  in a search query or a fetched URL (docs/THREAT-MODEL.md T6). The fourth
+ *  per-project override (MASTER-PLAN §5.4, board ap-muo35gzl-2); it travels
+ *  with the SOUL, so it is locked and ratified like every other SOUL edit. */
+export const INTERNET_OPT_OUT_LINE = 'Internet: off';
+
+/** The opt-out on a line of its own — same shape as {@link SUBAGENTS_OPT_OUT}. */
+const INTERNET_OPT_OUT = /^[ \t]*(?:[-*][ \t]+)?internet:[ \t]*off[ \t\r]*$/im;
+
+/** True when this project's SOUL carries {@link INTERNET_OPT_OUT_LINE}. */
+export function soulOptsOutOfInternet(soul: string): boolean {
+  return INTERNET_OPT_OUT.test(soul);
+}
+
 /** The `--allowedTools`/`--disallowedTools` pair one firing runs with. */
 export interface FiringToolGrant {
   readonly allowedTools: readonly string[];
   readonly disallowedTools: readonly string[];
 }
 
-/** The default grant, or — for a project whose SOUL opts out of subagents —
- *  the default with {@link SUBAGENT_TOOLS} moved from allowed to disallowed,
- *  so the CLI refuses a delegation the prompt no longer asks for. */
-export function firingToolGrant(subagentsEnabled: boolean): FiringToolGrant {
-  if (subagentsEnabled) {
+/** The per-project opt-outs a firing's grant honors — each false only when
+ *  the project's own SOUL carries the matching line; undefined means on. */
+export interface FiringToolOverrides {
+  /** False on {@link soulOptsOutOfSubagents}: denies {@link SUBAGENT_TOOLS}. */
+  readonly subagentsEnabled?: boolean;
+  /** False on {@link soulOptsOutOfInternet}: denies {@link WEB_TOOLS}. */
+  readonly internetEnabled?: boolean;
+}
+
+/** The default grant, or — for a project whose SOUL opts out of subagents,
+ *  the internet, or both — the default with those tools moved from allowed
+ *  to disallowed, so the CLI refuses what the prompt no longer asks for.
+ *  With nothing opted out the default lists come back as the same objects. */
+export function firingToolGrant(overrides: FiringToolOverrides = {}): FiringToolGrant {
+  const denied: readonly string[] = [
+    ...(overrides.subagentsEnabled === false ? SUBAGENT_TOOLS : []),
+    ...(overrides.internetEnabled === false ? WEB_TOOLS : []),
+  ];
+  if (denied.length === 0) {
     return { allowedTools: DEFAULT_ALLOWED_TOOLS, disallowedTools: DEFAULT_DISALLOWED_TOOLS };
   }
-  const delegation: readonly string[] = SUBAGENT_TOOLS;
   return {
-    allowedTools: DEFAULT_ALLOWED_TOOLS.filter((tool) => !delegation.includes(tool)),
-    disallowedTools: [...DEFAULT_DISALLOWED_TOOLS, ...SUBAGENT_TOOLS],
+    allowedTools: DEFAULT_ALLOWED_TOOLS.filter((tool) => !denied.includes(tool)),
+    disallowedTools: [...DEFAULT_DISALLOWED_TOOLS, ...denied],
   };
 }
 

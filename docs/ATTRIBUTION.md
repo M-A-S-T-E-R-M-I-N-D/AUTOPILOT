@@ -198,7 +198,12 @@ humans get counted.
   **Wired for channel 3 (2026-09-09):** `flight/attribution.ts`'s
   `withAttribution()` checks the env var before the identity lookup and
   posts unsigned when it is `off` — no extra `gh api user` call spent on a
-  signature that will not be added.
+  signature that will not be added. A discussion reply is the one channel-3
+  post that wrapper never sees (it goes out as `gh api graphql`), so
+  `flight/discussions-triage.ts` signs it from the same
+  `conversationSignature()` and checks the same `attributionEnabled()`
+  (2026-10-01; before that it carried its own copy of the signature and
+  signed under `off` too).
 
   **Wired for channel 1 (2026-09-09):** `fly.ts` resolves the SAME
   `attributionEnabled()` before calling `buildFiringPrompt`, so

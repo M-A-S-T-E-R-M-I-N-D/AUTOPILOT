@@ -32,7 +32,7 @@ import {
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from './claude-cli.js';
-import { buildInvocation } from './gate.js';
+import { buildInvocation, CMD_SAFE_ARG } from './gate.js';
 
 function strOrNull(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
@@ -168,14 +168,6 @@ export function isCodexResumeFailure(
     resp.timedOut !== true
   );
 }
-
-/**
- * What an argument may hold to pass through `cmd.exe /c`. Node quotes a
- * Windows argument only when it holds whitespace or a quote, so `x&whoami`
- * reaches cmd.exe bare and runs `whoami`. Model names and thread ids need
- * nothing outside this set; `& | < > ^ % ! ( ) "` and whitespace are all out.
- */
-const CMD_SAFE_ARG = /^[A-Za-z0-9._:/@+-]+$/;
 
 export interface CodexCliOptions {
   readonly repo: string;

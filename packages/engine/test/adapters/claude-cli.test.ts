@@ -1666,6 +1666,26 @@ describe('StreamingClaudeCliModel', () => {
     expect(res.partialUsage).toBeNull();
   });
 
+  it('reports the turns it saw and its own clock beside the envelope (2026-09-30)', async () => {
+    // A shipped fourteen-minute firing once arrived as `num_turns: 1`,
+    // `duration_ms: 2952`; what the driver itself counted is the floor.
+    const child = fakeChild();
+    spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+    const model = new StreamingClaudeCliModel({ repo: '/work/sbx', config: DEFAULT_ENGINE_CONFIG });
+    const promise = model.invoke('sonnet', 'p');
+    const turn = JSON.stringify({
+      type: 'assistant',
+      message: { model: 'claude-sonnet-5', usage: { input_tokens: 1, output_tokens: 1 } },
+    });
+    const result = JSON.stringify({ type: 'result', num_turns: 1, duration_ms: 2952 });
+    child.stdout.emit('data', `${turn}\n${turn}\n${result}\n`);
+    child.emit('close', 0, null);
+    const res = await promise;
+    expect(res.envelope?.numTurns).toBe(1);
+    expect(res.observed?.turns).toBe(2);
+    expect(res.observed?.elapsedMs).toBeGreaterThanOrEqual(0);
+  });
+
   it('never hands spawn a `timeout` — the caps are our own timers, so a kill is always attributed', async () => {
     const child = fakeChild();
     spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);

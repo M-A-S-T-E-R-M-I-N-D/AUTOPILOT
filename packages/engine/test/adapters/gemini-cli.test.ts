@@ -6,6 +6,7 @@ import { execFile, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import {
   parseGeminiJsonOutput,
+  parseGeminiStreamJsonOutput,
   isGeminiResumeFailure,
   GeminiCliModel,
 } from '../../src/adapters/gemini-cli.js';
@@ -316,6 +317,317 @@ describe('parseGeminiJsonOutput', () => {
   });
 });
 
+/** What `StreamJsonFormatter.emitEvent` writes: one compact object per line. */
+function jsonl(...events: readonly Record<string, unknown>[]): string {
+  return events
+    .map((event) => `${JSON.stringify({ timestamp: '2026-10-01T00:00:00.000Z', ...event })}\n`)
+    .join('');
+}
+
+const INIT = { type: 'init', session_id: SESSION, model: 'gemini-2.5-pro' };
+
+interface ModelTokens {
+  readonly input: number;
+  readonly prompt: number;
+  readonly candidates: number;
+  readonly cached: number;
+}
+
+/** What `convertToStreamStats` builds from `SessionMetrics`: per-model entries
+ *  and their totals (stream-json-formatter.ts). */
+function streamStats(models: Record<string, ModelTokens>): Record<string, unknown> {
+  const perModel = Object.fromEntries(
+    Object.entries(models).map(([name, t]) => [
+      name,
+      {
+        total_tokens: t.prompt + t.candidates,
+        input_tokens: t.prompt,
+        output_tokens: t.candidates,
+        cached: t.cached,
+        input: t.input,
+      },
+    ]),
+  );
+  const sum = (pick: (t: ModelTokens) => number): number =>
+    Object.values(models).reduce((total, t) => total + pick(t), 0);
+  return {
+    total_tokens: sum((t) => t.prompt + t.candidates),
+    input_tokens: sum((t) => t.prompt),
+    output_tokens: sum((t) => t.candidates),
+    cached: sum((t) => t.cached),
+    input: sum((t) => t.input),
+    duration_ms: 48_210,
+    tool_calls: 1,
+    models: perModel,
+  };
+}
+
+const PRO_TOKENS: ModelTokens = { input: 1_200, prompt: 31_200, candidates: 410, cached: 30_000 };
+
+describe('parseGeminiStreamJsonOutput', () => {
+  it("maps a finished run into a passing envelope whose result is the final turn's text", () => {
+    const stdout = jsonl(
+      INIT,
+      { type: 'message', role: 'user', content: 'Add the missing test.' },
+      { type: 'message', role: 'assistant', content: 'Running the ', delta: true },
+      { type: 'message', role: 'assistant', content: 'suite first.', delta: true },
+      { type: 'tool_use', tool_name: 'run_shell_command', tool_id: 't1', parameters: {} },
+      { type: 'tool_result', tool_id: 't1', status: 'success', output: 'ok' },
+      {
+        type: 'message',
+        role: 'assistant',
+        content: 'Added it; the gate is green.\n',
+        delta: true,
+      },
+      { type: 'message', role: 'assistant', content: 'METRICS:{"outcome":"shipped"}', delta: true },
+      {
+        type: 'result',
+        status: 'success',
+        stats: streamStats({ 'gemini-2.5-pro': PRO_TOKENS }),
+      },
+    );
+
+    const response = parseGeminiStreamJsonOutput(stdout, 0, 'gemini-2.5-pro');
+
+    expect(response.exitCode).toBe(0);
+    expect(response.stdout).toBe(stdout);
+    expect(response.sessionId).toBe(SESSION);
+    expect(response.envelope).toEqual({
+      // JSON mode's `response` restarts every turn (nonInteractiveCli.ts), so
+      // the text before the tool call is not part of it.
+      result: 'Added it; the gate is green.\nMETRICS:{"outcome":"shipped"}',
+      isError: false,
+      apiErrorStatus: null,
+      costUsd: null,
+      numTurns: null,
+      durationMs: 48_210,
+      stopReason: null,
+      modelUsed: 'gemini-2.5-pro',
+      tokensIn: 1_200, // the CLI's own uncached share: prompt − cached
+      tokensOut: 410,
+      cacheRead: 30_000,
+      cacheCreate: null,
+      sessionId: SESSION,
+    });
+  });
+
+  it('reads an empty result, not a null one, when the final turn streamed no text', () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(
+        INIT,
+        { type: 'message', role: 'assistant', content: 'Committing.', delta: true },
+        { type: 'tool_use', tool_name: 'run_shell_command', tool_id: 't1', parameters: {} },
+        { type: 'tool_result', tool_id: 't1', status: 'success' },
+        { type: 'result', status: 'success', stats: streamStats({}) },
+      ),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(response.envelope).toMatchObject({ result: '', isError: false });
+  });
+
+  it('never invents a cost, even when the run reported token usage', () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(INIT, {
+        type: 'result',
+        status: 'success',
+        stats: streamStats({
+          'gemini-2.5-pro': {
+            input: 1_000_000,
+            prompt: 1_000_000,
+            candidates: 1_000_000,
+            cached: 0,
+          },
+        }),
+      }),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(response.envelope?.costUsd).toBeNull();
+    expect(response.envelope?.tokensIn).toBe(1_000_000);
+  });
+
+  it("reads the CLI's own token totals over every model and names the requested model when there are several", () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(INIT, {
+        type: 'result',
+        status: 'success',
+        stats: streamStats({
+          'gemini-2.5-flash-lite': { input: 90, prompt: 90, candidates: 5, cached: 0 },
+          'gemini-2.5-pro': { input: 700, prompt: 3_700, candidates: 200, cached: 3_000 },
+        }),
+      }),
+      0,
+      'auto',
+    );
+    expect(response.envelope).toMatchObject({
+      modelUsed: 'auto',
+      tokensIn: 790,
+      tokensOut: 205,
+      cacheRead: 3_000,
+    });
+  });
+
+  it('reads a fatal error from its stdout result event and keeps the exit code', () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(
+        INIT,
+        { type: 'message', role: 'assistant', content: 'Still working', delta: true },
+        { type: 'error', severity: 'error', message: 'Maximum session turns exceeded' },
+        {
+          type: 'result',
+          status: 'error',
+          error: { type: 'FatalTurnLimitedError', message: 'Reached max session turns' },
+          stats: streamStats({ 'gemini-2.5-pro': PRO_TOKENS }),
+        },
+      ),
+      53,
+      'gemini-2.5-pro',
+    );
+    expect(response.exitCode).toBe(53);
+    expect(response.sessionId).toBe(SESSION);
+    expect(response.envelope).toMatchObject({
+      isError: true,
+      result: 'Reached max session turns',
+      apiErrorStatus: null,
+      tokensIn: 1_200,
+    });
+  });
+
+  it("falls back to the last error event's message for a failed result that carries none (the invalid-stream case)", () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(
+        INIT,
+        { type: 'error', severity: 'warning', message: 'Loop detected, stopping execution' },
+        { type: 'message', role: 'assistant', content: 'partial', delta: true },
+        { type: 'error', severity: 'error', message: 'Model stream ended with an invalid chunk' },
+        { type: 'result', status: 'error', stats: streamStats({}) },
+      ),
+      1,
+      'gemini-2.5-pro',
+    );
+    expect(response.envelope).toMatchObject({
+      isError: true,
+      result: 'Model stream ended with an invalid chunk',
+    });
+  });
+
+  it('never lets a warning event fail a run or become its result', () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(
+        INIT,
+        { type: 'error', severity: 'warning', message: 'Agent execution blocked' },
+        { type: 'message', role: 'assistant', content: 'done', delta: true },
+        { type: 'result', status: 'success', stats: streamStats({}) },
+      ),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(response.envelope).toMatchObject({ isError: false, result: 'done' });
+
+    const failed = parseGeminiStreamJsonOutput(
+      jsonl(
+        INIT,
+        { type: 'error', severity: 'warning', message: 'Loop detected, stopping execution' },
+        { type: 'result', status: 'error' },
+      ),
+      1,
+      'gemini-2.5-pro',
+    );
+    expect(failed.envelope).toMatchObject({ isError: true, result: null });
+  });
+
+  it('returns no envelope for a run killed before its result, but keeps the session so it stays resumable', () => {
+    const stdout = jsonl(
+      INIT,
+      { type: 'message', role: 'assistant', content: 'Working on it', delta: true },
+      { type: 'tool_use', tool_name: 'run_shell_command', tool_id: 't1', parameters: {} },
+    );
+    const response = parseGeminiStreamJsonOutput(`${stdout}{"type":"tool_res`, 1, 'gemini-2.5-pro');
+    expect(response.envelope).toBeNull();
+    expect(response.sessionId).toBe(SESSION);
+  });
+
+  it('returns no envelope and no session for empty, non-JSON, or untyped JSON output', () => {
+    for (const stdout of ['', 'Loaded cached credentials.\n', '{"session_id":"x"}\n', '[1,2]\n']) {
+      const response = parseGeminiStreamJsonOutput(stdout, 1, 'gemini-2.5-pro');
+      expect(response.envelope).toBeNull();
+      expect(response.sessionId).toBeNull();
+    }
+  });
+
+  it('skips log lines between events and reads CRLF endings', () => {
+    const response = parseGeminiStreamJsonOutput(
+      [
+        'Loaded cached credentials.',
+        JSON.stringify(INIT),
+        '[DEBUG] tool registry ready',
+        JSON.stringify({ type: 'message', role: 'assistant', content: 'done', delta: true }),
+        JSON.stringify({ type: 'result', status: 'success', stats: streamStats({}) }),
+      ].join('\r\n'),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(response.sessionId).toBe(SESSION);
+    expect(response.envelope).toMatchObject({ isError: false, result: 'done' });
+  });
+
+  it('ignores malformed fields rather than trusting them', () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(
+        { type: 'init', session_id: 42 },
+        { type: 'message', role: 'assistant', content: ['not', 'text'], delta: true },
+        { type: 'message', role: 'assistant', content: 'kept', delta: true },
+        { type: 'result', status: 'success', stats: 'not-an-object' },
+      ),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(response.sessionId).toBeNull();
+    expect(response.envelope).toMatchObject({
+      result: 'kept',
+      isError: false,
+      tokensIn: null,
+      durationMs: null,
+    });
+
+    const emptySession = parseGeminiStreamJsonOutput(
+      jsonl({ type: 'init', session_id: '' }, { type: 'result', status: 'success' }),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(emptySession.sessionId).toBeNull();
+
+    const stringError = parseGeminiStreamJsonOutput(
+      jsonl(
+        INIT,
+        { type: 'error', severity: 'error', message: 'API error' },
+        { type: 'result', status: 'error', error: 'not-an-object' },
+      ),
+      1,
+      'gemini-2.5-pro',
+    );
+    expect(stringError.envelope).toMatchObject({ isError: true, result: 'API error' });
+
+    // No status the CLI writes for a finished run: never read as a pass.
+    const noStatus = parseGeminiStreamJsonOutput(
+      jsonl(INIT, { type: 'result' }),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(noStatus.envelope?.isError).toBe(true);
+  });
+
+  it('reports no model when none was requested and stats name none', () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(INIT, { type: 'result', status: 'success' }),
+      0,
+      '',
+    );
+    expect(response.envelope?.modelUsed).toBeNull();
+  });
+});
+
 describe('isGeminiResumeFailure', () => {
   // gemini.tsx `resolveSessionId` exits FATAL_INPUT_ERROR (42) on an unknown
   // --resume id, before the run starts, so no output object is ever written.
@@ -393,7 +705,10 @@ describe('GeminiCliModel', () => {
   it('spawns the default "gemini" binary headless with JSON output, the model, yolo approval, and the prompt last', async () => {
     mockExecFileResult(null, '');
 
-    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+    await new GeminiCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
+      'gemini-2.5-pro',
+      'do it',
+    );
 
     expect(execFileMock.mock.calls).toHaveLength(1);
     const [binary, args, options] = execFileMock.mock.calls[0] as [
@@ -421,7 +736,10 @@ describe('GeminiCliModel', () => {
   it('closes stdin empty for an argv prompt, so the CLI never waits on piped input', async () => {
     mockExecFileResult(null, '');
 
-    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+    await new GeminiCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
+      'gemini-2.5-pro',
+      'do it',
+    );
 
     expect(stdinEnd).toHaveBeenCalledTimes(1);
     expect(stdinEnd).toHaveBeenCalledWith();
@@ -484,14 +802,17 @@ describe('GeminiCliModel', () => {
     mockExecFileResult(null, '');
     const atLimit = 'y'.repeat(CLI_STDIN_PROMPT_THRESHOLD);
 
-    await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', atLimit);
+    await new GeminiCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
+      'gemini-2.5-pro',
+      atLimit,
+    );
 
     expect(spawnedArgs().slice(-2)).toEqual(['--prompt', atLimit]);
   });
 
   it('passes "--resume <id>" when a session id is given, and omits it for an empty one', async () => {
     mockExecFileResult(null, '');
-    const model = new GeminiCliModel({ repo: '/work/sbx' });
+    const model = new GeminiCliModel({ repo: '/work/sbx', platform: 'linux' });
 
     await model.invoke('gemini-2.5-pro', 'continue', SESSION);
     const resumed = spawnedArgs();
@@ -527,6 +848,126 @@ describe('GeminiCliModel', () => {
     expect(args).toContain('--skip-trust');
     expect(options['env']).toBe(env);
     expect(options['timeout']).toBe(5000);
+  });
+
+  describe('on Windows, where npm installs gemini as a gemini.cmd shim', () => {
+    it('spawns a bare "gemini" through cmd.exe /c: execFile cannot launch a .cmd shim itself (ENOENT), and cmd.exe finds it by PATHEXT', async () => {
+      mockExecFileResult(null, '');
+
+      await new GeminiCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gemini-2.5-pro',
+        'do it',
+      );
+
+      const [binary, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(binary).toBe('cmd.exe');
+      expect(args.slice(0, 2)).toEqual(['/c', 'gemini']);
+      expect(args[args.indexOf('--model') + 1]).toBe('gemini-2.5-pro');
+      expect(args[args.indexOf('--output-format') + 1]).toBe('json');
+    });
+
+    it("puts even a short prompt on stdin, never --prompt, so no prompt text ever reaches cmd.exe's own parser", async () => {
+      mockExecFileResult(null, '');
+      const hostile = 'fix "the" build & echo %PATH% | more';
+
+      await new GeminiCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gemini-2.5-pro',
+        hostile,
+        SESSION,
+      );
+
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args).not.toContain('--prompt');
+      expect(args.some((a) => a.includes('echo'))).toBe(false);
+      expect(args.slice(-2)).toEqual(['--resume', SESSION]);
+      expect(stdinEnd).toHaveBeenCalledWith(hostile);
+    });
+
+    it('does not detach cmd.exe, the shape the gate already runs its cmd.exe shims in: a detached cmd.exe has no console to hand the node shim', async () => {
+      mockExecFileResult(null, '');
+
+      await new GeminiCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gemini-2.5-pro',
+        'do it',
+      );
+
+      const [, , options] = execFileMock.mock.calls[0] as [
+        string,
+        string[],
+        Record<string, unknown>,
+      ];
+      expect(options).toMatchObject({ detached: false, windowsHide: true });
+    });
+
+    it('refuses, without spawning, a model name cmd.exe would run as syntax: Node quotes no argument free of whitespace, so "&" would start a second command', async () => {
+      mockExecFileResult(null, '');
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gemini&calc',
+        'do it',
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(0);
+      expect(res.envelope).toBeNull();
+      expect(res.exitCode).not.toBe(0);
+      expect(res.stdout).not.toContain('calc');
+    });
+
+    it('never hands cmd.exe a resume id carrying its syntax: that run is refused, and the cold retry goes without it', async () => {
+      mockExecFileResult(null, pretty({ session_id: SESSION, response: 'done' }));
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gemini-2.5-pro',
+        'continue',
+        'latest|calc',
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args.some((a) => a.includes('calc'))).toBe(false);
+      expect(args).not.toContain('--resume');
+      expect(res.resumed).toBe(false);
+      expect(res.envelope?.result).toBe('done');
+    });
+
+    it('keeps the arguments real runs pass on the cmd.exe route: "auto_edit" approval, --skip-trust, and model names with dots, colons, and slashes', async () => {
+      mockExecFileResult(null, '');
+
+      await new GeminiCliModel({
+        repo: '/work/sbx',
+        platform: 'win32',
+        approvalMode: 'auto_edit',
+        trustWorkspace: true,
+      }).invoke('models/gemini-2.5-flash:latest', 'do it', SESSION);
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args[args.indexOf('--model') + 1]).toBe('models/gemini-2.5-flash:latest');
+      expect(args[args.indexOf('--approval-mode') + 1]).toBe('auto_edit');
+      expect(args).toContain('--skip-trust');
+      expect(args[args.indexOf('--resume') + 1]).toBe(SESSION);
+    });
+
+    it('spawns an explicit .exe or path binary directly, detached, with a short prompt still on --prompt', async () => {
+      mockExecFileResult(null, '');
+
+      await new GeminiCliModel({
+        repo: '/work/sbx',
+        platform: 'win32',
+        binary: 'gemini.exe',
+      }).invoke('gemini-2.5-pro', 'do it');
+
+      const [binary, args, options] = execFileMock.mock.calls[0] as [
+        string,
+        string[],
+        Record<string, unknown>,
+      ];
+      expect(binary).toBe('gemini.exe');
+      expect(args[0]).toBe('--model');
+      expect(args.slice(-2)).toEqual(['--prompt', 'do it']);
+      expect(options).toMatchObject({ detached: true });
+      expect(stdinEnd).toHaveBeenCalledWith();
+    });
   });
 
   it('hands the containment guard settings to the child as its system settings file, without touching the caller env', async () => {
@@ -697,7 +1138,7 @@ describe('GeminiCliModel', () => {
     it('retries once, cold, when the CLI rejects the session id at startup', async () => {
       mockExecFileRuns([exitWith(42), '', REJECTED], [null, DONE(COLD_SESSION)]);
 
-      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke(
+      const res = await new GeminiCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
         'gemini-2.5-pro',
         'continue',
         SESSION,

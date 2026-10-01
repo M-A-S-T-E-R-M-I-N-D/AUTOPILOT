@@ -20,6 +20,12 @@ import {
   ATTRIBUTION_OPT_OUT_LINE,
   soulOptsOutOfAttribution,
 } from '../../src/flight/attribution.js';
+import {
+  SUBAGENTS_OPT_OUT_LINE,
+  soulOptsOutOfSubagents,
+  INTERNET_OPT_OUT_LINE,
+  soulOptsOutOfInternet,
+} from '@autopilot/engine';
 
 // Contrast needs real layout, which jsdom lacks — same carve-out as
 // fleet-wisdom-panel.test.ts.
@@ -497,7 +503,7 @@ describe('SOUL editor names the attribution opt-out (board ap-muo35gzl-2)', () =
       '[data-soul-edit] textarea[name="text"]',
     ) as HTMLTextAreaElement;
     expect(textarea.getAttribute('aria-describedby')).toBe(
-      'soul-editor-hint-p1 soul-editor-attribution-hint-p1',
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1',
     );
     const hint = document.getElementById('soul-editor-attribution-hint-p1') as HTMLElement;
     expect(hint.closest('[data-soul-edit]')).not.toBeNull();
@@ -519,6 +525,102 @@ describe('SOUL editor names the attribution opt-out (board ap-muo35gzl-2)', () =
     const hint = document.getElementById('soul-editor-attribution-hint-p1');
     expect(hint).not.toBeNull();
     expect(hint?.textContent).toBe(STRINGS.he.soulEditorAttributionHint);
+  });
+});
+
+describe('SOUL editor names the subagents opt-out (board ap-muo35gzl-2)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    // The i18n case below persists Hebrew; later suites expect English.
+    localStorage.clear();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('describes the SOUL text with a third hint that names the subagents line', async () => {
+    boot(stateWith({ soul: 'the current live soul text' }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const textarea = document.querySelector(
+      '[data-soul-edit] textarea[name="text"]',
+    ) as HTMLTextAreaElement;
+    expect(textarea.getAttribute('aria-describedby')).toBe(
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1',
+    );
+    const hint = document.getElementById('soul-editor-subagents-hint-p1') as HTMLElement;
+    expect(hint.closest('[data-soul-edit]')).not.toBeNull();
+    expect(hint.getAttribute('data-i18n')).toBe('soulEditorSubagentsHint');
+    expect(hint.textContent).toBe(STRINGS.en.soulEditorSubagentsHint);
+    // Every override hint sits under the SOUL text, in the order the
+    // textarea's aria-describedby reads them out.
+    const hintIds = Array.from(document.querySelectorAll('[data-soul-edit] .soul-editor-hint')).map(
+      (node) => node.id,
+    );
+    expect(hintIds).toEqual(textarea.getAttribute('aria-describedby')?.split(' '));
+  });
+
+  it('quotes, in every locale, the exact line the tool grant honors', () => {
+    expect(soulOptsOutOfSubagents(SUBAGENTS_OPT_OUT_LINE)).toBe(true);
+    expect(STRINGS.en.soulEditorSubagentsHint).toContain(SUBAGENTS_OPT_OUT_LINE);
+    expect(STRINGS.he.soulEditorSubagentsHint).toContain(SUBAGENTS_OPT_OUT_LINE);
+  });
+
+  it('translates the subagents hint with the language switcher', async () => {
+    boot(stateWith({}));
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+    const hint = document.getElementById('soul-editor-subagents-hint-p1');
+    expect(hint).not.toBeNull();
+    expect(hint?.textContent).toBe(STRINGS.he.soulEditorSubagentsHint);
+  });
+});
+
+describe('SOUL editor names the internet opt-out (board ap-muo35gzl-2)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    // The i18n case below persists Hebrew; later suites expect English.
+    localStorage.clear();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('describes the SOUL text with a fourth hint that names the internet line', async () => {
+    boot(stateWith({ soul: 'the current live soul text' }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const textarea = document.querySelector(
+      '[data-soul-edit] textarea[name="text"]',
+    ) as HTMLTextAreaElement;
+    expect(textarea.getAttribute('aria-describedby')).toBe(
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1',
+    );
+    const hint = document.getElementById('soul-editor-internet-hint-p1') as HTMLElement;
+    expect(hint.closest('[data-soul-edit]')).not.toBeNull();
+    expect(hint.getAttribute('data-i18n')).toBe('soulEditorInternetHint');
+    expect(hint.textContent).toBe(STRINGS.en.soulEditorInternetHint);
+    // Every override hint sits under the SOUL text, in the order the
+    // textarea's aria-describedby reads them out.
+    const hintIds = Array.from(document.querySelectorAll('[data-soul-edit] .soul-editor-hint')).map(
+      (node) => node.id,
+    );
+    expect(hintIds).toEqual(textarea.getAttribute('aria-describedby')?.split(' '));
+  });
+
+  it('quotes, in every locale, the exact line the tool grant honors', () => {
+    expect(soulOptsOutOfInternet(INTERNET_OPT_OUT_LINE)).toBe(true);
+    expect(STRINGS.en.soulEditorInternetHint).toContain(INTERNET_OPT_OUT_LINE);
+    expect(STRINGS.he.soulEditorInternetHint).toContain(INTERNET_OPT_OUT_LINE);
+  });
+
+  it('translates the internet hint with the language switcher', async () => {
+    boot(stateWith({}));
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+    const hint = document.getElementById('soul-editor-internet-hint-p1');
+    expect(hint).not.toBeNull();
+    expect(hint?.textContent).toBe(STRINGS.he.soulEditorInternetHint);
   });
 });
 

@@ -743,6 +743,14 @@ const EN_STRINGS = {
   // apps/dashboard/src/flight/attribution.ts) — verbatim in every locale too.
   soulEditorAttributionHint:
     'Add the line “Attribution: off” to leave the Assisted-by: credit trailer off this project’s commits.',
+  // The third per-project override (SUBAGENTS_OPT_OUT_LINE in
+  // packages/engine/src/config.ts) — verbatim in every locale too.
+  soulEditorSubagentsHint:
+    'Add the line “Subagents: off” to keep this project’s firings from delegating work to subagents.',
+  // The fourth per-project override (INTERNET_OPT_OUT_LINE in
+  // packages/engine/src/config.ts) — verbatim in every locale too.
+  soulEditorInternetHint:
+    'Add the line “Internet: off” to keep this project’s firings off the open internet (no WebSearch or WebFetch).',
   soulProposed: 'Proposed — review it above to ratify or dismiss.',
   soulProposeFailed: 'Could not propose the edit — try again.',
   soulProposalSummary: 'SOUL proposal pending — review',
@@ -758,7 +766,8 @@ const EN_STRINGS = {
   // 0025: this label and soulProposalSummary lead with the dna icon, not a
   // baked ◐/◇ glyph.
   soulUnreviewed: 'SOUL unreviewed',
-  startOver: '↺ Start over',
+  // Epic 0025: the button leads with the vendored rotate-ccw icon, not a baked ↺.
+  startOver: 'Start over',
   prReviewTitle: 'KEEPER PR review',
   prReviewApply: 'Apply',
   prReviewFetchFailed:
@@ -2468,6 +2477,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'עקיפה לפרויקט: הוסיפו את השורה “Fleet wisdom: off” כדי להשאיר את חוכמת הצי המשותפת מחוץ להפעלות של הפרויקט הזה.',
     soulEditorAttributionHint:
       'הוסיפו את השורה “Attribution: off” כדי להשמיט את שורת הקרדיט Assisted-by: מה-commits של הפרויקט הזה.',
+    soulEditorSubagentsHint:
+      'הוסיפו את השורה “Subagents: off” כדי למנוע מההפעלות של הפרויקט הזה להאציל עבודה לסוכני-משנה.',
+    soulEditorInternetHint:
+      'הוסיפו את השורה “Internet: off” כדי להשאיר את ההפעלות של הפרויקט הזה מחוץ לאינטרנט הפתוח (בלי WebSearch או WebFetch).',
     soulProposed: 'ההצעה נשלחה — סקרו אותה למעלה כדי לאשר או לדחות.',
     soulProposeFailed: 'לא ניתן היה להציע את העריכה — נסו שוב.',
     soulProposalSummary: 'הצעת SOUL ממתינה — יש לסקור',
@@ -2475,7 +2488,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulDismiss: '✗ בטל',
     soulUnratify: 'בטל אשרור',
     soulUnreviewed: 'SOUL לא נסקר',
-    startOver: '↺ התחל מחדש',
+    startOver: 'התחל מחדש',
     prReviewTitle: 'סקירת PR של KEEPER',
     prReviewApply: 'החל',
     prReviewFetchFailed:
