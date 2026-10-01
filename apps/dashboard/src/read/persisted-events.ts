@@ -91,13 +91,13 @@ const INTENT_COLLISION_WINDOW_MS = 48 * 60 * 60 * 1000;
 export function parseIntentCollisions(
   store: Store,
   projectId: string,
+  since: number = Date.now() - INTENT_COLLISION_WINDOW_MS,
 ): { file: string; sibling: string; intent: string }[] {
   const seen = new Set<string>();
   const entries: { file: string; sibling: string; intent: string }[] = [];
-  const freshSince = Date.now() - INTENT_COLLISION_WINDOW_MS;
   for (const row of intentCollisionEvents(store.db, projectId)) {
     if (row.payload === null) continue;
-    if (row.created_at < freshSince) continue; // stale era — resolved at merge long ago
+    if (row.created_at < since) continue; // stale era — resolved at merge long ago
     try {
       const c = JSON.parse(row.payload) as RawIntentCollision;
       if (
@@ -443,20 +443,26 @@ interface RawLandedEvent {
  *   and the e2e guard on the converged branch, so a convergence red, an e2e
  *   land block or a land-gate alarm from before the latest landing is over.
  * - `fresh`: a near-miss with no event that resolves it (guard denials,
- *   sync-back refusals, recurring near-misses, a guard that failed to verify)
- *   nags for the same 48 hours {@link INTENT_COLLISION_WINDOW_MS} gives an
- *   intent collision.
+ *   recurring near-misses, a guard that failed to verify) nags for the same
+ *   48 hours {@link INTENT_COLLISION_WINDOW_MS} gives an intent collision.
+ * - `reconciled`: a near-miss the next landing settles. A sync-back refusal
+ *   and an intent collision are both about a lane's work meeting the shared
+ *   branch; the landing after them converges every lane and strands what
+ *   would not merge onto the board as a task, so from then on the chip only
+ *   repeats what the board already carries (operator, 2026-10-01: a refusal
+ *   from the evening before and a collision from that night still read as
+ *   today's). The later of the two cutoffs above, so the 48 hours still bound
+ *   a project that has not landed in days.
  */
 export function alarmCutoffs(
   store: Store,
   projectId: string,
   now: number,
-): { sinceLanding: number; fresh: number } {
+): { sinceLanding: number; fresh: number; reconciled: number } {
   const latest = landedEvents(store.db, projectId, 1)[0];
-  return {
-    sinceLanding: latest === undefined ? 0 : latest.created_at + 1,
-    fresh: now - INTENT_COLLISION_WINDOW_MS,
-  };
+  const sinceLanding = latest === undefined ? 0 : latest.created_at + 1;
+  const fresh = now - INTENT_COLLISION_WINDOW_MS;
+  return { sinceLanding, fresh, reconciled: Math.max(sinceLanding, fresh) };
 }
 
 export function parseLandedEvents(

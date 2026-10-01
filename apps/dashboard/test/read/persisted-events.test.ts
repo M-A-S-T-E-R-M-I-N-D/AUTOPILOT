@@ -146,6 +146,16 @@ describe('parseIntentCollisions', () => {
     expect(parseIntentCollisions(store, PROJECT_ID)).toHaveLength(1);
   });
 
+  it('drops the collisions older than the cutoff it is given — a landing reconciles them (2026-10-01)', () => {
+    insertEvent('intent-collision', '{"file":"a.ts","sibling":"fleet-2","intent":"old"}', 100);
+    insertEvent('intent-collision', '{"file":"a.ts","sibling":"fleet-3","intent":"new"}', 300);
+    expect(parseIntentCollisions(store, PROJECT_ID, 200)).toEqual([
+      { file: 'a.ts', sibling: 'fleet-3', intent: 'new' },
+    ]);
+    expect(parseIntentCollisions(store, PROJECT_ID, 301)).toEqual([]);
+    expect(parseIntentCollisions(store, PROJECT_ID, 0)).toHaveLength(2);
+  });
+
   it('skips a malformed JSON payload', () => {
     insertEvent('intent-collision', 'not json', Date.now());
     expect(parseIntentCollisions(store, PROJECT_ID)).toEqual([]);
@@ -365,10 +375,25 @@ describe('only live alarms reach the Health panel (2026-09-29)', () => {
     expect(alarmCutoffs(store, PROJECT_ID, now)).toEqual({
       sinceLanding: 0,
       fresh: now - 48 * HOUR,
+      reconciled: now - 48 * HOUR,
     });
     insertEvent('landed', '{"details":"landed"}', now - 5 * HOUR);
     insertEvent('landed', '{"details":"landed"}', now - 2 * HOUR);
     expect(alarmCutoffs(store, PROJECT_ID, now).sinceLanding).toBe(now - 2 * HOUR + 1);
+  });
+
+  it('a landing reconciles sync-back refusals and intent collisions — the later of the two cutoffs (2026-10-01)', () => {
+    // A refusal from the evening before and a collision from that night
+    // outlived three landings on the Health panel: both wore the 48-hour
+    // window while the landing after them had already converged every lane
+    // and stranded what would not merge onto the board.
+    const now = 1_000 * HOUR;
+    insertEvent('landed', '{"details":"landed"}', now - 2 * HOUR);
+    expect(alarmCutoffs(store, PROJECT_ID, now).reconciled).toBe(now - 2 * HOUR + 1);
+    // A project that has not landed in days still gets the 48-hour bound.
+    insertEvent('landed', '{"details":"landed"}', now - 2 * HOUR);
+    const stale = alarmCutoffs(store, PROJECT_ID, now + 100 * HOUR);
+    expect(stale.reconciled).toBe(stale.fresh);
   });
 
   it('every alarm parser drops the rows older than its cutoff and keeps the rest', () => {
