@@ -298,6 +298,15 @@ change the seam this epic covers:
 crashed gate's feedback says the commit was not reverted) and `65b4a1a3` (hibernation after a dry
 quota really waits) touch neither the worktree, the sync-back, nor the containment guard.
 
+Three more `fly.ts` commits landed 2026-09-30 through 2026-10-01 (board `ap-muo35gzl-2`), each
+adding one more per-project SOUL override to the firing's tool grant and prompt: `355c7895`
+("Attribution: off" switches which SOUL `commitAttributionEnabled` reads for the commit trailer),
+`a224c3d0` ("Subagents: off" narrows `firingToolGrant` off the Agent/Task/Workflow tools), and
+`be38bca3` ("Internet: off" narrows the same grant off WebSearch/WebFetch). All three read
+`soulOwn` and touch `firingToolGrant`'s call site well above the worktree wiring — none of them
+touches `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, or the containment guard's
+snapshot/audit calls.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a
