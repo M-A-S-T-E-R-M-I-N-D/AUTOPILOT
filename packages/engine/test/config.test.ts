@@ -11,11 +11,14 @@ import {
   WEB_TOOLS,
   INTERNET_OPT_OUT_LINE,
   TURN_CAP_LINE_PREFIX,
+  BUDGET_CAP_LINE_PREFIX,
   firingToolGrant,
   soulOptsOutOfSubagents,
   soulOptsOutOfInternet,
   soulTurnCap,
   firingMaxTurns,
+  soulBudgetCapUsd,
+  firingMaxBudgetUsd,
 } from '../src/config.js';
 
 describe('DEFAULT_ALLOWED_TOOLS / DEFAULT_DISALLOWED_TOOLS', () => {
@@ -200,6 +203,54 @@ describe('the "Turns: N" SOUL line — a per-project cap under the fleet-wide tu
     expect(firingMaxTurns(`${SOUL}\nTurns: 120`, 120)).toBe(120);
     expect(firingMaxTurns(`${SOUL}\nTurns: 500`, 120)).toBe(120);
     expect(firingMaxTurns(`${SOUL}\nTurns: 99999`, 120)).toBe(120);
+  });
+});
+
+describe('the "Budget: $N" SOUL line — a per-project cap under the fleet-wide per-firing budget', () => {
+  const SOUL = '# SOUL — docs-site\n\nStack: js\n\n## Operating rules\n- Gate every change.';
+
+  it('reads the amount on the line, with or without the $, plain or as a bullet, any case, cents allowed', () => {
+    expect(soulBudgetCapUsd(`${SOUL}\n${BUDGET_CAP_LINE_PREFIX} $5\n`)).toBe(5);
+    expect(soulBudgetCapUsd(`${SOUL}\n- Budget: 2.50`)).toBe(2.5);
+    expect(soulBudgetCapUsd(`${SOUL}\n  * BUDGET:$0.75  `)).toBe(0.75);
+    expect(soulBudgetCapUsd(`budget:   12\r\n${SOUL}`)).toBe(12);
+  });
+
+  it('reads no cap without the line, on a mention mid-sentence, or on anything but a positive amount', () => {
+    expect(soulBudgetCapUsd(SOUL)).toBeNull();
+    expect(soulBudgetCapUsd('')).toBeNull();
+    expect(soulBudgetCapUsd(`${SOUL}\n- Keep "Budget: $5" out of here.`)).toBeNull();
+    expect(soulBudgetCapUsd(`${SOUL}\nBudget: 0`)).toBeNull();
+    expect(soulBudgetCapUsd(`${SOUL}\nBudget: $0.00`)).toBeNull();
+    expect(soulBudgetCapUsd(`${SOUL}\nBudget: 05`)).toBeNull();
+    expect(soulBudgetCapUsd(`${SOUL}\nBudget: -5`)).toBeNull();
+    expect(soulBudgetCapUsd(`${SOUL}\nBudget: $5.123`)).toBeNull();
+    expect(soulBudgetCapUsd(`${SOUL}\nBudget: 5 USD`)).toBeNull();
+    expect(soulBudgetCapUsd(`${SOUL}\nBudget: five`)).toBeNull();
+    expect(soulBudgetCapUsd(`${SOUL}\nBudget: off`)).toBeNull();
+    // One override never trips the other.
+    expect(soulBudgetCapUsd(`${SOUL}\nTurns: 60\n${INTERNET_OPT_OUT_LINE}`)).toBeNull();
+    expect(soulTurnCap(`${SOUL}\nBudget: $5`)).toBeNull();
+    expect(soulOptsOutOfSubagents(`${SOUL}\nBudget: $5`)).toBe(false);
+    expect(soulOptsOutOfInternet(`${SOUL}\nBudget: $5`)).toBe(false);
+  });
+
+  it('runs a firing at the fleet-wide budget when the SOUL names no cap', () => {
+    expect(firingMaxBudgetUsd(SOUL, 10)).toBe(10);
+    expect(firingMaxBudgetUsd('', DEFAULT_ENGINE_CONFIG.maxBudgetUsd)).toBe(
+      DEFAULT_ENGINE_CONFIG.maxBudgetUsd,
+    );
+  });
+
+  it('tightens the budget to the SOUL’s lower cap', () => {
+    expect(firingMaxBudgetUsd(`${SOUL}\nBudget: $5`, 10)).toBe(5);
+    expect(firingMaxBudgetUsd(`${SOUL}\n- budget: 0.5`, 10)).toBe(0.5);
+  });
+
+  it('never loosens it — a cap at or above the fleet-wide budget leaves it in force', () => {
+    expect(firingMaxBudgetUsd(`${SOUL}\nBudget: 10`, 10)).toBe(10);
+    expect(firingMaxBudgetUsd(`${SOUL}\nBudget: $500`, 10)).toBe(10);
+    expect(firingMaxBudgetUsd(`${SOUL}\nBudget: 99999.99`, 10)).toBe(10);
   });
 });
 

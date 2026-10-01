@@ -1762,10 +1762,10 @@ function soulEditorPanel(projectId, soulText) {
   textarea.readOnly = true;
   // The per-project overrides (FLEET_WISDOM_OPT_OUT_LINE in
   // flight/fleet-wisdom-mining.ts, ATTRIBUTION_OPT_OUT_LINE in
-  // flight/attribution.ts, SUBAGENTS_OPT_OUT_LINE, INTERNET_OPT_OUT_LINE and
-  // TURN_CAP_LINE_PREFIX in packages/engine config.ts) are SOUL lines, so
-  // they are named right where they are written — and read out with the
-  // text they describe.
+  // flight/attribution.ts, SUBAGENTS_OPT_OUT_LINE, INTERNET_OPT_OUT_LINE,
+  // TURN_CAP_LINE_PREFIX and BUDGET_CAP_LINE_PREFIX in packages/engine
+  // config.ts) are SOUL lines, so they are named right where they are
+  // written — and read out with the text they describe.
   var hint = el('p', 'soul-editor-hint', 'Per-project override: add the line “Fleet wisdom: off” to keep shared fleet wisdom out of this project’s firings.');
   hint.id = 'soul-editor-hint-' + projectId;
   hint.setAttribute('data-i18n', 'soulEditorWisdomHint');
@@ -1781,9 +1781,12 @@ function soulEditorPanel(projectId, soulText) {
   var turnsHint = el('p', 'soul-editor-hint', 'Add a line “Turns: 60” to cap this project’s firings at that many turns, under the fleet-wide ceiling — a number above the ceiling leaves it in force.');
   turnsHint.id = 'soul-editor-turns-hint-' + projectId;
   turnsHint.setAttribute('data-i18n', 'soulEditorTurnsHint');
+  var budgetHint = el('p', 'soul-editor-hint', 'Add a line “Budget: $5” to cap what each of this project’s firings may spend, under the fleet-wide per-firing budget — an amount above it leaves the fleet figure in force.');
+  budgetHint.id = 'soul-editor-budget-hint-' + projectId;
+  budgetHint.setAttribute('data-i18n', 'soulEditorBudgetHint');
   textarea.setAttribute(
     'aria-describedby',
-    hint.id + ' ' + attributionHint.id + ' ' + subagentsHint.id + ' ' + internetHint.id + ' ' + turnsHint.id,
+    hint.id + ' ' + attributionHint.id + ' ' + subagentsHint.id + ' ' + internetHint.id + ' ' + turnsHint.id + ' ' + budgetHint.id,
   );
   var unlock = el('button', 'soul-editor-unlock');
   unlock.appendChild(iconEl('lock'));
@@ -1810,6 +1813,7 @@ function soulEditorPanel(projectId, soulText) {
   form.appendChild(subagentsHint);
   form.appendChild(internetHint);
   form.appendChild(turnsHint);
+  form.appendChild(budgetHint);
   var row = el('div', 'soul-editor-row');
   row.appendChild(unlock);
   row.appendChild(btn);

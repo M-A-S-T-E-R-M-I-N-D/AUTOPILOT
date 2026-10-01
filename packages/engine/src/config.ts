@@ -162,6 +162,43 @@ export function firingMaxTurns(soul: string, fleetCeiling: number): number {
   return cap === null ? fleetCeiling : Math.min(cap, fleetCeiling);
 }
 
+/** The SOUL line an operator writes to cap ONE project's firings at a smaller
+ *  spend than the fleet-wide per-firing budget (`maxBudgetUsd`, the fly bar's
+ *  "$ per firing") — a repo whose units are cheap, or one flown on a short
+ *  leash. Written as `Budget: $5` (the `$` is optional, cents allowed); this
+ *  is the prefix the editor's hint quotes. The sixth per-project override
+ *  (MASTER-PLAN §5.4, board ap-muo35gzl-2); it travels with the SOUL, so it
+ *  is locked and ratified like every other SOUL edit. */
+export const BUDGET_CAP_LINE_PREFIX = 'Budget:';
+
+/** The cap on a line of its own — same shape as {@link TURN_CAP}, with a
+ *  dollar amount where it has a turn count: an optional `$`, whole dollars
+ *  without a leading zero (a bare `0` only before cents), up to two decimals.
+ *  A word, a sign, a stray leading zero or a trailing unit (`Budget: 5 USD`)
+ *  is not a cap; `Budget: 0` parses and {@link soulBudgetCapUsd} rejects it. */
+const BUDGET_CAP =
+  /^[ \t]*(?:[-*][ \t]+)?budget:[ \t]*\$?((?:0|[1-9]\d{0,4})(?:\.\d{1,2})?)[ \t\r]*$/im;
+
+/** The per-firing budget cap this project's SOUL asks for, or null when it
+ *  carries no {@link BUDGET_CAP_LINE_PREFIX} line — or names zero dollars,
+ *  which no firing can fly on. Parsed only — {@link firingMaxBudgetUsd}
+ *  applies it against the fleet-wide budget. */
+export function soulBudgetCapUsd(soul: string): number | null {
+  const match = BUDGET_CAP.exec(soul);
+  if (!match) return null;
+  const usd = Number(match[1]);
+  return usd > 0 ? usd : null;
+}
+
+/** The per-firing budget one firing runs under: the fleet-wide figure, or the
+ *  project's own lower cap. Tighten only, like {@link firingMaxTurns}: a cap
+ *  at or above the fleet-wide budget leaves it in force, so one project's
+ *  SOUL cannot spend past what the operator set for the fleet. */
+export function firingMaxBudgetUsd(soul: string, fleetBudgetUsd: number): number {
+  const cap = soulBudgetCapUsd(soul);
+  return cap === null ? fleetBudgetUsd : Math.min(cap, fleetBudgetUsd);
+}
+
 /** The `--allowedTools`/`--disallowedTools` pair one firing runs with. */
 export interface FiringToolGrant {
   readonly allowedTools: readonly string[];
