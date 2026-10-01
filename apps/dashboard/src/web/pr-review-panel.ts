@@ -330,7 +330,7 @@ export function humanMergeReadiness(pr: PrReviewCandidateLike): {
   }
   return {
     ready: true,
-    reason: 'Squash-merge #' + pr.number + ' and delete its branch. Re-verified against gh first.',
+    reason: 'Squash-merge #' + pr.number + '. Re-verified against gh first.',
   };
 }
 
@@ -382,18 +382,19 @@ export function updateBranchResult(
   };
 }
 
-/** The human-merge confirm dialog. Names the PR, the method, and that it
- *  is irreversible — the same state-what-happens shape every other
- *  confirm here uses. */
+/** The human-merge confirm dialog. Names the PR, the method, what is left
+ *  behind, and that it is irreversible — the same state-what-happens shape
+ *  every other confirm here uses. The source branch is never deleted (KEEPER
+ *  4/7: gh's `--delete-branch` also rewrites the checkout gh runs in). */
 export function humanMergeConfirmMessage(pr: PrReviewCandidateLike): string {
   return (
     'Merge #' +
     pr.number +
     ' — "' +
     pr.title +
-    '"?\n\nSquash-merges into the default branch and deletes the source branch. Cannot be ' +
-    'undone from here.\n\nEvery check is re-read from gh first — if anything went red or the ' +
-    'head moved since this card was drawn, nothing merges.'
+    '"?\n\nSquash-merges into the default branch; the source branch stays on GitHub. Cannot ' +
+    'be undone from here.\n\nEvery check is re-read from gh first — if anything went red or ' +
+    'the head moved since this card was drawn, nothing merges.'
   );
 }
 

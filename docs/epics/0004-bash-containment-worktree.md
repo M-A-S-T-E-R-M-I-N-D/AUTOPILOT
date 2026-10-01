@@ -307,6 +307,23 @@ adding one more per-project SOUL override to the firing's tool grant and prompt:
 touches `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, or the containment guard's
 snapshot/audit calls.
 
+Four more `fly.ts` commits landed on 2026-10-01. One of them changes the seam this epic covers:
+
+- **Rung 4 runs on the project's pinned model** (`9523fa2a`, amends the "one more rung" bullet).
+  A SOUL line `Model: <name>` now feeds the flight's `config.primaryModel`
+  (`AUTOPILOT_MODEL ?? soulModel ?? 'sonnet'`), and the flight-end escalation hook invokes the
+  merge-escalation agent on `config.primaryModel`. A project pinned to a model therefore resolves
+  its sync-back conflicts on that model too, and the flight-wide `AUTOPILOT_MODEL` still wins over
+  the pin. The agent's tool list, deny-list and guard settings are unchanged.
+
+`58c0435b` ("Turns: N") and `08ad2808` ("Budget: $N") tighten the firing's `maxTurns` and
+`maxBudgetUsd` in that same config. The escalation hook passes its own caps on each call
+(`applyInvokeCaps` in `packages/engine/src/adapters/claude-cli.ts`), so rung 4 keeps its 15 turns
+and $3 even under a smaller `Budget:` line: the SOUL caps bound firings, and rung 4 is not one.
+`b2272f5b` (a lane's slice counts as exhausted once nothing in it is claimable) changes which board
+row a lane claims, not where the lane runs. None of the four touches `deriveWorktreePlan`,
+`ensureWorktree`/`syncWorktreeBranch`, or the containment guard's snapshot/audit calls.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a

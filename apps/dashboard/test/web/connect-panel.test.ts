@@ -578,6 +578,23 @@ describe('reportComposeStatusMeta', () => {
     );
   });
 
+  // Composer language doctrine, rule 3: an English stand-in says so.
+  it('appends the language-fallback note when the composition is an English stand-in', () => {
+    const composed = { ok: true, title: 't', body: 'b', labels: ['bug'] };
+    expect(reportComposeStatusMeta({ ...composed, languageFallback: true }, trEn).text).toBe(
+      'Composed — suggested labels: bug. Review the fields below, then submit. ' +
+        STRINGS.en.composeLanguageFallback,
+    );
+    expect(reportComposeStatusMeta({ ...composed, languageFallback: true }, trHe).text).toBe(
+      STRINGS.he.reportComposeReady.split('{labels}').join('bug') +
+        ' ' +
+        STRINGS.he.composeLanguageFallback,
+    );
+    expect(reportComposeStatusMeta({ ...composed, languageFallback: false }, trEn).text).toBe(
+      'Composed — suggested labels: bug. Review the fields below, then submit.',
+    );
+  });
+
   it('reports the rejection reasoning and empty title/body for a refused composition', () => {
     const meta = reportComposeStatusMeta(
       { ok: false, reasoning: 'a report needs a non-empty description to compose from.' },
