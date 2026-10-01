@@ -2693,7 +2693,14 @@ async function handleControlExecute(
  * shells to `gh issue list` fresh on every call, judging every open issue
  * against the project's open board tasks and backlog file. Degrades to
  * `{ triage: null }` instead of crashing when the read throws (a flaky `gh`
- * call shouldn't take the dashboard down).
+ * call shouldn't take the dashboard down) — plus, when `main.ts` wraps the
+ * injected `api` in `refuseRepoMismatchedPreview` (EPIC 0019 S3's
+ * repo-mismatch guard, ported from MIRROR PASS: debrief
+ * 2026-10-01-verdict-ap-munfszto-0) and it refuses a project whose origin is
+ * another GitHub repository, {@link mirrorPassPreviewFailureBody} adds why —
+ * every `gh` call triage makes is bound to the ONE repository the dashboard
+ * process itself runs in, so a mismatched project must never see that
+ * repository's issues treated as its own.
  */
 async function handleIssueTriage(
   req: IncomingMessage,
@@ -2718,8 +2725,8 @@ async function handleIssueTriage(
   }
   try {
     send(200, { triage: await api(project) });
-  } catch {
-    send(200, { triage: null });
+  } catch (error) {
+    send(200, mirrorPassPreviewFailureBody('triage', error));
   }
 }
 
@@ -2729,7 +2736,13 @@ async function handleIssueTriage(
  * creates board tasks for accepted ones — so it is a CSRF-guarded JSON POST
  * like every other write, and separately rate-limited (same
  * heavier-than-a-quota-spend reasoning as `handlePrReviewExecute`). 404 only
- * for an unknown project or an unwired API.
+ * for an unknown project or an unwired API. When `main.ts` wraps the
+ * injected `api` in `refuseRepoMismatchedPreview` (EPIC 0019 S3's
+ * repo-mismatch guard, ported from MIRROR PASS: debrief
+ * 2026-10-01-verdict-ap-munfszto-0) and it throws for a project whose origin
+ * is another GitHub repository, this reports the refusal as a 200 with a
+ * zero-mutation result instead of a 500 — a known repo-mismatch is a refusal
+ * to act, not a server error.
  */
 async function handleIssueTriageExecute(
   req: IncomingMessage,
@@ -2781,6 +2794,18 @@ async function handleIssueTriageExecute(
     }
     send(200, result);
   } catch (error) {
+    if (error instanceof MirrorPassRepoMismatchError) {
+      send(200, {
+        skippedReason: error.skippedReason,
+        projectRepo: error.projectRepo,
+        ghRepo: error.ghRepo,
+        plans: [],
+        commandResults: [],
+        tasksCreated: 0,
+        error: `issue triage: project origin ${error.projectRepo} is not ${error.ghRepo}, the repository gh acts on`,
+      });
+      return;
+    }
     send(500, {
       error: error instanceof Error ? error.message : 'issue triage execute failed',
     });
