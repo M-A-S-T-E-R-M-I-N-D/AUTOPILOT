@@ -354,7 +354,22 @@ routed-budget lockstep and TOTAL-SPEND mode's stop decision at that amount (`fir
 in `packages/engine/src/config.ts`), and the flight log's opening line names both figures. A SOUL
 can only tighten the budget: an amount at or above the fleet-wide one leaves it in force, and
 nothing goes under the $0.50 floor the fly bar itself keeps. Like every SOUL override it is read
-when a flight starts. The SOUL editor names all six override lines under its text.
+when a flight starts.
+
+**Model, per project** (board ap-muo35gzl-2): every routed firing flies the model the scoreboard
+picks for its tier (above), and a free pick flies the flight-wide default. To pin ONE project's
+firings to a model — a repo whose units are all mechanical and fly fine on the cheap tier, or one
+whose every unit wants the big model — add a line `Model: sonnet` to that project's SOUL: a family
+alias (`fable`, `opus`, `sonnet`, `haiku`) the CLI resolves to its newest member, or a full model
+id, as the CLI spells it. Its flights then fly every firing, routed or free, on that model
+(`soulModelPin()` in `packages/engine/src/config.ts`; the 🧭 line reads `pinned by the project's
+SOUL`, and the flight's opening lines announce the pin, since a free pick prints no 🧭 line). The
+pin describes, never restricts: a name this build has never heard of is passed to the CLI
+unchanged, like the catalogue. The operator's env levers above still win — `AUTOPILOT_MODEL`
+flight-wide, a per-tier variable for that tier's routed tasks — so the SOUL replaces routing, not
+your launch-time pin; `Model: off` means no pin. Like every SOUL override it is read when a flight
+starts. The SOUL editor names the six earlier override lines under its text; this one's hint is
+pending (the editor file was under the icon-system sweep when the line landed).
 
 ## 7. Self-mined ritual proposals (CLOSED-TASK AUDIT / DOC-FRESHNESS)
 
