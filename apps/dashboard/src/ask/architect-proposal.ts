@@ -74,7 +74,7 @@ export function buildArchitectAddendum(): string {
     '- tasks_set_status: {"taskId","status"} — move a task (also approves: needs_approval → queued).',
     '- tasks_create: {"projectId","title","severity"?,"dimension"?} — add a task.',
     '- tasks_reorder: {"projectId","orderedIds"} — reorder the open queue.',
-    '- tasks_delete: {"taskId"} — delete a task (destructive).',
+    '- tasks_delete: {"taskId","projectId"} — delete a task from that project (destructive).',
     '- project_reset: {"projectId"} — wipe project state (destructive).',
     '',
     'Rules: propose an action only when the operator asked for a change; a',
