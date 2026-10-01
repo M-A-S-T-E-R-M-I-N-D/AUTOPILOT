@@ -1774,11 +1774,19 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    trace grows one row per firing across the whole flight with no cap —
    scroll inside the list instead of reflowing the page under it. */
 .firing-timeline { display: flex; flex-direction: column; gap: 4px; max-height: 32rem; overflow-y: auto; }
-.firing-toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; text-align: start; padding: 3px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: none; font: inherit; font-size: var(--text-xs); color: var(--color-text-muted); cursor: pointer; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
-.firing-toggle:hover, .firing-toggle:focus-visible { border-color: var(--color-accent); color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
-.firing-toggle:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
-.firing-toggle[aria-expanded="true"] { border-color: var(--color-accent); color: var(--color-text); }
-.firing-headline { font-family: var(--font-mono); color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 auto; }
+/* The row is a flex container, not a <button> (board ap-mupzhat7-0): HTML's
+   button content model forbids tabindex descendants, and the row's roving
+   fields each carry one. The disclosure control is the .firing-headline
+   button inside it, so the row's focus chrome keys off :has(:focus-visible)
+   and its open state off .firing-open rather than its own aria-expanded. */
+.firing-toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; text-align: start; padding: 3px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: none; font: inherit; font-size: var(--text-xs); color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.firing-toggle:hover, .firing-toggle:has(:focus-visible) { border-color: var(--color-accent); color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
+.firing-toggle:has(.firing-headline:active) { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+.firing-toggle.firing-open { border-color: var(--color-accent); color: var(--color-text); }
+/* A real <button> reset to read as the row's headline text: no chrome of
+   its own, stretched to the row's full height so the whole headline band
+   stays the click target (the global button floor keeps it ≥ 24px tall). */
+.firing-headline { align-self: stretch; margin: 0; padding: 0; border: 0; background: none; font: inherit; font-family: var(--font-mono); color: var(--color-text); text-align: start; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 auto; }
 .firing-count { font-variant-numeric: tabular-nums; }
 .firing-ago { margin-inline-start: auto; font-variant-numeric: tabular-nums; }
 .firing-detail { margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); padding-inline-start: var(--space-3); border-inline-start: 2px solid var(--color-border); }
