@@ -81,13 +81,14 @@ describe('issueTriageJs', () => {
     expect(out).toContain("execBtn.setAttribute('data-i18n', 'issueTriageExecute');");
     // One sweep per ASYNC tagged-DOM creation site — the empty state, the
     // guest-note state (epic 0019 law 1 extended to the UI, board
-    // web-mtt3f7j6-3bj899), the fetch-failure state, and the non-empty/
-    // execute-button state, all built inside /api/issue-triage handlers that
-    // can resolve after the page-level sweep. The title and the loading
-    // placeholder are built synchronously at mount and ride
-    // renderProjectPage()'s own sweep, the same split flight-console.ts uses.
+    // web-mtt3f7j6-3bj899), the fetch-failure state, the refused-project
+    // note (board ap-mupqfryv-0), and the non-empty/execute-button state, all
+    // built inside /api/issue-triage handlers that can resolve after the
+    // page-level sweep. The title and the loading placeholder are built
+    // synchronously at mount and ride renderProjectPage()'s own sweep, the
+    // same split flight-console.ts uses.
     expect(out.match(/translateDom\(document\.documentElement\.lang \|\| 'en'\);/g)?.length).toBe(
-      4,
+      5,
     );
   });
 

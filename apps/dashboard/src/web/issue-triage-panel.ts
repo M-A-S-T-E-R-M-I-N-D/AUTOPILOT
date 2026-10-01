@@ -207,6 +207,61 @@ export function issueTriageGuestNote(identity: IssueTriageViewerIdentity): strin
   );
 }
 
+/** `GET /api/issue-triage`'s body as {@link issueTriageRefusalNote} reads it:
+ *  the refusal fields the route adds to `{ triage: null }` when `main.ts`'s
+ *  `refuseUnboundIssueTriage` (board ap-mupqfryv-0) turned the project away
+ *  — see `server.ts`'s `handleIssueTriage`. */
+export interface IssueTriagePreviewRefusal {
+  readonly triage?: unknown;
+  readonly skippedReason?: string;
+  readonly ghRepo?: string;
+  readonly projectRepo?: string;
+}
+
+/** {@link issueTriageRefusalNote}'s answer: the English text, plus the
+ *  `STRINGS` template key and slot values `translateDom()` repaints it from. */
+export interface IssueTriageRefusalNote {
+  readonly template: string;
+  readonly args: Readonly<Record<string, string>>;
+  readonly text: string;
+}
+
+/** The KEEPER ISSUE TRIAGE panel's refusal note (board ap-mupqfryv-0):
+ *  replaces "No open issues to triage." — true of nothing — when the preview
+ *  was refused because this project is not a checkout of the repository `gh`
+ *  acts on. `'repo-unbound'` is a project with no GitHub origin at all;
+ *  `'repo-mismatch'` is a checkout of another GitHub repository. Null for
+ *  anything else, including a refusal missing the repository names it needs,
+ *  so the panel falls back to its usual rendering. The English text is the
+ *  byte-identical default of `issueTriageRepoUnboundNote`/
+ *  `issueTriageRepoMismatchNote` in `packages/tokens/src/strings.ts`. */
+export function issueTriageRefusalNote(
+  data: IssueTriagePreviewRefusal | null | undefined,
+): IssueTriageRefusalNote | null {
+  if (!data || typeof data.ghRepo !== 'string' || data.ghRepo === '') return null;
+  const lead = 'KEEPER triage acts on ' + data.ghRepo + ', the repository this dashboard runs in. ';
+  const tail = ', so none of those issues are triaged onto its board.';
+  if (data.skippedReason === 'repo-unbound') {
+    return {
+      template: 'issueTriageRepoUnboundNote',
+      args: { ghRepo: data.ghRepo },
+      text: lead + 'This project has no GitHub origin' + tail,
+    };
+  }
+  if (
+    data.skippedReason === 'repo-mismatch' &&
+    typeof data.projectRepo === 'string' &&
+    data.projectRepo !== ''
+  ) {
+    return {
+      template: 'issueTriageRepoMismatchNote',
+      args: { ghRepo: data.ghRepo, projectRepo: data.projectRepo },
+      text: lead + 'This project is a checkout of ' + data.projectRepo + tail,
+    };
+  }
+  return null;
+}
+
 /** One planned `gh` command's result, the same shape `POST
  *  /api/issue-triage/execute`'s `commandResults[]` entries carry — see
  *  `flight/issue-triage.ts`'s `IssueTriageCommandResult`. `stdout` is

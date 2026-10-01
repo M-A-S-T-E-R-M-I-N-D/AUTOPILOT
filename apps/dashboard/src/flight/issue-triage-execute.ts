@@ -31,6 +31,9 @@ import { readFsSnapshot, detectBacklogPath } from '@autopilot/onboarding';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
 import { parseBacklogTitles } from './backlog.js';
+import { sameRepo } from './project-repo.js';
+import { resolveSocialIdentity } from './social-pass.js';
+import { MirrorPassRepoMismatchError, fetchProjectRepo } from './mirror-pass-execute.js';
 import {
   fetchOpenIssues,
   fetchRepoMilestones,
@@ -131,5 +134,66 @@ export function createIssueTriageExecuteApi(
     } finally {
       store.close();
     }
+  };
+}
+
+/** What {@link refuseUnboundIssueTriage} throws for a project whose `origin`
+ *  names no GitHub repository at all — a fully-local repo, another host, or a
+ *  folder git cannot answer for. `ghRepo` is the repository every triage `gh`
+ *  call would have acted on, so a caller can quote it back. */
+export class IssueTriageRepoUnboundError extends Error {
+  readonly skippedReason = 'repo-unbound' as const;
+  readonly ghRepo: string;
+
+  constructor(ghRepo: string) {
+    super(
+      `issue triage: this project has no GitHub origin, so it is not ${ghRepo}, the repository gh acts on`,
+    );
+    this.name = 'IssueTriageRepoUnboundError';
+    this.ghRepo = ghRepo;
+  }
+}
+
+/**
+ * KEEPER triage's project guard (board ap-mupqfryv-0). Every `gh` call
+ * triage makes acts on the ONE repository the dashboard process runs in,
+ * while its board reads and writes follow the project id the page names, so
+ * triage may run only for a project that is a checkout of that repository.
+ * `refuseRepoMismatchedPreview` lets an unknown origin through, which suits
+ * the mirror pass but not triage: from a project with no GitHub origin it
+ * judged gh's open issues against that project's board, and an execute
+ * labeled them upstream and filed the accepted ones onto it. This guard asks
+ * for a positive answer instead, the rule `project-repo.ts`'s
+ * `routeClaimToProject` already applies to the pool panel. It throws
+ * {@link IssueTriageRepoUnboundError} for a project with no GitHub origin and
+ * `MirrorPassRepoMismatchError` for one whose origin is another repository.
+ * An unknown project id or an unresolved identity still reaches `api`
+ * unchanged: the first is `api`'s own 404, and the second leaves no gh
+ * repository to compare against.
+ */
+export function refuseUnboundIssueTriage<T>(
+  dbPath: string,
+  api: (projectId: string) => Promise<T | null>,
+  exec: CliExec = ghExec,
+): (projectId: string) => Promise<T | null> {
+  return async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    let rootPath: string | undefined;
+    try {
+      rootPath = listProjects(store.db).find((p) => p.id === projectId)?.root_path;
+    } finally {
+      store.close();
+    }
+    if (rootPath !== undefined) {
+      const identity = await resolveSocialIdentity(exec);
+      if (identity !== undefined) {
+        const projectRepo = await fetchProjectRepo(exec, rootPath);
+        if (projectRepo === null) throw new IssueTriageRepoUnboundError(identity.nameWithOwner);
+        if (!sameRepo(projectRepo, identity.nameWithOwner)) {
+          throw new MirrorPassRepoMismatchError(projectRepo, identity.nameWithOwner);
+        }
+      }
+    }
+    return api(projectId);
   };
 }
