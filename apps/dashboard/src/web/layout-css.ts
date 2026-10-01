@@ -824,6 +824,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .github-sync button:not(:disabled):hover, .github-sync button:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-accent); border-radius: var(--shape-small-hover); box-shadow: var(--elevation-level-1); }
 .github-sync button:not(:disabled):active { border-radius: var(--shape-small-pressed); box-shadow: none; }
 .github-sync button:disabled { opacity: 0.6; cursor: default; }
+.github-sync button > .icon { margin-inline-end: 0.35em; }
 .github-sync .muted { font-size: var(--text-sm); }
 .github-sync-public { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); color: var(--color-text-muted); cursor: pointer; }
 .github-sync-public input { accent-color: var(--color-accent); cursor: pointer; }

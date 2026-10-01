@@ -132,7 +132,14 @@ describe('handler-painted status lines i18n (board web-msnsndki-dz3vn1)', () => 
 
   it("paints every one of them via tr(), with no hardcoded literal left in shell.ts's own handlers", () => {
     const js = clientJs();
-    for (const key of KEYS) expect(js).toContain(`tr('${key}')`);
+    // The sync button's busy label goes through setTaggedLabel(), which paints
+    // tr(key) itself and keeps the button's leading icon (epic 0025).
+    for (const key of KEYS) {
+      expect(js).toContain(
+        key === 'githubSyncing' ? `setTaggedLabel(b, '${key}')` : `tr('${key}')`,
+      );
+    }
+    expect(js).toContain('setSweptText(b, tr(key));');
     expect(js).not.toContain("'Proposed — review it above to ratify or dismiss.'");
     expect(js).not.toContain("'Could not propose the edit — try again.'");
     expect(js).not.toContain("'Syncing…'");

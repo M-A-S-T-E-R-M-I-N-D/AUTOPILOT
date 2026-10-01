@@ -133,7 +133,7 @@ describe('start-over button explains itself on hover/focus', () => {
   });
 
   it("uses tr('resetting') for the in-flight label, not a hardcoded literal", () => {
-    expect(clientJs()).toContain("setStartOverLabel(b, 'resetting');");
+    expect(clientJs()).toContain("setTaggedLabel(b, 'resetting');");
   });
 
   it('keeps its icon and tags the busy key while the reset is in flight', async () => {

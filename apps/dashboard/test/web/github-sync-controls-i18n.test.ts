@@ -3,7 +3,7 @@
 
 /**
  * The project page's two GitHub-sync controls (board web-msnsndki-dz3vn1,
- * the follow-up the settings-hints slice named): the "⇪ Sync to GitHub"
+ * the follow-up the settings-hints slice named): the "Sync to GitHub"
  * button's label and its opt-in "Make public instead (visible to everyone)"
  * checkbox text — `shell.ts`'s `renderProjectPage()`. Both were built with
  * `textContent`/`createTextNode` calls, invisible to `pnpm i18n:untagged`.
@@ -21,11 +21,16 @@
  * The checkbox text sits in its own tagged `<span>` rather than tagging the
  * `<label>`: `translateDom()` writes `textContent`, which on the label itself
  * would wipe the checkbox out along with the words.
+ *
+ * Epic 0025 (board web-mtywp7zq-55f3o9): the button led with a ⇪ baked into
+ * its STRINGS label as an icon; it leads with the vendored cloud-upload stroke
+ * now, so every label write (busy, idle, sweep) must keep that icon.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
+import { layoutCss } from '../../src/web/layout-css.js';
 
 const HEBREW_LETTER = /\p{Script=Hebrew}/u;
 
@@ -103,6 +108,12 @@ function syncButton(): HTMLButtonElement {
   return document.querySelector('[data-github-sync="p1"]') as HTMLButtonElement;
 }
 
+/** The button's vendored icons — exactly one cloud-upload, as its first child. */
+function expectOneLeadingIcon(btn: HTMLButtonElement): void {
+  expect(btn.querySelectorAll('svg.icon')).toHaveLength(1);
+  expect(btn.firstElementChild?.getAttribute('class')).toBe('icon icon-cloud-upload');
+}
+
 function publicLabel(): HTMLLabelElement {
   return document.querySelector('label.github-sync-public') as HTMLLabelElement;
 }
@@ -143,12 +154,14 @@ describe('project page GitHub-sync controls i18n (board web-msnsndki-dz3vn1)', (
     expect(btn.disabled).toBe(true);
     expect(btn.textContent).toBe(STRINGS.en.githubSyncing);
     expect(btn.getAttribute('data-i18n')).toBe('githubSyncing');
+    expectOneLeadingIcon(btn);
 
     // The language toggle runs the same document-wide translateDom() sweep a
     // fleet tick does — it must repaint the BUSY label, not the idle one.
     switchToHebrew();
     expect(btn.textContent).toBe(STRINGS.he.githubSyncing);
     expect(btn.textContent).not.toBe(STRINGS.he.githubSync);
+    expectOneLeadingIcon(btn);
 
     finish({
       status: 200,
@@ -157,13 +170,14 @@ describe('project page GitHub-sync controls i18n (board web-msnsndki-dz3vn1)', (
     await vi.waitFor(() => expect(btn.disabled).toBe(false));
     expect(btn.textContent).toBe(STRINGS.he.githubSync);
     expect(btn.getAttribute('data-i18n')).toBe('githubSync');
+    expectOneLeadingIcon(btn);
   });
 
   it('tags the button and the checkbox text and paints them in English by default', async () => {
     await boot();
 
     const btn = syncButton();
-    expect(btn.textContent).toBe('⇪ Sync to GitHub');
+    expect(btn.textContent).toBe('Sync to GitHub');
     expect(btn.textContent).toBe(STRINGS.en.githubSync);
     expect(btn.getAttribute('data-i18n')).toBe('githubSync');
 
@@ -186,6 +200,7 @@ describe('project page GitHub-sync controls i18n (board web-msnsndki-dz3vn1)', (
 
     expect(syncButton()).toBe(btn);
     expect(btn.textContent).toBe(STRINGS.he.githubSync);
+    expectOneLeadingIcon(btn);
     expect(publicText()).toBe(text);
     expect(text?.textContent).toBe(STRINGS.he.githubSyncPublicLabel);
     expect(publicLabel().querySelector('input[type="checkbox"]')).toBeTruthy();
@@ -204,10 +219,44 @@ describe('project page GitHub-sync controls i18n (board web-msnsndki-dz3vn1)', (
       expect(STRINGS.he[key]).not.toBe(STRINGS.en[key]);
       expect(HEBREW_LETTER.test(STRINGS.he[key])).toBe(true);
     }
-    // The button keeps its ⇪ glyph and the GitHub name in every locale, the
-    // way "↺ Start over" keeps its arrow.
-    expect(STRINGS.he.githubSync.startsWith('⇪ ')).toBe(true);
+    // The button keeps the GitHub name in every locale.
     expect(STRINGS.he.githubSync).toContain('GitHub');
+  });
+
+  it('drops the ⇪ from the label in every locale (epic 0025)', () => {
+    for (const table of Object.values(STRINGS)) {
+      expect(table.githubSync).not.toContain('⇪');
+      expect(table.githubSync).toBe(table.githubSync.trim());
+    }
+  });
+
+  it('leads with a decorative cloud-upload stroke instead of a baked ⇪ (epic 0025)', async () => {
+    await boot();
+
+    const btn = syncButton();
+    const icon = btn.firstElementChild;
+    expect(icon?.tagName.toLowerCase()).toBe('svg');
+    expect(icon?.getAttribute('class')).toBe('icon icon-cloud-upload');
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    expect(btn.textContent).not.toContain('⇪');
+  });
+
+  it('keeps the icon when a sync fails and the idle label comes back', async () => {
+    await boot();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    stubEndpoint('/api/github-sync/execute', () => Promise.reject(new Error('offline')));
+    const btn = syncButton();
+
+    btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await vi.waitFor(() => expect(btn.disabled).toBe(false));
+
+    expect(btn.textContent).toBe(STRINGS.en.githubSync);
+    expect(btn.getAttribute('data-i18n')).toBe('githubSync');
+    expectOneLeadingIcon(btn);
+  });
+
+  it('sits the icon a gap before the label, like the Start over button', () => {
+    expect(layoutCss()).toContain('.github-sync button > .icon { margin-inline-end: 0.35em; }');
   });
 
   it('paints both via tr(), with neither old literal left in the assembled bundle', () => {
