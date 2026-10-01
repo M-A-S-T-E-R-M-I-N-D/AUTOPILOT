@@ -359,11 +359,78 @@ async function gateMirrorPassExecute(
   const identity = await resolveSocialIdentity(exec);
   if (identity === undefined) return { identity, skippedReason: 'identity-unresolved' };
   if (identity.role !== 'maintainer') return { identity, skippedReason: 'guest' };
-  const projectRepo = await fetchProjectRepo(exec, rootPath);
-  if (projectRepo !== null && !sameRepo(projectRepo, identity.nameWithOwner)) {
+  if (await knownRepoMismatch(exec, rootPath, identity)) {
     return { identity, skippedReason: 'repo-mismatch' };
   }
   return { identity };
+}
+
+/** S3's per-project check, shared by the execute gate and
+ *  {@link refuseRepoMismatchedPreview}: both repository names when the
+ *  project's `origin` is a GitHub repository other than the one `gh` acts on,
+ *  null when they match or the project has no GitHub origin to compare. */
+async function knownRepoMismatch(
+  exec: CliExec,
+  rootPath: string,
+  identity: SocialIdentity,
+): Promise<{ readonly projectRepo: string; readonly ghRepo: string } | null> {
+  const projectRepo = await fetchProjectRepo(exec, rootPath);
+  if (projectRepo === null || sameRepo(projectRepo, identity.nameWithOwner)) return null;
+  return { projectRepo, ghRepo: identity.nameWithOwner };
+}
+
+/** What a preview wrapped in {@link refuseRepoMismatchedPreview} throws for
+ *  a checkout of another GitHub repository: the execute gate's
+ *  `'repo-mismatch'`, with both names as given so a caller can quote them
+ *  back. `server.ts`'s preview routes turn it into their usual null body plus
+ *  these three fields; any other error still degrades to the bare null. */
+export class MirrorPassRepoMismatchError extends Error {
+  readonly skippedReason = 'repo-mismatch' as const;
+  readonly projectRepo: string;
+  readonly ghRepo: string;
+
+  constructor(projectRepo: string, ghRepo: string) {
+    super(`mirror pass: project origin ${projectRepo} is not ${ghRepo}, the repository gh acts on`);
+    this.name = 'MirrorPassRepoMismatchError';
+    this.projectRepo = projectRepo;
+    this.ghRepo = ghRepo;
+  }
+}
+
+/**
+ * Epic 0019 S3 per project, the preview half (board ap-muhqoogl-0): puts the
+ * execute gate's repository check in front of any mirror-pass preview. Every
+ * preview reads the repository `gh` acts on, whatever project id it was
+ * given, so for a checkout of another repository it would show that
+ * repository's issues as this project's findings. A KNOWN mismatch throws
+ * {@link MirrorPassRepoMismatchError} before the preview runs. Like the
+ * execute gate, an unknown answer refuses nothing: an unknown project id (the
+ * preview's own null), an unresolved identity, or a project with no GitHub
+ * origin runs the preview exactly as before. Role-blind: a preview is a read,
+ * so a guest of another repository gets the same refusal as its maintainer.
+ * Wraps rather than edits the five factories, so their own reads stay as
+ * they were; `main.ts` composes it around each one.
+ */
+export function refuseRepoMismatchedPreview<T>(
+  dbPath: string,
+  preview: (projectId: string) => Promise<T | null>,
+  exec: CliExec = ghExec,
+): (projectId: string) => Promise<T | null> {
+  return async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    let rootPath: string | undefined;
+    try {
+      rootPath = listProjects(store.db).find((p) => p.id === projectId)?.root_path;
+    } finally {
+      store.close();
+    }
+    if (rootPath !== undefined) {
+      const identity = await resolveSocialIdentity(exec);
+      const mismatch = identity && (await knownRepoMismatch(exec, rootPath, identity));
+      if (mismatch) throw new MirrorPassRepoMismatchError(mismatch.projectRepo, mismatch.ghRepo);
+    }
+    return preview(projectId);
+  };
 }
 
 /** The reconcile EXECUTE ritual's full report: the identity it resolved

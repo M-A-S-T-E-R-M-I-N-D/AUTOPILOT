@@ -182,13 +182,14 @@ import type {
   MirrorPassLandingNotePlan,
   MirrorPassStaleClaimPlan,
 } from '../flight/mirror-pass.js';
-import type {
-  MirrorPassDriftPlan,
-  MirrorPassDriftExecuteReport,
-  MirrorPassExecuteReport,
-  MirrorPassLandingNoteExecuteReport,
-  MirrorPassStaleClaimExecuteReport,
-  MirrorPassPriorityFollowExecuteReport,
+import {
+  MirrorPassRepoMismatchError,
+  type MirrorPassDriftPlan,
+  type MirrorPassDriftExecuteReport,
+  type MirrorPassExecuteReport,
+  type MirrorPassLandingNoteExecuteReport,
+  type MirrorPassStaleClaimExecuteReport,
+  type MirrorPassPriorityFollowExecuteReport,
 } from '../flight/mirror-pass-execute.js';
 import type { MirrorPassPriorityFollowPlan } from '../flight/mirror-pass-priority.js';
 import type {
@@ -2910,9 +2911,25 @@ async function handleMirrorPass(
   }
   try {
     send(200, { mirrorPass: await api(project) });
-  } catch {
-    send(200, { mirrorPass: null });
+  } catch (error) {
+    send(200, mirrorPassPreviewFailureBody('mirrorPass', error));
   }
+}
+
+/** The body every mirror-pass preview route degrades to when its read
+ *  throws: `{ [key]: null }`, as it always was — plus, when the preview was
+ *  refused for a checkout of another repository (`main.ts` gates each one
+ *  with `refuseRepoMismatchedPreview`, board ap-muhqoogl-0), the execute
+ *  gate's `skippedReason` and both repository names, so the panel can say so
+ *  instead of reading the null as "nothing to reconcile". */
+function mirrorPassPreviewFailureBody(key: string, error: unknown): Record<string, unknown> {
+  if (!(error instanceof MirrorPassRepoMismatchError)) return { [key]: null };
+  return {
+    [key]: null,
+    skippedReason: error.skippedReason,
+    projectRepo: error.projectRepo,
+    ghRepo: error.ghRepo,
+  };
 }
 
 /**
@@ -3079,8 +3096,8 @@ async function handleMirrorPassLandingNote(
   }
   try {
     send(200, { landingNote: await api(project) });
-  } catch {
-    send(200, { landingNote: null });
+  } catch (error) {
+    send(200, mirrorPassPreviewFailureBody('landingNote', error));
   }
 }
 
@@ -3114,8 +3131,8 @@ async function handleMirrorPassDrift(
   }
   try {
     send(200, { drift: await api(project) });
-  } catch {
-    send(200, { drift: null });
+  } catch (error) {
+    send(200, mirrorPassPreviewFailureBody('drift', error));
   }
 }
 
@@ -3217,8 +3234,8 @@ async function handleMirrorPassStaleClaim(
   }
   try {
     send(200, { staleClaims: await api(project) });
-  } catch {
-    send(200, { staleClaims: null });
+  } catch (error) {
+    send(200, mirrorPassPreviewFailureBody('staleClaims', error));
   }
 }
 
@@ -3252,8 +3269,8 @@ async function handleMirrorPassPriorityFollow(
   }
   try {
     send(200, { priorityFollow: await api(project) });
-  } catch {
-    send(200, { priorityFollow: null });
+  } catch (error) {
+    send(200, mirrorPassPreviewFailureBody('priorityFollow', error));
   }
 }
 
