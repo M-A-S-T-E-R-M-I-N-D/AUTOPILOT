@@ -188,6 +188,10 @@ export const NEEDS_FORMAT_LABEL = 'status: needs-format';
 /** Epics are tracking issues with their own protocol (docs/epics) — never
  *  gated on the bug/feature templates. */
 const EPIC_LABEL = 'epic';
+/** The house taxonomy's `declined` (taxonomy-seed.ts): the maintainer has
+ *  answered the issue no, the reason in a comment. It may stay open for the
+ *  reporter to reply to (CONTRIBUTING.md), so every pass still lists it. */
+const DECLINED_LABEL = 'declined';
 
 /**
  * Is this issue the maintainer's own?
@@ -564,7 +568,8 @@ export function classifyIssueMilestone(text: string): MilestoneTitle {
  * Before any scoring, an issue already assigned to a human ({@link
  * IncomingIssue.assignees} non-empty) plans a `'skip'` — COLLAB PROTOCOL:
  * an issue a human has claimed must never be picked onto the board by a
- * firing, no matter how it would otherwise classify. An issue a previous
+ * firing, no matter how it would otherwise classify. Nor may one the
+ * maintainer has declined ({@link DECLINED_LABEL}). An issue a previous
  * pass already handled — one carrying a `pool: *` or `duplicate` label, or
  * whose own {@link issueTaskId} task is already on the board (the labeling
  * half may have failed) — also plans a `'skip'`: without that, an accepted
@@ -614,6 +619,14 @@ export function planIssueTriage(
       reasoning:
         `#${issue.number} "${issue.title}" is already assigned to ${assignees.join(', ')} — ` +
         'a human has claimed it, so the fleet must not pick it onto the board.',
+    };
+  }
+  if (labels.includes(DECLINED_LABEL)) {
+    return {
+      decision: 'skip',
+      reasoning:
+        `#${issue.number} "${issue.title}" carries "${DECLINED_LABEL}" — the maintainer has ` +
+        'answered it, so the fleet must not pick it onto the board.',
     };
   }
 
