@@ -29,6 +29,8 @@ import {
   soulTurnCap,
   BUDGET_CAP_LINE_PREFIX,
   soulBudgetCapUsd,
+  MODEL_PIN_LINE_PREFIX,
+  soulModelPin,
 } from '@autopilot/engine';
 
 // Contrast needs real layout, which jsdom lacks — same carve-out as
@@ -507,7 +509,7 @@ describe('SOUL editor names the attribution opt-out (board ap-muo35gzl-2)', () =
       '[data-soul-edit] textarea[name="text"]',
     ) as HTMLTextAreaElement;
     expect(textarea.getAttribute('aria-describedby')).toBe(
-      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1',
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1 soul-editor-model-hint-p1',
     );
     const hint = document.getElementById('soul-editor-attribution-hint-p1') as HTMLElement;
     expect(hint.closest('[data-soul-edit]')).not.toBeNull();
@@ -549,7 +551,7 @@ describe('SOUL editor names the subagents opt-out (board ap-muo35gzl-2)', () => 
       '[data-soul-edit] textarea[name="text"]',
     ) as HTMLTextAreaElement;
     expect(textarea.getAttribute('aria-describedby')).toBe(
-      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1',
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1 soul-editor-model-hint-p1',
     );
     const hint = document.getElementById('soul-editor-subagents-hint-p1') as HTMLElement;
     expect(hint.closest('[data-soul-edit]')).not.toBeNull();
@@ -597,7 +599,7 @@ describe('SOUL editor names the internet opt-out (board ap-muo35gzl-2)', () => {
       '[data-soul-edit] textarea[name="text"]',
     ) as HTMLTextAreaElement;
     expect(textarea.getAttribute('aria-describedby')).toBe(
-      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1',
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1 soul-editor-model-hint-p1',
     );
     const hint = document.getElementById('soul-editor-internet-hint-p1') as HTMLElement;
     expect(hint.closest('[data-soul-edit]')).not.toBeNull();
@@ -645,7 +647,7 @@ describe('SOUL editor names the turn cap (board ap-muo35gzl-2)', () => {
       '[data-soul-edit] textarea[name="text"]',
     ) as HTMLTextAreaElement;
     expect(textarea.getAttribute('aria-describedby')).toBe(
-      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1',
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1 soul-editor-model-hint-p1',
     );
     const hint = document.getElementById('soul-editor-turns-hint-p1') as HTMLElement;
     expect(hint.closest('[data-soul-edit]')).not.toBeNull();
@@ -685,7 +687,7 @@ describe('SOUL editor names the turn cap (board ap-muo35gzl-2)', () => {
       '[data-soul-edit] textarea[name="text"]',
     ) as HTMLTextAreaElement;
     expect(textarea.getAttribute('aria-describedby')).toBe(
-      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1',
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1 soul-editor-model-hint-p1',
     );
     const hint = document.getElementById('soul-editor-budget-hint-p1') as HTMLElement;
     expect(hint.closest('[data-soul-edit]')).not.toBeNull();
@@ -715,6 +717,48 @@ describe('SOUL editor names the turn cap (board ap-muo35gzl-2)', () => {
     const hint = document.getElementById('soul-editor-budget-hint-p1');
     expect(hint).not.toBeNull();
     expect(hint?.textContent).toBe(STRINGS.he.soulEditorBudgetHint);
+  });
+
+  // The seventh override's hint was held back from the commit that landed the
+  // line (9523fa2a): shell.ts was under the icon-system sweep at the time.
+  it('describes the SOUL text with a seventh hint that names the model-pin line', async () => {
+    boot(stateWith({ soul: 'the current live soul text' }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const textarea = document.querySelector(
+      '[data-soul-edit] textarea[name="text"]',
+    ) as HTMLTextAreaElement;
+    expect(textarea.getAttribute('aria-describedby')).toBe(
+      'soul-editor-hint-p1 soul-editor-attribution-hint-p1 soul-editor-subagents-hint-p1 soul-editor-internet-hint-p1 soul-editor-turns-hint-p1 soul-editor-budget-hint-p1 soul-editor-model-hint-p1',
+    );
+    const hint = document.getElementById('soul-editor-model-hint-p1') as HTMLElement;
+    expect(hint.closest('[data-soul-edit]')).not.toBeNull();
+    expect(hint.getAttribute('data-i18n')).toBe('soulEditorModelHint');
+    expect(hint.textContent).toBe(STRINGS.en.soulEditorModelHint);
+    // Every override hint sits under the SOUL text, in the order the
+    // textarea's aria-describedby reads them out.
+    const hintIds = Array.from(document.querySelectorAll('[data-soul-edit] .soul-editor-hint')).map(
+      (node) => node.id,
+    );
+    expect(hintIds).toEqual(textarea.getAttribute('aria-describedby')?.split(' '));
+  });
+
+  it('quotes, in every locale, the exact model-pin line shape the engine parses', () => {
+    // The hint's own example is a line the parser reads as a pin.
+    const example = `${MODEL_PIN_LINE_PREFIX} sonnet`;
+    expect(soulModelPin(example)).toBe('sonnet');
+    expect(STRINGS.en.soulEditorModelHint).toContain(`“${example}”`);
+    expect(STRINGS.he.soulEditorModelHint).toContain(`“${example}”`);
+  });
+
+  it('translates the model-pin hint with the language switcher', async () => {
+    boot(stateWith({}));
+    await vi.advanceTimersByTimeAsync(1);
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+    const hint = document.getElementById('soul-editor-model-hint-p1');
+    expect(hint).not.toBeNull();
+    expect(hint?.textContent).toBe(STRINGS.he.soulEditorModelHint);
   });
 });
 
