@@ -1156,7 +1156,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .report-title:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .report-body { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
 .report-body label { font-size: var(--text-xs); color: var(--color-text-muted); }
-.report-desc, .report-action { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
+.report-desc, .report-action, .report-language { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .report-preview, .report-compose {
   font: inherit; font-size: var(--text-sm); cursor: pointer; align-self: flex-start;
   padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small);

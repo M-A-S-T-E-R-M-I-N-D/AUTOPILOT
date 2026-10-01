@@ -2002,9 +2002,19 @@ const EN_STRINGS = {
   composeLeak:
     'The composed report appears to contain a secret, credential, or personal file path — rephrase the note without raw credentials, tokens, or local file paths.',
   // Composer language doctrine, rule 3: the honest note beside an English
-  // composition that stands in for one in the note's own language.
+  // composition that stands in for one in the report's language (the note's
+  // own, or the one chosen below).
   composeLanguageFallback:
-    "Couldn't verify a composition in your note's language, so this one is in English.",
+    "Couldn't verify a composition in the report's language, so this one is in English.",
+  // Rule 2: the report language is choosable — the dashboard's locale by
+  // default, the note's own on request — and a note that reads as another
+  // language is surfaced, never silently overridden.
+  reportLanguageLabel: 'Report language',
+  reportLanguageTip:
+    'The language the composed report is written in. Error strings, commands and file paths always stay exactly as written.',
+  reportLanguageNote: 'Same as my note',
+  composeNoteLanguageDiffers:
+    'Your note reads as another language — choose "Same as my note" to compose in it.',
   // #41 (gabibi555): a task-shaped action needs a project page.
   reportActionNeedsProject: 'needs a project page',
   reportExecute: 'Execute',
@@ -3400,8 +3410,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     composeUnusable: 'המודל החזיר ניסוח לא שמיש — נסו לנסח את ההערה מחדש.',
     composeLeak:
       'הדיווח המנוסח נראה כמכיל סוד, אישור גישה או נתיב קובץ אישי — נסחו מחדש בלי אישורי גישה, טוקנים או נתיבים מקומיים.',
-    composeLanguageFallback:
-      'לא ניתן היה לאמת שהניסוח נכתב בשפת ההערה שלכם, ולכן הוא נוסח באנגלית.',
+    composeLanguageFallback: 'לא ניתן היה לאמת שהניסוח נכתב בשפת הדיווח, ולכן הוא נוסח באנגלית.',
+    reportLanguageLabel: 'שפת הדיווח',
+    reportLanguageTip:
+      'השפה שבה נכתב הדיווח המנוסח. מחרוזות שגיאה, פקודות ונתיבי קבצים תמיד נשארים בדיוק כפי שנכתבו.',
+    reportLanguageNote: 'כמו ההערה שלי',
+    composeNoteLanguageDiffers:
+      'ההערה שלכם נראית כתובה בשפה אחרת — בחרו "כמו ההערה שלי" כדי לנסח בה.',
     reportActionNeedsProject: 'דורש עמוד פרויקט',
     reportExecute: 'בצע',
     reportExecuting: 'מבצע…',

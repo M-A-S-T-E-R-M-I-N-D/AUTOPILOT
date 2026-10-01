@@ -8,6 +8,7 @@ import {
   composeReport,
   executableReportActions,
   hasComposeLeak,
+  isReportLanguage,
   primaryScriptOf,
   type ReportComposeDeps,
 } from '../../src/flight/report-compose.js';
@@ -343,6 +344,7 @@ describe('composeReport', () => {
       // #41: no context bundle ⇒ the projectless pair is all this page can run.
       executableActions: ['issue', 'pool-offer'],
       languageFallback: false,
+      noteLanguageDiffers: false,
     });
   });
 });
@@ -501,6 +503,116 @@ describe('composeReport language fidelity (doctrine rule 3)', () => {
     expect(prompt).toContain('compose the title and body in ENGLISH');
     expect(prompt).toContain('"severityReasoning" (in English) explaining why');
     expect(prompt).not.toContain("in the SAME language the operator's note is written in");
+  });
+});
+
+/**
+ * Composer language doctrine, rule 2: the report language is CHOOSABLE. A
+ * chosen language replaces the note's in the prompt and in the script check,
+ * and a note that reads as another language is surfaced, never overridden
+ * in silence.
+ */
+describe('composeReport honours a chosen report language (doctrine rule 2)', () => {
+  const ENGLISH_NOTE = 'the launch button stays disabled after a flight ends';
+  const HEBREW_NOTE = 'כפתור ההפעלה נשאר מושבת אחרי שהטיסה נגמרת';
+  const reply = (title: string, body: string, language: string, reasoning: string): string =>
+    'REPORT_COMPOSE:' +
+    JSON.stringify({
+      title,
+      body,
+      labels: ['bug'],
+      action: 'issue',
+      language,
+      severity: 'high',
+      severityReasoning: reasoning,
+    });
+  const hebrew = reply(
+    'כפתור ההפעלה נשאר מושבת',
+    '### What happened?\nהכפתור נשאר מושבת ומופיעה השגיאה `TypeError: x is undefined`.',
+    'he',
+    'חוסם את הזרימה הראשית.',
+  );
+  const english = reply(
+    'Launch button stays disabled',
+    '### What happened?\nThe launch button stays disabled after a flight ends.',
+    'en',
+    'Blocks the primary flow.',
+  );
+
+  it('asks the prompt for the chosen language, reasoning and reply field included', () => {
+    const prompt = buildReportComposePrompt({
+      description: ENGLISH_NOTE,
+      moduleSources: [],
+      language: 'he',
+    });
+    expect(prompt).toContain('compose the title and body in HEBREW,');
+    expect(prompt).toContain('"severityReasoning" (in Hebrew) explaining why');
+    expect(prompt).toContain('"language" is "he" — the composed title/body are written in Hebrew.');
+    expect(prompt).not.toContain("in the SAME language the operator's note is written in");
+  });
+
+  it('composes an English note in the chosen Hebrew, surfacing that the note differs', async () => {
+    const invoke = vi.fn<ReportComposeDeps['invoke']>(async () => hebrew);
+    const result = await composeReport({ invoke }, ENGLISH_NOTE, undefined, [], 'he');
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke.mock.calls[0]?.[0]).toContain('compose the title and body in HEBREW,');
+    expect(result).toMatchObject({
+      ok: true,
+      language: 'he',
+      languageFallback: false,
+      noteLanguageDiffers: true,
+    });
+  });
+
+  it('composes a Hebrew note in the chosen English, surfacing that the note differs', async () => {
+    const result = await composeReport(
+      { invoke: async () => english },
+      HEBREW_NOTE,
+      undefined,
+      [],
+      'en',
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      language: 'en',
+      languageFallback: false,
+      noteLanguageDiffers: true,
+    });
+  });
+
+  it('does not surface a difference when the note is in the chosen language', async () => {
+    const result = await composeReport(
+      { invoke: async () => hebrew },
+      HEBREW_NOTE,
+      undefined,
+      [],
+      'he',
+    );
+    expect(result).toMatchObject({ ok: true, languageFallback: false, noteLanguageDiffers: false });
+  });
+
+  it('falls back honestly to English, flagged, when the chosen Hebrew comes back English', async () => {
+    const invoke = vi.fn<ReportComposeDeps['invoke']>();
+    invoke.mockResolvedValueOnce(english).mockResolvedValueOnce(english);
+    const result = await composeReport({ invoke }, HEBREW_NOTE, undefined, [], 'he');
+    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke.mock.calls[1]?.[0]).toContain('compose the title and body in ENGLISH');
+    expect(result).toMatchObject({ ok: true, language: 'en', languageFallback: true });
+  });
+
+  it('refuses, keyed composeUnusable, when the chosen English comes back in another script', async () => {
+    const invoke = vi.fn(async () => hebrew);
+    const result = await composeReport({ invoke }, HEBREW_NOTE, undefined, [], 'en');
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ ok: false, reasonKey: 'composeUnusable' });
+  });
+
+  it('narrows only the choosable languages', () => {
+    expect(isReportLanguage('en')).toBe(true);
+    expect(isReportLanguage('he')).toBe(true);
+    for (const value of ['fr', 'EN', '', 7, null, undefined, 'constructor']) {
+      expect(isReportLanguage(value)).toBe(false);
+    }
   });
 });
 
