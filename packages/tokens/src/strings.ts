@@ -2001,6 +2001,10 @@ const EN_STRINGS = {
   composeUnusable: 'The model returned an unusable composition — try rephrasing the note.',
   composeLeak:
     'The composed report appears to contain a secret, credential, or personal file path — rephrase the note without raw credentials, tokens, or local file paths.',
+  // Composer language doctrine, rule 3: the honest note beside an English
+  // composition that stands in for one in the note's own language.
+  composeLanguageFallback:
+    "Couldn't verify a composition in your note's language, so this one is in English.",
   // #41 (gabibi555): a task-shaped action needs a project page.
   reportActionNeedsProject: 'needs a project page',
   reportExecute: 'Execute',
@@ -3396,6 +3400,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     composeUnusable: 'המודל החזיר ניסוח לא שמיש — נסו לנסח את ההערה מחדש.',
     composeLeak:
       'הדיווח המנוסח נראה כמכיל סוד, אישור גישה או נתיב קובץ אישי — נסחו מחדש בלי אישורי גישה, טוקנים או נתיבים מקומיים.',
+    composeLanguageFallback:
+      'לא ניתן היה לאמת שהניסוח נכתב בשפת ההערה שלכם, ולכן הוא נוסח באנגלית.',
     reportActionNeedsProject: 'דורש עמוד פרויקט',
     reportExecute: 'בצע',
     reportExecuting: 'מבצע…',

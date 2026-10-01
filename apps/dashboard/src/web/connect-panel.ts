@@ -33,6 +33,7 @@ export type ConnectPanelKey =
   | 'composeModelUnavailable'
   | 'composeUnusable'
   | 'composeLeak'
+  | 'composeLanguageFallback'
   | 'connected'
   | 'authModeApiKey'
   | 'connectApiKeyHint'
@@ -384,6 +385,10 @@ export interface ReportComposeResponse {
   readonly title?: string;
   readonly body?: string;
   readonly labels?: readonly string[];
+  /** Composer language doctrine, rule 3: the composition is an English
+   *  stand-in for one in the note's own language that failed the script
+   *  check — the status line says so. */
+  readonly languageFallback?: boolean;
   readonly reasoning?: string;
   /** #42: the STRINGS key behind a refusal — rendered by key, in the
    *  operator's language; `reasoning` stays the English log line. */
@@ -416,9 +421,10 @@ export function reportComposeStatusMeta(
     const labels = Array.isArray(data.labels)
       ? data.labels.filter((label): label is string => typeof label === 'string')
       : [];
+    const fallbackNote = data.languageFallback === true ? ' ' + tr('composeLanguageFallback') : '';
     return {
       className: 'gh-issue-compose-status gh-issue-compose-ok',
-      text: tr('reportComposeReady', { labels: labels.join(', ') }),
+      text: tr('reportComposeReady', { labels: labels.join(', ') }) + fallbackNote,
       title,
       body,
     };

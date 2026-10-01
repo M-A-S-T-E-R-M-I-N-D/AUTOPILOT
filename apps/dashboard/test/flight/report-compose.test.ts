@@ -8,6 +8,7 @@ import {
   composeReport,
   executableReportActions,
   hasComposeLeak,
+  primaryScriptOf,
   type ReportComposeDeps,
 } from '../../src/flight/report-compose.js';
 
@@ -341,7 +342,193 @@ describe('composeReport', () => {
       severityReasoning: 'Blocks the primary flow for every operator.',
       // #41: no context bundle ⇒ the projectless pair is all this page can run.
       executableActions: ['issue', 'pool-offer'],
+      languageFallback: false,
     });
+  });
+});
+
+/**
+ * Composer language doctrine (operator, 2026-09-06), rule 3: language
+ * fidelity is a HARD requirement. The composition is checked against the
+ * note's script after the fact, and on doubt the composer falls back
+ * HONESTLY to English — flagged for the screen, never shipped as a report
+ * in the wrong script.
+ */
+describe('composeReport language fidelity (doctrine rule 3)', () => {
+  const HEBREW_NOTE = 'כפתור ההפעלה נשאר מושבת אחרי שהטיסה נגמרת, מקבל TypeError: x is undefined';
+  const reply = (fields: {
+    readonly title: string;
+    readonly body: string;
+    readonly language: string;
+    readonly severityReasoning: string;
+  }): string =>
+    'REPORT_COMPOSE:' +
+    JSON.stringify({ labels: ['bug'], action: 'issue', severity: 'high', ...fields });
+  const english = reply({
+    title: 'Launch button stays disabled after a flight ends',
+    body: '### What happened?\nThe launch button stays disabled and the page shows `TypeError: x is undefined`.',
+    language: 'en',
+    severityReasoning: 'Blocks the primary flow for every operator.',
+  });
+
+  it('passes a Hebrew note composed in Hebrew, its technical blocks still English', async () => {
+    const body =
+      '### What happened?\nכפתור ההפעלה נשאר מושבת ומופיעה השגיאה `TypeError: x is undefined`.\n' +
+      '### Steps to reproduce\n```\npnpm run dashboard\n```\n### Expected behavior\nהכפתור חוזר לפעול.';
+    const invoke = vi.fn(async () =>
+      reply({
+        title: 'כפתור ההפעלה נשאר מושבת',
+        body,
+        language: 'he',
+        severityReasoning: 'חוסם את הזרימה הראשית.',
+      }),
+    );
+    const result = await composeReport({ invoke }, HEBREW_NOTE, undefined, []);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ ok: true, language: 'he', body, languageFallback: false });
+  });
+
+  it.each([
+    ['English, ignoring the rule', english],
+    [
+      'a third script',
+      reply({
+        title: 'Кнопка запуска остаётся неактивной',
+        body: '### What happened?\nКнопка запуска остаётся неактивной после полёта.',
+        language: 'he',
+        severityReasoning: 'Блокирует основной сценарий.',
+      }),
+    ],
+  ])('recomposes in English, flagged, when a Hebrew note comes back in %s', async (_l, first) => {
+    const invoke = vi.fn<ReportComposeDeps['invoke']>();
+    invoke.mockResolvedValueOnce(first).mockResolvedValueOnce(english);
+    const result = await composeReport({ invoke }, HEBREW_NOTE, undefined, []);
+    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke.mock.calls[1]?.[0]).toContain('compose the title and body in ENGLISH');
+    expect(result).toMatchObject({
+      ok: true,
+      title: 'Launch button stays disabled after a flight ends',
+      language: 'en',
+      languageFallback: true,
+    });
+  });
+
+  it('refuses, keyed composeUnusable, when the English fallback is not English either', async () => {
+    const hebrew = reply({
+      title: 'כפתור ההפעלה נשאר מושבת',
+      body: 'הכפתור נשאר מושבת.',
+      language: 'he',
+      severityReasoning: 'חוסם את הזרימה.',
+    });
+    const result = await composeReport(
+      { invoke: async () => hebrew },
+      'the launch button stays disabled after a flight ends',
+      undefined,
+      [],
+    );
+    expect(result).toMatchObject({ ok: false, reasonKey: 'composeUnusable' });
+  });
+
+  it('runs the leak guard on the English fallback too', async () => {
+    const fakeEmail = 'someone' + '@gmail.com';
+    const leaky = reply({
+      title: 'Launch button stays disabled',
+      body: `### What happened?\nReported by ${fakeEmail}.`,
+      language: 'en',
+      severityReasoning: 'Blocks the primary flow.',
+    });
+    const invoke = vi.fn<ReportComposeDeps['invoke']>();
+    invoke.mockResolvedValueOnce(english).mockResolvedValueOnce(leaky);
+    const result = await composeReport({ invoke }, HEBREW_NOTE, undefined, []);
+    expect(result).toMatchObject({ ok: false, reasonKey: 'composeLeak' });
+  });
+
+  // A one-line Hebrew sentence over a pasted English stack trace reads as
+  // Latin by letter count, yet the Hebrew composition IS the reporter's
+  // language — the check must not force it into English.
+  it('passes a Hebrew composition of a Hebrew line over a long pasted English stack trace', async () => {
+    const stack = Array.from(
+      { length: 12 },
+      (_v, i) => `    at renderFlightList (apps/dashboard/src/web/features/fly.ts:${i + 10}:5)`,
+    ).join('\n');
+    const note = `הכפתור נשאר מושבת\nTypeError: Cannot read properties of undefined\n${stack}`;
+    const invoke = vi.fn(async () =>
+      reply({
+        title: 'כפתור ההפעלה נשאר מושבת',
+        body: '### What happened?\nהכפתור נשאר מושבת.\n```\nTypeError: Cannot read properties of undefined\n```',
+        language: 'he',
+        severityReasoning: 'חוסם את הזרימה הראשית.',
+      }),
+    );
+    const result = await composeReport({ invoke }, note, undefined, []);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ ok: true, language: 'he', languageFallback: false });
+  });
+
+  it('scores each composed field on its own, so a stray fence cannot swallow the rest', async () => {
+    const invoke = vi.fn(async () =>
+      reply({
+        title: '```TypeError: x is undefined',
+        body: '### What happened?\nהכפתור נשאר מושבת אחרי שהטיסה נגמרת.',
+        language: 'he',
+        severityReasoning: 'חוסם את הזרימה הראשית לכל המפעילים.',
+      }),
+    );
+    const result = await composeReport({ invoke }, HEBREW_NOTE, undefined, []);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ ok: true, languageFallback: false });
+  });
+
+  it('keeps an English note that quotes a short Hebrew label in English, unflagged', async () => {
+    const invoke = vi.fn(async () => english);
+    const result = await composeReport(
+      { invoke },
+      'the tab labelled שלום renders left-to-right after a flight ends',
+      undefined,
+      [],
+    );
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ ok: true, languageFallback: false });
+  });
+
+  it('asks the fallback prompt for English, reasoning included, and never for the note language', () => {
+    const prompt = buildReportComposePrompt({
+      description: HEBREW_NOTE,
+      contextJson: undefined,
+      moduleSources: [],
+      englishFallback: true,
+    });
+    expect(prompt).toContain('compose the title and body in ENGLISH');
+    expect(prompt).toContain('"severityReasoning" (in English) explaining why');
+    expect(prompt).not.toContain("in the SAME language the operator's note is written in");
+  });
+});
+
+describe('primaryScriptOf', () => {
+  const HEBREW_WITH_ERROR = 'הכפתור לא עובד, מקבל TypeError: x is undefined';
+  const CHINESE_WITH_ERROR = '按钮不工作，报错 TypeError: Cannot read properties of undefined';
+
+  it.each([
+    ['plain English', 'the launch button stays disabled', 'latin'],
+    ['Hebrew with a short English error string', HEBREW_WITH_ERROR, 'hebrew'],
+    // A Han character carries about a word, so a long English error string
+    // must not outvote a Chinese sentence.
+    ['Chinese with a long English error string', CHINESE_WITH_ERROR, 'cjk'],
+    ['Japanese kana and kanji', 'ボタンが動かない', 'cjk'],
+    ['Korean', '실행 버튼이 비활성화된 상태로 남아 있습니다', 'hangul'],
+    ['Russian', 'Кнопка запуска остаётся неактивной', 'cyrillic'],
+    ['Arabic', 'يبقى زر التشغيل معطلاً', 'arabic'],
+    [
+      'English quoting a short Hebrew label',
+      'the tab labelled שלום renders left-to-right',
+      'latin',
+    ],
+  ])('reads %s as %s', (_label, text, script) => {
+    expect(primaryScriptOf(text)).toBe(script);
+  });
+
+  it('has no verdict for text without letters', () => {
+    expect(primaryScriptOf('500 !!! 42')).toBeNull();
   });
 });
 

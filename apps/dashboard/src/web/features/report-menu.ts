@@ -445,6 +445,9 @@ function paintReportDialog(pid, capture) {
           composedSeverity = j.severity && severityValues.indexOf(j.severity) !== -1 ? j.severity : null;
           composeStatusEl.className = 'report-compose-status report-compose-ok';
           composeStatusEl.textContent = tr('reportComposeAiReady', { action: reportActionLabel(actionSel.value) });
+          // Composer language doctrine, rule 3: an English stand-in for a
+          // composition in the note's own language says so, out loud.
+          if (j.languageFallback === true) composeStatusEl.textContent += ' ' + tr('composeLanguageFallback');
         } else {
           composeStatusEl.className = 'report-compose-status report-compose-fail';
           // #42: a keyed refusal renders in the operator's language; the
