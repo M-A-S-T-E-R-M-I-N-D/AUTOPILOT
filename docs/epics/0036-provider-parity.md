@@ -28,8 +28,9 @@ containment parity (board ap-mt2ukjg5-2) `ClaudeCliModel`/`GeminiCliModel` alrea
 containment regression from day one — and the same settle path as Gemini's below (injectable
 `reapDescendants` seam; a wall-clock-cap kill comes back `timedOut`, not as a crash). The Gemini
 adapter landed whole the same day:
-`packages/engine/src/adapters/gemini-cli.ts`'s `parseGeminiJsonOutput` reads `gemini --prompt …
---output-format json` output into a `ModelResponse` (fixture-tested, `costUsd` always `null`), and
+`packages/engine/src/adapters/gemini-cli.ts`'s `parseGeminiJsonOutput` read `gemini --prompt …
+--output-format json` output into a `ModelResponse` (fixture-tested, `costUsd` always `null`;
+retired 2026-10-01, below), and
 `GeminiCliModel` spawned it (`--model <model> --output-format json` — `stream-json` since
 2026-10-01, below — `--approval-mode yolo [--skip-trust] [--resume <id>] [--prompt <prompt>]`,
 verified against google-gemini/gemini-cli's
@@ -55,8 +56,9 @@ stderr (`gemini.tsx`), so that exit stays the no-envelope exit 42 `isGeminiResum
 error included as a `result` with `status: 'error'`, `packages/cli/src/utils/errors.ts`), fixture-tested.
 Its `result` is the text streamed after the last tool event, since JSON mode's `response` restarts
 every turn too (`nonInteractiveCli.ts`). Tokens come from the CLI's own `convertToStreamStats`
-totals, and a run killed before its `result` keeps the `init` session id. Nothing spawns the
-JSON-object form any more, so retiring `parseGeminiJsonOutput` is the next slice. Since 2026-09-28
+totals, and a run killed before its `result` keeps the `init` session id. Nothing spawned the
+JSON-object form any more, so `parseGeminiJsonOutput` and its tests were retired the same day; the
+stream parse's own tests cover every helper the two shared. Since 2026-09-28
 it has Codex's resume fallback too: `resolveSessionId`
 (`packages/cli/src/gemini.tsx`) looks a `--resume` id up before the run starts and exits
 `FATAL_INPUT_ERROR` (42, `packages/core/src/utils/exitCodes.ts`) on an unknown one, writing no
@@ -177,7 +179,8 @@ fatal error (turn limit, API failure) writes its error-only object to **stderr**
 first and falls back to stderr. Tokens follow the CLI's own `convertToStreamStats` mapping —
 `tokens.input` (already `prompt − cached`) to `tokensIn`, `candidates` to `tokensOut`, `cached` to
 `cacheRead` — summed over every model in `stats.models`, since the CLI's router can add its own.
-A Windows trap, fixed 2026-10-01, the same one Codex had: npm installs `gemini` as a `gemini.cmd`
+That JSON-object parse was retired on 2026-10-01: stream-json writes a fatal error to stdout as its
+`result` event, and that event's `stats` already carry the CLI's own totals. A Windows trap, fixed 2026-10-01, the same one Codex had: npm installs `gemini` as a `gemini.cmd`
 shim that `execFile` cannot launch (ENOENT), so the adapter could not start on Windows. A bare
 `gemini` now runs through `cmd.exe /c`, attached, with every prompt on stdin instead of `--prompt`
 (headless mode already triggers on a non-TTY stdin). The model, approval mode and resume id still
