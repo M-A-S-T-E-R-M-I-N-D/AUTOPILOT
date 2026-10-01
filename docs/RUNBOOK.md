@@ -457,7 +457,7 @@ inputs: a misleading description cannot talk its way past the ritual. Checks run
 
 | Check (in order) | Decision |
 |---|---|
-| Touches a security-sensitive path (guard/containment/auth/CSP surfaces, CI workflow config, `CODEOWNERS`/branch-protection, the credential-persisting `connection/` module, the CSRF/rate-limit `server/` module, the `landing/`, `release/`, and `control/` execute surfaces, or this ritual's own decision/execute files) | queue-for-human — NEVER auto-merged, no matter how green the gate; always waits for MASTERMIND's eyes |
+| Touches a security-sensitive path (guard/containment/auth/CSP surfaces, CI workflow config, `CODEOWNERS`/branch-protection, the `TRUSTED-CONTRIBUTORS.md` standing registry, the credential-persisting `connection/` module, the CSRF/rate-limit `server/` module, the `landing/`, `release/`, and `control/` execute surfaces, or this ritual's own decision/execute files) | queue-for-human — NEVER auto-merged, no matter how green the gate; always waits for MASTERMIND's eyes |
 | Renames a file OUT of a security-sensitive path (the fetched diff's `rename from` headers — gh's files list reports only a rename's NEW name) | queue-for-human — the path sweep completed; a guarded file's relocation gets no automated verdict any more than an in-place edit would |
 | gh's files report was unreadable (not a list of named paths) | queue-for-human — the path sweep judged only what it could read and cannot claim to have checked every touched path; an unreadably-swept PR might be security-touching |
 | gh's changed-files total exceeds the paths it enumerated (`gh pr list` caps the files list at 100 entries) | queue-for-human — an incomplete security sweep fails closed; a wide PR could hide a sensitive file past position 100 |
