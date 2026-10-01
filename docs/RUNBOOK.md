@@ -344,8 +344,17 @@ add a line `Turns: 60` (any positive whole number) to that project's SOUL. Its f
 the engine, the prompt's TURN BUDGET section and the turn-cap death feedback at that number
 (`firingMaxTurns()` in `packages/engine/src/config.ts`). A SOUL can only tighten the ceiling: a
 number at or above it leaves the fleet-wide ceiling in force, so no project spends past what you
-set for the fleet. Like every SOUL override it is read when a flight starts. The SOUL editor names
-all five override lines under its text.
+set for the fleet. Like every SOUL override it is read when a flight starts.
+
+**Per-firing budget, per project** (board ap-muo35gzl-2): every firing runs under the fleet-wide
+per-firing budget (the fly bar's "$ per firing"). To cap ONE project's firings lower — a repo whose
+units are cheap, or one you want flown on a short leash — add a line `Budget: $5` (the `$` is
+optional, cents allowed) to that project's SOUL. Its flights then run the engine's spend cap, the
+routed-budget lockstep and TOTAL-SPEND mode's stop decision at that amount (`firingMaxBudgetUsd()`
+in `packages/engine/src/config.ts`), and the flight log's opening line names both figures. A SOUL
+can only tighten the budget: an amount at or above the fleet-wide one leaves it in force, and
+nothing goes under the $0.50 floor the fly bar itself keeps. Like every SOUL override it is read
+when a flight starts. The SOUL editor names all six override lines under its text.
 
 ## 7. Self-mined ritual proposals (CLOSED-TASK AUDIT / DOC-FRESHNESS)
 

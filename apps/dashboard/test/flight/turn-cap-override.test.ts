@@ -23,7 +23,7 @@ describe('fly.ts wires the "Turns: N" SOUL line', () => {
   });
 
   it('hands the one number to the engine cap, the prompt, and the turn-cap death feedback', () => {
-    expect(flySource).toMatch(/maxBudgetUsd: budgetUsd,\n\s+maxTurns,\n/);
+    expect(flySource).toMatch(/maxBudgetUsd: firingBudgetUsd,\n\s+maxTurns,\n/);
     expect(flySource).toMatch(/buildFiringPrompt\(\{[^}]*\n\s+maxTurns,/s);
     expect(flySource).toContain('DIED AT THE TURN CAP (${maxTurns} turns)');
     // The fleet-wide constant reaches a firing only through that one number.
