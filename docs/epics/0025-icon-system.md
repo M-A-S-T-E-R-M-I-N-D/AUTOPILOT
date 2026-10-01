@@ -170,8 +170,14 @@ propagation, and the filled style does not match the nav.
    did. They draw newly vendored `arrow-up` and `arrow-down` strokes now,
    sized like the focus, delete and unpin icons beside them, and each
    button's aria-label stays its only name. No census block was added for
-   ↑/↓: like ⇧ and ⌘ they stay free as key names. The screenshots refresh
-   (`docs/screens/`) is still open.
+   ↑/↓: like ⇧ and ⌘ they stay free as key names. **Duplicate badge
+   2026-10-01:** Miscellaneous Mathematical Symbols-B (U+2980–U+29FF) sat
+   outside every census range, yet the issue triage panel's "⧉ duplicate"
+   badge led with U+29C9 as a copy icon, in a font few UIs carry. It leads
+   with a newly vendored `copy` now (`issueTriageDecisionIcon`), and the
+   census pins the block at zero in web/ and STRINGS. Only the accept
+   badge's ✓ stays, one of the three plain marks the census allows. The
+   screenshots refresh (`docs/screens/`) is still open.
 
 ## Related
 

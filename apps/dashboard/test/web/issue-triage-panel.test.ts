@@ -24,8 +24,8 @@ describe('issueTriageDecisionLabel', () => {
     expect(issueTriageDecisionLabel('accept')).toBe('✓ accept');
   });
 
-  it('labels a duplicate decision', () => {
-    expect(issueTriageDecisionLabel('duplicate')).toBe('⧉ duplicate');
+  it('labels a duplicate decision without a baked-in ⧉ (epic 0025: the icon system carries it instead)', () => {
+    expect(issueTriageDecisionLabel('duplicate')).toBe('duplicate');
   });
 
   it('labels a skip decision without a baked-in ⏭ (epic 0025: the icon system carries it instead)', () => {
@@ -58,9 +58,12 @@ describe('issueTriageDecisionIcon', () => {
     expect(issueTriageDecisionIcon('skip')).toBe('skip-forward');
   });
 
-  it('names no icon for accept/duplicate — their ✓/⧉ badge stays text-only', () => {
+  it('names the copy icon for a duplicate decision', () => {
+    expect(issueTriageDecisionIcon('duplicate')).toBe('copy');
+  });
+
+  it('names no icon for accept — its ✓ badge stays text-only', () => {
     expect(issueTriageDecisionIcon('accept')).toBe('');
-    expect(issueTriageDecisionIcon('duplicate')).toBe('');
   });
 
   it('names no icon for an unrecognized decision', () => {
