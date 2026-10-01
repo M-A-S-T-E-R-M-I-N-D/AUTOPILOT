@@ -8,11 +8,18 @@
  * them — never got the matching [data-tip] partner, so sighted mouse/
  * keyboard users saw nothing on hover/focus even though screen readers
  * announced it. They now explain themselves like the rest of the shell.
+ *
+ * Epic 0025 (board web-mtywp7zq-55f3o9): the reorder buttons painted ↑/↓
+ * as their whole faces, the way the plan canvas zoom bar painted +/−. They
+ * draw the vendored arrow-up/arrow-down strokes now; the aria-label above
+ * stays each button's only name.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
+import { layoutCss } from '../../src/web/layout-css.js';
+import { ICON_NAMES } from '../../src/web/icons.js';
 
 const PROJECT = {
   id: 'p1',
@@ -98,6 +105,34 @@ describe('task action buttons explain themselves on hover/focus', () => {
       expect(tip).toBe(btn?.getAttribute('aria-label'));
     }
     expect(focusBtn?.getAttribute('data-tip')).toBe('Focus the autopilot on "Ship the thing"');
+  });
+
+  it('draws the reorder buttons as vendored arrow strokes, not ↑/↓ glyph faces (epic 0025)', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    for (const [dir, icon] of [
+      ['up', 'arrow-up'],
+      ['down', 'arrow-down'],
+    ] as const) {
+      const btn = document.querySelector(`[data-task-move="${dir}"]`) as HTMLButtonElement;
+      // Law 2: the icon alone is decorative; the aria-label names the button.
+      expect(btn.textContent).toBe('');
+      expect(btn.children).toHaveLength(1);
+      const svg = btn.firstElementChild as Element;
+      expect(svg.tagName.toLowerCase()).toBe('svg');
+      expect(svg.getAttribute('class')).toBe('icon icon-' + icon);
+      expect(svg.getAttribute('aria-hidden')).toBe('true');
+      expect(svg.childElementCount).toBeGreaterThan(0);
+      expect(btn.getAttribute('aria-label')).toBeTruthy();
+      expect(ICON_NAMES).toContain(icon);
+    }
+  });
+
+  it('sizes the arrow strokes like the focus, delete and unpin icons beside them', () => {
+    expect(layoutCss()).toContain(
+      '.task-move > .icon, .task-focus-btn > .icon, .task-delete-btn > .icon, .task-unpin-btn > .icon { inline-size: 1.1em; block-size: 1.1em; vertical-align: middle; }',
+    );
   });
 
   it('gives the done and delete buttons a data-tip matching their aria-label', async () => {

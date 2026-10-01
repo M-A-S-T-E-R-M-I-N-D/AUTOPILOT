@@ -165,9 +165,13 @@ propagation, and the filled style does not match the nav.
    busy labels go through one `setTaggedLabel()`, so the icon survives
    "Syncing…", a failed sync and any sweep. The census pins ⇪ at zero in
    web/ and STRINGS; ⇧ and the other white arrows stay free as key names.
-   Not yet weighed: the task row's ↑/↓ reorder buttons paint plain arrows
-   as their whole faces, the way the zoom bar's +/− did. The screenshots
-   refresh (`docs/screens/`) is still open.
+   **Reorder buttons 2026-10-01:** the task row's ↑/↓ reorder buttons
+   painted plain arrows as their whole faces, the way the zoom bar's +/−
+   did. They draw newly vendored `arrow-up` and `arrow-down` strokes now,
+   sized like the focus, delete and unpin icons beside them, and each
+   button's aria-label stays its only name. No census block was added for
+   ↑/↓: like ⇧ and ⌘ they stay free as key names. The screenshots refresh
+   (`docs/screens/`) is still open.
 
 ## Related
 

@@ -532,6 +532,16 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242' }],
     ['path', { d: 'm8 17 4-4 4 4' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the task row's
+  // reorder buttons drop their ↑/↓ glyph faces, the way the zoom bar's +/− did.
+  'arrow-up': [
+    ['path', { d: 'm5 12 7-7 7 7' }],
+    ['path', { d: 'M12 19V5' }],
+  ],
+  'arrow-down': [
+    ['path', { d: 'M12 5v14' }],
+    ['path', { d: 'm19 12-7 7-7-7' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;
