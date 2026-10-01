@@ -18,7 +18,12 @@ import {
   fileConvergenceRedTask,
   closeResolvedConvergenceRedTasks,
 } from './flight/convergence-red-task.js';
-import { QUOTA_REST_MS, recordModelDrained, routeTaskModel } from './flight/model-scoreboard.js';
+import {
+  QUOTA_REST_MS,
+  recordModelDrained,
+  routeTaskModel,
+  tierOverride,
+} from './flight/model-scoreboard.js';
 import { ROUND_START_SLACK_MS, endRound, gitIn } from './flight/round-evaluation.js';
 import { closeLandedStrandTasks, strandTaskBody, strandTaskTitle } from './flight/strand-tasks.js';
 import {
@@ -101,6 +106,7 @@ import {
   soulOptsOutOfInternet,
   firingMaxTurns,
   firingMaxBudgetUsd,
+  soulModelPin,
   firingIdOf,
   scanUsagePoolListPriceUsd,
   type LoopDeps,
@@ -453,6 +459,14 @@ async function main(): Promise<void> {
     // the engine's spend cap, the routed-budget lockstep and TOTAL-SPEND
     // mode's stop decision below.
     const firingBudgetUsd = Math.max(FLY_BUDGET_FLOOR_USD, firingMaxBudgetUsd(soulOwn, budgetUsd));
+    // And a "Model: <name>" line pins this project's firings to one model in
+    // place of the scoreboard's routing. It sits UNDER the operator's
+    // flight-wide env pins (AUTOPILOT_MODEL and the per-tier variables — the
+    // launch-time levers always win) and ABOVE routing: one name for the
+    // flight default below (free picks, which routing never touches) and
+    // for every routed firing, exactly as AUTOPILOT_MODEL behaves, scoped to
+    // this project.
+    const soulModel = soulModelPin(soulOwn);
 
     // Bash containment slice 3 (docs/epics/0004-bash-containment-worktree.md):
     // the model, gate, and firing-scoped git operations below run inside a
@@ -968,7 +982,7 @@ async function main(): Promise<void> {
     const config: EngineConfig = {
       ...DEFAULT_ENGINE_CONFIG,
       ...firingToolGrant({ subagentsEnabled, internetEnabled }),
-      primaryModel: process.env['AUTOPILOT_MODEL'] ?? 'sonnet',
+      primaryModel: process.env['AUTOPILOT_MODEL'] ?? soulModel ?? 'sonnet',
       fallbackModel: 'opus',
       resilience: {
         ...DEFAULT_ENGINE_CONFIG.resilience,
@@ -1483,11 +1497,18 @@ async function main(): Promise<void> {
                 process.env,
                 now(),
                 instanceId ?? 'base',
+                soulModel,
               );
               routedModel = choice.model;
               routingReason = ` (${choice.phase}: ${choice.reason})`;
             } catch {
-              routedModel = resolvePrimaryModelForTier(tier, process.env, topAvailable.id);
+              // The scoreboard could not be read: the same precedence by hand
+              // — the operator's env pins, the project's SOUL pin, the fixed
+              // split.
+              routedModel =
+                tierOverride(tier, process.env) ??
+                soulModel ??
+                resolvePrimaryModelForTier(tier, process.env, topAvailable.id);
             }
           }
           if (routedModel !== undefined) {
@@ -1889,6 +1910,16 @@ async function main(): Promise<void> {
         : `Flying with REAL Claude — auth: ${auth.mode}, ${perFiring}, up to ${firings} firing(s).`,
     );
     out('This spends subscription quota and does real autonomous work (gated + revertible).');
+    if (soulModel !== null) {
+      // A free pick never prints a 🧭 routing line, so the pin is announced
+      // once here — and so is the env lever that beats it, when one is set.
+      const flightPin = process.env['AUTOPILOT_MODEL'];
+      out(
+        flightPin
+          ? `Model: this project's SOUL pins ${soulModel}, but the flight-wide AUTOPILOT_MODEL=${flightPin} wins.`
+          : `Model: this project's SOUL pins its firings to ${soulModel} in place of routing (a per-tier AUTOPILOT_*_MODEL still wins for routed tasks).`,
+      );
+    }
     const flightStartTs = now(); // scopes this flight's telemetry (post-flight triage stats)
 
     // The self-sorting brain (founder directive: "the pilot knows what to

@@ -811,9 +811,16 @@ const server = createServer({
   checkDiagnosis: createCheckDiagnosisApi(),
   // KEEPER TRIAGE ritual (epic 0007, "PLATFORM 3/7"): project-scoped — dedups
   // an incoming issue against that project's own open board tasks + backlog
-  // file, unlike KEEPER REVIEW's single canonical repo above.
-  issueTriage: createIssueTriagePreviewApi(dbPath),
-  issueTriageExecute: createIssueTriageExecuteApi(dbPath),
+  // file, unlike KEEPER REVIEW's single canonical repo above. Every `gh` call
+  // triage makes is bound to the ONE repository the dashboard process itself
+  // runs in (unlike its board reads/writes, bound to whatever project id the
+  // caller names) — both wrapped in refuseRepoMismatchedPreview (EPIC 0019
+  // S3's repo-mismatch guard, ported from MIRROR PASS: debrief
+  // 2026-10-01-verdict-ap-munfszto-0) so a project checked out of another
+  // GitHub repository never has that repository's issues judged against it
+  // and filed onto its own board.
+  issueTriage: refuseRepoMismatchedPreview(dbPath, createIssueTriagePreviewApi(dbPath)),
+  issueTriageExecute: refuseRepoMismatchedPreview(dbPath, createIssueTriageExecuteApi(dbPath)),
   // KEEPER DISCUSSIONS ritual (epic 0007 S8, board web-mtlsiac0-v8rksh): like
   // KEEPER REVIEW above, acts on the ONE canonical repo this dashboard process
   // runs in — no project id, gh resolves {owner}/{repo} from its own cwd —

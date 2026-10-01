@@ -289,6 +289,38 @@ The other six are per-project or same-folder lane mechanics.
 None of this changes the four locks below or the acceptance criteria; all six
 slices remain unchanged and live in production.
 
+Freshness check (2026-10-01): `fly.ts` gained five commits since the 2026-09-30
+check above. All five are slices of one board task (ap-muo35gzl-2, MASTER-PLAN
+§5.4's per-project overrides). Each adds a line a project's SOUL may carry to
+decline or tighten one fleet-wide default for that project's firings only:
+
+- `355c7895`: "Attribution: off" drops the `Assisted-by:` trailer instruction.
+- `a224c3d0`: "Subagents: off" moves the Agent, Task and Workflow tools to the
+  deny list and swaps out the prompt's PARALLEL section.
+- `be38bca3`: "Internet: off" does the same for WebSearch and WebFetch and
+  swaps out "Research first" (THREAT-MODEL T6).
+- `58c0435b`: "Turns: N" caps the firing's turns.
+- `08ad2808`: "Budget: $N" caps the firing's spend.
+
+Two of this epic's guarantees bear on them, and both hold:
+
+- "Each reading its own board/SOUL/backlog": `fly.ts` reads every override once
+  per flight from `soulOwn`, the flown project's own `projects.soul` row. It
+  never reads them from the fleet-wisdom-layered `soul` that
+  `composeSoulWithFleetWisdom` builds. So one project's override cannot reach
+  another project's firings, and a ratified fleet-wisdom line cannot switch an
+  override on for every project at once.
+- "Subscription quota is shared": `firingMaxTurns` and `firingMaxBudgetUsd`
+  (`packages/engine/src/config.ts`) take the smaller of the SOUL's figure and
+  the fleet-wide one. A SOUL can tighten, never loosen, so no project claims
+  more of the shared subscription than the operator gave the fleet. The budget
+  is still held over the fly bar's own floor (`FLY_BUDGET_FLOOR_USD`).
+
+The two tool-grant overrides only narrow the grant, so neither opens a
+cross-project write path. The gate → sha → HEAD chain is unchanged. None of this
+changes the four locks below or the acceptance criteria; all six slices remain
+unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this

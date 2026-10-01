@@ -1763,9 +1763,9 @@ function soulEditorPanel(projectId, soulText) {
   // The per-project overrides (FLEET_WISDOM_OPT_OUT_LINE in
   // flight/fleet-wisdom-mining.ts, ATTRIBUTION_OPT_OUT_LINE in
   // flight/attribution.ts, SUBAGENTS_OPT_OUT_LINE, INTERNET_OPT_OUT_LINE,
-  // TURN_CAP_LINE_PREFIX and BUDGET_CAP_LINE_PREFIX in packages/engine
-  // config.ts) are SOUL lines, so they are named right where they are
-  // written — and read out with the text they describe.
+  // TURN_CAP_LINE_PREFIX, BUDGET_CAP_LINE_PREFIX and MODEL_PIN_LINE_PREFIX in
+  // packages/engine config.ts) are SOUL lines, so they are named right where
+  // they are written — and read out with the text they describe.
   var hint = el('p', 'soul-editor-hint', 'Per-project override: add the line “Fleet wisdom: off” to keep shared fleet wisdom out of this project’s firings.');
   hint.id = 'soul-editor-hint-' + projectId;
   hint.setAttribute('data-i18n', 'soulEditorWisdomHint');
@@ -1784,9 +1784,12 @@ function soulEditorPanel(projectId, soulText) {
   var budgetHint = el('p', 'soul-editor-hint', 'Add a line “Budget: $5” to cap what each of this project’s firings may spend, under the fleet-wide per-firing budget — an amount above it leaves the fleet figure in force.');
   budgetHint.id = 'soul-editor-budget-hint-' + projectId;
   budgetHint.setAttribute('data-i18n', 'soulEditorBudgetHint');
+  var modelHint = el('p', 'soul-editor-hint', 'Add a line “Model: sonnet” to fly every one of this project’s firings on that model in place of the fleet’s routing — a family alias or a full model id, as the CLI spells it; a model set flight-wide at launch still wins.');
+  modelHint.id = 'soul-editor-model-hint-' + projectId;
+  modelHint.setAttribute('data-i18n', 'soulEditorModelHint');
   textarea.setAttribute(
     'aria-describedby',
-    hint.id + ' ' + attributionHint.id + ' ' + subagentsHint.id + ' ' + internetHint.id + ' ' + turnsHint.id + ' ' + budgetHint.id,
+    hint.id + ' ' + attributionHint.id + ' ' + subagentsHint.id + ' ' + internetHint.id + ' ' + turnsHint.id + ' ' + budgetHint.id + ' ' + modelHint.id,
   );
   var unlock = el('button', 'soul-editor-unlock');
   unlock.appendChild(iconEl('lock'));
@@ -1814,6 +1817,7 @@ function soulEditorPanel(projectId, soulText) {
   form.appendChild(internetHint);
   form.appendChild(turnsHint);
   form.appendChild(budgetHint);
+  form.appendChild(modelHint);
   var row = el('div', 'soul-editor-row');
   row.appendChild(unlock);
   row.appendChild(btn);
@@ -3126,13 +3130,17 @@ function tasksSection(c) {
         handle.setAttribute('data-i18n-tip', 'taskDragTip');
         li.appendChild(handle);
         // Reorder controls — the accessible primary (keyboard-first; no-DnD-quirks).
-        var up = el('button', 'task-move', '↑');
+        // Epic 0025: each face is a vendored arrow stroke (was a ↑/↓ glyph);
+        // the aria-label below is its only name.
+        var up = el('button', 'task-move');
+        up.appendChild(iconEl('arrow-up'));
         up.setAttribute('type', 'button');
         up.setAttribute('data-task-move', 'up');
         var upTip = taskMoveTip('up', t.title, openIdx, openCount);
         up.setAttribute('data-tip', upTip);
         up.setAttribute('aria-label', upTip);
-        var down = el('button', 'task-move', '↓');
+        var down = el('button', 'task-move');
+        down.appendChild(iconEl('arrow-down'));
         down.setAttribute('type', 'button');
         down.setAttribute('data-task-move', 'down');
         var downTip = taskMoveTip('down', t.title, openIdx, openCount);

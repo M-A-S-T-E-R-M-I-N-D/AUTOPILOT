@@ -1077,3 +1077,40 @@ describe('.github/labels.json × KEEPER discussions ritual (regression, epic 001
     });
   });
 });
+
+// Same law, KEEPER triage × the seeded `declined` label: the maintainer's
+// verdict on an issue is a steering input (epic law 2). CONTRIBUTING.md keeps
+// a declined issue open for the reporter to argue with ("Disagree? Reply"),
+// and KEEPER lists every OPEN issue — so a pass that does not read the label
+// boards the issue for the fleet anyway, or asks its reporter to fill in a
+// template on an issue that was already answered.
+describe("HOUSE_TAXONOMY_LABELS × KEEPER triage's declined issues (regression, epic 0019 additive-only law)", () => {
+  const declined = HOUSE_TAXONOMY_LABELS.find((label) => label.name === 'declined');
+  // Filed by a contributor on the bug template, like nothing on the board.
+  const issue: IncomingIssue = {
+    number: 7,
+    title: 'The fleet table drops a column',
+    body:
+      '### What happened?\nA column vanished.\n\n' +
+      '### Steps to reproduce\n1. Open the fleet view\n\n' +
+      '### Expected behavior\nEvery column shows.\n',
+    author: GUEST.login,
+  };
+  const triage = (labels: readonly string[], body = issue.body) =>
+    planIssueTriage({ ...issue, body, labels }, [], [], undefined, undefined, MAINTAINER.login)
+      .decision;
+
+  it('seeds the label, with its reason left to a comment', () => {
+    expect(declined?.description).toContain('comment');
+  });
+
+  it('never boards an open issue the maintainer has declined', () => {
+    expect(triage([])).toBe('accept');
+    expect(triage([declined?.name ?? ''])).toBe('skip');
+  });
+
+  it('never asks a declined issue to fill in the template', () => {
+    expect(triage([], 'It broke.')).toBe('needs-format');
+    expect(triage([declined?.name ?? ''], 'It broke.')).toBe('skip');
+  });
+});

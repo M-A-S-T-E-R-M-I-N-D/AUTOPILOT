@@ -130,7 +130,9 @@ doing the same work:
    Definition of Done — touching only those is what keeps your PR
    squash-mergeable and version-compatible (the gate + KEEPER verify the rest).
 5. **Declined ≠ silent**: an issue labeled `declined` always carries a
-   reasoned comment. Disagree? Reply — reasons are for discussing.
+   reasoned comment, and KEEPER never boards it for the fleet while the
+   label is on.
+   Disagree? Reply — reasons are for discussing.
 
 ## Flaky tests
 

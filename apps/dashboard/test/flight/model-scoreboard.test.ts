@@ -22,6 +22,7 @@ import {
   laneOfFiring,
   renderScoreboard,
   tierOverride,
+  SOUL_PIN_REASON,
   recordModelDrained,
   drainedAliases,
   QUOTA_REST_MS,
@@ -268,6 +269,58 @@ describe('the store side: decisions recorded, firings matched', () => {
     const choice = routeTaskModel(store, 'p1', 'escalated', 't-1', {}, now);
     expect(TIER_CANDIDATES.escalated).toContain(choice.model);
     expect(choice.reason).not.toContain('resting');
+  });
+
+  it("flies a task on the project's SOUL pin, under the operator's env pins (board ap-muo35gzl-2)", () => {
+    const now = 10 * 24 * 60 * 60 * 1000;
+    // No env lever set: the SOUL's name replaces the scoreboard, and says so.
+    expect(routeTaskModel(store, 'p1', 'default', 't-1', {}, now, 'base', 'haiku')).toEqual({
+      model: 'haiku',
+      phase: 'exploit',
+      reason: SOUL_PIN_REASON,
+    });
+    // A name this build has never heard of still flies — the pin describes, never restricts.
+    expect(
+      routeTaskModel(store, 'p1', 'escalated', 't-2', {}, now + 1, 'base', 'ollama/llama3.1:8b')
+        .model,
+    ).toBe('ollama/llama3.1:8b');
+    // The operator's flight-wide pin wins over the SOUL's…
+    expect(
+      routeTaskModel(
+        store,
+        'p1',
+        'default',
+        't-1',
+        { AUTOPILOT_MODEL: 'opus' },
+        now + 2,
+        'base',
+        'haiku',
+      ),
+    ).toEqual({ model: 'opus', phase: 'exploit', reason: 'pinned by the operator' });
+    // …and so does the tier's own variable.
+    expect(
+      routeTaskModel(
+        store,
+        'p1',
+        'default',
+        't-1',
+        { AUTOPILOT_DEFAULT_MODEL: 'sonnet' },
+        now + 3,
+        'base',
+        'haiku',
+      ).model,
+    ).toBe('sonnet');
+    // Without a pin of any kind the scoreboard chooses, as before.
+    expect(TIER_CANDIDATES.default).toContain(
+      routeTaskModel(store, 'p1', 'default', 't-1', {}, now + 4).model,
+    );
+    // A SOUL-pinned decision is recorded like any other, so the scoreboard
+    // counts the firing it produces against the model that served it.
+    routeTaskModel(store, 'p1', 'mechanical', 't-3', {}, now + 5, 'base', 'sonnet');
+    firing('p1:firing-1', 't-3', 'claude-sonnet-5', 1, now + 10);
+    expect(readRoutedFirings(store, 'p1', now + 50)).toEqual([
+      { tier: 'mechanical', modelId: 'claude-sonnet-5', shipped: true, costUsd: 2 },
+    ]);
   });
 
   it("records each decision, and matches each firing to its lane's latest decision before it", () => {

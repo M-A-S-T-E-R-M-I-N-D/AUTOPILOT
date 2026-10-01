@@ -347,10 +347,31 @@ export function tierOverride(tier: ModelTier, env: NodeJS.ProcessEnv): string | 
   return env['AUTOPILOT_MODEL'] || specific || undefined;
 }
 
+/** The reason a routed firing's 🧭 line gives when the project's own SOUL
+ *  chose its model (`soulModelPin()` in packages/engine config.ts). */
+export const SOUL_PIN_REASON = "pinned by the project's SOUL";
+
+/** The pin in force for `tier`, if any: the operator's env levers first —
+ *  flight-wide, they always win — then the project's own SOUL line, which
+ *  replaces the scoreboard for that project alone (board ap-muo35gzl-2). */
+function pinnedChoice(
+  tier: ModelTier,
+  env: NodeJS.ProcessEnv,
+  soulPin: string | null,
+): ModelChoice | null {
+  const operator = tierOverride(tier, env);
+  if (operator !== undefined) {
+    return { model: operator, phase: 'exploit', reason: 'pinned by the operator' };
+  }
+  if (soulPin !== null) return { model: soulPin, phase: 'exploit', reason: SOUL_PIN_REASON };
+  return null;
+}
+
 /**
- * The model one task flies under, and why — the override if one is set,
- * otherwise the scoreboard's choice. The decision is recorded so the
- * scoreboard can count the firing it produces.
+ * The model one task flies under, and why — the override if one is set
+ * (the operator's env, else the project's SOUL), otherwise the scoreboard's
+ * choice. The decision is recorded so the scoreboard can count the firing
+ * it produces.
  */
 export function routeTaskModel(
   store: Store,
@@ -360,12 +381,10 @@ export function routeTaskModel(
   env: NodeJS.ProcessEnv,
   now: number,
   lane = 'base',
+  soulPin: string | null = null,
 ): ModelChoice {
-  const pinned = tierOverride(tier, env);
-  const choice: ModelChoice =
-    pinned !== undefined
-      ? { model: pinned, phase: 'exploit', reason: 'pinned by the operator' }
-      : chooseAvailableModel(store, projectId, tier, taskId, now);
+  const choice =
+    pinnedChoice(tier, env, soulPin) ?? chooseAvailableModel(store, projectId, tier, taskId, now);
   recordModelRoute(store, projectId, { taskId, tier, model: choice.model, lane }, now);
   return choice;
 }
