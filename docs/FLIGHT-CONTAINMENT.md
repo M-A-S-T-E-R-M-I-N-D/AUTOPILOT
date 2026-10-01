@@ -77,8 +77,10 @@ for flying untrusted targets, or on a shared machine, or unattended.
    untracked or staged in its worktree or committed on its lane but not yet synced
    (`checkPreCommitSiblingNewFiles`). Two lanes adding one file is a certain add/add
    conflict: the second sync-back aborts and strands that lane's later commits. This
-   is collision control, not containment; it rides the same hook because the commit is
-   the last moment to catch it. The hook also denies a process-kill command (`kill`,
+   collision control detects the overlap at the moment of commit, allowing the firing to
+   reshape before ever recording the collision in history (the existing post-ship verify
+   in fly.ts stays as the backstop for whatever slips past this gate-layer check). The
+   hook also denies a process-kill command (`kill`,
    `taskkill`, `pkill`, `killall`, `Stop-Process`) and a stop or restart of the dashboard,
    because a flight once killed its own dashboard host this way. It denies `git help` and
    `git … --help` too, because on Windows git opens its HTML docs in the operator's own
