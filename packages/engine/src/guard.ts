@@ -1033,7 +1033,9 @@ function isLoopbackOrPrivateHost(host: string): boolean {
     return true;
   }
   const mapped = ipv4MappedToDotted(host);
-  return mapped !== null && (LOOPBACK_HOST_RE.test(mapped) || PRIVATE_IPV4_RE.test(mapped));
+  // Stryker disable next-line ConditionalExpression: `.test(null)` tests the string "null", which neither pattern accepts, so the guard narrows the type and never changes the verdict.
+  if (mapped === null) return false;
+  return LOOPBACK_HOST_RE.test(mapped) || PRIVATE_IPV4_RE.test(mapped);
 }
 
 /** `new URL(url)`, or null when the text is not a URL at all. */
