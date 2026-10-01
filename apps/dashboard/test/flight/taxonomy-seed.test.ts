@@ -41,6 +41,11 @@ import {
 } from '../../src/flight/discussions-triage.js';
 import { HELP_WANTED_LABEL } from '../../src/flight/help-wanted-items.js';
 import { luckyFitLine, type FitOperator } from '../../src/flight/lucky-fit.js';
+import {
+  fetchPoolIssues,
+  planClaimPoolIssue,
+  planPoolIssueTask,
+} from '../../src/flight/pool-client.js';
 import { ROADMAP_LABEL, fetchRoadmapItems, isRoadmapItem } from '../../src/flight/roadmap-items.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import type { SocialIdentity } from '../../src/flight/social-pass.js';
@@ -1075,6 +1080,46 @@ describe('.github/labels.json × KEEPER discussions ritual (regression, epic 001
       });
       expect(next.decision, dimension).toBe('skip');
     });
+  });
+});
+
+// Same law, the CLAIM flow's pool leg: the pool client lists every open issue
+// and keeps the ones carrying a `pool: <dimension>` label, and a claimed one is
+// queued onto the claimer's board under that label's suffix, kept only when it
+// names a DIMENSIONS entry (anything else degrades to no dimension rather than
+// a task the store refuses). The accept-edit pin above holds labels.json to a
+// label for every dimension, not the reverse: a pool label added there, or one
+// respelled (`pool: human-interaction`), is still browsed and claimable, but
+// every task claimed off it queues with no dimension, and nothing says so.
+/** A repo whose open issues carry one labels.json pool label each, numbered in
+ *  labels.json's order, every one unassigned and uncommented. */
+function poolLabeledRepo(): CliExec {
+  const issues = POOL_LABEL_NAMES.map((name, i) => ({
+    number: i + 1,
+    title: `Filed under ${name}`,
+    url: `https://github.com/${MAINTAINER.nameWithOwner}/issues/${i + 1}`,
+    labels: [{ name }],
+    assignees: [],
+    comments: [],
+  }));
+  return execFor({ 'gh issue list': { code: 0, stdout: JSON.stringify(issues) } });
+}
+
+describe('.github/labels.json × the pool claim (regression, epic 0019 additive-only law)', () => {
+  it('browses an issue under every pool label labels.json syncs', async () => {
+    const pool = await fetchPoolIssues(poolLabeledRepo());
+
+    expect(pool.map((issue) => issue.labels)).toEqual(POOL_LABEL_NAMES.map((name) => [name]));
+  });
+
+  it('queues each claimed issue under the dimension its pool label names', async () => {
+    const pool = await fetchPoolIssues(poolLabeledRepo());
+    const queued = pool.map((issue) => {
+      const decision = planClaimPoolIssue(issue, GUEST.login);
+      return planPoolIssueTask(issue, decision, 'p1', 100)?.dimension;
+    });
+
+    expect(queued).toEqual(POOL_LABEL_NAMES.map((name) => name.slice(POOL_LABEL_PREFIX.length)));
   });
 });
 
