@@ -105,8 +105,13 @@ for flying untrusted targets, or on a shared machine, or unattended.
    `Bash` payload, so that needs no translation; an `apply_patch` is judged as a Claude
    `Write`/`Edit` of each file the patch names, resolved against the turn's cwd so a `../`
    escape is judged where it lands (`codex-guard.ts`). A Windows run that could only reach
-   Codex through cmd.exe is refused rather than flown unguarded. Not yet flown: no lane
-   routes to Codex.
+   Codex through cmd.exe is refused rather than flown unguarded. A hook-denied call leaves
+   no trace on Codex's own `exec --json` stream, so the denials come back through argv
+   instead: `CodexCliModel` names a per-run deny log outside the target as the hook
+   command's third argument, `guard-hook.js` appends every deny it prints there, and once
+   the run settles `codexGuardDenialsFromLog` reads the log back into `guardDenials` /
+   `guardDenialDetails`, the same shape Gemini's are read into, and removes it. Not yet
+   flown: no lane routes to Codex.
    _Honest scope:_ a textual guard — it blocks the observed escape class (absolute-path
    `cd` / `git -C` / reads outside) and the named destructive-git shapes, but cannot
    statically resolve every relative-path dance or git invocation; the detection audit
