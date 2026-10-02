@@ -146,6 +146,25 @@ function ritualTitleText(r) {
   var base = key ? tr(key) : r.kind;
   return r.subject ? base + ' · ' + r.subject : base;
 }
+// A gate step leads with the PR check strip's circle family (epic 0025), not
+// a CSS-painted ✓/✗/…: the icon is the step's only mark, so it names its
+// state (law 2). A state the job never named stays a plain, silent circle.
+var RITUAL_STEP_MARKS = {
+  pass: ['circle-check', 'ritualStepPass'],
+  fail: ['circle-x', 'ritualStepFail'],
+  running: ['circle-dot', 'ritualStepRunning'],
+};
+function ritualStepIcon(state) {
+  var mark = RITUAL_STEP_MARKS[state];
+  var icon = iconEl(mark ? mark[0] : 'circle');
+  if (mark) {
+    icon.removeAttribute('aria-hidden');
+    icon.setAttribute('role', 'img');
+    icon.setAttribute('aria-label', tr(mark[1]));
+    icon.setAttribute('data-i18n-aria', mark[1]);
+  }
+  return icon;
+}
 function ritualSetText(node, text) {
   if (node.textContent !== text) node.textContent = text;
 }
@@ -221,6 +240,7 @@ function ritualPaint() {
       var s = r.steps[j];
       var li = el('li', 'ritual-step');
       li.setAttribute('data-state', s.state);
+      li.appendChild(ritualStepIcon(s.state));
       li.appendChild(el('span', 'ritual-step-label', s.label));
       if (s.durationMs) li.appendChild(el('span', 'ritual-step-time', fmtDuration(s.durationMs)));
       d.steps.appendChild(li);

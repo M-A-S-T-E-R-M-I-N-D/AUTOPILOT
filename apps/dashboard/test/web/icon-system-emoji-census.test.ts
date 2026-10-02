@@ -120,6 +120,13 @@ const EDGE_GUILLEMET_VALUE_PATTERN = /^‹(?=\s)|(?<=\s)›$/gu;
  *  zero. */
 const BUTTON_FACE_MARK_PATTERN = /el\('button', '[^']*', '([✓✗])\s/gu;
 
+/** A ✓/✗ that a CSS `content:` rule paints is an icon by construction: a
+ *  pseudo-element glyph beside a label, never part of a result sentence. The
+ *  ritual scrim's gate steps painted ✓/✗ (and …/·) through `::before` until
+ *  each step led with the PR check strip's circle family — circle-check,
+ *  circle-x, circle-dot, circle — and the icon named its state (2026-10-02). */
+const CSS_CONTENT_MARK_PATTERN = /content:\s*['"]([✓✗])/gu;
+
 /** Every `el('button', cls, '✓ …')` face in `files`, as `file: glyph` with
  *  `/` separators, so the list reads the same on every disk. */
 function buttonFaceMarks(files: readonly string[]): string[] {
@@ -208,6 +215,22 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
 
   it('leads no button face with a ✓/✗ glyph in any web/ source file outside comments', () => {
     expect(buttonFaceMarks(files)).toEqual([]);
+  });
+
+  it('paints no ✓/✗ mark through a CSS content rule in any web/ source file outside comments', () => {
+    const sites = files.flatMap((file) =>
+      [
+        ...stripComments(readFileSync(join(WEB_DIR, file), 'utf8')).matchAll(
+          CSS_CONTENT_MARK_PATTERN,
+        ),
+      ].map((match) => `${file.replaceAll('\\', '/')}: ${match[1]}`),
+    );
+    expect(sites).toEqual([]);
+  });
+
+  it("matches a CSS-painted ✓ but leaves a result line's ✓ alone", () => {
+    const source = ".s::before { content: '✓'; } text: '✓ ' + summary";
+    expect([...source.matchAll(CSS_CONTENT_MARK_PATTERN)].map((m) => m[1])).toEqual(['✓']);
   });
 
   it('matches a ✓/✗ button face but leaves a result line alone', () => {
