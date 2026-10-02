@@ -200,8 +200,15 @@ propagation, and the filled style does not match the nav.
    "✓ confirm done" leads with `check`, using the task row's done-button
    shape and its existing `.task-done-btn` sizing rule. `soulRatify`,
    `soulDismiss` and `backlogConfirmDone` drop the glyph in both locales,
-   and the button-face census pins zero. The screenshots refresh
-   (`docs/screens/`) is still open.
+   and the button-face census pins zero. **Ritual scrim steps
+   2026-10-02:** the busy scrim's gate steps painted ✓/✗ (and …/·) through
+   CSS `::before` beside each step label. Each step leads with the PR check
+   strip's circle family now (`circle-check`, `circle-x`, `circle-dot`, and
+   a plain `circle` for a state the job never named). The icon is the step's
+   only mark, so it names its state through the new `ritualStepPass`,
+   `ritualStepFail` and `ritualStepRunning` STRINGS, swept by
+   `[data-i18n-aria]`. The census pins CSS-painted ✓/✗ at zero. The
+   screenshots refresh (`docs/screens/`) is still open.
 
 ## Related
 

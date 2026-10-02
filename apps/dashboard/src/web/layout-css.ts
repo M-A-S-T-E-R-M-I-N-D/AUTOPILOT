@@ -1997,13 +1997,12 @@ html[data-theme="terminal"][data-glow="on"] .brand, html[data-theme="terminal"][
 .ritual-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-family: var(--font-mono); font-size: var(--text-xs); }
 .ritual-steps:empty { display: none; }
 .ritual-step { display: flex; justify-content: space-between; gap: var(--space-3); color: var(--color-text-muted); }
-.ritual-step::before { content: '·'; inline-size: 1em; flex: none; }
+/* Epic 0025: each step leads with a circle-family icon (busy.ts), not a
+   ::before glyph. A one-line-tall box centres it on a wrapped label's first line. */
+.ritual-step > .icon { block-size: 1lh; }
 .ritual-step[data-state="running"] { color: var(--color-text); }
-.ritual-step[data-state="running"]::before { content: '…'; }
 .ritual-step[data-state="pass"] { color: var(--color-success); }
-.ritual-step[data-state="pass"]::before { content: '✓'; }
 .ritual-step[data-state="fail"] { color: var(--color-sev-high); }
-.ritual-step[data-state="fail"]::before { content: '✗'; }
 .ritual-step-label { flex: 1 1 auto; min-inline-size: 0; overflow-wrap: anywhere; }
 .ritual-warning { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
 .ritual-warning:empty { display: none; }
