@@ -274,7 +274,13 @@ propagation, and the filled style does not match the nav.
    sentence quotes the painted words and names the icons, and
    `apps/dashboard/test/tooling/icon-system-docs.test.ts` adds 🔒/🔓 to its
    retired-glyph set and holds RUNBOOK to the badge's STRINGS label and the
-   link's text.
+   link's text. **Near-miss chip docs 2026-10-03:**
+   `docs/DOCTRINE-WEAKPOINT-RESEARCH.md` (Lens 4 and Part III's table) still
+   named shell.ts's "🩹 recurring near-miss" chip, though the chip leads
+   with the vendored `bandage` stroke (`ANOMALY_ICONS`). Both places name it
+   by its `ANOMALY_LABELS` text and the icon now, and the docs test holds the
+   doc to that; 🩹 itself stays free, since fly.ts still prints the
+   near-miss debrief as a `🩹 …` terminal line.
 
 ## Related
 
