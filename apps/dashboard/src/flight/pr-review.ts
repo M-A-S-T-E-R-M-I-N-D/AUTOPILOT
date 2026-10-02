@@ -185,9 +185,10 @@ export interface PrReviewCandidate {
    *  --json labels` reports them — a gh-reported fact like every other input
    *  here, NOT the PR's own title/body text, so honoring them keeps the
    *  never-trust-the-description rule. A label from {@link HOLD_LABEL_MARKERS}
-   *  (`do-not-merge`, `hold`, `blocked`, `wip`, `work-in-progress`) is a
-   *  maintainer's explicit "not ready to merge" — the same not-ready signal
-   *  {@link fetchOpenPrCandidates} already honors for a draft, and the
+   *  (`do-not-merge`, `hold`, `blocked`, `wip`, `work-in-progress`,
+   *  `awaiting-human`, `declined`) is a maintainer's explicit "not ready to
+   *  merge" — the same not-ready signal {@link fetchOpenPrCandidates}
+   *  already honors for a draft, and the
    *  near-universal convention of the auto-merge ecosystem (mergify, GitHub
    *  merge queues, bulldozer). Optional: absent means no labels (or none
    *  reported), which behaves as an empty list — {@link prHasHoldLabel} can
@@ -1741,6 +1742,10 @@ export function prTargetsCanonicalBase(pr: PrReviewCandidate): boolean {
  * prHasHoldLabel} — never a bare substring — so `work-in-progress` matches
  * `wip`? no; `threshold` never matches `hold`. Narrowing-only: a hold label
  * can only move a decision toward queue-for-human, never toward a merge.
+ * `awaiting-human` and `declined` are the house taxonomy's own maintainer
+ * marks (taxonomy-seed.ts: `status: awaiting-human`, `declined`), which
+ * issue triage already holds on (epic 0019 law 2) — the same mark must
+ * stop a merge, not only a triage verdict.
  */
 export const HOLD_LABEL_MARKERS: readonly string[] = [
   'do-not-merge',
@@ -1748,6 +1753,8 @@ export const HOLD_LABEL_MARKERS: readonly string[] = [
   'blocked',
   'wip',
   'work-in-progress',
+  'awaiting-human',
+  'declined',
 ];
 
 /** Normalizes a raw label name to a hyphen-delimited token string:
@@ -1826,8 +1833,9 @@ export type PrReviewDecision = PrReviewMerge | PrReviewRequestChanges | PrReview
  * never substitutes for (epic 0007's governance invariant). Merge conflicts
  * request changes too — nothing in this ritual resolves them. A PR carrying a
  * human-applied hold label ({@link prHasHoldLabel}: `do-not-merge`, `hold`,
- * `blocked`, `wip`, `work-in-progress`) queues for a human — a maintainer's
- * explicit not-ready signal, honored in the merge tier (after the
+ * `blocked`, `wip`, `work-in-progress`, `awaiting-human`, `declined`) queues
+ * for a human — a maintainer's explicit not-ready signal, honored in the
+ * merge tier (after the
  * gate/conflict verdicts, so a held PR with a red gate still gets that honest
  * feedback), leading the tier because a human's hold outranks a wrong base or
  * an oversized diff. A PR under a standing changes-requested review from a
