@@ -214,9 +214,10 @@ export interface StartFlightInput {
    * through `parseSocialFlightToggle`'s own fail-closed parse before it
    * ever reaches a child process, the same discipline
    * `flight/social-flight-pass.ts` already applies to the raw env var.
-   * Omitted (every existing caller — the fly-bar toggle UI is a follow-up
-   * slice): the child inherits this dashboard process's own
-   * `AUTOPILOT_SOCIAL_FLIGHT`, exactly as it does today.
+   * Set by the fly bar's Social pass select (`web/features/fly.ts`) only
+   * when the operator picks a value. Omitted (its `default`, and every
+   * other caller): the child inherits this dashboard process's own
+   * `AUTOPILOT_SOCIAL_FLIGHT`, exactly as before.
    */
   readonly socialFlight?: string;
 }

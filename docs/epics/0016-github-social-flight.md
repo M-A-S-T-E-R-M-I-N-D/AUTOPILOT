@@ -85,10 +85,15 @@ Per pass, mechanically derived — no guesses:
    env to exactly that value when given — an omitted override still inherits
    this dashboard process's own env untouched, unlike
    `AUTOPILOT_FLEET_TASK_SCOPE`'s delete-when-absent rule just above it.
-   _Still open:_ the fly-bar's own UI control (no operator-facing way to set
-   `StartFlightInput.socialFlight` exists yet — this remains a slice, not a
-   user-facing capability, per the UX-EXPRESSION DOCTRINE), and a candidate
-   source (mirror-pass findings) before the execute half is wired.
+   The fly-bar's own UI control now sets it: a **Social pass** select in the
+   gear's launch settings (`web/shell.ts` `#fly-social`, wired in
+   `web/features/fly.ts`) sends `socialFlight` on `POST /api/fly` only when
+   the operator picks a value — `default` sends nothing — and a multi-lane
+   launch refuses a non-default pick rather than dropping it
+   (`test/web/fly-social-flight.test.ts`, axe-clean with the settings open;
+   RUNBOOK §13).
+   _Still open (past the toggle):_ a candidate source (mirror-pass findings)
+   before the execute half is wired.
 4. **standalone**: "Fly GitHub" as a target choice in the fly bar (no code
    tree edits at all in this mode).
 5. **observability**: every social action in the flight log + a SOCIAL

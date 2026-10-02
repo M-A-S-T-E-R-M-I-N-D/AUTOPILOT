@@ -133,6 +133,7 @@ function flyInit() {
   var modeEl = document.getElementById('fly-mode');
   var totalEl = document.getElementById('fly-total');
   var lanesEl = document.getElementById('fly-lanes');
+  var socialEl = document.getElementById('fly-social');
   var firingsLabel = document.getElementById('fly-firings-label');
   var totalLabel = document.getElementById('fly-total-label');
   // The budget TOGGLE (operator's ask): choose N-firings mode or a total-$
@@ -598,6 +599,11 @@ ${flyHintText.toString()}
   // ever claim the same-area task, instead of every lane pulling from the
   // whole board unpartitioned.
   setTip(lanesEl, 'flyLanesTip');
+  // SOCIAL PASS (epic 0016 slice 3, board web-mtpzzx7v-72q2dv): this one
+  // flight's AUTOPILOT_SOCIAL_FLIGHT override, sent as
+  // StartFlightInput.socialFlight. The empty default sends nothing, so the
+  // child inherits the dashboard's own env exactly as before this control.
+  setTip(socialEl, 'flySocialTip');
   var lastMsg = '';
   var lastKind = ''; // '' | 'ok' | 'err' — drives the status colour
   var lastFlightsSig = null; // dedupes renderFlights rebuilds — a stop/pause click mid-poll must survive
@@ -817,6 +823,7 @@ ${sessionFlightDataFor.toString()}
       if (totalEl) totalEl.disabled = false;
       if (budgetEl) budgetEl.disabled = false;
       if (lanesEl) lanesEl.disabled = false;
+      if (socialEl) socialEl.disabled = false;
       if (statusEl) {
         if (statusEl.textContent !== lastMsg) statusEl.textContent = lastMsg;
         var multiStatusClass = 'fly-status' + (lastKind ? ' fly-' + lastKind : '');
@@ -849,6 +856,7 @@ ${sessionFlightDataFor.toString()}
     if (totalEl) totalEl.disabled = running;
     if (budgetEl) budgetEl.disabled = running;
     if (lanesEl) lanesEl.disabled = running;
+    if (socialEl) socialEl.disabled = running;
     // Client-generated status text goes through tr() (board web-msnsndki-dz3vn1)
     // — the folder name is {name}-templated so each locale's grammar decides
     // where it lands, not English word order. Re-evaluated on every 3s poll's
@@ -929,6 +937,13 @@ ${sessionFlightDataFor.toString()}
       setMsg(tr('lanesFixedFiringCount'), 'err');
       return;
     }
+    // /api/fleet carries no per-lane social override, so a chosen one is
+    // refused here rather than silently dropped from a multi-lane launch.
+    var socialFlight = socialEl ? socialEl.value : '';
+    if (lanes > 1 && socialFlight) {
+      setMsg(tr('socialPassSingleLane'), 'err');
+      return;
+    }
     rememberFlyFolder(folder);
     var totalUsd = totalEl ? (Number(totalEl.value) || budgetUsd) : budgetUsd;
     saveFlySettingsFor(folder, {
@@ -963,6 +978,7 @@ ${sessionFlightDataFor.toString()}
     if (isTotal) {
       payload = { folder: folder, budgetUsd: budgetUsd, totalBudgetUsd: totalUsd };
     }
+    if (socialFlight) payload.socialFlight = socialFlight;
     fetch('/api/fly', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {

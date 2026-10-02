@@ -795,6 +795,14 @@ points and decided inside `apps/dashboard/src/flight/social-flight-pass.ts`:
 - Unset, empty, or any other value — `off`. The parser fails closed: a misspelling never turns
   a pass ON, because an unrecognized value must never be read as permission to speak on GitHub.
 
+**Per flight, from the fly bar:** the gear's launch settings carry a **Social pass** select —
+`default`, `off`, `at takeoff` (`start`), `at landing` (`end`), `takeoff, between firings,
+landing` (`full`). Anything but `default` overrides `AUTOPILOT_SOCIAL_FLIGHT` for that one
+flight only (sent as `socialFlight` on `POST /api/fly`, fail-closed-parsed the same way);
+`default` sends nothing, so the flight inherits the dashboard's own env. A multi-lane launch
+(Lanes above 1) refuses a non-default choice instead of dropping it — `/api/fleet` carries no
+per-lane override.
+
 **What a pass does today (read-only):** resolves the acting identity (`gh api user` + `gh repo
 view` — the repo owner flies as `maintainer`, anyone else as `user`), inventories its own
 submissions and every open thread, and runs the protocol engine's budget/dedup/role gate over
