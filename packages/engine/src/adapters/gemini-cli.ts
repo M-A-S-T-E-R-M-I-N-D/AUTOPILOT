@@ -22,7 +22,12 @@
 
 import { execFile, type ExecFileOptions } from 'node:child_process';
 import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
-import { guardDenialFromText, type GuardDenialDetail } from '../stream.js';
+import {
+  guardDenialFromText,
+  WEB_SEARCH_AUDIT_MAX_CHARS,
+  type GuardDenialDetail,
+  type WebSearchAudit,
+} from '../stream.js';
 import {
   reapCliDescendants,
   cliDeathText,
@@ -86,6 +91,30 @@ function guardDenialFromToolResult(event: Record<string, unknown>): GuardDenialD
   if (event['status'] !== 'error') return null;
   const message = strOrNull(recordOrNull(event['error'])?.['message']);
   return message === null ? null : guardDenialFromText(message);
+}
+
+/** `WEB_SEARCH_TOOL_NAME` in gemini-cli
+ *  `packages/core/src/tools/definitions/base-declarations.ts`. */
+const GEMINI_WEB_SEARCH_TOOL = 'google_web_search';
+
+/**
+ * The web search one stream-json event asks for, as the audit keeps it
+ * (THREAT-MODEL T6), or null: the record `stream.ts`'s `webSearchesFromEvent`
+ * lifts off a Claude stream. `nonInteractiveCli.ts` emits a `tool_use` with the
+ * call's name and args before the tool runs. `google_web_search` takes one
+ * `query` and no domain filter (`WebSearchToolParams`, `tools/web-search.ts`),
+ * so both filter lists are empty.
+ */
+export function geminiWebSearchFromEvent(event: Record<string, unknown>): WebSearchAudit | null {
+  if (event['type'] !== 'tool_use' || event['tool_name'] !== GEMINI_WEB_SEARCH_TOOL) return null;
+  const query = strOrNull(recordOrNull(event['parameters'])?.['query']);
+  if (query === null) return null;
+  return {
+    query: query.slice(0, WEB_SEARCH_AUDIT_MAX_CHARS),
+    queryLength: query.length,
+    allowedDomains: [],
+    blockedDomains: [],
+  };
 }
 
 /**
@@ -245,6 +274,11 @@ export interface GeminiCliOptions {
    * mode needs to run at all. Unset or empty passes the env through unchanged.
    */
   readonly guardSettingsPath?: string;
+  /** Called for each `google_web_search` the agent issues, with the query
+   *  whole ({@link geminiWebSearchFromEvent}), as its `tool_use` line arrives:
+   *  `StreamingClaudeCliOptions.onWebSearch`'s counterpart (THREAT-MODEL T6 —
+   *  the flight persists it as a `web-search` audit row). */
+  readonly onWebSearch?: (search: WebSearchAudit) => void;
   /** ORPHAN SWEEP crash-path follow-up (board ap-mt2ukjg5-2), containment
    *  parity with `ClaudeCliModel` before this adapter is wired into routing
    *  (epic 0036): persists the child's pid for the duration of the
@@ -286,7 +320,10 @@ export interface GeminiCliOptions {
  * its idle cap ({@link GeminiCliOptions.idleTimeoutMs}): a child silent on
  * stdout that long is killed and comes back `timedOut`, so a hung run no longer
  * holds its lane for the whole wall clock. A run killed before its `result`
- * keeps the `init` session id, so it stays resumable.
+ * keeps the `init` session id, so it stays resumable. Given
+ * {@link GeminiCliOptions.onWebSearch}, it reads each stdout line as it lands
+ * and reports every `google_web_search` call there, the audit
+ * `StreamingClaudeCliModel` keeps for WebSearch (THREAT-MODEL T6).
  * It shares the Claude driver's CLI-level resume fallback: a session id the CLI
  * rejects ({@link isGeminiResumeFailure}) is retried once, cold, as `resumed:
  * false`. Otherwise a resume is `resumed: true` only when the `init` event's
@@ -388,6 +425,17 @@ export class GeminiCliModel implements ModelPort {
       // for the whole window is killed.
       let idleTimer: NodeJS.Timeout | undefined;
       let idleDeath = false;
+      // THREAT-MODEL T6: a search's query has left by the time the run ends,
+      // so each is audited as its line lands, not read off the settled stdout.
+      const onWebSearch = this.opts.onWebSearch;
+      let unreadLine = '';
+      const auditWebSearches = (text: string): void => {
+        if (onWebSearch === undefined) return;
+        for (const event of streamEvents(text)) {
+          const search = geminiWebSearchFromEvent(event);
+          if (search !== null) onWebSearch(search);
+        }
+      };
       const child = execFile(
         invocation.bin,
         invocation.args,
@@ -435,6 +483,9 @@ export class GeminiCliModel implements ModelPort {
             // clock does not. No turn count rides with it (ModelResponse.observed).
             observed: { elapsedMs },
           });
+          // A last line with no newline is audited too. After resolve, so a
+          // sink that throws can never leave the run unsettled.
+          auditWebSearches(unreadLine);
         },
       );
       const armIdle = (): void => {
@@ -455,6 +506,20 @@ export class GeminiCliModel implements ModelPort {
       };
       armIdle();
       child.stdout?.on('data', armIdle);
+      if (onWebSearch !== undefined) {
+        // execFile set the stream's encoding, so a chunk is a string. Only
+        // the chunk is scanned, so a long tool output line is never rescanned.
+        child.stdout?.on('data', (chunk: string) => {
+          const end = chunk.lastIndexOf('\n');
+          if (end < 0) {
+            unreadLine += chunk;
+            return;
+          }
+          const complete = unreadLine + chunk.slice(0, end);
+          unreadLine = chunk.slice(end + 1);
+          auditWebSearches(complete);
+        });
+      }
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
       // A CLI that exits before reading its stdin (bad flag, untrusted folder)
       // breaks the pipe; unheard, that EPIPE would crash the host rather than
