@@ -861,6 +861,11 @@ main.project-mode { grid-template-columns: 1fr; }
 .landing-branch { margin: 0 0 var(--space-2); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .landing-branch-name, .landing-base-name { font-weight: 600; }
 .landing-branch-arrow { color: var(--color-text-muted); padding: 0 var(--space-1); }
+/* Epic 0025: the branch line's merge arrow and the plan chain's step
+   separators draw the vendored arrow-right, which the → glyph they replaced
+   never did under dir=rtl: there the row runs right to left, so it mirrors
+   like the back link to keep pointing at the base and the next step. */
+[dir='rtl'] .landing-branch-arrow > .icon, [dir='rtl'] .plan-arrow > .icon { transform: scaleX(-1); }
 .flight-debrief { margin: 0 0 var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); }
 .flight-debrief-title { margin: 0 0 var(--space-2); font-size: var(--text-sm); }
 .flight-debrief-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-2); }

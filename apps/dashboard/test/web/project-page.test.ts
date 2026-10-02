@@ -219,6 +219,21 @@ describe('the flight plan editor (epic 0021 slice 3, second cut)', () => {
     );
   });
 
+  // Epic 0025: the arrows between steps painted a → glyph, which kept pointing
+  // right under dir=rtl while the chain ran right to left. Each is the vendored
+  // arrow-right stroke now, decorative like the glyph it replaced.
+  it('joins the steps with decorative arrow-right icons, not a → glyph', async () => {
+    bootWithPlan();
+    await vi.advanceTimersByTimeAsync(1);
+    const arrows = Array.from(document.querySelectorAll('.plan-chain > .plan-arrow'));
+    expect(arrows).toHaveLength(4);
+    for (const arrow of arrows) {
+      expect(arrow.getAttribute('aria-hidden')).toBe('true');
+      expect(arrow.textContent).toBe('');
+      expect(arrow.firstElementChild?.getAttribute('class')).toBe('icon icon-arrow-right');
+    }
+  });
+
   it('a saved draft survives a reload; Discard returns to the published plan', async () => {
     window.localStorage.setItem(
       'ap-plan-draft:p1',
