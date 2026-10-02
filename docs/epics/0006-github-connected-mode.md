@@ -165,7 +165,13 @@ the sanctioned device-flow client, with zero credential surface for us.
    decides `gh issue create --repo <upstream> --title <title> --body <body>`
    against the canonical `UPSTREAM_REPO` (`info.ts`); composed `title` and
    `body` respect the reporter's language and script direction (`web/connect-panel.ts`'s
-   `reportComposeStatusMeta`, per composer language doctrine). `github/issue-execute.ts`'s
+   `reportComposeStatusMeta`, per composer language doctrine) — `flight/report-compose.ts`'s
+   `primaryScriptOf` checks the composition's own script against the note's and retries for
+   an honest English stand-in rather than pass off a mismatch silently (`languageFallback`/
+   `composeLanguageFallback`), and the CONNECT popover's report form additionally lets the
+   reporter choose the report language outright (`reportLanguageSelect()`, hoisted in
+   `web/features/report-menu.ts`; defaults to the dashboard's locale, surfaces
+   `noteLanguageDiffers` when the note reads as another one). `github/issue-execute.ts`'s
    `createGithubIssueExecuteApi` runs the issue creation via the same injectable
    `CommandRunner` `github/execute.ts` already uses (never a real `gh`
    process in tests); `POST /api/github-issue/execute` (`server/server.ts`)

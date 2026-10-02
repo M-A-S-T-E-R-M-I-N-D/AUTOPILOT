@@ -10,7 +10,9 @@ import {
   isCodexResumeFailure,
 } from '../../src/adapters/codex-cli.js';
 import {
+  capDeathNote,
   CLI_STDIN_PROMPT_THRESHOLD,
+  DEATH_TAIL_CHARS,
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from '../../src/adapters/claude-cli.js';
@@ -318,10 +320,11 @@ describe('CodexCliModel', () => {
   function mockExecFileResult(
     error: (Error & { code?: unknown }) | null,
     stdout: string | null,
+    stderr = '',
   ): void {
     execFileMock.mockImplementation((...args: unknown[]) => {
       const cb = args[args.length - 1] as ExecFileCallback;
-      queueMicrotask(() => cb(error, stdout, ''));
+      queueMicrotask(() => cb(error, stdout, stderr));
       return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
     });
   }
@@ -632,6 +635,48 @@ describe('CodexCliModel', () => {
     expect(res.stdout).toBe('');
   });
 
+  describe("death reason — with no envelope, stdout is the CLI's stderr tail, which firing.ts records as deathTail (StreamingClaudeCliModel parity)", () => {
+    it('reports why a run died before its turn ended, not the events it printed first', async () => {
+      mockExecFileResult(
+        Object.assign(new Error('exit 1'), { code: 1 }),
+        jsonl(THREAD, TURN_STARTED),
+        'Error: unexpected status 401 Unauthorized\n\n',
+      );
+
+      const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', 'do it');
+
+      expect(res.envelope).toBeNull();
+      expect(res.stdout).toBe('Error: unexpected status 401 Unauthorized');
+      // The thread the wire named still rides out, so the attempt stays resumable.
+      expect(res.sessionId).toBe(THREAD.thread_id);
+    });
+
+    it('keeps only the last DEATH_TAIL_CHARS of a long stderr: the error line, never a dump', async () => {
+      const stderr = `${'warning: a noisy log line\n'.repeat(200)}Error: the real reason\n`;
+      mockExecFileResult(Object.assign(new Error('exit 1'), { code: 1 }), '', stderr);
+
+      const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', 'do it');
+
+      expect(res.stdout).toHaveLength(DEATH_TAIL_CHARS);
+      expect(res.stdout.endsWith('Error: the real reason')).toBe(true);
+    });
+
+    it("leaves a finished run's stdout as the wire printed it: only a run with no envelope needs a reason", async () => {
+      const stdout = jsonl(
+        THREAD,
+        TURN_STARTED,
+        agentMessage('m1', 'done'),
+        completed({ input_tokens: 3, output_tokens: 1 }),
+      );
+      mockExecFileResult(null, stdout, 'warning: a noisy log line\n');
+
+      const res = await new CodexCliModel({ repo: '/work/sbx' }).invoke('gpt-5-codex', 'do it');
+
+      expect(res.envelope?.result).toBe('done');
+      expect(res.stdout).toBe(stdout);
+    });
+  });
+
   it('ORPHAN SWEEP crash-path follow-up (board ap-mt2ukjg5-2): tracks the child pid on spawn, untracks it once settled', async () => {
     mockExecFileResult(null, '');
     const pidRegistry = { track: vi.fn(), untrack: vi.fn() };
@@ -822,12 +867,13 @@ describe('CodexCliModel', () => {
       elapsedMs: number,
       error: (Error & { code?: unknown; killed?: boolean }) | null,
       stdout = '',
+      stderr = '',
     ): void {
       execFileMock.mockImplementation((...args: unknown[]) => {
         const cb = args[args.length - 1] as ExecFileCallback;
         queueMicrotask(() => {
           vi.setSystemTime(Date.now() + elapsedMs);
-          cb(error, stdout, '');
+          cb(error, stdout, stderr);
         });
         return { pid: 4321 };
       });
@@ -852,6 +898,39 @@ describe('CodexCliModel', () => {
       expect(res.timedOut).toBe(true);
       // The run left no envelope, but the driver's own clock still says how long it held the lane.
       expect(res.observed).toEqual({ elapsedMs: 5000 });
+    });
+
+    it('says the wall-clock cap killed it when the CLI left no stderr, never handing on the events it printed', async () => {
+      vi.useFakeTimers();
+      mockExecFileAfter(
+        120_000,
+        Object.assign(new Error('killed'), { killed: true }),
+        jsonl(THREAD, TURN_STARTED),
+      );
+
+      const res = await new CodexCliModel({ repo: '/work/sbx', timeoutMs: 120_000 }).invoke(
+        'gpt-5-codex',
+        'do it',
+      );
+
+      expect(res.stdout).toBe(capDeathNote('wall-clock', 120_000, 120_000));
+    });
+
+    it("keeps the CLI's own stderr over the cap note when the killed run left some", async () => {
+      vi.useFakeTimers();
+      mockExecFileAfter(
+        120_000,
+        Object.assign(new Error('killed'), { killed: true }),
+        jsonl(THREAD, TURN_STARTED),
+        'Error: model request still pending\n',
+      );
+
+      const res = await new CodexCliModel({ repo: '/work/sbx', timeoutMs: 120_000 }).invoke(
+        'gpt-5-codex',
+        'do it',
+      );
+
+      expect(res.stdout).toBe('Error: model request still pending');
     });
 
     it('exited on its own past the cap (no signal) → the key stays off', async () => {
@@ -1022,6 +1101,21 @@ describe('CodexCliModel', () => {
       expect(res.timedOut).toBe(true);
       expect(res.envelope).toBeNull();
       expect(res.sessionId).toBe(THREAD.thread_id);
+    });
+
+    it('says the idle cap killed it when the CLI left no stderr', async () => {
+      vi.useFakeTimers();
+      const child = mockLiveChild(jsonl(THREAD, TURN_STARTED));
+
+      const pending = new CodexCliModel({ repo: '/work/sbx', idleTimeoutMs: 60_000 }).invoke(
+        'gpt-5-codex',
+        'do it',
+      );
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(child.kill).toHaveBeenCalledTimes(1);
+      const res = await pending;
+
+      expect(res.stdout).toBe(capDeathNote('idle', 60_000, 60_000));
     });
 
     it('re-arms on every stdout chunk: a child that keeps printing events is never idle-killed', async () => {

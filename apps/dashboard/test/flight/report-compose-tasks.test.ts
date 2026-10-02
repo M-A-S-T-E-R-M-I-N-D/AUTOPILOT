@@ -229,6 +229,15 @@ describe('parseReportComposeTasksOutput', () => {
     ).toBeNull();
   });
 
+  it('returns null when a body exceeds the length bound', () => {
+    const longBody = 'x'.repeat(4001);
+    expect(
+      parseReportComposeTasksOutput(
+        `REPORT_COMPOSE_TASKS:{"tasks":[{"title":"t","body":"${longBody}","severity":"low","dimension":"ux"}]}`,
+      ),
+    ).toBeNull();
+  });
+
   it('measures the title and body bounds after trimming — padding never counts', () => {
     // Each task is stored trimmed, and the dashboard form and the MCP
     // tasks_create both trim BEFORE the cap — so an exactly-at-cap field with a

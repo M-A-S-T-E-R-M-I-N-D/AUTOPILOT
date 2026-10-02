@@ -310,6 +310,18 @@ function denialTarget(kind: GuardDenialDetail['kind'], text: string): string {
 }
 
 /**
+ * The structured denial a guard deny reason amounts to, or null for text no
+ * guard wrote. Shared by every driver that sees the reason on its own wire:
+ * Claude's `tool_result` blocks (below) and Gemini's errored `tool_result`
+ * events (`gemini-cli.ts`), whose BeforeTool hook hands back the same text.
+ */
+export function guardDenialFromText(text: string): GuardDenialDetail | null {
+  if (!isGuardDenialText(text)) return null;
+  const kind = text.startsWith('CONTAINMENT:') ? 'containment' : 'read-hygiene';
+  return { kind, target: denialTarget(kind, text) };
+}
+
+/**
  * Structured guard denials in one `user` event (a `tool_result` block whose
  * `is_error` is true and whose text starts with a known guard-deny prefix),
  * in wire order. Non-`user` events, or a `user` event with no denial among
@@ -338,9 +350,8 @@ export function guardDenialDetailsFromEvent(
     const b = block as Record<string, unknown>;
     if (b['type'] !== 'tool_result' || b['is_error'] !== true) continue;
     const text = toolResultText(b['content']);
-    if (text === null || !isGuardDenialText(text)) continue;
-    const kind = text.startsWith('CONTAINMENT:') ? 'containment' : 'read-hygiene';
-    details.push({ kind, target: denialTarget(kind, text) });
+    const detail = text === null ? null : guardDenialFromText(text);
+    if (detail !== null) details.push(detail);
   }
   return details;
 }

@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { openStore, migrate, SqliteSearchStore, type Store } from '@autopilot/store';
-import { refreshProjectIndex } from '../../src/index/indexer.js';
+import { refreshProjectIndex, MAX_INDEXED_BYTES } from '../../src/index/indexer.js';
 import { FsFileSource } from '../../src/adapters/fs-file-source.js';
 import { SqliteIndexStore } from '../../src/adapters/sqlite-index-store.js';
 
@@ -167,6 +167,32 @@ describe('refreshProjectIndex + full-text content index (M4 RAG)', () => {
     writeFileSync(join(dir, 'logo.bin'), Buffer.from([0x89, 0x00, 0x01, 0x02, 0x03]));
     await refresh();
     // cart.ts + pay.ts indexed; the binary is not.
+    expect(search.documentCount(pid)).toBe(2);
+  });
+
+  it('excludes a file over MAX_INDEXED_BYTES from the search index', async () => {
+    writeFileSync(
+      join(dir, 'huge.ts'),
+      `export const marker = 1;\n${'x'.repeat(MAX_INDEXED_BYTES)}`,
+    );
+    await refresh();
+    // cart.ts + pay.ts indexed; huge.ts is over the cap and excluded.
+    expect(search.documentCount(pid)).toBe(2);
+    expect(search.search(pid, 'marker')).toHaveLength(0);
+  });
+
+  it('clears stale indexed content once a file grows past the cap', async () => {
+    writeFileSync(join(dir, 'grows.ts'), 'export const needle = 1;');
+    await refresh();
+    expect(search.search(pid, 'needle')).toHaveLength(1);
+    expect(search.documentCount(pid)).toBe(3);
+
+    writeFileSync(
+      join(dir, 'grows.ts'),
+      `export const needle = 1;\n${'x'.repeat(MAX_INDEXED_BYTES)}`,
+    );
+    await refresh();
+    expect(search.search(pid, 'needle')).toHaveLength(0);
     expect(search.documentCount(pid)).toBe(2);
   });
 });

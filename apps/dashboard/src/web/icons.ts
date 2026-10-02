@@ -553,6 +553,9 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
   // "‹ Prev" / "Next ›" buttons drop their guillemets for chevrons — this
   // one and the chevron-right above, mirrored by CSS under dir=rtl.
   'chevron-left': [['path', { d: 'm15 18-6-6 6-6' }]],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the task row's
+  // approve and done buttons drop their baked-in ✓ (reject draws the x above).
+  check: [['path', { d: 'M20 6 9 17l-5-5' }]],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

@@ -1419,6 +1419,64 @@ const BENIGN_SCRIPTS = new Set([
   'tokens/generate-contrast-matrix.mjs',
 ]);
 
+/** Every benign census above, with the directory its entries are relative
+ *  to, so the write guard below reads each file it lets through. */
+const BENIGN_CENSUSES: ReadonlyArray<readonly [string, string, ReadonlySet<string>]> = [
+  ['BENIGN_ADAPTERS', ENGINE_ADAPTERS_DIR, BENIGN_ADAPTERS],
+  ['BENIGN_ENGINE_SRC', ENGINE_SRC_DIR, BENIGN_ENGINE_SRC],
+  ['BENIGN_MCP', MCP_SRC_DIR, BENIGN_MCP],
+  ['BENIGN_STORE', STORE_SRC_DIR, BENIGN_STORE],
+  ['BENIGN_ONBOARDING_BACKUP', ONBOARDING_BACKUP_SRC_DIR, BENIGN_ONBOARDING_BACKUP],
+  ['BENIGN_ONBOARDING_ADAPTERS', ONBOARDING_ADAPTERS_SRC_DIR, BENIGN_ONBOARDING_ADAPTERS],
+  ['BENIGN_ONBOARDING_GATE', ONBOARDING_GATE_SRC_DIR, BENIGN_ONBOARDING_GATE],
+  [
+    'BENIGN_ONBOARDING_GATE_DETECTORS',
+    ONBOARDING_GATE_DETECTORS_SRC_DIR,
+    BENIGN_ONBOARDING_GATE_DETECTORS,
+  ],
+  ['BENIGN_ONBOARDING_ONBOARD', ONBOARDING_ONBOARD_SRC_DIR, BENIGN_ONBOARDING_ONBOARD],
+  ['BENIGN_ONBOARDING_INDEX', ONBOARDING_INDEX_SRC_DIR, BENIGN_ONBOARDING_INDEX],
+  ['BENIGN_ONBOARDING_ROOT', ONBOARDING_SRC_DIR, BENIGN_ONBOARDING_ROOT],
+  ['BENIGN_FLIGHT_EXECUTE', FLIGHT_SRC_DIR, BENIGN_FLIGHT_EXECUTE],
+  ['BENIGN_FLIGHT', FLIGHT_SRC_DIR, BENIGN_FLIGHT],
+  ['BENIGN_DASHBOARD_SRC', DASHBOARD_SRC_DIR, BENIGN_DASHBOARD_SRC],
+  ['BENIGN_ASK', ASK_SRC_DIR, BENIGN_ASK],
+  ['BENIGN_READ', READ_SRC_DIR, BENIGN_READ],
+  ['BENIGN_SHARED', SHARED_SRC_DIR, BENIGN_SHARED],
+  ['BENIGN_ASSETS', ASSETS_SRC_DIR, BENIGN_ASSETS],
+  ['BENIGN_CONNECTION', CONNECTION_SRC_DIR, BENIGN_CONNECTION],
+  ['BENIGN_CONTROL', CONTROL_SRC_DIR, BENIGN_CONTROL],
+  ['BENIGN_GITHUB', GITHUB_SRC_DIR, BENIGN_GITHUB],
+  ['BENIGN_LANDING', LANDING_SRC_DIR, BENIGN_LANDING],
+  ['BENIGN_RELEASE', RELEASE_SRC_DIR, BENIGN_RELEASE],
+  ['BENIGN_SERVER', SERVER_SRC_DIR, BENIGN_SERVER],
+  ['BENIGN_INBOX', INBOX_SRC_DIR, BENIGN_INBOX],
+  ['BENIGN_WEB', WEB_SRC_DIR, BENIGN_WEB],
+  ['BENIGN_WEB_FEATURES', WEB_FEATURES_SRC_DIR, BENIGN_WEB_FEATURES],
+  ['BENIGN_TOKENS', TOKENS_SRC_DIR, BENIGN_TOKENS],
+  ['BENIGN_DOCS_LINKS', DOCS_LINKS_SRC_DIR, BENIGN_DOCS_LINKS],
+  ['BENIGN_SCRIPTS', SCRIPTS_DIR, BENIGN_SCRIPTS],
+];
+
+/** The `gh` write shapes the flight's GitHub writers build: a write
+ *  subcommand argv; an explicit `--method`/`-X`; a REST `gh api` call with
+ *  fields or a body, which gh sends as a POST unless told otherwise
+ *  (taxonomy-seed.ts's milestone create); and a GraphQL mutation string
+ *  (discussions-triage.ts's reply and label, its only writes). A `gh api
+ *  graphql` READ carries `-f query=…` too, so fields on a graphql call are
+ *  not a write by themselves: only the mutation is. */
+const GH_WRITE_SHAPES: readonly RegExp[] = [
+  /\[\s*'(?:issue|pr|label|release|repo)',\s*'(?:create|comment|edit|close|reopen|merge|review|delete|lock|transfer)'/,
+  /'(?:--method|-X)'/,
+  /'api',(?!\s*'graphql')[^\]]*?'(?:-f|-F|--field|--raw-field|--input)'/,
+  /['"`]\s*mutation\s*\w*\s*[({]/,
+];
+
+/** Does this source build a `gh` call that writes to GitHub? */
+function buildsGhWrite(source: string): boolean {
+  return GH_WRITE_SHAPES.some((shape) => shape.test(source));
+}
+
 /** The shared fixture's reviewed head SHA — the pin a merge carries and the
  *  ancestry the verify-necessity stand-in check runs against. */
 const HEAD_SHA = '0123456789abcdef0123456789abcdef01234567';
@@ -2069,16 +2127,73 @@ describe('touchesSecuritySensitivePath', () => {
     );
   });
 
-  it('keeps BENIGN_FLIGHT honest: no file the census lets through unflagged builds a `gh` write argv, so a benign module that later grows an executor (as social-pass.ts and pool-client.ts did) fails a test instead of staying auto-mergeable', () => {
-    const ghWriteArgv =
-      /\[\s*'(?:issue|pr|label|release|repo)',\s*'(?:create|comment|edit|close|reopen|merge|review|delete|lock|transfer)'|'--method'/;
-    const writers = [...BENIGN_FLIGHT].filter((file) =>
-      ghWriteArgv.test(readFileSync(`${FLIGHT_SRC_DIR}/${file}`, 'utf8')),
+  it('keeps every benign census honest: no file any census lets through unflagged builds a `gh` write, so a benign module that later grows an executor (as social-pass.ts and pool-client.ts did) fails a test instead of staying auto-mergeable', () => {
+    // The guard covers every census this file declares, and each one is read
+    // from the directory its entries actually live in.
+    const declared = [
+      ...readFileSync(fileURLToPath(import.meta.url), 'utf8').matchAll(
+        /^const (BENIGN_\w+) = new Set\b/gm,
+      ),
+    ].map((match) => match[1]);
+    expect(BENIGN_CENSUSES.map(([name]) => name).sort()).toEqual(declared.sort());
+    const unread = BENIGN_CENSUSES.filter(
+      ([, dir, files]) =>
+        files.size > 0 && ![...files].some((file) => existsSync(`${dir}/${file}`)),
+    ).map(([name]) => name);
+    expect(
+      unread,
+      'censuses none of whose entries exist in their BENIGN_CENSUSES directory',
+    ).toEqual([]);
+
+    const writers = BENIGN_CENSUSES.flatMap(([name, dir, files]) =>
+      [...files]
+        .filter((file) => existsSync(`${dir}/${file}`))
+        .filter((file) => buildsGhWrite(readFileSync(`${dir}/${file}`, 'utf8')))
+        .map((file) => `${name}: ${file}`),
     );
     expect(
       writers,
-      'BENIGN_FLIGHT files that build a gh write — for EACH: give it a marker in SECURITY_SENSITIVE_PATH_MARKERS and drop it from BENIGN_FLIGHT',
+      'benign census files that build a gh write — for EACH: give it a marker in SECURITY_SENSITIVE_PATH_MARKERS and drop it from its census',
     ).toEqual([]);
+  });
+
+  it.each([
+    ['a write subcommand', "exec('gh', ['issue', 'comment', String(n), '--body', body])"],
+    ['an explicit method', "exec('gh', ['api', path, '--method', 'PATCH', '-f', 'state=closed'])"],
+    ['a short explicit method', "exec('gh', ['api', '-X', 'DELETE', path])"],
+    [
+      "a REST `gh api` call with fields, which gh sends as a POST (taxonomy-seed.ts's milestone create)",
+      "exec('gh', [\n  'api',\n  'repos/{owner}/{repo}/milestones',\n  '-f',\n  `title=${t}`,\n])",
+    ],
+    ['a REST `gh api` call with a request body', "exec('gh', ['api', path, '--input', file])"],
+    [
+      "a GraphQL mutation (discussions-triage.ts's reply)",
+      "const M = 'mutation($id: ID!) { addDiscussionComment(input: {discussionId: $id}) { comment { id } } }';",
+    ],
+  ])('the write guard sees %s', (_shape, source) => {
+    expect(buildsGhWrite(source)).toBe(true);
+  });
+
+  it.each([
+    ['a list', "exec('gh', ['issue', 'list', '--json', 'number'])"],
+    ['a REST read', "exec('gh', ['api', 'repos/{owner}/{repo}/milestones', '--jq', '.[].title'])"],
+    [
+      'a GraphQL query, whose fields carry the query itself',
+      "exec('gh', [\n  'api',\n  'graphql',\n  '-F',\n  'owner={owner}',\n  '-f',\n  `query=${Q}`,\n])",
+    ],
+    ['prose about mutation testing', '// a mutation (Stryker) survivor is a test gap'],
+  ])('the write guard lets %s through', (_shape, source) => {
+    expect(buildsGhWrite(source)).toBe(false);
+  });
+
+  it('the write guard sees the writes the flagged GitHub writers actually build, including discussions-triage.ts, whose only writes are GraphQL mutations', () => {
+    const missed = [
+      'discussions-triage.ts',
+      'taxonomy-seed.ts',
+      'social-pass.ts',
+      'pool-client.ts',
+    ].filter((file) => !buildsGhWrite(readFileSync(`${FLIGHT_SRC_DIR}/${file}`, 'utf8')));
+    expect(missed).toEqual([]);
   });
 
   it("keeps pace with new flight/*-execute.ts files automatically: every execute-wiring file in the flight directory is either flagged or explicitly allow-listed as benign, so a future ritual's write wiring can never silently slip past this ritual the way control-execute.ts did", () => {

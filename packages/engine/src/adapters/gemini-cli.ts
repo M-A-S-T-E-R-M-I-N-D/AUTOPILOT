@@ -22,8 +22,10 @@
 
 import { execFile, type ExecFileOptions } from 'node:child_process';
 import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
+import { guardDenialFromText, type GuardDenialDetail } from '../stream.js';
 import {
   reapCliDescendants,
+  cliDeathText,
   isCliTimeoutDeath,
   isResumeFailure,
   CLI_STDIN_PROMPT_THRESHOLD,
@@ -72,6 +74,21 @@ function streamEvents(stdout: string): readonly Record<string, unknown>[] {
 }
 
 /**
+ * The guard denial one `tool_result` event reports, or null. A BeforeTool hook
+ * deny comes back from gemini-cli `coreToolHookTriggers.ts` as an error whose
+ * `message` is the hook's own reason, and `nonInteractiveCli.ts` emits that
+ * call as `status: 'error'` with `error.message`. Our hook's reason is the
+ * Claude guard's deny text (`gemini-guard.ts`), so it reads the same way.
+ * `output` carries it too, behind "Tool execution blocked: ", but a tool that
+ * SUCCEEDED can print anything there, so only the error is trusted.
+ */
+function guardDenialFromToolResult(event: Record<string, unknown>): GuardDenialDetail | null {
+  if (event['status'] !== 'error') return null;
+  const message = strOrNull(recordOrNull(event['error'])?.['message']);
+  return message === null ? null : guardDenialFromText(message);
+}
+
+/**
  * Parse one `gemini --output-format stream-json` run: the `JsonStreamEvent`s in
  * gemini-cli `packages/core/src/output/types.ts`, one compact object per line,
  * all on stdout (`StreamJsonFormatter.emitEvent`). A fatal error comes there too,
@@ -96,6 +113,11 @@ function streamEvents(stdout: string): readonly Record<string, unknown>[] {
  * only `type` and `message`, so `apiErrorStatus` is `null`; cost, turns and
  * stop reason are never on the wire, so they are `null` too. `modelUsed` is
  * the one model `stats.models` names, else the model the engine requested.
+ *
+ * Every tool call the containment guard's BeforeTool hook denied rides out as
+ * `guardDenials`/`guardDenialDetails`, as `StreamingClaudeCliModel`'s do, with
+ * or without a `result`: `0` and `[]` when it denied none, since this driver
+ * sees every `tool_result` on the wire.
  */
 export function parseGeminiStreamJsonOutput(
   stdout: string,
@@ -106,6 +128,7 @@ export function parseGeminiStreamJsonOutput(
   let finalTurnText = '';
   let lastErrorMessage: string | null = null;
   let result: Record<string, unknown> | null = null;
+  const guardDenialDetails: GuardDenialDetail[] = [];
 
   for (const event of streamEvents(stdout)) {
     const type = event['type'];
@@ -118,6 +141,8 @@ export function parseGeminiStreamJsonOutput(
       finalTurnText += strOrNull(event['content']) ?? '';
     } else if (type === 'tool_use' || type === 'tool_result') {
       finalTurnText = '';
+      const denial = type === 'tool_result' ? guardDenialFromToolResult(event) : null;
+      if (denial !== null) guardDenialDetails.push(denial);
     } else if (type === 'error' && event['severity'] === 'error') {
       lastErrorMessage = strOrNull(event['message']) ?? lastErrorMessage;
     } else if (type === 'result') {
@@ -125,7 +150,9 @@ export function parseGeminiStreamJsonOutput(
     }
   }
 
-  if (result === null) return { stdout, exitCode, envelope: null, sessionId };
+  // A killed run's denials count too: the guard said no either way.
+  const guard = { guardDenials: guardDenialDetails.length, guardDenialDetails };
+  if (result === null) return { stdout, exitCode, envelope: null, sessionId, ...guard };
 
   const failed = result['status'] !== 'success';
   const stats = recordOrNull(result['stats']);
@@ -146,7 +173,7 @@ export function parseGeminiStreamJsonOutput(
     cacheCreate: null,
     sessionId,
   };
-  return { stdout, exitCode, envelope, sessionId };
+  return { stdout, exitCode, envelope, sessionId, ...guard };
 }
 
 /** `ExitCodes.FATAL_INPUT_ERROR` in google-gemini/gemini-cli
@@ -366,7 +393,7 @@ export class GeminiCliModel implements ModelPort {
         invocation.args,
         // Same overload-dodging cast ClaudeCliModel.execOnce uses — see its comment.
         execOpts as ExecFileOptions & { encoding: 'utf8' },
-        (err, stdout) => {
+        (err, stdout, stderr) => {
           clearTimeout(idleTimer);
           (this.opts.reapDescendants ?? reapCliDescendants)(child.pid);
           if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
@@ -381,10 +408,29 @@ export class GeminiCliModel implements ModelPort {
           const killedBySignal = err !== null && (err as { killed?: boolean }).killed === true;
           const elapsedMs = Date.now() - startedAt;
           // An idle-cap kill is a cap death too, as in CodexCliModel.execOnce.
-          const timedOut = idleDeath || isCliTimeoutDeath(killedBySignal, elapsedMs, timeoutMs);
+          const capDeath = idleDeath
+            ? 'idle'
+            : isCliTimeoutDeath(killedBySignal, elapsedMs, timeoutMs)
+              ? 'wall-clock'
+              : null;
+          const parsed = parseGeminiStreamJsonOutput(stdout ?? '', exitCode, model);
           resolve({
-            ...parseGeminiStreamJsonOutput(stdout ?? '', exitCode, model),
-            ...(timedOut ? { timedOut: true } : {}),
+            ...parsed,
+            // With no `result`, the events say nothing about WHY the run died;
+            // its stderr does (a failed login, an untrusted folder, a stale
+            // resume id all exit before the first event), and firing.ts records
+            // this stdout as the firing's death tail.
+            ...(parsed.envelope === null
+              ? {
+                  stdout: cliDeathText(
+                    stderr ?? '',
+                    capDeath,
+                    elapsedMs,
+                    capDeath === 'idle' ? idleTimeoutMs : timeoutMs,
+                  ),
+                }
+              : {}),
+            ...(capDeath !== null ? { timedOut: true } : {}),
             // The `result` event's `duration_ms` dies with a killed run; this
             // clock does not. No turn count rides with it (ModelResponse.observed).
             observed: { elapsedMs },

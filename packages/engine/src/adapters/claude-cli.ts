@@ -519,6 +519,21 @@ export function stderrTail(stderr: string): string {
   return stderr.trimEnd().slice(-DEATH_TAIL_CHARS);
 }
 
+/** What a response with no envelope carries as its `stdout`, the text
+ *  firing.ts records as the death tail: the CLI's {@link stderrTail}, or,
+ *  when a cap killed a child that left no stderr, which cap and when
+ *  ({@link capDeathNote}). `capMs` is the window of the cap that fired. */
+export function cliDeathText(
+  stderr: string,
+  capDeath: 'wall-clock' | 'idle' | null,
+  elapsedMs: number,
+  capMs: number,
+): string {
+  return capDeath !== null && stderr.trim() === ''
+    ? capDeathNote(capDeath, elapsedMs, capMs)
+    : stderrTail(stderr);
+}
+
 export class StreamingClaudeCliModel implements ModelPort {
   constructor(private readonly opts: StreamingClaudeCliOptions) {}
 
@@ -689,10 +704,12 @@ export class StreamingClaudeCliModel implements ModelPort {
         // round ended `exit 1`, no envelope, and nothing anywhere said why.
         const elapsedMs = Date.now() - startedAt;
         // A cap death says so in its own words when the child left no stderr.
-        const deathText =
-          capDeath !== null && stderr.trim() === ''
-            ? capDeathNote(capDeath, elapsedMs, capDeath === 'idle' ? idleTimeoutMs : timeoutMs)
-            : stderrTail(stderr);
+        const deathText = cliDeathText(
+          stderr,
+          capDeath,
+          elapsedMs,
+          capDeath === 'idle' ? idleTimeoutMs : timeoutMs,
+        );
         const stdout = result ? JSON.stringify(result) : deathText;
         const envelope = result ? parseModelEnvelope(stdout) : null;
         const partialUsage: PartialUsage | null =
