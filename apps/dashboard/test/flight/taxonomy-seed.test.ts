@@ -718,6 +718,68 @@ describe('issue forms × the seeded label sources (regression, epic 0019 additiv
   });
 });
 
+// Same law, the TEMPLATES flow's pool field: the bug and feature forms ask the
+// reporter which pool a report falls under, from a dropdown that lists the
+// dimensions by hand and points at `.github/labels.json`. Nothing tied that
+// list to either. A dimension added to DIMENSIONS and labels.json (pinned to
+// each other elsewhere in this file) would never be offered, and a renamed one
+// would still be, under a name no `pool:` label or board task carries. GitHub
+// accepts any option list, so no check failed.
+const POOL_FIELD_ID = 'pool';
+const POOL_UNSURE_OPTION = 'Unsure';
+
+/** The options of the `id: pool` dropdown on each issue form that has one. */
+function poolDropdownOptions(): [file: string, options: readonly string[]][] {
+  return readdirSync(ISSUE_TEMPLATE_DIR)
+    .filter((file) => /\.ya?ml$/.test(file) && !/^config\.ya?ml$/.test(file))
+    .sort()
+    .flatMap((file): [string, readonly string[]][] => {
+      const text = readFileSync(join(ISSUE_TEMPLATE_DIR, file), 'utf8').replace(/\r\n/g, '\n');
+      const field = text
+        .split(/^ {2}- type:\s*/m)
+        .slice(1)
+        .find(
+          (block) =>
+            block.startsWith('dropdown') &&
+            new RegExp(`^ {4}id:\\s*${POOL_FIELD_ID}\\s*$`, 'm').test(block),
+        );
+      if (field === undefined) return [];
+      const list = /^ {6}options:[ \t]*\n((?: {8}- [^\n]*(?:\n|$))+)/m.exec(field)?.[1] ?? '';
+      const options = list
+        .split('\n')
+        .map((line) =>
+          line
+            .replace(/^ {8}- /, '')
+            .trim()
+            .replace(/^['"]|['"]$/g, ''),
+        )
+        .filter((option) => option !== '');
+      return [[file, options]];
+    });
+}
+
+describe('issue forms × the pools a report can be filed under (regression, epic 0019 additive-only law)', () => {
+  const forms = poolDropdownOptions();
+
+  it('finds the pool dropdown, with its options, on the bug and feature forms', () => {
+    // Guards the reader: a renamed id or a reshaped list would read as no
+    // forms or no options, and the pins below would pass without checking.
+    expect(forms.map(([file]) => file)).toEqual(['bug_report.yml', 'feature_request.yml']);
+    for (const [, options] of forms) expect(options.length).toBeGreaterThan(0);
+  });
+
+  it.each(forms)('%s offers every dimension and Unsure, and nothing else', (_file, options) => {
+    expect([...options].sort()).toEqual([POOL_UNSURE_OPTION, ...DIMENSIONS].sort());
+  });
+
+  it.each(forms)('%s offers only pools labels.json syncs a label for', (_file, options) => {
+    const unlabeled = options
+      .filter((option) => option !== POOL_UNSURE_OPTION)
+      .filter((option) => !POOL_LABEL_NAMES.includes(`${POOL_LABEL_PREFIX}${option}`));
+    expect(unlabeled).toEqual([]);
+  });
+});
+
 // Same law, the CLAIM flow (docs/ROADMAP.md "How work gets shared"): claim.yml
 // puts `claimed` on a /claim'd issue, stale-claim-reaper.yml finds claims by
 // that label and takes it off again, and this constant is the only thing that
