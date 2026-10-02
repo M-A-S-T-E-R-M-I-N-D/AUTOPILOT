@@ -337,19 +337,27 @@ function flightGroupRow(c, entry, taskById) {
   var headline = summary.headline;
 
   var li = el('li', 'flight flight-group' + (isOpenRow ? ' flight-open' : ''));
-  var head = document.createElement('button');
-  head.type = 'button';
-  head.className = 'flight-head';
-  head.setAttribute('data-flight-row', groupId);
-  head.setAttribute('data-flight-pid', c.id);
-  head.setAttribute('aria-expanded', String(isOpenRow));
+  // A plain container, not a <button> (board ap-muq3t2m5-0): the headline
+  // button below is the disclosure control — same shape as flightLogNode's
+  // flat row head, which explains why.
+  var head = el('div', 'flight-head');
   var headMeta = flightGroupHeadMeta(verdict, rows.length, taskTitle, totalCost, headline, newest.at, fmtCost, fmtAgo);
   var dotEl = el('span', 'flight-dot flight-' + verdict.split(' ')[0], '');
+  // role="img": an empty span may not carry an aria-label as a generic
+  // element — inside the old row <button> it was presentational and axe
+  // never looked; beside the headline button it is a labelled graphic.
+  dotEl.setAttribute('role', 'img');
   dotEl.setAttribute('tabindex', '0');
   dotEl.setAttribute('data-tip', headMeta.dotTip);
   dotEl.setAttribute('aria-label', headMeta.dotAriaLabel);
   head.appendChild(dotEl);
-  var itemEl = el('span', 'flight-item', headline);
+  var itemEl = document.createElement('button');
+  itemEl.type = 'button';
+  itemEl.className = 'flight-item';
+  itemEl.textContent = headline;
+  itemEl.setAttribute('data-flight-row', groupId);
+  itemEl.setAttribute('data-flight-pid', c.id);
+  itemEl.setAttribute('aria-expanded', String(isOpenRow));
   itemEl.setAttribute('tabindex', '0');
   itemEl.setAttribute('data-tip', headMeta.itemTip);
   itemEl.setAttribute('aria-label', headMeta.itemAriaLabel);
@@ -377,9 +385,9 @@ function flightGroupRow(c, entry, taskById) {
   // flight-log row header used to give its dot/headline/cost/ago fields (and
   // any of the slice/auto-fixed/guard chips below) their own Tab stop each —
   // one of the biggest per-row multipliers the follow-on measured (25.0
-  // stops/flight-log row). Only the first field is now a Tab stop; wireRoving
-  // below moves it.
-  seedRoving(head, '[tabindex]');
+  // stops/flight-log row). Only the headline button is now a Tab stop;
+  // wireRoving below moves it.
+  seedRoving(head, '[tabindex]', itemEl);
   li.appendChild(head);
 
   if (isOpenRow) {
@@ -391,6 +399,7 @@ function flightGroupRow(c, entry, taskById) {
       var mMeta = flightLogRowMeta(mHeadline, mVerdict, mf.sha);
       var member = el('li', 'flight-group-member');
       var mDot = el('span', 'flight-dot flight-' + mVerdict.split(' ')[0], '');
+      mDot.setAttribute('role', 'img');
       mDot.setAttribute('tabindex', '0');
       mDot.setAttribute('data-tip', mMeta.dotTip);
       mDot.setAttribute('aria-label', mMeta.dotAriaLabel);
@@ -2020,10 +2029,13 @@ wireRoving('.stat-tiles .stat-tile', '.stat-tiles');
 // their items are a simple homogeneous array — the flight-log row groups
 // below can't do that: dot/item/chips/sha/cost/real-cost/ago are built as
 // separate conditional fields, not one loop, so "which one is first" is only
-// knowable once the row is fully assembled.
-function seedRoving(container, itemSel) {
+// knowable once the row is fully assembled. An optional lead item takes the
+// Tab stop instead of the first one — a flight-log header's headline button,
+// so Tab lands on the control that opens the row rather than its verdict dot.
+function seedRoving(container, itemSel, lead) {
   var items = Array.prototype.slice.call(container.querySelectorAll(itemSel));
-  for (var i = 0; i < items.length; i++) items[i].setAttribute('tabindex', i === 0 ? '0' : '-1');
+  var stop = lead && items.indexOf(lead) >= 0 ? lead : items[0];
+  for (var i = 0; i < items.length; i++) items[i].setAttribute('tabindex', items[i] === stop ? '0' : '-1');
 }
 function listOf(items, toText) {
   var ul = el('ul', 'legend');
@@ -2180,24 +2192,35 @@ function flightLogNode(c) {
     var isSlice = f.completion === 'slice' && !!f.item;
     var li = el('li', 'flight' + (isOpenRow ? ' flight-open' : ''));
 
-    var head = document.createElement('button');
-    head.type = 'button';
-    head.className = 'flight-head';
-    head.setAttribute('data-flight-row', f.id);
-    head.setAttribute('data-flight-pid', c.id);
-    head.setAttribute('aria-expanded', String(isOpenRow));
+    // The row head is a plain flex container, NOT a <button> (board
+    // ap-muq3t2m5-0, the per-firing trace row's ap-mupzhat7-0 fix): HTML's
+    // button content model forbids tabindex descendants, and every roving
+    // field below carries one. The headline <button> is the disclosure control
+    // (aria-expanded, the click delegation's [data-flight-row]); the other
+    // fields sit beside it. The open state rides the li's .flight-open.
+    var head = el('div', 'flight-head');
     var dotEl = el('span', 'flight-dot flight-' + verdict.split(' ')[0], '');
+    // A labelled graphic, the same role="img" flightGroupRow's dot explains.
+    dotEl.setAttribute('role', 'img');
     dotEl.setAttribute('tabindex', '0');
     dotEl.setAttribute('data-tip', logMeta.dotTip);
     dotEl.setAttribute('aria-label', logMeta.dotAriaLabel);
     head.appendChild(dotEl);
-    var logItemEl = el('span', 'flight-item', logMeta.itemText);
+    var logItemEl = document.createElement('button');
+    logItemEl.type = 'button';
+    logItemEl.className = 'flight-item';
+    logItemEl.textContent = logMeta.itemText;
+    logItemEl.setAttribute('data-flight-row', f.id);
+    logItemEl.setAttribute('data-flight-pid', c.id);
+    logItemEl.setAttribute('aria-expanded', String(isOpenRow));
+    // An explicit tabindex enrolls the button in the header's roving set;
+    // seedRoving below makes it the row's one Tab stop.
     logItemEl.setAttribute('tabindex', '0');
     logItemEl.setAttribute('data-tip', logMeta.itemTip);
     // D1 ATTRIBUTE PAYLOAD (epic 0015, board web-mtd1wmqc-v7h6cq): no
     // aria-label duplicating the tip — the full headline rides
     // aria-describedby into a visually-hidden span appended after the row
-    // button below (inside the button its text would join the button's own
+    // head below (inside the button its text would join the button's own
     // accessible name, same reasoning as the per-firing trace headline fix).
     var logItemDescId = 'flight-item-desc-' + c.id + '-' + k;
     logItemEl.setAttribute('aria-describedby', logItemDescId);
@@ -2334,8 +2357,9 @@ function flightLogNode(c) {
     logAgoEl.setAttribute('aria-label', logCostAgo.agoAriaLabel);
     head.appendChild(logAgoEl);
     // Same roving fix as flightGroupRow's header (D1 TAB-STOP ROVING, board
-    // web-mtd1wyte-ssntzi) — only the first field in THIS row is a Tab stop.
-    seedRoving(head, '[tabindex]');
+    // web-mtd1wyte-ssntzi) — only the headline button in THIS row is a Tab
+    // stop.
+    seedRoving(head, '[tabindex]', logItemEl);
     li.appendChild(head);
     // .sr-only is position:absolute, so this adds no phantom flex-gap row to
     // the flight-log list.

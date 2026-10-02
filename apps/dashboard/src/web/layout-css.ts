@@ -880,8 +880,8 @@ main.project-mode { grid-template-columns: 1fr; }
 .landing-commit-group { display: flex; flex-direction: column; gap: var(--space-1); }
 /* COCKPIT 6/6 (epic 0005): the collapsed commit-group toggle joins the MX
    designed-states family with the exact idiom its structural twin
-   .flight-head (the flight log's own group-row toggle — same full-width
-   borderless button, same border + surface-raise hover wash) carries:
+   .flight-head (the flight log's own group row — same full-width borderless
+   row, same border + surface-raise hover wash) carries:
    shape-morph + --elevation-level-1 lift on hover/focus-visible, pressed-flat
    on active. Rest radius swaps --radius-md for --shape-small (both 8px) so
    the state tokens pair with their own rest value — rest-state pixels do not
@@ -1649,10 +1649,16 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    carry. Rest radius swaps --radius-md for --shape-small (both 8px) so the
    state tokens pair with their own rest value — rest-state pixels do not
    move. The .flight-open rule stays AFTER the hover pair so an open row
-   keeps its accent border through hover/press. */
-.flight-head { display: flex; align-items: center; gap: var(--space-2); width: 100%; background: none; border: 1px solid transparent; border-radius: var(--shape-small); padding: 3px var(--space-2); font: inherit; color: inherit; cursor: pointer; text-align: start; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
-.flight-head:hover, .flight-head:focus-visible { border-color: var(--color-border); background: var(--color-surface-raised); border-radius: var(--shape-small-hover); box-shadow: var(--elevation-level-1); }
-.flight-head:active { border-radius: var(--shape-small-pressed); box-shadow: none; }
+   keeps its accent border through hover/press.
+   The row head is a flex container, not a <button> (board ap-muq3t2m5-0,
+   the .firing-toggle fix's twin): HTML's button content model forbids
+   tabindex descendants, and the row's roving fields each carry one. The
+   disclosure control is the .flight-item button inside it, so the row's
+   focus chrome keys off :has(:focus-visible) and its pressed state off
+   the headline's own :active. */
+.flight-head { display: flex; align-items: center; gap: var(--space-2); width: 100%; border: 1px solid transparent; border-radius: var(--shape-small); padding: 3px var(--space-2); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+.flight-head:hover, .flight-head:has(:focus-visible) { border-color: var(--color-border); background: var(--color-surface-raised); border-radius: var(--shape-small-hover); box-shadow: var(--elevation-level-1); }
+.flight-head:has(.flight-item:active) { border-radius: var(--shape-small-pressed); box-shadow: none; }
 .flight-open .flight-head { border-color: var(--color-accent); }
 .flight-dot { width: 8px; height: 8px; border-radius: var(--radius-full); flex: none; }
 /* Flight-row hierarchy (COCKPIT 4/6): the same content-over-chrome pair the
@@ -1660,6 +1666,12 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    headline is the content, explicit at full strength; cost/turns/ago are
    chrome and read muted like .flight-sha already did. */
 .flight-item { font-size: var(--text-sm); color: var(--color-text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; }
+/* A row head's headline is a real <button> reset to read as the row's text:
+   no chrome of its own, stretched to the row's full height so the whole
+   headline band stays the click target (the global button floor keeps it
+   ≥ 24px tall). Size, color and the group row's weight come from the
+   .flight-item rules around it — this sets neither. */
+.flight-head > .flight-item { align-self: stretch; margin: 0; padding: 0; border: 0; background: none; font-family: inherit; line-height: inherit; text-align: start; cursor: pointer; }
 .flight-slice-chip { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-accent); border-color: var(--color-accent); }
 .flight-autoformat-chip { flex: none; }
 .flight-guard-chip { flex: none; }

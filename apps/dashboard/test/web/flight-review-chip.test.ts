@@ -185,10 +185,14 @@ function expectChipHebrew(chip: HTMLElement, n: number, top: string): void {
 
 /**
  * A whole-page axe scan that cannot pass vacuously: both chips must be on the
- * page, and both must show up among the nodes axe PASSED for
+ * page, and both must show up among the nodes axe JUDGED for
  * `aria-prohibited-attr` — the rule an aria-label on a role-less span trips.
  * No violations with the chips absent from that list would mean axe never
- * judged them, not that they are clean.
+ * judged them, not that they are clean. Judged means passed or needs-review:
+ * the chip sits beside the row's headline button, not inside it (board
+ * ap-muq3t2m5-0), and axe defers rather than fails an aria-label on a
+ * role-less span that carries visible text — the same verdict it gives the
+ * per-firing trace row's chips. An icon-only chip (no text) would fail.
  */
 async function expectAxeCleanWithChips(): Promise<void> {
   reviewChips();
@@ -197,7 +201,7 @@ async function expectAxeCleanWithChips(): Promise<void> {
   const results = await axe.run(document, AXE_OPTIONS);
   expect(results.violations.map((v) => v.id)).toEqual([]);
 
-  const judged = results.passes
+  const judged = [...results.passes, ...results.incomplete]
     .filter((r) => r.id === 'aria-prohibited-attr')
     .flatMap((r) => r.nodes.map((n) => String(n.target)))
     .filter((t) => t.includes('.flight-review-chip'));

@@ -11,6 +11,11 @@
  * row/member is now a Tab stop; the shared wireRoving() handlers (web/
  * shell.ts, already used by the gauge/langbar/task-chip groups) move it with
  * Left/Right/Home/End.
+ *
+ * A header's one Tab stop is its headline <button> (board ap-muq3t2m5-0): the
+ * row itself is a plain container, not a <button> wrapping tabindex spans
+ * (HTML's button content model forbids those), so Tab lands straight on the
+ * control that opens the row, with the verdict dot one ArrowLeft away.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -114,7 +119,7 @@ describe('flight-log rows use a roving Tab stop instead of one per field', () =>
     vi.restoreAllMocks();
   });
 
-  it('seeds only the first header field as a Tab stop, for a plain row and a group row alike', async () => {
+  it('seeds only the headline button as a Tab stop, for a plain row and a group row alike', async () => {
     boot('p1');
     await vi.advanceTimersByTimeAsync(1);
 
@@ -123,13 +128,47 @@ describe('flight-log rows use a roving Tab stop instead of one per field', () =>
     expect(rows[0]?.className).toContain('flight-group'); // f2/f1 collapsed
 
     for (const row of rows) {
-      const fields = Array.from(row!.querySelector('.flight-head')!.querySelectorAll('[tabindex]'));
-      expect(fields.length).toBeGreaterThan(1); // dot + at least item/cost/ago
-      expect(fields.map((f) => f.getAttribute('tabindex'))).toEqual([
-        '0',
-        ...fields.slice(1).map(() => '-1'),
-      ]);
+      const head = row!.querySelector('.flight-head')!;
+      // The row is a container, never the button itself.
+      expect(head.tagName).toBe('DIV');
+      expect(head.hasAttribute('aria-expanded')).toBe(false);
+      expect(head.hasAttribute('data-flight-row')).toBe(false);
+      // The headline IS the disclosure control.
+      const item = head.querySelector('.flight-item')!;
+      expect(item.tagName).toBe('BUTTON');
+      expect(item.getAttribute('type')).toBe('button');
+      expect(item.getAttribute('aria-expanded')).toBe('false');
+      expect(item.getAttribute('data-flight-row')).toBeTruthy();
+      expect(item.getAttribute('data-flight-pid')).toBe('p1');
+
+      const fields = Array.from(head.querySelectorAll('[tabindex]'));
+      expect(fields.length).toBeGreaterThan(2); // dot + item + at least cost/ago
+      expect(fields[1]).toBe(item); // still second in reading order, after the dot
+      expect(fields.map((f) => f.getAttribute('tabindex'))).toEqual(
+        fields.map((f) => (f === item ? '0' : '-1')),
+      );
     }
+  });
+
+  it('opens and closes a plain row from its headline button', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    const plainItem = (): HTMLButtonElement =>
+      document.querySelectorAll<HTMLButtonElement>('.flightlog > li .flight-head .flight-item')[1]!;
+    plainItem().click();
+    await vi.advanceTimersByTimeAsync(10);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(plainItem().getAttribute('aria-expanded')).toBe('true');
+    expect(plainItem().closest('li')?.classList.contains('flight-open')).toBe(true);
+    expect(document.querySelector('.flightlog .flight-open .flight-detail')).not.toBeNull();
+
+    plainItem().click();
+    await vi.advanceTimersByTimeAsync(10);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(plainItem().getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelector('.flightlog .flight-detail')).toBeNull();
+    await vi.advanceTimersByTimeAsync(5000);
   });
 
   it('moves the header roving tab stop with ArrowRight/ArrowLeft/Home/End, never crossing into another row', async () => {
@@ -156,8 +195,8 @@ describe('flight-log rows use a roving Tab stop instead of one per field', () =>
     expect(document.activeElement).toBe(dot);
 
     // The plain row's own header is untouched by the group row's roving state.
-    const plainDot = rows[1]!.querySelector('.flight-head [tabindex]');
-    expect(plainDot?.getAttribute('tabindex')).toBe('0');
+    const plainItem = rows[1]!.querySelector('.flight-head .flight-item');
+    expect(plainItem?.getAttribute('tabindex')).toBe('0');
   });
 
   it('moves the header roving tab stop to whichever field gets mouse/programmatic focus', async () => {
@@ -181,7 +220,9 @@ describe('flight-log rows use a roving Tab stop instead of one per field', () =>
     boot('p1');
     await vi.advanceTimersByTimeAsync(1);
 
-    (document.querySelector('.flight-group .flight-head') as HTMLButtonElement).click();
+    (
+      document.querySelector('.flight-group .flight-head .flight-item') as HTMLButtonElement
+    ).click();
     await vi.advanceTimersByTimeAsync(10);
     await vi.advanceTimersByTimeAsync(10);
 

@@ -163,7 +163,9 @@ describe('slice-aware flight log', () => {
     boot('p1');
     await vi.advanceTimersByTimeAsync(1);
 
-    (document.querySelector('.flight-group .flight-head') as HTMLButtonElement).click();
+    (
+      document.querySelector('.flight-group .flight-head .flight-item') as HTMLButtonElement
+    ).click();
     await vi.advanceTimersByTimeAsync(10);
     await vi.advanceTimersByTimeAsync(10);
 

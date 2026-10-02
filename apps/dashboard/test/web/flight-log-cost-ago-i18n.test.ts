@@ -122,9 +122,9 @@ async function render(): Promise<void> {
   await vi.advanceTimersByTimeAsync(1);
 }
 
-/** Opens the slice-run group row so its member rows render. */
+/** Opens the slice-run group row (its headline button) so its member rows render. */
 async function openGroup(): Promise<void> {
-  q(GROUP_HEAD).click();
+  q(`${GROUP_HEAD} .flight-item`).click();
   await vi.advanceTimersByTimeAsync(100);
   q(MEMBER);
 }
