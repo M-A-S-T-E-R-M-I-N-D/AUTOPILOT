@@ -42,6 +42,7 @@ import {
   DEFAULT_CLI_TIMEOUT_MS,
 } from './claude-cli.js';
 import { buildInvocation, CMD_SAFE_ARG } from './gate.js';
+import { resolveNpmShim } from './npm-shim.js';
 
 function strOrNull(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
@@ -367,10 +368,13 @@ export interface CodexCliOptions {
  * {@link CLI_STDIN_PROMPT_THRESHOLD}, or one starting with `-`, goes on stdin behind
  * a `-` argument instead, dodging the Windows command-line ceiling the way
  * `ClaudeCliModel` does. On Windows a bare `codex` is npm's `codex.cmd` shim,
- * so it runs through `cmd.exe /c` (gate.ts's `buildInvocation`), attached, with
- * every prompt on stdin, where cmd.exe cannot parse it. Mirrors
+ * so node runs the JS entry it names, attached ({@link resolveNpmShim}), and
+ * argv reaches the CLI as given. A shim it cannot read that way runs through
+ * `cmd.exe /c` (gate.ts's `buildInvocation`), attached, with every prompt on
+ * stdin, where cmd.exe cannot parse it. Mirrors
  * `ClaudeCliModel`'s buffered-execFile transport shape, including `detached:
- * true` (off that cmd.exe route) + {@link reapCliDescendants} so a
+ * true` (for a binary spawned directly, never the node or cmd.exe route) +
+ * {@link reapCliDescendants} so a
  * wall-clock kill still reaps whatever the child spawned (ORPHAN SWEEP, board
  * web-msu3sv1w-hfj87n). It carries `StreamingClaudeCliModel`'s idle cap
  * ({@link CodexCliOptions.idleTimeoutMs}): a child silent on stdout for that
@@ -434,12 +438,16 @@ export class CodexCliModel implements ModelPort {
       args.push('resume', resumeSessionId);
     }
     // npm installs `codex` on Windows as a `codex.cmd` shim, which execFile
-    // cannot launch itself (ENOENT). gate.ts's buildInvocation routes a bare
-    // name through `cmd.exe /c`, which finds it by PATHEXT; an explicit path
-    // or `.exe` is still spawned directly.
+    // cannot launch itself (ENOENT). The shim only runs node on `codex.js`, so
+    // when it reads as npm's own, node runs that entry directly and no cmd.exe
+    // parses argv (resolveNpmShim). Any other shape keeps gate.ts's
+    // buildInvocation route through `cmd.exe /c`, which finds it by PATHEXT;
+    // an explicit path or `.exe` is still spawned directly.
     const binary = this.opts.binary ?? 'codex';
     const platform = this.opts.platform ?? process.platform;
-    const viaCmd = buildInvocation(binary, [], platform).bin !== binary;
+    const env = this.opts.env ?? process.env;
+    const shim = platform === 'win32' ? resolveNpmShim(binary, env) : null;
+    const viaCmd = shim === null && buildInvocation(binary, [], platform).bin !== binary;
     // `-` makes both `exec` and `exec resume` read the prompt from stdin
     // (codex-rs/exec/src/lib.rs `resolve_prompt`). A leading `-` on argv would
     // parse as a flag, and `-` alone as that same stdin read, so those go on
@@ -458,21 +466,25 @@ export class CodexCliModel implements ModelPort {
         sessionId: null,
       });
     }
-    const invocation = buildInvocation(binary, args, platform);
+    const invocation =
+      shim === null
+        ? buildInvocation(binary, args, platform)
+        : { bin: shim.bin, args: [...shim.args, ...args] };
 
     const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
     const idleTimeoutMs = this.opts.idleTimeoutMs ?? DEFAULT_CLI_IDLE_TIMEOUT_MS;
     const startedAt = Date.now();
     const execOpts: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = {
       cwd: this.opts.repo,
-      env: this.opts.env ?? process.env,
+      env,
       maxBuffer: 64 * 1024 * 1024,
       windowsHide: true,
       timeout: timeoutMs,
-      // A detached cmd.exe has no console, so Windows would open a new one for
-      // the node process the shim starts. The gate runs its cmd.exe shims
-      // attached, and the reap below walks the tree with `taskkill /t` either way.
-      detached: !viaCmd,
+      // A detached cmd.exe or node has no console, so Windows would open a new
+      // one for the process it starts (the shim's node, or the native codex
+      // `codex.js` spawns). The gate runs its cmd.exe shims attached, and the
+      // reap below walks the tree with `taskkill /t` either way.
+      detached: !viaCmd && shim === null,
       encoding: 'utf8',
     };
     return new Promise((resolve) => {
@@ -557,8 +569,9 @@ export class CodexCliModel implements ModelPort {
         idleTimer = setTimeout(() => {
           idleDeath = true;
           // execFile settles only once every pipe has closed. Behind cmd.exe
-          // the node shim outlives the kill and holds them open, so close our
-          // end first, as execFile's own timeout kill does.
+          // or the shim's node, the processes they started outlive the kill
+          // and hold them open, so close our end first, as execFile's own
+          // timeout kill does.
           child.stdout?.destroy();
           child.stderr?.destroy();
           try {
