@@ -89,7 +89,18 @@ export class SqliteFiringStore implements StorePort {
         completion: record.completion,
         completion_missing: record.completionMissing ? 1 : 0,
         test_first: record.testFirst === null ? null : record.testFirst ? 1 : 0,
-        picked_rank: record.pickedRank,
+        // The column carries CHECK (picked_rank >= 1); a rank below that is
+        // stored as "no rank" rather than thrown back at the lane — this
+        // insert runs after the model has spent its money, and the throw
+        // took a whole lane with it (round 58, fleet-3, 2026-10-02). The
+        // parser (telemetry.ts pickRank) already drops such values; this is
+        // the second lock on the same door.
+        picked_rank:
+          record.pickedRank !== null &&
+          Number.isInteger(record.pickedRank) &&
+          record.pickedRank >= 1
+            ? record.pickedRank
+            : null,
         deviation_reason: record.deviationReason,
         resumed: record.resumed === null ? null : record.resumed ? 1 : 0,
         extended: record.extended ? 1 : null,
