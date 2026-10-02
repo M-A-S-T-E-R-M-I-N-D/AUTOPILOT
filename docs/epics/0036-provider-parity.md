@@ -261,9 +261,18 @@ needs no translation: `exec_command` hands the hook `{"tool_name":"Bash","tool_i
 (`codex-rs/core/src/tools/handlers/unified_exec/exec_command.rs`), which `guard-hook.js` judges as
 a Claude call, and the Claude deny it prints is a Codex deny. A run left on the cmd.exe fallback is
 refused rather than flown without its guard, since the TOML fails `CMD_SAFE_ARG`. The trust bypass
-also runs the operator's own untrusted hooks from their Codex home. Still open: `apply_patch` is not
-matched, since its file paths must be read out of the patch first (the workspace-write sandbox
-already confines its writes); `exec_command`'s `workdir` never reaches the hook, so a command is
+also runs the operator's own untrusted hooks from their Codex home. Since 2026-10-02 the hook
+matches `Bash|apply_patch`, so a file patch is judged too. `core/src/tools/handlers/apply_patch.rs`
+(`pre_tool_use_payload`) sends it as `{"tool_name":"apply_patch","tool_input":{"command":<patch>}}`,
+and the handler takes only that freeform form, so no patch skips the hook. `codex-guard.ts`'s
+`codexPatchPaths` reads the files a patch names by the header rules of
+`apply-patch/src/streaming_parser.rs`: lines split on `\n`, a header read from the line trimmed
+whole by Rust's `str::trim` (NEL included, which JavaScript's `trim` leaves on), but inside an
+Update hunk from the line trimmed at its end only, so an indented header there stays a context
+line, and `*** Move to: ` read only there. `codexPatchToClaudeHookPayloads` resolves each path
+against the payload's `cwd`, the turn cwd the handler resolves it against, so a `../` escape is
+judged where it lands, and `guard-hook.js` judges each as a Claude `Write` (Add, Move to) or `Edit`
+(Update, Delete). Still open: `exec_command`'s `workdir` never reaches the hook, so a command is
 judged without it; nothing wires the guard into a lane yet, since no lane routes to Codex; and how a
 hook-denied call looks on the `exec --json` stream has not been read, so a Codex lane still reports
 no guard denials.
@@ -343,7 +352,7 @@ disconnected reference doc that can drift out of sync with it.
 | Ollama (`OllamaModel`) | No | No — single-turn only | Real `$0` (local compute) | **Shipped**, triage-only lane |
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`) |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`) |
-| OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it; since 2026-10-02 it runs the containment guard as its `PreToolUse` hook on every shell call (`codexGuardArgs`, finding 3), but `apply_patch` is not matched yet and hook denials are not read back |
+| OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it; since 2026-10-02 it runs the containment guard as its `PreToolUse` hook on every shell call and `apply_patch` (`codexGuardArgs`, `codex-guard.ts`, finding 3), but hook denials are not read back |
 | Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed); a stale id retries cold | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); not yet wired into routing/config, so no lane flies on it |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | `--output-format=json` exists but its wire schema is undocumented and unverifiable (closed-source binary) | **Blocked** — needs a real captured output sample before an adapter can be fixture-tested |
 

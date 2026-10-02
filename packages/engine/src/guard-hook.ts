@@ -29,6 +29,11 @@
  * gemini-guard.ts). A Gemini payload is judged as the Claude tool calls it
  * amounts to, through every check above, and its deny goes back in Gemini's
  * own `decision`/`reason` shape.
+ *
+ * The Codex CLI runs it as its `PreToolUse` hook (epic 0036). A shell call
+ * arrives as the Claude `Bash` payload it already is; an `apply_patch` is
+ * judged as a Claude `Write`/`Edit` of each file it names (codex-guard.ts),
+ * and Codex reads Claude's deny as its own.
  */
 
 import { lookup } from 'node:dns/promises';
@@ -50,6 +55,7 @@ import {
   isMergeCommit,
 } from './adapters/sibling-commit-scan.js';
 import { geminiToClaudeHookPayloads, toGeminiDenyDecision } from './gemini-guard.js';
+import { codexPatchToClaudeHookPayloads } from './codex-guard.js';
 
 const targetRoot = process.argv[2] ?? '';
 
@@ -68,16 +74,12 @@ async function handleStdinEnd(): Promise<void> {
     return;
   }
   const geminiPayloads = geminiToClaudeHookPayloads(raw);
-  if (geminiPayloads === null) {
-    const decision = await decide(raw);
-    if (decision !== null) process.stdout.write(decision);
-  } else {
-    for (const payload of geminiPayloads) {
-      const decision = await decide(payload);
-      if (decision !== null) {
-        process.stdout.write(toGeminiDenyDecision(decision));
-        break;
-      }
+  const payloads = geminiPayloads ?? codexPatchToClaudeHookPayloads(raw, targetRoot) ?? [raw];
+  for (const payload of payloads) {
+    const decision = await decide(payload);
+    if (decision !== null) {
+      process.stdout.write(geminiPayloads === null ? decision : toGeminiDenyDecision(decision));
+      break;
     }
   }
   process.exit(0);
