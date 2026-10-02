@@ -12,6 +12,8 @@
  * (iterations < max)` can only exit that way at exactly `max`), so this never
  * reveals a mismatch — it exists purely to make the by-request stop
  * self-explanatory in the log line instead of requiring outside context.
+ * A `'demoted'` lane (loop.ts's LANE DEMOTION, epic 0036) names it too: there
+ * the count DOES fall short, and the shortfall is what the line has to show.
  */
 
 import type { LoopSummary } from '@autopilot/engine';
@@ -22,8 +24,7 @@ export function formatFlightDoneLine(
   shipped: number,
   totalRecorded: number,
 ): string {
-  const requestedNote =
-    summary.stoppedBy === 'max-iterations' ? ` (requested ${requestedFirings})` : '';
+  const requestedNote = summary.stoppedBy !== 'stop' ? ` (requested ${requestedFirings})` : '';
   return (
     `Done — ${summary.firings} firing(s)${requestedNote}, ${shipped}/${totalRecorded} shipped` +
     ` (gate-verified). Stopped by: ${summary.stoppedBy}.`

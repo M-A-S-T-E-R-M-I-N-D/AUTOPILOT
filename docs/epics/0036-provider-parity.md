@@ -350,7 +350,8 @@ only for the dashboard's single-turn triage substep (`apps/dashboard/src/fly.ts`
 names why: no tool use, no agent loop). Promoting it to a real mechanical-work lane (docs,
 formatting, test scaffolds) is a scheduling/routing change in the loop, not a `ModelPort` change —
 `OllamaModel` itself needs no new capability, but the lane needs the "demotes a lane that fails
-twice" quality gate the roadmap names, which doesn't exist yet for any lane.
+twice" quality gate the roadmap names. Since 2026-10-02 the loop has it as an option no lane passes
+yet (`demoteAfterGateFailures`, see the acceptance criteria below).
 
 **7. A parity matrix in the docs** — the table below. Kept here rather than in a separate file per
 the epic-spec convention (`docs/epics/README.md`): one committed spec per epic, not a spec plus a
@@ -380,7 +381,15 @@ disconnected reference doc that can drift out of sync with it.
   to this repo.
 - A lane flown on a non-Claude engine is demoted (stops being offered new work) after two consecutive
   gate-failing firings — the "quality gate that demotes a lane that fails twice" the roadmap names,
-  needed before Ollama's promotion and reusable for any CLI adapter's lane.
+  needed before Ollama's promotion and reusable for any CLI adapter's lane. **Mechanism shipped
+  2026-10-02, not yet switched on:** `runLoop`'s `demoteAfterGateFailures` option
+  (`packages/engine/src/loop.ts`) ends the flight `stoppedBy: 'demoted'`, after the demoting
+  firing's claim is released, once the gate has reverted that many firings in a row. Only a
+  `'reverted'` gate counts. A gate crash (`'unverifiable'`) is no proof the work was bad, and a
+  firing with no commit gave the gate nothing to judge, so either starts the count over. The
+  flight log says `DEMOTED: …`, and the done line names the requested count it fell short of.
+  The option is off by default, and no lane flies a non-Claude engine yet. The routing slice that
+  first does should pass `demoteAfterGateFailures: 2` for such a lane.
 - The parity matrix table above is kept current as each row's Status changes — updated in the SAME
   commit that ships the adapter, not a follow-up.
 
