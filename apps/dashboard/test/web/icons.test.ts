@@ -194,11 +194,61 @@ describe('server-printed chrome draws vendored icons (law 1)', () => {
     );
   });
 
-  // Shrink-only: the subject rail's Feather-derived table (three link
-  // builders) and the lucky button's filled clover still print their own
-  // markup.
+  // The rail's three link builders printed a hand-copied Feather table; each
+  // place draws its vendored Lucide shape now, still sized by the rail's
+  // `.subject-link svg` and the tab row's `.project-tab svg` rules.
+  it('every rail link and project tab prints its vendored icon beside its label', () => {
+    const RAIL: Record<string, string> = {
+      fleet: 'layout-grid',
+      fly: 'send',
+      keeper: 'inbox',
+      community: 'users',
+      benchmark: 'chart-scatter',
+    };
+    const TABS: Record<string, string> = {
+      fleet: 'layout-grid',
+      board: 'square-kanban',
+      keeper: 'inbox',
+      plan: 'git-branch',
+      docs: 'book-open',
+      data: 'chart-no-axes-column',
+    };
+    const fleetPage = new DOMParser().parseFromString(renderShell(), 'text/html');
+    const projectPage = new DOMParser().parseFromString(renderShell('alpha'), 'text/html');
+    const cases: [Element[], Record<string, string>, string][] = [
+      [
+        [...fleetPage.querySelectorAll('#subject-nav a[data-subject-link]')],
+        RAIL,
+        'data-subject-link',
+      ],
+      [
+        [...projectPage.querySelectorAll('#subject-nav a[data-global-link]')],
+        RAIL,
+        'data-global-link',
+      ],
+      [[...projectPage.querySelectorAll('#project-tabs a')], TABS, 'data-subject-link'],
+    ];
+    for (const [links, icons, attr] of cases) {
+      expect(links.map((a) => a.getAttribute(attr))).toEqual(Object.keys(icons));
+      for (const link of links) {
+        const name = icons[link.getAttribute(attr)!]!;
+        expect(ICON_NAMES, name).toContain(name);
+        expect(link.children, name).toHaveLength(2);
+        const icon = link.firstElementChild!;
+        expect(icon.matches(`svg.icon.icon-${name}`), name).toBe(true);
+        expect(icon.getAttribute('aria-hidden')).toBe('true');
+        expect(icon.hasAttribute('width'), name).toBe(false);
+        expect(link.lastElementChild!.matches('span[data-i18n]'), name).toBe(true);
+      }
+    }
+    const css = layoutCss();
+    expect(css).toContain('.subject-link svg { inline-size: 1.375rem; block-size: 1.375rem;');
+    expect(css).toContain('.project-tab svg { inline-size: 1.125rem; block-size: 1.125rem;');
+  });
+
+  // Shrink-only: the lucky button's filled clover still prints its own markup.
   it('hand-inlines no 24-unit icon outside the vendored set beyond the known sites', () => {
-    expect(handInlinedIconSites()).toEqual(['shell-html.ts: 3', 'shell.ts: 1']);
+    expect(handInlinedIconSites()).toEqual(['shell.ts: 1']);
   });
 });
 
