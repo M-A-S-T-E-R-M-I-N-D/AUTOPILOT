@@ -67,6 +67,7 @@ import type { CliExec } from '../connection/cli-probe.js';
 import {
   POOL_LABEL_PREFIX,
   MAX_ISSUE_LIST,
+  HOLD_LABELS,
   parseIssueLabels,
   parseAssignees,
   issueTaskId,
@@ -280,7 +281,8 @@ function isoDay(ms: number | null): string {
  * Decides whether `issue` can be claimed for `claimant`: skip when it
  * carries no `pool: <dimension>` label ({@link isPoolIssue}) — it was never
  * accepted into the pool — when the maintainer has since declined it
- * ({@link DECLINED_LABEL}), or when it is already assigned ({@link
+ * ({@link DECLINED_LABEL}) or put it on hold ({@link HOLD_LABELS}, the
+ * labels KEEPER triage holds on too), or when it is already assigned ({@link
  * isClaimedPoolIssue}), otherwise claim. Pure: reuses the same classifiers
  * `fetchPoolIssues` already filters by rather than re-deriving pool/claimed
  * status a second way.
@@ -300,6 +302,13 @@ export function planClaimPoolIssue(
     return {
       decision: 'skip',
       reasoning: `#${issue.number} carries "${DECLINED_LABEL}" — the maintainer has answered it, so nobody should claim it`,
+    };
+  }
+  const hold = HOLD_LABELS.find((label) => issue.labels.includes(label));
+  if (hold) {
+    return {
+      decision: 'skip',
+      reasoning: `#${issue.number} carries "${hold}" — the maintainer has put it on hold, so nobody should claim it until they lift it`,
     };
   }
   const standings = claimStandings(issueClaims(issue), nowMs);
