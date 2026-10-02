@@ -780,8 +780,8 @@ describe('issue forms × the pools a report can be filed under (regression, epic
   });
 });
 
-// Same law, the CLAIM flow (docs/ROADMAP.md "How work gets shared"): claim.yml
-// puts `claimed` on a /claim'd issue, stale-claim-reaper.yml finds claims by
+// Same law, the CLAIM flow (.github/CONTRIBUTING.md "Claiming work — the
+// shared-task protocol"): claim.yml puts `claimed` on a /claim'd issue, stale-claim-reaper.yml finds claims by
 // that label and takes it off again, and this constant is the only thing that
 // makes the label exist on a fresh repo. Both workflows swallow a failed label
 // edit (`2>/dev/null || true`), so a name drift between the three fails with
