@@ -109,6 +109,27 @@ const MATH_SYMBOLS_B_PATTERN = /[\u{2980}-\u{29FF}]/gu;
 const EDGE_GUILLEMET_WEB_PATTERN = /(?<=['"`])‹(?=\s)|(?<=\s)›(?=['"`])/gu;
 const EDGE_GUILLEMET_VALUE_PATTERN = /^‹(?=\s)|(?<=\s)›$/gu;
 
+/** ✓/✗ stay free in result lines and decision badges (ALLOWED_GLYPHS), but
+ *  a button whose face leads with one paints it as an icon, beside siblings
+ *  that draw theirs — the task row's "✓ done" sat next to the trash-2 delete
+ *  and the arrow-up/arrow-down reorder buttons. The task row's approve,
+ *  reject and done buttons took the vendored check and x icons (2026-10-02);
+ *  this is a shrink-only list of the button faces that still lead with one. */
+const BUTTON_FACE_MARK_PATTERN = /el\('button', '[^']*', '([✓✗])\s/gu;
+
+/** Every `el('button', cls, '✓ …')` face in `files`, as `file: glyph` with
+ *  `/` separators, so the list reads the same on every disk. */
+function buttonFaceMarks(files: readonly string[]): string[] {
+  const sites: string[] = [];
+  for (const file of files) {
+    const code = stripComments(readFileSync(join(WEB_DIR, file), 'utf8'));
+    for (const match of code.matchAll(BUTTON_FACE_MARK_PATTERN)) {
+      sites.push(`${file.replaceAll('\\', '/')}: ${match[1]}`);
+    }
+  }
+  return sites.sort();
+}
+
 function tsFilesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true })
     .map((f) => String(f))
@@ -180,6 +201,23 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
   it('paints no edge-guillemet chevron in any web/ string literal outside comments', () => {
     const offenders = webOffenders(files, EDGE_GUILLEMET_WEB_PATTERN);
     expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
+  it('leads no more button faces with a ✓/✗ glyph than the shrink-only list', () => {
+    // The SOUL cards' ratify/dismiss pair (drawn twice) and the backlog's
+    // confirm-done button are what is left.
+    expect(buttonFaceMarks(files)).toEqual([
+      'features/backlog.ts: ✓',
+      'shell.ts: ✓',
+      'shell.ts: ✓',
+      'shell.ts: ✗',
+      'shell.ts: ✗',
+    ]);
+  });
+
+  it('matches a ✓/✗ button face but leaves a result line alone', () => {
+    const source = "el('button', 'task-done-btn', '✓ done'); text: '✓ ' + summary";
+    expect([...source.matchAll(BUTTON_FACE_MARK_PATTERN)].map((m) => m[1])).toEqual(['✓']);
   });
 
   it("matches an edge chevron but leaves the breadcrumb and the phase rail's lone separator alone", () => {

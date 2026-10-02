@@ -3347,8 +3347,12 @@ function tasksSection(c) {
       }
       if (t.status === 'needs_approval') {
         // The operator's decision on a PROPOSED task: approve → workable queue,
-        // reject → gone. Until then flights skip it entirely.
-        var approveBtn = el('button', 'task-done-btn task-approve-btn', '✓ approve');
+        // reject → gone. Until then flights skip it entirely. Each decision
+        // button leads with a stroke icon (epic 0025) where its label once
+        // baked in ✓/✗; setSweptText() keeps the icon across a locale switch.
+        var approveBtn = el('button', 'task-done-btn task-approve-btn');
+        approveBtn.appendChild(iconEl('check'));
+        approveBtn.appendChild(document.createTextNode(tr('taskApprove')));
         approveBtn.setAttribute('type', 'button');
         approveBtn.setAttribute('data-i18n', 'taskApprove');
         approveBtn.setAttribute('data-task-approve', t.id);
@@ -3356,7 +3360,9 @@ function tasksSection(c) {
         approveBtn.setAttribute('data-tip', approveTip);
         approveBtn.setAttribute('aria-label', approveTip);
         li.appendChild(approveBtn);
-        var rejectBtn = el('button', 'task-delete-btn', '✗ reject');
+        var rejectBtn = el('button', 'task-delete-btn task-reject-btn');
+        rejectBtn.appendChild(iconEl('x'));
+        rejectBtn.appendChild(document.createTextNode(tr('taskReject')));
         rejectBtn.setAttribute('type', 'button');
         rejectBtn.setAttribute('data-i18n', 'taskReject');
         rejectBtn.setAttribute('data-task-delete', t.id);
@@ -3366,7 +3372,9 @@ function tasksSection(c) {
         rejectBtn.setAttribute('aria-label', rejectTip);
         li.appendChild(rejectBtn);
       } else if (isOpen) {
-        var doneBtn = el('button', 'task-done-btn', '✓ done');
+        var doneBtn = el('button', 'task-done-btn');
+        doneBtn.appendChild(iconEl('check'));
+        doneBtn.appendChild(document.createTextNode(tr('taskDone')));
         doneBtn.setAttribute('type', 'button');
         doneBtn.setAttribute('data-i18n', 'taskDone');
         doneBtn.setAttribute('data-task-done', t.id);
