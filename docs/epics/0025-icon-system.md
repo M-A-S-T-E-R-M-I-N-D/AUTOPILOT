@@ -194,7 +194,14 @@ propagation, and the filled style does not match the nav.
    in both locales. The census gained a shrink-only list of the button
    faces (`el('button', …, '✓ …')`) that still lead with one: the SOUL
    cards' ratify/dismiss pair (drawn twice) and the backlog's confirm-done
-   button. The screenshots refresh (`docs/screens/`) is still open.
+   button. **SOUL and backlog decision buttons 2026-10-02:** the SOUL
+   proposal panel's and the fleet-wisdom banner's "✓ ratify" / "✗ dismiss"
+   pair lead with the `check` and `x` icons now, and the detected backlog's
+   "✓ confirm done" leads with `check`, using the task row's done-button
+   shape and its existing `.task-done-btn` sizing rule. `soulRatify`,
+   `soulDismiss` and `backlogConfirmDone` drop the glyph in both locales,
+   and the button-face census pins zero. The screenshots refresh
+   (`docs/screens/`) is still open.
 
 ## Related
 

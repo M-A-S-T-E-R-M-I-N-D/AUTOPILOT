@@ -5,11 +5,12 @@
  * The fleet page's two SOUL-loop review buttons that were still raw English
  * `el()` text nodes (board web-msnsndki-dz3vn1; `pnpm i18n:untagged` listed
  * all three): the card head's "SOUL unreviewed" badge-button
- * (`soulReviewBtn()`), and the FLEET WISDOM banner's ✓ ratify / ✗ dismiss
- * pair (`fleetWisdomPanel()`).
+ * (`soulReviewBtn()`), and the FLEET WISDOM banner's ratify / dismiss pair
+ * (`fleetWisdomPanel()`), which lead with the vendored check and x icons
+ * (epic 0025).
  *
  * The fleet-wisdom pair reuses the project-scoped `soulProposalPanel()`'s
- * `soulRatify` / `soulDismiss` keys — same glyph, same verb, same table row —
+ * `soulRatify` / `soulDismiss` keys — same icon, same verb, same table row —
  * so only the badge-button needs a new key (`soulUnreviewed`). Both surfaces
  * ride the fleet page's per-tick `translateDom()` sweep already (the banner
  * host `#fleet-wisdom` is persistent chrome; the cards are re-rendered per
@@ -88,6 +89,16 @@ function switchToHebrew(): void {
   (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
 }
 
+/** The button's first child is the vendored `name` icon, decorative, and the
+ *  only SVG inside it — the label text follows as its own node. */
+function expectLeadingIcon(btn: Element | null, name: string): void {
+  const icon = btn?.firstElementChild;
+  expect(icon?.tagName.toLowerCase()).toBe('svg');
+  expect(icon?.classList.contains('icon-' + name)).toBe(true);
+  expect(icon?.getAttribute('aria-hidden')).toBe('true');
+  expect(btn?.querySelectorAll('svg')).toHaveLength(1);
+}
+
 describe('SOUL-unreviewed badge + fleet-wisdom ratify/dismiss i18n (board web-msnsndki-dz3vn1)', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -110,14 +121,17 @@ describe('SOUL-unreviewed badge + fleet-wisdom ratify/dismiss i18n (board web-ms
     expect(btn?.querySelector('svg.icon-dna')?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('tags the fleet-wisdom ✓ ratify / ✗ dismiss buttons with the shared soulRatify / soulDismiss keys', async () => {
+  it('tags the fleet-wisdom ratify / dismiss buttons with the shared soulRatify / soulDismiss keys', async () => {
     await boot(stateWith({ wisdomProposed: 'checkpoint before the turn cap' }));
 
     const ratify = document.querySelector('.fleet-wisdom-panel [data-fleet-wisdom-ratify]');
-    expect(ratify?.textContent).toBe('✓ ratify');
+    // Epic 0025: the vendored check and x icons lead where ✓/✗ were baked in.
+    expectLeadingIcon(ratify, 'check');
+    expect(ratify?.textContent).toBe('ratify');
     expect(ratify?.getAttribute('data-i18n')).toBe('soulRatify');
     const dismiss = document.querySelector('.fleet-wisdom-panel [data-fleet-wisdom-dismiss]');
-    expect(dismiss?.textContent).toBe('✗ dismiss');
+    expectLeadingIcon(dismiss, 'x');
+    expect(dismiss?.textContent).toBe('dismiss');
     expect(dismiss?.getAttribute('data-i18n')).toBe('soulDismiss');
   });
 
@@ -144,6 +158,9 @@ describe('SOUL-unreviewed badge + fleet-wisdom ratify/dismiss i18n (board web-ms
     const dismiss = document.querySelector('.fleet-wisdom-panel [data-fleet-wisdom-dismiss]');
     expect(ratify?.textContent).toBe(STRINGS.he.soulRatify);
     expect(dismiss?.textContent).toBe(STRINGS.he.soulDismiss);
+    // setSweptText() swaps only the trailing text, so both keep their icon.
+    expectLeadingIcon(ratify, 'check');
+    expectLeadingIcon(dismiss, 'x');
     for (const btn of [ratify, dismiss]) {
       const tip = btn?.getAttribute('data-tip');
       expect(tip).toBeTruthy();

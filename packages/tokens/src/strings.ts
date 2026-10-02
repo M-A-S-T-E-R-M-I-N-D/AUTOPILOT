@@ -770,14 +770,15 @@ const EN_STRINGS = {
   soulProposed: 'Proposed — review it above to ratify or dismiss.',
   soulProposeFailed: 'Could not propose the edit — try again.',
   soulProposalSummary: 'SOUL proposal pending — review',
-  soulRatify: '✓ ratify',
-  soulDismiss: '✗ dismiss',
+  // Epic 0025: ratify/dismiss lead with the vendored check/x icons, not a baked ✓/✗.
+  soulRatify: 'ratify',
+  soulDismiss: 'dismiss',
   // Epic 0025: the chip leads with the vendored undo-2 icon, not a baked ↺.
   soulUnratify: 'un-ratify',
   // The card head's "SOUL unreviewed" badge-button (shell.ts's
   // soulReviewBtn(), board web-msnsndki-dz3vn1). Its aria-describedby tip
   // stays the English sentence for now — only the visible label rides the
-  // [data-i18n] sweep. The fleet-wisdom banner's ✓ ratify / ✗ dismiss pair
+  // [data-i18n] sweep. The fleet-wisdom banner's ratify / dismiss pair
   // reuses soulRatify / soulDismiss above rather than minting twins. Epic
   // 0025: this label and soulProposalSummary lead with the dna icon, not a
   // baked ◐/◇ glyph.
@@ -1694,7 +1695,8 @@ const EN_STRINGS = {
   backlogChecking: 'Checking recent commits against the open board…',
   backlogEmpty:
     'No unconfirmed matches — every open task is either done or not yet echoed by a commit.',
-  backlogConfirmDone: '✓ confirm done',
+  // Epic 0025: the button leads with the vendored check icon, not a baked ✓.
+  backlogConfirmDone: 'confirm done',
   backlogUnavailable: 'Detected backlog unavailable.',
   releaseTitle: 'Next release',
   // web/features/release.ts's body states: the loading placeholder rides the
@@ -2530,8 +2532,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     soulProposed: 'ההצעה נשלחה — סקרו אותה למעלה כדי לאשר או לדחות.',
     soulProposeFailed: 'לא ניתן היה להציע את העריכה — נסו שוב.',
     soulProposalSummary: 'הצעת SOUL ממתינה — יש לסקור',
-    soulRatify: '✓ אשרר',
-    soulDismiss: '✗ בטל',
+    soulRatify: 'אשרר',
+    soulDismiss: 'בטל',
     soulUnratify: 'בטל אשרור',
     soulUnreviewed: 'SOUL לא נסקר',
     startOver: 'התחל מחדש',
@@ -3175,7 +3177,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     backlogTitle: 'פיגור שזוהה',
     backlogChecking: 'בודק קומיטים אחרונים מול הלוח הפתוח…',
     backlogEmpty: 'אין התאמות לא מאושרות — כל משימה פתוחה כבר בוצעה או שטרם הודהדה בקומיט.',
-    backlogConfirmDone: '✓ אשר בוצע',
+    backlogConfirmDone: 'אשר בוצע',
     backlogUnavailable: 'הפיגור שזוהה אינו זמין.',
     releaseTitle: 'המהדורה הבאה',
     releaseLoading: 'בודק קומיטים ראויים לשחרור…',
