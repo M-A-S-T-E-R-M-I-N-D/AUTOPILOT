@@ -2045,6 +2045,16 @@ describe('unverifiableCauseBreakdown', () => {
     expect(unverifiableCauseBreakdown(store.db, 'ucb').total).toBe(1);
   });
 
+  // JSON.parse('null') succeeds and returns null, so the try/catch above lets
+  // it through; reading `.gateResult` off it used to throw and take the whole
+  // breakdown (and the self-study refresh that calls it) down with one row.
+  it('skips a payload that parses to null instead of throwing', () => {
+    insertFiringEvent('ucb', 'null');
+    insertFiringEvent('ucb', unverifiable({ gateChecks: [] }));
+
+    expect(unverifiableCauseBreakdown(store.db, 'ucb').total).toBe(1);
+  });
+
   it('does not cross project boundaries', () => {
     insertProject('ucb-other', 'ucb-other', 'flying', 1);
     insertFiringEvent('ucb', unverifiable({ gateChecks: [] }));
