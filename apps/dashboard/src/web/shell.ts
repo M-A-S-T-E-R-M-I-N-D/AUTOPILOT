@@ -5838,7 +5838,7 @@ ${contextRailHtml(project)}
   <section class="contributor-issue-list-panel" id="contributor-issue-list-panel" aria-label="Good first issues" data-i18n-aria="contributorIssueListPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
   <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></nav>
   <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
-  <section class="collaboration-panel" id="collaboration-panel" aria-label="Collaboration" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
+  <section class="collaboration-panel" id="collaboration-panel" aria-label="Collaboration" data-i18n-aria="collaborationPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
 ${benchmarkSubjectHtml(project)}  <div class="snackbar-host" id="snackbar-host" aria-live="polite" aria-atomic="false"></div>
   <button type="button" class="ask-fab" id="ask-fab" aria-expanded="false" aria-controls="ask-sheet" aria-label="Ask" data-i18n-aria="askFab" data-tip="Ask Architect or Genius about this page — opens beside it" data-i18n-tip="askFabTip">${iconSvg('message-circle')}</button>
   <aside class="ask-sheet" id="ask-sheet" role="dialog" aria-modal="false" aria-labelledby="ask-sheet-title" hidden>
