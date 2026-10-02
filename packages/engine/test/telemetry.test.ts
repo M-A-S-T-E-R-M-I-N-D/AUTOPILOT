@@ -130,6 +130,33 @@ describe('parseProposalsLine', () => {
       { title: 't', dimension: null, severity: null, invalidTags: false, fromBacklog: false },
     ]);
   });
+
+  it('keeps the LAST PROPOSALS line, the one the prompt puts directly above METRICS', () => {
+    // The prompt renders its own template at line start; a reply that quotes
+    // it before writing the real line must not file a task titled "...".
+    const text = [
+      'The prompt asks for this shape:',
+      'PROPOSALS:[{"title":"...","dimension":"security","severity":"medium","source":"backlog"}]',
+      'so here is mine:',
+      'PROPOSALS:[{"title":"VERDICT blocked web-abc123: needs the operator","dimension":"ux"}]',
+      'METRICS:{"item":"web-abc123","outcome":"noop"}',
+    ].join('\n');
+    expect(parseProposalsLine(text)).toEqual([
+      {
+        title: 'VERDICT blocked web-abc123: needs the operator',
+        dimension: 'ux',
+        severity: null,
+        invalidTags: false,
+        fromBacklog: false,
+      },
+    ]);
+  });
+
+  it('is safe to call twice in a row (the last-match walk leaves no regex state behind)', () => {
+    const text = 'x\nPROPOSALS:[{"title":"a"}]\nPROPOSALS:[{"title":"b"}]';
+    expect(parseProposalsLine(text).map((p) => p.title)).toEqual(['b']);
+    expect(parseProposalsLine('PROPOSALS:[{"title":"c"}]').map((p) => p.title)).toEqual(['c']);
+  });
 });
 
 describe('parseMetricsLine', () => {
