@@ -3130,3 +3130,7 @@ update"), appended by `scripts/self-study/generate-data.mjs` at the end of any f
   - Since the previous update: firings 781 → 782 (+1 ↑), shipped 591 → 592 (+1 ↑), total cost $1866.54 → $1868.93 (+$2.39 ↑).
   - View what changed: `git diff fd7d3992 -- docs/SELF-STUDY/PAPER.md` (this document as of the previous update, vs. now).
   - [View the previous version on GitHub](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/fd7d3992/docs/SELF-STUDY/PAPER.md)
+- **2026-10-02** — Automated flight update: 10 firing(s) this flight (9 shipped), 783 total recorded.
+  - Since the previous update: firings 782 → 783 (+1 ↑), shipped 592 → 593 (+1 ↑), total cost $1868.93 → $1872.69 (+$3.76 ↑).
+  - View what changed: `git diff aafdd8d3 -- docs/SELF-STUDY/PAPER.md` (this document as of the previous update, vs. now).
+  - [View the previous version on GitHub](https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/blob/aafdd8d3/docs/SELF-STUDY/PAPER.md)
