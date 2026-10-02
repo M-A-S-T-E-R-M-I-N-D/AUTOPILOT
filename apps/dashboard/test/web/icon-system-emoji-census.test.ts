@@ -120,6 +120,21 @@ const EDGE_GUILLEMET_VALUE_PATTERN = /^‹(?=\s)|(?<=\s)›$/gu;
  *  zero. */
 const BUTTON_FACE_MARK_PATTERN = /el\('button', '[^']*', '([✓✗])\s/gu;
 
+/** A ✓/✗ that a CSS `content:` rule paints is an icon by construction: a
+ *  pseudo-element glyph beside a label, never part of a result sentence. The
+ *  ritual scrim's gate steps painted ✓/✗ (and …/·) through `::before` until
+ *  each step led with the PR check strip's circle family — circle-check,
+ *  circle-x, circle-dot, circle — and the icon named its state (2026-10-02). */
+const CSS_CONTENT_MARK_PATTERN = /content:\s*['"]([✓✗])/gu;
+
+/** → (U+2192) stays free inside a sentence ("Execute landing → main", the
+ *  release preview's "1.2.0 → 1.3.0"), but an element whose whole face is a
+ *  lone → is an icon, and one that kept pointing right under dir=rtl while
+ *  its row ran right to left. The landing branch line's merge arrow and the
+ *  plan chain's step separators took the vendored arrow-right, mirrored like
+ *  the back link (2026-10-02), so it pins zero. */
+const LONE_ARROW_FACE_PATTERN = /(?<=el\('[a-z]+', '[^']*', ')→(?='\))/gu;
+
 /** Every `el('button', cls, '✓ …')` face in `files`, as `file: glyph` with
  *  `/` separators, so the list reads the same on every disk. */
 function buttonFaceMarks(files: readonly string[]): string[] {
@@ -208,6 +223,33 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
 
   it('leads no button face with a ✓/✗ glyph in any web/ source file outside comments', () => {
     expect(buttonFaceMarks(files)).toEqual([]);
+  });
+
+  it('paints no ✓/✗ mark through a CSS content rule in any web/ source file outside comments', () => {
+    const sites = files.flatMap((file) =>
+      [
+        ...stripComments(readFileSync(join(WEB_DIR, file), 'utf8')).matchAll(
+          CSS_CONTENT_MARK_PATTERN,
+        ),
+      ].map((match) => `${file.replaceAll('\\', '/')}: ${match[1]}`),
+    );
+    expect(sites).toEqual([]);
+  });
+
+  it('paints no element face that is a lone → in any web/ source file outside comments', () => {
+    const offenders = webOffenders(files, LONE_ARROW_FACE_PATTERN);
+    expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
+  it("matches a lone → face but leaves a sentence's → alone", () => {
+    const source =
+      "el('span', 'plan-arrow', '→'); text: currentVersion + ' → ' + plan.version; el('p', 'x', 'a → b')";
+    expect(source.match(LONE_ARROW_FACE_PATTERN)).toEqual(['→']);
+  });
+
+  it("matches a CSS-painted ✓ but leaves a result line's ✓ alone", () => {
+    const source = ".s::before { content: '✓'; } text: '✓ ' + summary";
+    expect([...source.matchAll(CSS_CONTENT_MARK_PATTERN)].map((m) => m[1])).toEqual(['✓']);
   });
 
   it('matches a ✓/✗ button face but leaves a result line alone', () => {

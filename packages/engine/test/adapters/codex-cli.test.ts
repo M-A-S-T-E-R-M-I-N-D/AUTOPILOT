@@ -7,6 +7,7 @@ import { EventEmitter } from 'node:events';
 import {
   parseCodexExecOutput,
   CodexCliModel,
+  codexActivityReader,
   codexWebSearchesFromEvent,
   isCodexResumeFailure,
 } from '../../src/adapters/codex-cli.js';
@@ -17,7 +18,12 @@ import {
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from '../../src/adapters/claude-cli.js';
-import { WEB_SEARCH_AUDIT_MAX_CHARS, type WebSearchAudit } from '../../src/stream.js';
+import {
+  activitiesFromEvent,
+  WEB_SEARCH_AUDIT_MAX_CHARS,
+  type Activity,
+  type WebSearchAudit,
+} from '../../src/stream.js';
 
 vi.mock('node:child_process', () => ({ execFile: vi.fn(), spawn: vi.fn() }));
 
@@ -398,6 +404,186 @@ describe('codexWebSearchesFromEvent — the web-search audit (THREAT-MODEL T6, S
     ]) {
       expect(auditedQueries(event)).toEqual([]);
     }
+  });
+});
+
+function itemStarted(item: Record<string, unknown>): unknown {
+  return { type: 'item.started', item };
+}
+
+function itemCompleted(item: Record<string, unknown>): unknown {
+  return { type: 'item.completed', item };
+}
+
+/** A `command_execution` item (exec_events.rs `CommandExecutionItem`). */
+function command(id: string, cmd: string): Record<string, unknown> {
+  return { id, type: 'command_execution', command: cmd, aggregated_output: '', exit_code: null };
+}
+
+describe('codexActivityReader — the live activity timeline (StreamingClaudeCliModel parity)', () => {
+  /** The steps one fresh reader finds in `events`, in wire order. */
+  function steps(model: string | null, ...events: readonly unknown[]): Activity[] {
+    const read = codexActivityReader(model);
+    return events.flatMap((event) => [...read(event as Record<string, unknown>)]);
+  }
+
+  const NO_USAGE = { reasoning: null, model: 'gpt-5-codex', tokensIn: null, tokensOut: null };
+
+  it("reads each tool call as a step as it starts, its target read as a Claude tool_use block's, under the requested model", () => {
+    expect(
+      steps(
+        'gpt-5-codex',
+        THREAD,
+        TURN_STARTED,
+        itemStarted(command('item_1', 'bash -lc "pnpm   run\n  test"')),
+        itemStarted({
+          id: 'item_2',
+          type: 'file_change',
+          changes: [
+            { path: 'src/a.ts', kind: 'update' },
+            { path: 'src/b.ts', kind: 'add' },
+          ],
+          status: 'in_progress',
+        }),
+        itemStarted({
+          id: 'item_3',
+          type: 'mcp_tool_call',
+          server: 'docs',
+          tool: 'search',
+          arguments: { query: 'vitest timers' },
+          result: null,
+          error: null,
+          status: 'in_progress',
+        }),
+        webSearch('item_4', 'vitest fake timers', { type: 'search', query: 'vitest fake timers' }),
+      ),
+    ).toEqual([
+      {
+        tool: 'command_execution',
+        target: 'bash -lc "pnpm run test"',
+        kind: 'command',
+        ...NO_USAGE,
+      },
+      // One patch over two files is a step per file, as a Claude Edit is.
+      { tool: 'file_change', target: 'src/a.ts', kind: 'file', ...NO_USAGE },
+      { tool: 'file_change', target: 'src/b.ts', kind: 'file', ...NO_USAGE },
+      { tool: 'docs.search', target: 'vitest timers', kind: 'search', ...NO_USAGE },
+      { tool: 'web_search', target: 'vitest fake timers', kind: 'search', ...NO_USAGE },
+    ]);
+  });
+
+  it('reports each call once: its completion after its start adds no step, a completion never started is one', () => {
+    expect(
+      steps(
+        'gpt-5-codex',
+        itemStarted(command('item_1', 'ls')),
+        itemCompleted({ ...command('item_1', 'ls'), exit_code: 0, status: 'completed' }),
+        itemCompleted({ ...command('item_2', 'pwd'), exit_code: 0, status: 'completed' }),
+        // ext/web-search/src/tool.rs starts the item with an empty query, so a
+        // search is a step only once it completes, with the query it ran.
+        { type: 'item.started', item: { id: 'item_3', type: 'web_search', query: '' } },
+        webSearch('item_3', 'repo layout'),
+      ).map((a) => [a.tool, a.target]),
+    ).toEqual([
+      ['command_execution', 'ls'],
+      ['command_execution', 'pwd'],
+      ['web_search', 'repo layout'],
+    ]);
+  });
+
+  it('gives each call the agent messages since the last call ended: shared by calls made together, never the reasoning summary', () => {
+    const reasons = steps(
+      'gpt-5-codex',
+      itemCompleted({ id: 'item_0', type: 'reasoning', text: '**Planning the fix**' }),
+      agentMessage('item_1', 'Checking the tests.'),
+      agentMessage('item_2', 'Then the build.'),
+      itemStarted(command('item_3', 'pnpm test')),
+      itemStarted(command('item_4', 'pnpm build')),
+      itemCompleted(command('item_3', 'pnpm test')),
+      itemCompleted(command('item_4', 'pnpm build')),
+      itemStarted(command('item_5', 'git status')),
+      itemCompleted(command('item_5', 'git status')),
+      agentMessage('item_6', '  \n '),
+      itemStarted(command('item_7', 'git diff')),
+    ).map((activity) => activity.reasoning);
+
+    expect(reasons).toEqual([
+      'Checking the tests. Then the build.',
+      'Checking the tests. Then the build.',
+      null,
+      null,
+    ]);
+  });
+
+  it("bounds a long stated reasoning exactly as a Claude message's is bounded", () => {
+    const why = `${'because the gate failed on lint '.repeat(20)}\n\nso fixing it`;
+    const [codex] = steps(
+      'gpt-5-codex',
+      agentMessage('item_1', why),
+      itemStarted(command('item_2', 'pnpm lint')),
+    );
+    const [claude] = activitiesFromEvent({
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'text', text: why },
+          { type: 'tool_use', name: 'Bash', input: { command: 'pnpm lint' } },
+        ],
+      },
+    });
+
+    expect(codex?.reasoning).toBe(claude?.reasoning);
+    expect(codex?.reasoning?.length).toBeLessThan(why.length);
+  });
+
+  it('names no model when none was requested, and keeps each reader to its own run', () => {
+    const ls = itemStarted(command('item_1', 'ls'));
+    expect(steps(null, ls).map((a) => a.model)).toEqual([null]);
+    // A reader that saw another run's call and message still reports this one's.
+    const other = codexActivityReader('gpt-5-codex');
+    other(agentMessage('item_0', 'elsewhere') as Record<string, unknown>);
+    other(ls as Record<string, unknown>);
+    expect(steps('gpt-5-codex', ls)).toEqual([
+      { tool: 'command_execution', target: 'ls', kind: 'command', ...NO_USAGE },
+    ]);
+  });
+
+  it('reads a call it cannot name a target for as a bare step rather than dropping it', () => {
+    expect(
+      steps(
+        'gpt-5-codex',
+        itemStarted({ id: 'item_1', type: 'file_change', changes: [], status: 'in_progress' }),
+        itemStarted({ id: 'item_2', type: 'file_change', changes: [{ kind: 'add' }, { path: 7 }] }),
+        itemStarted({ id: 'item_3', type: 'mcp_tool_call', tool: 'search', arguments: null }),
+        itemStarted({ id: 'item_4', type: 'mcp_tool_call', server: 'docs', tool: 42 }),
+        itemStarted({ id: 'item_5', type: 'command_execution' }),
+      ),
+    ).toEqual([
+      { tool: 'file_change', target: '', kind: 'other', ...NO_USAGE },
+      { tool: 'file_change', target: '', kind: 'other', ...NO_USAGE },
+      { tool: 'mcp_tool_call', target: '', kind: 'other', ...NO_USAGE },
+      { tool: 'mcp_tool_call', target: '', kind: 'other', ...NO_USAGE },
+      { tool: 'command_execution', target: '', kind: 'other', ...NO_USAGE },
+    ]);
+  });
+
+  it('reads nothing from an item that is no tool call, an update, a turn event, or a malformed line', () => {
+    expect(
+      steps(
+        'gpt-5-codex',
+        THREAD,
+        TURN_STARTED,
+        agentMessage('item_1', 'done'),
+        itemCompleted({ id: 'item_2', type: 'reasoning', text: 'thinking' }),
+        itemStarted({ id: 'item_3', type: 'todo_list', items: [] }),
+        { type: 'item.updated', item: command('item_4', 'ls') },
+        itemCompleted({ id: 'item_5', type: 'error', message: 'model rerouted' }),
+        { type: 'item.started' },
+        { type: 'item.started', item: { id: 'item_6', type: 42, command: 'ls' } },
+        { type: 'error', message: 'stream retry' },
+        completed({ output_tokens: 1 }),
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -1271,22 +1457,22 @@ describe('CodexCliModel', () => {
     });
   });
 
-  describe('onWebSearch — each completed web_search is audited as its line arrives (THREAT-MODEL T6, GeminiCliModel parity)', () => {
-    /** A child whose stdout the test streams by hand; `exit` settles
-     *  execFile's callback with what the whole run printed. */
-    function mockStreamingChild(): {
-      readonly stdout: EventEmitter;
-      readonly exit: (error: (Error & { code?: unknown }) | null, printed: string) => void;
-    } {
-      const stdout = new EventEmitter();
-      let settle: ExecFileCallback = () => undefined;
-      execFileMock.mockImplementation((...args: unknown[]) => {
-        settle = args[args.length - 1] as ExecFileCallback;
-        return { pid: 4321, stdout, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
-      });
-      return { stdout, exit: (error, printed) => settle(error, printed, '') };
-    }
+  /** A child whose stdout the test streams by hand; `exit` settles
+   *  execFile's callback with what the whole run printed. */
+  function mockStreamingChild(): {
+    readonly stdout: EventEmitter;
+    readonly exit: (error: (Error & { code?: unknown }) | null, printed: string) => void;
+  } {
+    const stdout = new EventEmitter();
+    let settle: ExecFileCallback = () => undefined;
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      settle = args[args.length - 1] as ExecFileCallback;
+      return { pid: 4321, stdout, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
+    });
+    return { stdout, exit: (error, printed) => settle(error, printed, '') };
+  }
 
+  describe('onWebSearch — each completed web_search is audited as its line arrives (THREAT-MODEL T6, GeminiCliModel parity)', () => {
     const COMMAND = {
       type: 'item.completed',
       item: { id: 'item_9', type: 'command_execution', command: 'ls', status: 'completed' },
@@ -1363,6 +1549,106 @@ describe('CodexCliModel', () => {
       );
 
       await expect(pending).resolves.toMatchObject({ exitCode: 1, envelope: null });
+    });
+  });
+
+  describe('onActivity — each tool call reaches the activity timeline as its line arrives (StreamingClaudeCliModel parity)', () => {
+    it('reports each call the moment its line lands, with its reasoning, and never again at settle', async () => {
+      const child = mockStreamingChild();
+      const activities: Activity[] = [];
+      const pending = new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        onActivity: (activity) => activities.push(activity),
+      }).invoke('gpt-5-codex', 'do it');
+
+      const first = jsonl(
+        THREAD,
+        agentMessage('item_1', 'Checking the tests.'),
+        itemStarted(command('item_2', 'pnpm test')),
+      );
+      child.stdout.emit('data', first);
+      // Asserted before the run ends: the step is on the timeline already.
+      expect(activities).toEqual([
+        {
+          tool: 'command_execution',
+          target: 'pnpm test',
+          kind: 'command',
+          reasoning: 'Checking the tests.',
+          model: 'gpt-5-codex',
+          tokensIn: null,
+          tokensOut: null,
+        },
+      ]);
+      // A line torn across two chunks is read once it is whole.
+      const second = jsonl(
+        itemCompleted({ ...command('item_2', 'pnpm test'), exit_code: 0, status: 'completed' }),
+        itemStarted({
+          id: 'item_3',
+          type: 'file_change',
+          changes: [{ path: 'a.ts', kind: 'update' }],
+        }),
+      );
+      child.stdout.emit('data', second.slice(0, second.length - 20));
+      expect(activities).toHaveLength(1);
+      child.stdout.emit('data', second.slice(second.length - 20));
+      expect(activities.map((a) => [a.target, a.reasoning])).toEqual([
+        ['pnpm test', 'Checking the tests.'],
+        ['a.ts', null],
+      ]);
+
+      const last = jsonl(agentMessage('item_4', 'done'), completed({ output_tokens: 1 }));
+      child.stdout.emit('data', last);
+      child.exit(null, first + second + last);
+      const res = await pending;
+
+      expect(activities).toHaveLength(2);
+      expect(res.envelope).toMatchObject({ isError: false, result: 'done' });
+    });
+
+    it('feeds the timeline and the web-search audit from the same lines when both are given', async () => {
+      const child = mockStreamingChild();
+      const activities: Activity[] = [];
+      const searches: WebSearchAudit[] = [];
+      const pending = new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        onActivity: (activity) => activities.push(activity),
+        onWebSearch: (search) => searches.push(search),
+      }).invoke('gpt-5-codex', 'do it');
+
+      const printed = jsonl(
+        THREAD,
+        webSearch('item_1', 'vitest fake timers', { type: 'search', query: 'vitest fake timers' }),
+      );
+      child.stdout.emit('data', printed);
+      child.exit(null, printed);
+      await pending;
+
+      expect(activities.map((a) => [a.tool, a.kind, a.target])).toEqual([
+        ['web_search', 'search', 'vitest fake timers'],
+      ]);
+      expect(searches.map((s) => s.query)).toEqual(['vitest fake timers']);
+    });
+
+    it('reads a last line that came with no newline once the run settles, even a run that died', async () => {
+      const child = mockStreamingChild();
+      const activities: Activity[] = [];
+      const pending = new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        onActivity: (activity) => activities.push(activity),
+      }).invoke('gpt-5-codex', 'do it');
+
+      const printed = jsonl(THREAD) + JSON.stringify(itemStarted(command('item_1', 'pnpm build')));
+      child.stdout.emit('data', printed);
+      expect(activities).toEqual([]);
+      child.exit(Object.assign(new Error('killed'), { killed: true, code: 1 }), printed);
+      await pending;
+
+      expect(activities.map((a) => [a.tool, a.target, a.model])).toEqual([
+        ['command_execution', 'pnpm build', 'gpt-5-codex'],
+      ]);
     });
   });
 });

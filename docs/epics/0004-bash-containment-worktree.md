@@ -324,6 +324,15 @@ and $3 even under a smaller `Budget:` line: the SOUL caps bound firings, and run
 row a lane claims, not where the lane runs. None of the four touches `deriveWorktreePlan`,
 `ensureWorktree`/`syncWorktreeBranch`, or the containment guard's snapshot/audit calls.
 
+`7a0610c7` (2026-10-02) made a gate that crashed from load wait 90 seconds before its one retry
+(`RetryLoadedGate`'s new `pause`, filled by the flight's stop-aware `sleepUnlessStopped`). It
+changes when the second run starts, not where: both runs still go through the same `DynamicGate`
+with `cwd: flightRoot`, so the gate keeps running in the worktree, as the first acceptance
+criterion requires. The pause sits between the gate's two runs, before any sync-back. A second
+load crash still leaves the lane head unverified and the per-firing sync-back withheld, as before.
+None of it touches `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, or the containment
+guard.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a

@@ -283,6 +283,32 @@ describe('SqliteFiringStore', () => {
     store.close();
   });
 
+  it('stores a picked_rank below 1 as NULL instead of throwing the CHECK back at the lane (2026-10-02)', () => {
+    // Round 58, fleet-3: `picked_rank: 0` reached the metrics insert, the
+    // CHECK threw after the model had already run, and the lane died with
+    // both its firings. The parser drops such a rank now; the adapter is the
+    // second lock on the same door, for any other path that builds a record.
+    const store = openStore(':memory:');
+    migrate(store);
+    const pid = seedProject(store);
+    const sink = new SqliteFiringStore(store, pid);
+
+    expect(() => sink.recordFiring(record({ firing: 9, pickedRank: 0 }))).not.toThrow();
+    sink.recordFiring(record({ firing: 10, pickedRank: -3 }));
+    sink.recordFiring(record({ firing: 11, pickedRank: 2.5 }));
+    sink.recordFiring(record({ firing: 12, pickedRank: 4 }));
+    const ranks = store.db
+      .prepare('SELECT firing_id, picked_rank FROM metrics WHERE project_id = ? ORDER BY firing_id')
+      .all(pid) as { firing_id: string; picked_rank: number | null }[];
+    expect(Object.fromEntries(ranks.map((r) => [r.firing_id, r.picked_rank]))).toEqual({
+      [`${pid}:firing-9`]: null,
+      [`${pid}:firing-10`]: null,
+      [`${pid}:firing-11`]: null,
+      [`${pid}:firing-12`]: 4,
+    });
+    store.close();
+  });
+
   it('persists self-reported TDD-first compliance as a queryable 0/1/NULL flag', () => {
     const store = openStore(':memory:');
     migrate(store);

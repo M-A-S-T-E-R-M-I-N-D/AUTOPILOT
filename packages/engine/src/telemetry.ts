@@ -90,6 +90,17 @@ function pickNum(o: Record<string, unknown>, key: string): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
 
+/** A board rank is a 1-based position: an integer of at least 1, or null.
+ *  The agent self-reports it, and a `0` (a zero-based habit, or "I picked
+ *  nothing") used to pass {@link pickNum} straight into the metrics row's
+ *  `CHECK (picked_rank >= 1)` — the insert threw and the whole lane died
+ *  after the model had already run (round 58, fleet-3, 2026-10-02). A rank
+ *  that is not a rank is no rank. */
+function pickRank(o: Record<string, unknown>, key: string): number | null {
+  const v = pickNum(o, key);
+  return v !== null && Number.isInteger(v) && v >= 1 ? v : null;
+}
+
 function pickBool(o: Record<string, unknown>, key: string): boolean | null {
   const v = o[key];
   return typeof v === 'boolean' ? v : null;
@@ -141,7 +152,7 @@ function toSelfReport(o: Record<string, unknown>): SelfReport {
     testsAfter: pickNum(o, 'testsAfter'),
     completion: pickCompletion(o),
     testFirst: pickBool(o, 'testFirst'),
-    pickedRank: pickNum(o, 'picked_rank'),
+    pickedRank: pickRank(o, 'picked_rank'),
     deviationReason: pickStr(o, 'deviation_reason'),
   };
 }

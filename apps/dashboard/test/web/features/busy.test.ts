@@ -228,6 +228,17 @@ describe('the ritual scrim', () => {
       ['pass', 'pnpm run lint19s'],
       ['running', 'pnpm run test'],
     ]);
+    // Epic 0025: each step leads with the circle family the PR check strip
+    // draws, not a CSS-painted ✓/…, and the icon alone names its state.
+    const marks = [...document.querySelectorAll('.ritual-step > .icon:first-child')].map((icon) => [
+      icon.getAttribute('class'),
+      icon.getAttribute('role'),
+      icon.getAttribute('aria-label'),
+    ]);
+    expect(marks).toEqual([
+      ['icon icon-circle-check', 'img', STRINGS.en.ritualStepPass],
+      ['icon icon-circle-dot', 'img', STRINGS.en.ritualStepRunning],
+    ]);
     expect(note()).toBe('running the full gate before merging');
 
     // The POST resolving does NOT close a followed ritual — the job does.
@@ -243,6 +254,35 @@ describe('the ritual scrim', () => {
     expect(scrim().getAttribute('data-ritual-state')).toBe('done');
     expect(note()).toBe('landed autopilot/flight onto main');
     expect(document.documentElement.hasAttribute('data-busy')).toBe(false);
+  });
+
+  it('a failed step draws circle-x, and a state the job never named stays a plain, silent circle', () => {
+    const fetchMock = boot();
+    fetchMock.mockImplementationOnce(() => deferred<unknown>().promise);
+    void win().ritualFetch(
+      'landing',
+      '/api/landing/execute',
+      { method: 'POST' },
+      { follow: true, subject: 'demo' },
+    );
+
+    win().ritualFollowLandingJob('demo', {
+      phase: 'gate',
+      stepIndex: 2,
+      stepTotal: 3,
+      steps: [
+        { label: 'pnpm run build', state: 'fail', durationMs: 4000 },
+        { label: 'pnpm run lint', state: 'queued' },
+      ],
+    });
+
+    const [failed, unknown] = [...document.querySelectorAll('.ritual-step > .icon:first-child')];
+    expect(failed?.getAttribute('class')).toBe('icon icon-circle-x');
+    expect(failed?.getAttribute('aria-label')).toBe(STRINGS.en.ritualStepFail);
+    expect(failed?.getAttribute('data-i18n-aria')).toBe('ritualStepFail');
+    expect(unknown?.getAttribute('class')).toBe('icon icon-circle');
+    expect(unknown?.getAttribute('aria-hidden')).toBe('true');
+    expect(unknown?.hasAttribute('aria-label')).toBe(false);
   });
 
   it('a second press joins the running ritual instead of stacking a second scrim', () => {
@@ -298,6 +338,11 @@ describe('the stylesheet carries the scrim', () => {
   it('dims every write button while a ritual runs', () => {
     expect(css).toContain('html[data-busy] :is(.landing-execute, .release-execute');
   });
+
+  it('paints no step mark of its own — the step icon is the mark (epic 0025)', () => {
+    expect(css).not.toContain('.ritual-step::before');
+    expect(css).not.toMatch(/\.ritual-step\[data-state="\w+"\]::before/);
+  });
 });
 
 describe('STRINGS carries the ritual words in every locale', () => {
@@ -309,6 +354,9 @@ describe('STRINGS carries the ritual words in every locale', () => {
       'ritualMinimize',
       'ritualClose',
       'ritualWaitToast',
+      'ritualStepPass',
+      'ritualStepFail',
+      'ritualStepRunning',
     ] as const;
     for (const key of keys) {
       expect(STRINGS.en[key]).toBeTruthy();

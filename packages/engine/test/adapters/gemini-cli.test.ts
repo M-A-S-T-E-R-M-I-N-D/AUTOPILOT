@@ -7,6 +7,7 @@ import { EventEmitter } from 'node:events';
 import {
   parseGeminiStreamJsonOutput,
   isGeminiResumeFailure,
+  geminiActivityReader,
   geminiWebSearchFromEvent,
   GeminiCliModel,
 } from '../../src/adapters/gemini-cli.js';
@@ -17,7 +18,12 @@ import {
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from '../../src/adapters/claude-cli.js';
-import { WEB_SEARCH_AUDIT_MAX_CHARS, type WebSearchAudit } from '../../src/stream.js';
+import {
+  activitiesFromEvent,
+  WEB_SEARCH_AUDIT_MAX_CHARS,
+  type Activity,
+  type WebSearchAudit,
+} from '../../src/stream.js';
 
 vi.mock('node:child_process', () => ({ execFile: vi.fn(), spawn: vi.fn() }));
 
@@ -489,6 +495,120 @@ describe('geminiWebSearchFromEvent — the web-search audit (THREAT-MODEL T6, St
     ]) {
       expect(geminiWebSearchFromEvent(event)).toBeNull();
     }
+  });
+});
+
+/** What nonInteractiveCli.ts emits for any tool call before it runs. */
+function toolUse(
+  toolId: string,
+  toolName: string,
+  parameters: Record<string, unknown>,
+): Record<string, unknown> {
+  return { type: 'tool_use', tool_name: toolName, tool_id: toolId, parameters };
+}
+
+function assistantText(content: string): Record<string, unknown> {
+  return { type: 'message', role: 'assistant', content, delta: true };
+}
+
+function toolResult(toolId: string): Record<string, unknown> {
+  return { type: 'tool_result', tool_id: toolId, status: 'success', output: 'ok' };
+}
+
+describe('geminiActivityReader — the live activity timeline (StreamingClaudeCliModel parity)', () => {
+  /** The steps one fresh reader finds in `events`, in wire order. */
+  function steps(...events: readonly Record<string, unknown>[]): Activity[] {
+    const read = geminiActivityReader();
+    return events.flatMap((event) => {
+      const activity = read(event);
+      return activity === null ? [] : [activity];
+    });
+  }
+
+  const NO_USAGE = { reasoning: null, model: 'gemini-2.5-pro', tokensIn: null, tokensOut: null };
+
+  it("reads each tool_use as a step whose target is read as a Claude tool_use block's, under the init model", () => {
+    expect(
+      steps(
+        INIT,
+        toolUse('t1', 'run_shell_command', { command: 'pnpm   run\n  test', is_background: false }),
+        toolUse('t2', 'read_file', { file_path: 'src/a.ts', start_line: 3 }),
+        toolUse('t3', 'grep_search', { pattern: 'TODO', dir_path: 'src' }),
+        webSearch('t4', 'vitest fake timers'),
+        toolUse('t5', 'list_directory', { dir_path: 'src' }),
+      ),
+    ).toEqual([
+      { tool: 'run_shell_command', target: 'pnpm run test', kind: 'command', ...NO_USAGE },
+      { tool: 'read_file', target: 'src/a.ts', kind: 'file', ...NO_USAGE },
+      { tool: 'grep_search', target: 'TODO', kind: 'search', ...NO_USAGE },
+      { tool: 'google_web_search', target: 'vitest fake timers', kind: 'search', ...NO_USAGE },
+      { tool: 'list_directory', target: '', kind: 'other', ...NO_USAGE },
+    ]);
+  });
+
+  it('gives each call the text its response streamed: shared by calls made together, reset by a tool_result', () => {
+    const reasons = steps(
+      INIT,
+      { type: 'message', role: 'user', content: 'fix the bug' },
+      assistantText('Reading the '),
+      assistantText('config first.'),
+      toolUse('t1', 'read_file', { file_path: 'a.json' }),
+      toolUse('t2', 'read_file', { file_path: 'b.json' }),
+      toolResult('t1'),
+      toolResult('t2'),
+      toolUse('t3', 'read_file', { file_path: 'c.json' }),
+      toolResult('t3'),
+      assistantText('  \n '),
+      toolUse('t4', 'read_file', { file_path: 'd.json' }),
+    ).map((activity) => activity.reasoning);
+
+    expect(reasons).toEqual(['Reading the config first.', 'Reading the config first.', null, null]);
+  });
+
+  it("bounds a long stated reasoning exactly as a Claude message's is bounded", () => {
+    const why = `${'because the gate failed on lint '.repeat(20)}\n\nso fixing it`;
+    const [gemini] = steps(
+      INIT,
+      assistantText(why),
+      toolUse('t1', 'read_file', { file_path: 'a' }),
+    );
+    const [claude] = activitiesFromEvent({
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'text', text: why },
+          { type: 'tool_use', name: 'Read', input: { file_path: 'a' } },
+        ],
+      },
+    });
+
+    expect(gemini?.reasoning).toBe(claude?.reasoning);
+    expect(gemini?.reasoning?.length).toBeLessThan(why.length);
+  });
+
+  it('names no model without an init, or with an empty one, and keeps each reader to its own run', () => {
+    const read = toolUse('t1', 'read_file', { file_path: 'a' });
+    expect(steps(read).map((a) => a.model)).toEqual([null]);
+    expect(steps({ ...INIT, model: '' }, read).map((a) => a.model)).toEqual([null]);
+    // A reader that saw another run's init still names no model for this one.
+    geminiActivityReader()(INIT);
+    expect(steps(read).map((a) => a.model)).toEqual([null]);
+  });
+
+  it('reads a call with no parameters as a bare step, and skips anything that is not a named tool_use', () => {
+    expect(steps(INIT, { type: 'tool_use', tool_name: 'complete_task', tool_id: 't1' })).toEqual([
+      { tool: 'complete_task', target: '', kind: 'other', ...NO_USAGE },
+    ]);
+    expect(
+      steps(
+        INIT,
+        { type: 'tool_use', tool_id: 't1', parameters: { command: 'ls' } },
+        { type: 'tool_use', tool_name: 42, tool_id: 't2', parameters: { command: 'ls' } },
+        { type: 'tool_result', tool_name: 'run_shell_command', tool_id: 't3', status: 'success' },
+        assistantText('done'),
+        { type: 'result', status: 'success', stats: streamStats({}) },
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -1457,22 +1577,22 @@ describe('GeminiCliModel', () => {
     });
   });
 
-  describe('onWebSearch — each google_web_search is audited as its line arrives (THREAT-MODEL T6, StreamingClaudeCliModel parity)', () => {
-    /** A child whose stdout the test streams by hand; `exit` settles
-     *  execFile's callback with what the whole run printed. */
-    function mockStreamingChild(): {
-      readonly stdout: EventEmitter;
-      readonly exit: (error: (Error & { code?: unknown }) | null, printed: string) => void;
-    } {
-      const stdout = new EventEmitter();
-      let settle: ExecFileCallback = () => undefined;
-      execFileMock.mockImplementation((...args: unknown[]) => {
-        settle = args[args.length - 1] as ExecFileCallback;
-        return { pid: 4321, stdout, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
-      });
-      return { stdout, exit: (error, printed) => settle(error, printed, '') };
-    }
+  /** A child whose stdout the test streams by hand; `exit` settles
+   *  execFile's callback with what the whole run printed. */
+  function mockStreamingChild(): {
+    readonly stdout: EventEmitter;
+    readonly exit: (error: (Error & { code?: unknown }) | null, printed: string) => void;
+  } {
+    const stdout = new EventEmitter();
+    let settle: ExecFileCallback = () => undefined;
+    execFileMock.mockImplementation((...args: unknown[]) => {
+      settle = args[args.length - 1] as ExecFileCallback;
+      return { pid: 4321, stdout, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
+    });
+    return { stdout, exit: (error, printed) => settle(error, printed, '') };
+  }
 
+  describe('onWebSearch — each google_web_search is audited as its line arrives (THREAT-MODEL T6, StreamingClaudeCliModel parity)', () => {
     const SHELL = {
       type: 'tool_use',
       tool_name: 'run_shell_command',
@@ -1541,6 +1661,94 @@ describe('GeminiCliModel', () => {
       );
 
       await expect(pending).resolves.toMatchObject({ exitCode: 1, envelope: null });
+    });
+  });
+
+  describe('onActivity — each tool call reaches the activity timeline as its line arrives (StreamingClaudeCliModel parity)', () => {
+    it('reports each call the moment its tool_use line lands, with its reasoning, and never again at settle', async () => {
+      const child = mockStreamingChild();
+      const activities: Activity[] = [];
+      const pending = new GeminiCliModel({
+        repo: '/work/sbx',
+        onActivity: (activity) => activities.push(activity),
+      }).invoke('gemini-2.5-pro', 'do it');
+
+      const first = jsonl(
+        INIT,
+        assistantText('Checking the tests.'),
+        toolUse('t1', 'run_shell_command', { command: 'pnpm test' }),
+      );
+      child.stdout.emit('data', first);
+      // Asserted before the run ends: the step is on the timeline already.
+      expect(activities).toEqual([
+        {
+          tool: 'run_shell_command',
+          target: 'pnpm test',
+          kind: 'command',
+          reasoning: 'Checking the tests.',
+          model: 'gemini-2.5-pro',
+          tokensIn: null,
+          tokensOut: null,
+        },
+      ]);
+      // A line torn across two chunks is read once it is whole.
+      const second = jsonl(toolResult('t1'), toolUse('t2', 'read_file', { file_path: 'a.ts' }));
+      child.stdout.emit('data', second.slice(0, second.length - 20));
+      expect(activities).toHaveLength(1);
+      child.stdout.emit('data', second.slice(second.length - 20));
+      expect(activities.map((a) => [a.target, a.reasoning])).toEqual([
+        ['pnpm test', 'Checking the tests.'],
+        ['a.ts', null],
+      ]);
+
+      const last = jsonl({ type: 'result', status: 'success', stats: streamStats({}) });
+      child.stdout.emit('data', last);
+      child.exit(null, first + second + last);
+      const res = await pending;
+
+      expect(activities).toHaveLength(2);
+      expect(res.envelope).toMatchObject({ isError: false });
+    });
+
+    it('feeds the timeline and the web-search audit from the same lines when both are given', async () => {
+      const child = mockStreamingChild();
+      const activities: Activity[] = [];
+      const searches: WebSearchAudit[] = [];
+      const pending = new GeminiCliModel({
+        repo: '/work/sbx',
+        onActivity: (activity) => activities.push(activity),
+        onWebSearch: (search) => searches.push(search),
+      }).invoke('gemini-2.5-pro', 'do it');
+
+      const printed = jsonl(INIT, webSearch('t1', 'vitest fake timers'));
+      child.stdout.emit('data', printed);
+      child.exit(null, printed);
+      await pending;
+
+      expect(activities.map((a) => [a.tool, a.kind, a.target])).toEqual([
+        ['google_web_search', 'search', 'vitest fake timers'],
+      ]);
+      expect(searches.map((s) => s.query)).toEqual(['vitest fake timers']);
+    });
+
+    it('reads a last line that came with no newline once the run settles, even a run that died', async () => {
+      const child = mockStreamingChild();
+      const activities: Activity[] = [];
+      const pending = new GeminiCliModel({
+        repo: '/work/sbx',
+        onActivity: (activity) => activities.push(activity),
+      }).invoke('gemini-2.5-pro', 'do it');
+
+      const printed =
+        jsonl(INIT) + JSON.stringify(toolUse('t1', 'write_file', { file_path: 'b.ts' }));
+      child.stdout.emit('data', printed);
+      expect(activities).toEqual([]);
+      child.exit(Object.assign(new Error('killed'), { killed: true, code: 1 }), printed);
+      await pending;
+
+      expect(activities.map((a) => [a.tool, a.target, a.model])).toEqual([
+        ['write_file', 'b.ts', 'gemini-2.5-pro'],
+      ]);
     });
   });
 });

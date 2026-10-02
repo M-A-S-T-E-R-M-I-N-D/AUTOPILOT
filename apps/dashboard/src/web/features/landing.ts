@@ -287,7 +287,12 @@ function renderLandingBody(body, landing, pid, flightLog, tasks) {
   branchNameEl.setAttribute('data-i18n-aria-template', 'landingBranchAria');
   branchNameEl.setAttribute('data-i18n-name', landing.branch);
   branchLine.appendChild(branchNameEl);
-  var arrowEl = el('span', 'landing-branch-arrow', '→');
+  // Epic 0025: the vendored arrow-right is the arrow's face (CSS mirrors it
+  // under dir=rtl, where base sits left of branch). With no text left, role
+  // img lets the aria-label name it — a bare span's aria-label is prohibited.
+  var arrowEl = el('span', 'landing-branch-arrow');
+  arrowEl.appendChild(iconEl('arrow-right'));
+  arrowEl.setAttribute('role', 'img');
   arrowEl.setAttribute('tabindex', '-1');
   arrowEl.setAttribute('data-tip', tr('landingBranchArrowTip'));
   arrowEl.setAttribute('data-i18n-tip', 'landingBranchArrowTip');

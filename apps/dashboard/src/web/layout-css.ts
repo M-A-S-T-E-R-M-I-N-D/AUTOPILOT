@@ -861,6 +861,11 @@ main.project-mode { grid-template-columns: 1fr; }
 .landing-branch { margin: 0 0 var(--space-2); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
 .landing-branch-name, .landing-base-name { font-weight: 600; }
 .landing-branch-arrow { color: var(--color-text-muted); padding: 0 var(--space-1); }
+/* Epic 0025: the branch line's merge arrow and the plan chain's step
+   separators draw the vendored arrow-right, which the → glyph they replaced
+   never did under dir=rtl: there the row runs right to left, so it mirrors
+   like the back link to keep pointing at the base and the next step. */
+[dir='rtl'] .landing-branch-arrow > .icon, [dir='rtl'] .plan-arrow > .icon { transform: scaleX(-1); }
 .flight-debrief { margin: 0 0 var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); }
 .flight-debrief-title { margin: 0 0 var(--space-2); font-size: var(--text-sm); }
 .flight-debrief-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-2); }
@@ -1997,13 +2002,12 @@ html[data-theme="terminal"][data-glow="on"] .brand, html[data-theme="terminal"][
 .ritual-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-family: var(--font-mono); font-size: var(--text-xs); }
 .ritual-steps:empty { display: none; }
 .ritual-step { display: flex; justify-content: space-between; gap: var(--space-3); color: var(--color-text-muted); }
-.ritual-step::before { content: '·'; inline-size: 1em; flex: none; }
+/* Epic 0025: each step leads with a circle-family icon (busy.ts), not a
+   ::before glyph. A one-line-tall box centres it on a wrapped label's first line. */
+.ritual-step > .icon { block-size: 1lh; }
 .ritual-step[data-state="running"] { color: var(--color-text); }
-.ritual-step[data-state="running"]::before { content: '…'; }
 .ritual-step[data-state="pass"] { color: var(--color-success); }
-.ritual-step[data-state="pass"]::before { content: '✓'; }
 .ritual-step[data-state="fail"] { color: var(--color-sev-high); }
-.ritual-step[data-state="fail"]::before { content: '✗'; }
 .ritual-step-label { flex: 1 1 auto; min-inline-size: 0; overflow-wrap: anywhere; }
 .ritual-warning { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
 .ritual-warning:empty { display: none; }

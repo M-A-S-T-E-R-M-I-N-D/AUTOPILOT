@@ -138,6 +138,23 @@ function toActivity(
 }
 
 /**
+ * One tool call as an {@link Activity}, for a driver whose wire is not
+ * Claude's (`gemini-cli.ts`, `codex-cli.ts`): its target is read off `input` exactly as
+ * {@link activitiesFromEvent} reads a `tool_use` block's, and `reasoningText`,
+ * the text the model streamed with the call, is bounded the same way, null
+ * when blank.
+ */
+export function activityFromToolCall(
+  name: string,
+  input: Record<string, unknown>,
+  reasoningText: string,
+  usage: MessageUsage,
+): Activity {
+  const reasoning = reasoningText.trim().length > 0 ? truncate(reasoningText, REASONING_MAX) : null;
+  return toActivity(name, input, reasoning, usage);
+}
+
+/**
  * Extract the tool-use activities from one stream event (an `assistant` message).
  * Non-assistant events, or events with no tool uses, yield an empty list.
  */

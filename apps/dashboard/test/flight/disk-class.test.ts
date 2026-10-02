@@ -99,6 +99,10 @@ describe('classifyDarwinDisk', () => {
   it('says unknown when the key is absent', () => {
     expect(classifyDarwinDisk('<dict></dict>')).toBe('unknown');
   });
+
+  it('stays at plain ssd when a solid-state disk names no bus at all', () => {
+    expect(classifyDarwinDisk('<dict><key>SolidState</key><true/></dict>')).toBe('ssd');
+  });
 });
 
 describe('detectDiskClass', () => {
@@ -140,6 +144,101 @@ describe('detectDiskClass', () => {
 
   it('says unknown on Linux when findmnt fails, without ever calling cat', () => {
     return detectDiskClass('/', 'linux', () => Promise.resolve(undefined)).then((result) => {
+      expect(result).toBe('unknown');
+    });
+  });
+
+  it('says unknown on Linux when findmnt names no device or rotational cannot be read', () => {
+    return Promise.all([
+      detectDiskClass('/', 'linux', execFrom({ 'findmnt -n -o SOURCE --target /': '\n' })),
+      detectDiskClass('/', 'linux', execFrom({ 'findmnt -n -o SOURCE --target /': '/dev/sda1' })),
+    ]).then((results) => {
+      expect(results).toEqual(['unknown', 'unknown']);
+    });
+  });
+
+  it('asks Windows for the disk behind the path’s own volume, not the first physical disk', () => {
+    // Volume -> partition's disk number -> that disk's row. On the operator's
+    // machine disk 0 is the NVMe while Z: is the platter, so a probe that
+    // skipped the partition hop would answer exactly backwards.
+    const calls: (readonly string[])[] = [];
+    const exec: ProbeExec = (command, args) => {
+      calls.push([command, ...args]);
+      return Promise.resolve('{"MediaType":3,"BusType":8}');
+    };
+    return detectDiskClass('z:\\Users\\operator\\repo', 'win32', exec).then((result) => {
+      expect(result).toBe('hdd');
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.slice(0, 4)).toEqual([
+        'powershell.exe',
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+      ]);
+      const script = calls[0]?.[4] ?? '';
+      expect(script).toContain(
+        "-ClassName MSFT_Partition | Where-Object { $_.DriveLetter -eq 'Z' }).DiskNumber",
+      );
+      expect(script).toContain(
+        '-ClassName MSFT_PhysicalDisk | Where-Object { $_.DeviceId -eq "$dn" }',
+      );
+      expect(script).not.toContain('wmic');
+    });
+  });
+
+  it('answers per volume on Windows — the platter and the NVMe in the same box', () => {
+    // Verified on the operator's machine: Z: -> MediaType 3, C: -> MediaType 4 / BusType 17.
+    const exec: ProbeExec = (_command, args) =>
+      Promise.resolve(
+        args.at(-1)?.includes("DriveLetter -eq 'Z'") === true
+          ? '{"MediaType":3,"BusType":8}'
+          : '{"MediaType":4,"BusType":17}',
+      );
+    return Promise.all([
+      detectDiskClass('Z:\\Users\\operator\\repo', 'win32', exec),
+      detectDiskClass('C:\\Users\\operator\\repo', 'win32', exec),
+    ]).then((results) => {
+      expect(results).toEqual(['hdd', 'nvme']);
+    });
+  });
+
+  it('says unknown on Windows for a path with no drive letter, without spawning PowerShell', () => {
+    // A UNC share, a relative path or a POSIX-style path names no local volume to look up.
+    let spawned = 0;
+    const exec: ProbeExec = () => {
+      spawned += 1;
+      return Promise.resolve('{"MediaType":3}');
+    };
+    return Promise.all(
+      ['\\\\server\\share\\repo', 'repo', '/z/repo'].map((p) => detectDiskClass(p, 'win32', exec)),
+    ).then((results) => {
+      expect(results).toEqual(['unknown', 'unknown', 'unknown']);
+      expect(spawned).toBe(0);
+    });
+  });
+
+  it('says unknown on Windows when PowerShell fails or finds no partition for the letter', () => {
+    // The script prints '' when no partition carries the drive letter.
+    return Promise.all([
+      detectDiskClass('C:\\', 'win32', () => Promise.resolve(undefined)),
+      detectDiskClass('C:\\', 'win32', () => Promise.resolve('')),
+    ]).then((results) => {
+      expect(results).toEqual(['unknown', 'unknown']);
+    });
+  });
+
+  it('asks diskutil about the path itself on macOS', () => {
+    const exec = execFrom({
+      'diskutil info -plist /Volumes/Work/repo':
+        '<dict><key>SolidState</key><true/><key>BusProtocol</key><string>Apple Fabric</string></dict>',
+    });
+    return detectDiskClass('/Volumes/Work/repo', 'darwin', exec).then((result) => {
+      expect(result).toBe('nvme');
+    });
+  });
+
+  it('says unknown on macOS when diskutil fails', () => {
+    return detectDiskClass('/', 'darwin', () => Promise.resolve(undefined)).then((result) => {
       expect(result).toBe('unknown');
     });
   });
