@@ -7247,6 +7247,17 @@ describe('summarizePrCheckRuns', () => {
   });
 });
 
+const repoPath = (rel: string): string =>
+  fileURLToPath(new URL(`../../../../${rel}`, import.meta.url));
+const read = (rel: string): string => readFileSync(repoPath(rel), 'utf8');
+/** The `## <heading>…` section of `text`, up to the next `## ` heading; '' when absent. */
+const sectionFrom = (text: string, heading: string): string => {
+  const start = text.indexOf(`\n## ${heading}`);
+  if (start < 0) return '';
+  const end = text.indexOf('\n## ', start + 1);
+  return text.slice(start, end < 0 ? undefined : end);
+};
+
 // EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the KEEPER review
 // ritual as contributors are told about it. CONTRIBUTING.md's "What happens
 // after you open a PR" is the one place a contributor learns what the ritual
@@ -7258,16 +7269,6 @@ describe('summarizePrCheckRuns', () => {
 // commands, so a contributor whose PR was queued waited for a comment that
 // was never going to come.
 describe('the KEEPER promise in CONTRIBUTING.md × what the ritual plans (regression, epic 0019 additive-only law)', () => {
-  const repoPath = (rel: string): string =>
-    fileURLToPath(new URL(`../../../../${rel}`, import.meta.url));
-  const read = (rel: string): string => readFileSync(repoPath(rel), 'utf8');
-  /** The `## <heading>…` section of `text`, up to the next `## ` heading; '' when absent. */
-  const sectionFrom = (text: string, heading: string): string => {
-    const start = text.indexOf(`\n## ${heading}`);
-    if (start < 0) return '';
-    const end = text.indexOf('\n## ', start + 1);
-    return text.slice(start, end < 0 ? undefined : end);
-  };
   const contributing = read('.github/CONTRIBUTING.md');
   const promise = sectionFrom(contributing, 'What happens after you open a PR\n');
   const citedSection = /\[`docs\/RUNBOOK\.md`\]\([^)]*\) §(\d+)/.exec(promise)?.[1];
@@ -7343,5 +7344,69 @@ describe('the KEEPER promise in CONTRIBUTING.md × what the ritual plans (regres
       expect(text, doc).not.toMatch(/posted as a comment/);
       expect(text, doc).not.toMatch(/\bposts one of\b/);
     }
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the TEMPLATES flow
+// for pull requests. PULL_REQUEST_TEMPLATE.md asks every contributor to tick a
+// "Verification boundary" box, and said the human-judgment box gets the PR
+// "flagged for sign-off" while the other one merges it "autonomously when
+// green". The KEEPER never reads the description (the fetch asks gh for no
+// `body`), so neither box routed anything: a small green PR with the
+// human-judgment box ticked still planned a merge, and the maintainer's panel
+// never showed the box. The one not-ready signal a contributor sets that the
+// ritual does honor is draft status, which keeps the PR out of the sweep.
+describe("the PR template's verification boundary × what the ritual reads (regression, epic 0019 additive-only law)", () => {
+  /** `text` with every whitespace run as one space, so a pin never depends on where prose wraps. */
+  const flat = (text: string): string => text.replace(/\s+/g, ' ');
+  const template = read('.github/PULL_REQUEST_TEMPLATE.md');
+  const boundary = sectionFrom(template, 'Verification boundary\n');
+  const promise = flat(
+    sectionFrom(read('.github/CONTRIBUTING.md'), 'What happens after you open a PR\n'),
+  );
+  const tickedBody =
+    '## Verification boundary\n\n- [ ] This change is fully machine-verifiable\n' +
+    '- [x] This change needs human judgment (visual/UX/ethics/intent/fork)';
+  const ghRow = (number: number, isDraft: boolean): Record<string, unknown> => ({
+    number,
+    title: 'docs: reword the hero',
+    body: tickedBody,
+    isDraft,
+    mergeable: 'MERGEABLE',
+    statusCheckRollup: [{ conclusion: 'SUCCESS' }],
+    files: [{ path: 'docs/HELLO.md' }],
+  });
+
+  it('asks gh for no description, so a ticked box never reaches a candidate; only a draft stays out', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([ghRow(40, true), ghRow(41, false)]),
+    });
+
+    const prs = await fetchOpenPrCandidates(exec);
+
+    const argv = (exec as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as readonly string[];
+    const fields = argv[argv.indexOf('--json') + 1]?.split(',') ?? [];
+    expect(fields).toContain('isDraft');
+    expect(fields).not.toContain('body');
+    expect(prs.map((pr) => pr.number)).toEqual([41]);
+    expect(JSON.stringify(prs)).not.toContain('human judgment');
+  });
+
+  it('tells the contributor the KEEPER does not read it, and sends the human-judgment box through a draft', () => {
+    expect(boundary).not.toBe('');
+    expect(flat(boundary)).not.toMatch(/flagged for sign-off/);
+    expect(flat(boundary)).not.toMatch(/merge autonomously/);
+    expect(flat(boundary)).toMatch(/KEEPER[^.]*never reads this description/);
+    const humanBox = boundary
+      .split('\n')
+      .find((line) => line.startsWith('- [ ]') && line.includes('**human judgment**'));
+    expect(humanBox).toMatch(/\*\*draft\*\*/);
+  });
+
+  it('cites the CONTRIBUTING section that tells the same draft rule', () => {
+    expect(flat(boundary)).toContain('CONTRIBUTING.md "What happens after you open a PR"');
+    expect(promise).toMatch(/\*\*draft\*\* PR never enters the KEEPER's sweep/);
+    expect(promise).toMatch(/KEEPER never reads your description/);
   });
 });

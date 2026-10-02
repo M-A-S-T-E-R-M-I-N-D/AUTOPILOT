@@ -30,5 +30,11 @@ Closes #
 
 ## Verification boundary
 
-- [ ] This change is **fully machine-verifiable** (merge autonomously when green), **or**
-- [ ] This change needs **human judgment** (🟣 — visual/UX/ethics/intent/fork) and is flagged for sign-off
+<!-- The KEEPER review ritual never reads this description: it decides from
+gh-reported facts (CI, diff scope, mergeability), so a box ticked here routes
+nothing by itself. A draft is the one "not ready" signal it takes from you: it
+posts no verdict on a draft PR. See CONTRIBUTING.md "What happens after you
+open a PR". -->
+
+- [ ] This change is **fully machine-verifiable**: the gate and the KEEPER's checks can judge it, **or**
+- [ ] This change needs **human judgment** (🟣 — visual/UX/ethics/intent/fork): it is open as a **draft**, and says above what needs judging
