@@ -82,7 +82,13 @@ adapters time each run themselves and report it as `ModelResponse.observed.elaps
 flown on either no longer records `durationMs: null`: `codex exec --json` carries no duration at
 all, and Gemini's `duration_ms` rides only on the `result` event a killed run never writes.
 `observed.turns` is optional for them, since neither wire marks a model turn, and a count never
-seen stays unknown in the firing record instead of becoming `0`. The Copilot CLI adapter remains unstarted and, per the
+seen stays unknown in the firing record instead of becoming `0`. Since 2026-10-02 a run that ends
+without an envelope says why, as `StreamingClaudeCliModel`'s does: its `stdout` is the CLI's
+stderr tail (`cliDeathText` in `claude-cli.ts`), or the cap that killed it when the child left no
+stderr, because `firing.ts` records that text as the firing's death tail. Before, both adapters
+handed on the raw event stream there: a failed login, an untrusted folder or a bad config exits
+before the first event with its reason on stderr only, so such a firing recorded no reason at all,
+and a killed one stored every event it had printed as its reason. The Copilot CLI adapter remains unstarted and, per the
 2026-09-27 re-check below, is now explicitly blocked on capturing a real `--output-format=json`
 sample from the closed-source binary — not just unstarted for lack of a turn to spend on it.
 

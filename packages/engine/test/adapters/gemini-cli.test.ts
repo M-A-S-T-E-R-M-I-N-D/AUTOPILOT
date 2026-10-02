@@ -10,7 +10,9 @@ import {
   GeminiCliModel,
 } from '../../src/adapters/gemini-cli.js';
 import {
+  capDeathNote,
   CLI_STDIN_PROMPT_THRESHOLD,
+  DEATH_TAIL_CHARS,
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from '../../src/adapters/claude-cli.js';
@@ -773,6 +775,59 @@ describe('GeminiCliModel', () => {
     expect(res.stdout).toBe('');
   });
 
+  describe("death reason — with no envelope, stdout is the CLI's stderr tail, which firing.ts records as deathTail (StreamingClaudeCliModel parity)", () => {
+    it('reports why a run failed before it wrote a single event: a failed login or an untrusted folder exits with its reason on stderr only', async () => {
+      mockExecFileResult(
+        Object.assign(new Error('exit 41'), { code: 41 }),
+        '',
+        'Error authenticating: no credentials found\n\n',
+      );
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+      expect(res.exitCode).toBe(41);
+      expect(res.envelope).toBeNull();
+      expect(res.stdout).toBe('Error authenticating: no credentials found');
+    });
+
+    it('reports the stderr of a run that died mid-stream, not the events it printed first, and keeps its session resumable', async () => {
+      mockExecFileResult(
+        Object.assign(new Error('exit 1'), { code: 1 }),
+        jsonl(INIT, { type: 'message', role: 'assistant', content: 'working', delta: true }),
+        'FATAL ERROR: Reached heap limit\n',
+      );
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+      expect(res.stdout).toBe('FATAL ERROR: Reached heap limit');
+      expect(res.sessionId).toBe(SESSION);
+    });
+
+    it('keeps only the last DEATH_TAIL_CHARS of a long stderr: the error line, never a dump', async () => {
+      const stderr = `${'warning: a noisy log line\n'.repeat(200)}Error: the real reason\n`;
+      mockExecFileResult(Object.assign(new Error('exit 1'), { code: 1 }), '', stderr);
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+      expect(res.stdout).toHaveLength(DEATH_TAIL_CHARS);
+      expect(res.stdout.endsWith('Error: the real reason')).toBe(true);
+    });
+
+    it("leaves a finished run's stdout as the wire printed it: only a run with no envelope needs a reason", async () => {
+      const stdout = jsonl(
+        INIT,
+        { type: 'message', role: 'assistant', content: 'done', delta: true },
+        { type: 'result', status: 'success', stats: streamStats({ 'gemini-2.5-pro': PRO_TOKENS }) },
+      );
+      mockExecFileResult(null, stdout, 'warning: a noisy log line\n');
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+      expect(res.envelope?.result).toBe('done');
+      expect(res.stdout).toBe(stdout);
+    });
+  });
+
   it('ORPHAN SWEEP crash-path follow-up (board ap-mt2ukjg5-2): tracks the child pid on spawn, untracks it once settled', async () => {
     mockExecFileResult(null, '');
     const pidRegistry = { track: vi.fn(), untrack: vi.fn() };
@@ -979,12 +1034,13 @@ describe('GeminiCliModel', () => {
       elapsedMs: number,
       error: (Error & { code?: unknown; killed?: boolean }) | null,
       stdout = '',
+      stderr = '',
     ): void {
       execFileMock.mockImplementation((...args: unknown[]) => {
         const cb = args[args.length - 1] as ExecFileCallback;
         queueMicrotask(() => {
           vi.setSystemTime(Date.now() + elapsedMs);
-          cb(error, stdout, '');
+          cb(error, stdout, stderr);
         });
         return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
       });
@@ -1005,6 +1061,35 @@ describe('GeminiCliModel', () => {
       // Killed before its `result`, the run lost the CLI's own `duration_ms`;
       // the driver's clock still says how long it held the lane.
       expect(res.observed).toEqual({ elapsedMs: 5000 });
+    });
+
+    it('says the wall-clock cap killed it when the CLI left no stderr, never handing on the events it printed', async () => {
+      vi.useFakeTimers();
+      mockExecFileAfter(120_000, Object.assign(new Error('killed'), { killed: true }), jsonl(INIT));
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx', timeoutMs: 120_000 }).invoke(
+        'gemini-2.5-pro',
+        'do it',
+      );
+
+      expect(res.stdout).toBe(capDeathNote('wall-clock', 120_000, 120_000));
+    });
+
+    it("keeps the CLI's own stderr over the cap note when the killed run left some", async () => {
+      vi.useFakeTimers();
+      mockExecFileAfter(
+        120_000,
+        Object.assign(new Error('killed'), { killed: true }),
+        jsonl(INIT),
+        'Error: model request still pending\n',
+      );
+
+      const res = await new GeminiCliModel({ repo: '/work/sbx', timeoutMs: 120_000 }).invoke(
+        'gemini-2.5-pro',
+        'do it',
+      );
+
+      expect(res.stdout).toBe('Error: model request still pending');
     });
 
     it("reports its own clock as observed.elapsedMs next to the CLI's duration_ms, and no turn count the wire never carries", async () => {
@@ -1112,6 +1197,21 @@ describe('GeminiCliModel', () => {
       expect(res.timedOut).toBe(true);
       expect(res.envelope).toBeNull();
       expect(res.sessionId).toBe(SESSION);
+    });
+
+    it('says the idle cap killed it when the CLI left no stderr', async () => {
+      vi.useFakeTimers();
+      const child = mockLiveChild(jsonl(INIT, TOOL_USE));
+
+      const pending = new GeminiCliModel({ repo: '/work/sbx', idleTimeoutMs: 60_000 }).invoke(
+        'gemini-2.5-pro',
+        'do it',
+      );
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(child.kill).toHaveBeenCalledTimes(1);
+      const res = await pending;
+
+      expect(res.stdout).toBe(capDeathNote('idle', 60_000, 60_000));
     });
 
     it("closes its end of the pipes before the kill, as execFile's own timeout does: behind cmd.exe the node shim outlives the kill and holds them open", async () => {

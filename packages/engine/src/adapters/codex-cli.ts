@@ -27,6 +27,7 @@ import { execFile, type ExecFileOptions } from 'node:child_process';
 import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
 import {
   reapCliDescendants,
+  cliDeathText,
   isCliTimeoutDeath,
   isResumeFailure,
   CLI_STDIN_PROMPT_THRESHOLD,
@@ -343,7 +344,7 @@ export class CodexCliModel implements ModelPort {
         invocation.args,
         // Same overload-dodging cast ClaudeCliModel.execOnce uses — see its comment.
         execOpts as ExecFileOptions & { encoding: 'utf8' },
-        (err, stdout) => {
+        (err, stdout, stderr) => {
           clearTimeout(idleTimer);
           (this.opts.reapDescendants ?? reapCliDescendants)(child.pid);
           if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
@@ -359,10 +360,28 @@ export class CodexCliModel implements ModelPort {
           const killedBySignal = err !== null && (err as { killed?: boolean }).killed === true;
           const elapsedMs = Date.now() - startedAt;
           // An idle-cap kill is a cap death too, as in StreamingClaudeCliModel.execOnce.
-          const timedOut = idleDeath || isCliTimeoutDeath(killedBySignal, elapsedMs, timeoutMs);
+          const capDeath = idleDeath
+            ? 'idle'
+            : isCliTimeoutDeath(killedBySignal, elapsedMs, timeoutMs)
+              ? 'wall-clock'
+              : null;
+          const parsed = parseCodexExecOutput(stdout ?? '', exitCode, model);
           resolve({
-            ...parseCodexExecOutput(stdout ?? '', exitCode, model),
-            ...(timedOut ? { timedOut: true } : {}),
+            ...parsed,
+            // With no envelope, the events say nothing about WHY the run died;
+            // its stderr (a failed login, a bad config) does, and firing.ts
+            // records this stdout as the firing's death tail.
+            ...(parsed.envelope === null
+              ? {
+                  stdout: cliDeathText(
+                    stderr ?? '',
+                    capDeath,
+                    elapsedMs,
+                    capDeath === 'idle' ? idleTimeoutMs : timeoutMs,
+                  ),
+                }
+              : {}),
+            ...(capDeath !== null ? { timedOut: true } : {}),
             // No event carries a duration, so this clock is the run's only
             // one; no turn count rides with it (ModelResponse.observed).
             observed: { elapsedMs },
