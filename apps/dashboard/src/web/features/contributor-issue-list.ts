@@ -57,7 +57,9 @@ var CONTRIBUTOR_ISSUE_LIST_POLL_MS = 30000;
 function renderClaimWalkthrough(section) {
   var details = document.createElement('details');
   details.className = 'contributor-claim-walkthrough';
-  details.appendChild(el('summary', '', 'How to claim'));
+  var summary = el('summary', '', tr('contributorHowToClaim'));
+  summary.setAttribute('data-i18n', 'contributorHowToClaim');
+  details.appendChild(summary);
   var steps = document.createElement('ol');
   for (var i = 0; i < CLAIM_WALKTHROUGH_STEPS.length; i++) {
     steps.appendChild(el('li', '', CLAIM_WALKTHROUGH_STEPS[i]));

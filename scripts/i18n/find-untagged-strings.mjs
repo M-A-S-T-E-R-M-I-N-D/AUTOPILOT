@@ -45,6 +45,10 @@ import { fileURLToPath } from 'node:url';
 
 const DEFAULT_ROOT = 'apps/dashboard/src/web';
 
+/** Tags whose inner text is a command, a key or a path — never translated,
+ *  so never a finding, however it is built. */
+const MONOSPACE_TAGS = new Set(['code', 'kbd', 'pre', 'samp']);
+
 /** Tags whose direct inner text is, in this codebase, always a short static
  *  UI label rather than markup/prose — safe to flag when untagged. */
 const STATIC_TEXT_TAGS = new Set([
@@ -174,6 +178,10 @@ export function scanSource(source, file) {
     const varName = match[1];
     const tag = match[2].toLowerCase();
     const text = match[3];
+    // A monospace tag holds a command, a key or a path, never prose — the one
+    // finding left after issue #16's sweep was `el('code', 'cmd', 'pnpm
+    // dashboard:demo')`, which no locale should ever rewrite (2026-10-02).
+    if (MONOSPACE_TAGS.has(tag)) continue;
     if (!looksTranslatable(text)) continue;
     if (varName && isTaggedNearby(source, varName, match.index + match[0].length)) continue;
 

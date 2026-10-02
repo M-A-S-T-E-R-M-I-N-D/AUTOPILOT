@@ -65,6 +65,22 @@ describe('scanSource', () => {
     ]);
   });
 
+  it('never flags an el()-built <code>/<kbd>/<pre>/<samp> — a command, a key or a path is not prose (2026-10-02)', () => {
+    // Issue #16's sweep ended on one finding the scanner should never have
+    // raised: `el('code', 'cmd', 'pnpm dashboard:demo')`.
+    const source = [
+      "empty.appendChild(el('code', 'cmd', 'pnpm dashboard:demo'));",
+      "hint.appendChild(el('kbd', '', 'Ctrl'));",
+      "hint.appendChild(el('span', 'muted', 'Press it twice'));",
+    ].join('\n');
+
+    const findings = scanSource(source, 'shell.ts');
+
+    expect(findings).toEqual([
+      { file: 'shell.ts', line: 3, kind: 'text', tag: 'span', text: 'Press it twice' },
+    ]);
+  });
+
   it('does not flag a tag mention inside a doc comment', () => {
     const source = [
       '/**',

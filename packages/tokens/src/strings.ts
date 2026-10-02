@@ -1379,6 +1379,16 @@ const EN_STRINGS = {
   publicityPanel: 'Publicity',
   contributorStandingPanel: 'Contributor standing',
   contributorIssueListPanel: 'Good first issues',
+  // Issue #16's last untagged render-site literals (2026-10-02): the docs
+  // viewer's pinned explainer name, archived badge, "what links here" nav
+  // and dead-link note, the collaboration landmark, and the contributor
+  // list's claim walkthrough summary.
+  docsStandingName: 'Contributor Standing',
+  docsArchivedBadge: 'Archived',
+  docsLinksHere: 'What links here',
+  docsBrokenLink: ' (broken link)',
+  collaborationPanel: 'Collaboration',
+  contributorHowToClaim: 'How to claim',
   // Epic 0025 slice 2: the panel's own h3 heading (built via panelHeading()
   // with the sprout icon) — distinct from contributorIssueListPanel above,
   // which stays the section's aria-label.
@@ -2922,6 +2932,12 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     publicityPanel: 'פרסום',
     contributorStandingPanel: 'מעמד תורמים',
     contributorIssueListPanel: 'בעיות טובות למתחילים',
+    docsStandingName: 'מעמד תורמים',
+    docsArchivedBadge: 'בארכיון',
+    docsLinksHere: 'מה מקשר לכאן',
+    docsBrokenLink: ' (קישור שבור)',
+    collaborationPanel: 'שיתוף פעולה',
+    contributorHowToClaim: 'איך תופסים משימה',
     contributorIssueListTitle: 'בעיות טובות למתחילים',
     subjectNav: 'אזורים',
     subjectFleet: 'צי',

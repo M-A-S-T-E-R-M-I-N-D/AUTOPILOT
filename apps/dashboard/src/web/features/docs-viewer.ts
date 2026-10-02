@@ -168,7 +168,9 @@ function refreshDocsList(pid, list, viewer) {
           // The pinned explainer keeps its friendly name — and loses the
           // emoji it carried, which epic 0025 is removing everywhere. Its
           // accent comes from .docs-file-pinned now, not from a glyph.
-          btn.appendChild(el('span', 'docs-file-name', 'Contributor Standing'));
+          var standingName = el('span', 'docs-file-name', tr('docsStandingName'));
+          standingName.setAttribute('data-i18n', 'docsStandingName');
+          btn.appendChild(standingName);
         } else {
           var cut = files[i].lastIndexOf('/');
           if (cut >= 0) btn.appendChild(el('span', 'docs-file-dir', files[i].slice(0, cut + 1)));
@@ -177,7 +179,11 @@ function refreshDocsList(pid, list, viewer) {
         // The badge is real button content — not an aria-only aside — so a
         // sighted reader sees it and a screen reader picks it up as part of
         // the button's own accessible name, with zero extra wiring.
-        if (isArchived) btn.appendChild(el('span', 'docs-file-archived-badge', 'Archived'));
+        if (isArchived) {
+          var archivedBadge = el('span', 'docs-file-archived-badge', tr('docsArchivedBadge'));
+          archivedBadge.setAttribute('data-i18n', 'docsArchivedBadge');
+          btn.appendChild(archivedBadge);
+        }
         btn.setAttribute('data-doc-open', files[i]);
         btn.setAttribute('data-doc-pid', pid);
         btn.setAttribute('aria-pressed', String(isOpenDoc));
@@ -266,8 +272,11 @@ function buildToc(content) {
 function buildLinksHere(pid, linksHere) {
   if (!linksHere || !linksHere.length) return null;
   var nav = el('nav', 'docs-linkshere');
-  nav.setAttribute('aria-label', 'What links here');
-  nav.appendChild(el('p', 'docs-linkshere-heading', 'What links here'));
+  nav.setAttribute('aria-label', tr('docsLinksHere'));
+  nav.setAttribute('data-i18n-aria', 'docsLinksHere');
+  var linksHereHeading = el('p', 'docs-linkshere-heading', tr('docsLinksHere'));
+  linksHereHeading.setAttribute('data-i18n', 'docsLinksHere');
+  nav.appendChild(linksHereHeading);
   var list = el('ul', 'docs-linkshere-list');
   for (var i = 0; i < linksHere.length; i++) {
     var li = document.createElement('li');
@@ -299,7 +308,9 @@ function markDeadDocLinks(body, brokenLinks) {
     if (!dead[link.getAttribute('data-doc-open')]) continue;
     link.classList.add('docs-link-dead');
     link.setAttribute('data-tip', 'Broken link — target not found in the index');
-    link.appendChild(el('span', 'sr-only', ' (broken link)'));
+    var brokenNote = el('span', 'sr-only', tr('docsBrokenLink'));
+    brokenNote.setAttribute('data-i18n', 'docsBrokenLink');
+    link.appendChild(brokenNote);
   }
 }
 function loadDoc(pid, path, viewer) {
