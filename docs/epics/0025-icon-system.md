@@ -244,7 +244,13 @@ propagation, and the filled style does not match the nav.
    of Feather's hand-copied one, sized by CSS at
    the 24px (`1.5rem`) its `width`/`height` attributes gave it; its
    aria-label stays its only name. The list is down to `shell-html.ts` and
-   the lucky button's clover in `shell.ts`.
+   the lucky button's clover in `shell.ts`. **Focus toggle 2026-10-02 (law
+   1):** the subject rail's Focus button printed Feather's maximize by hand;
+   Lucide's `maximize` is the same four corners, so it is vendored and the
+   button prints `iconSvg('maximize')` beside its `[data-i18n]` label, still
+   sized by the rail's `.subject-link svg` rule like the links beside it.
+   `shell-html.ts` is down to its three link builders' Feather-derived
+   table.
 
 ## Related
 
