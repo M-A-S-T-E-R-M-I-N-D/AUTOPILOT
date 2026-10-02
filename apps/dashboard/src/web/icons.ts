@@ -563,6 +563,14 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M5 12h14' }],
     ['path', { d: 'm12 5 7 7-7 7' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9, law 1): the subject
+  // rail's focus toggle drops its hand-copied Feather corners for Lucide's.
+  maximize: [
+    ['path', { d: 'M8 3H5a2 2 0 0 0-2 2v3' }],
+    ['path', { d: 'M21 8V5a2 2 0 0 0-2-2h-3' }],
+    ['path', { d: 'M3 16v3a2 2 0 0 0 2 2h3' }],
+    ['path', { d: 'M16 21h3a2 2 0 0 0 2-2v-3' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

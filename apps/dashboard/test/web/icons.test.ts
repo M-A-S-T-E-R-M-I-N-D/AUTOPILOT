@@ -175,11 +175,30 @@ describe('server-printed chrome draws vendored icons (law 1)', () => {
     expect(layoutCss()).toContain('.ask-fab > .icon { inline-size: 1.5rem; block-size: 1.5rem; }');
   });
 
+  // The rail's focus toggle printed Feather's maximize by hand; Lucide's is
+  // the same four corners, so it draws the vendored one, still sized by the
+  // rail's `.subject-link svg` rule beside the link icons.
+  it('the focus toggle prints the vendored maximize and keeps its label', () => {
+    const page = new DOMParser().parseFromString(renderShell(), 'text/html');
+    const button = page.getElementById('focus-toggle') as HTMLButtonElement;
+    expect(button).not.toBeNull();
+    expect(button.children).toHaveLength(2);
+    const icon = button.firstElementChild!;
+    expect(icon.matches('svg.icon.icon-maximize')).toBe(true);
+    expect(icon.getAttribute('aria-hidden')).toBe('true');
+    expect(icon.hasAttribute('width')).toBe(false);
+    expect(button.querySelector('span[data-i18n="focusMode"]')?.textContent).toBe('Focus');
+    expect(button.textContent).toBe('Focus');
+    expect(layoutCss()).toContain(
+      '.subject-link svg { inline-size: 1.375rem; block-size: 1.375rem;',
+    );
+  });
+
   // Shrink-only: the subject rail's Feather-derived table (three link
-  // builders and the focus toggle) and the lucky button's filled clover
-  // still print their own markup.
+  // builders) and the lucky button's filled clover still print their own
+  // markup.
   it('hand-inlines no 24-unit icon outside the vendored set beyond the known sites', () => {
-    expect(handInlinedIconSites()).toEqual(['shell-html.ts: 4', 'shell.ts: 1']);
+    expect(handInlinedIconSites()).toEqual(['shell-html.ts: 3', 'shell.ts: 1']);
   });
 });
 
