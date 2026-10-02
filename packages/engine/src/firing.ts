@@ -108,6 +108,12 @@ export interface FiringOutcome {
    * visible in the flight log, not silent.
    */
   readonly guardDenials: number;
+  /**
+   * Why the store could not save this firing's record — absent when it did.
+   * A failed save is reported, never thrown: telemetry about a firing never
+   * gets to kill the firing (docs/FAILURE-DOCTRINE.md row 87).
+   */
+  readonly recordError?: string;
 }
 
 /** Distill a raw CLI response into the pure quota-detection inputs (v2.4's probe). */
@@ -530,7 +536,16 @@ export async function runFiring(
     ...(timedOut ? { timedOut: true } : {}),
     ...(review !== null ? { review } : {}),
   };
-  await deps.store.recordFiring(record);
+  // Same reasoning as the gate port's catch above: loop.ts has no try/catch
+  // around runFiring, and this save runs after the model has been paid for.
+  // A value the STRICT metrics table refused (picked_rank 0, round 58,
+  // 2026-10-02) took the whole lane with it, and left its commit unsynced.
+  let recordError: string | null = null;
+  try {
+    await deps.store.recordFiring(record);
+  } catch (error) {
+    recordError = error instanceof Error ? error.message : String(error);
+  }
 
   const bad = isBadFiring(env, iter.iterMetrics, record.maxTurnsHit);
   return {
@@ -541,6 +556,7 @@ export async function runFiring(
     gateResult,
     sessionId: resp.envelope?.sessionId ?? resp.sessionId ?? null,
     guardDenials,
+    ...(recordError !== null ? { recordError } : {}),
   };
 }
 
