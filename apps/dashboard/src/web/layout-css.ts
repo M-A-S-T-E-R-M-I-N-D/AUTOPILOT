@@ -1778,8 +1778,11 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    button content model forbids tabindex descendants, and the row's roving
    fields each carry one. The disclosure control is the .firing-headline
    button inside it, so the row's focus chrome keys off :has(:focus-visible)
-   and its open state off .firing-open rather than its own aria-expanded. */
-.firing-toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; text-align: start; padding: 3px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: none; font: inherit; font-size: var(--text-xs); color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
+   and its open state off .firing-open rather than its own aria-expanded.
+   A click anywhere on the row forwards to that button (firing-timeline.ts
+   firingRowToggleFor), so the row keeps the pointer cursor its hover chrome
+   already promises. */
+.firing-toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; text-align: start; padding: 3px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: none; font: inherit; font-size: var(--text-xs); color: var(--color-text-muted); cursor: pointer; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .firing-toggle:hover, .firing-toggle:has(:focus-visible) { border-color: var(--color-accent); color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .firing-toggle:has(.firing-headline:active) { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .firing-toggle.firing-open { border-color: var(--color-accent); color: var(--color-text); }
