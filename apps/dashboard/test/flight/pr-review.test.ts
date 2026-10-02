@@ -265,12 +265,10 @@ const BENIGN_FLIGHT = new Set([
   // patch-scoped resolver, both already unflagged/benign in their own
   // right.
   'patch-files.ts',
-  // Read-only pool-issue browse (PLATFORM 6/7): fetchPoolIssues only lists
-  // via `gh issue list`, and poolDimension/isPoolIssue/isClaimedPoolIssue
-  // are pure label/assignee classifiers — no assign, label, or comment
-  // write exists yet; the claim action is a follow-up slice that will need
-  // its own marker once it ships one.
-  'pool-client.ts',
+  // pool-client.ts needs no entry any more: it began as a read-only browse,
+  // then grew the claim (planClaimPoolIssueCommands' `gh issue comment` +
+  // `--add-assignee`, run by executeClaimPoolIssueCommands) and earned the
+  // `flight/pool-client.ts` marker.
   // Cohesion partitioning of board tasks across the fleet — coordination
   // quality, no write of its own.
   'scope-partition.ts',
@@ -297,18 +295,13 @@ const BENIGN_FLIGHT = new Set([
   // composed task (creating it on the board) is a later slice's execute
   // wiring, which will need its own marker once it ships.
   'report-compose-tasks.ts',
-  // SOCIAL FLIGHT core 1/6 (board web-mtpzzx23-n1kqv0): resolveSocialIdentity
-  // composes the two existing read-only resolves (fetchViewerLogin's `gh api
-  // user`, fetchRepoIdentity's `gh repo view`), fetchOwnSubmissions only
-  // LISTS via `gh issue/pr list --author`, and planSocialProtocol is a pure
-  // cap-admission function over candidates and caps both INJECTED by the
-  // caller — no comment/label/issue write exists yet. Same class as
-  // pool-client.ts: the executor that acts on an admitted plan is a
-  // follow-up slice that will need its own marker once it ships one.
-  'social-pass.ts',
+  // social-pass.ts needs no entry any more: once its executor shipped
+  // (executeSocialCommands' `gh issue create` / `gh issue comment`, d191517d)
+  // it earned the `flight/social-pass.ts` marker, which also holds the role
+  // resolve and the spam caps that executor obeys.
   // CONTRIBUTOR JOURNEY slice 1 (board web-mtt3hery-l8v0lf): planContributorIssueList
   // is a pure filter/rank over an already-fetched issue array (no `gh` call
-  // of its own) — same class as pool-client.ts's classifiers. The live
+  // of its own) — same class as pool-client.ts's pure classifiers. The live
   // `gh issue list` read and the dashboard panel that renders this list are
   // separate, later slices that will need their own markers once they ship.
   'contributor-issue-list.ts',
@@ -319,8 +312,8 @@ const BENIGN_FLIGHT = new Set([
   'social-flight-trigger.ts',
   // SOCIAL FLIGHT weave-in 3/6, the I/O half (board web-mtpzzx7v-72q2dv):
   // runSocialFlightPass gates on the toggle, refuses a foreign target and a
-  // disconnected gh, then composes the three READ-ONLY resolves social-
-  // pass.ts is benign for (`gh api user`, `gh repo view`, `gh issue|pr list`)
+  // disconnected gh, then composes social-pass.ts's three READ-ONLY resolves
+  // (`gh api user`, `gh repo view`, `gh issue|pr list`)
   // with the pure planSocialProtocol over caller-INJECTED candidates — and
   // fly.ts injects none yet. It never calls executeSocialCommands: the
   // execute wiring (once a candidate source exists) is a follow-up slice
@@ -333,7 +326,7 @@ const BENIGN_FLIGHT = new Set([
   // EPIC 0020 slice 8 (board web-mtvpuoj4-tv1z09), first derivation:
   // diagnoseFailedCheck classifies an ALREADY-FETCHED job log against the
   // PR's own touchedPaths and the flaky-test quarantine list — no `gh` call
-  // of its own, no write, same pure-classifier class as pool-client.ts and
+  // of its own, no write, same pure-classifier class as
   // contributor-issue-list.ts above. The `🔧 Diagnose` button, its server
   // route, and the `defect` verdict's diff-for-approval prep are unbuilt
   // follow-on slices that will need their own marker once they ship one.
@@ -351,7 +344,7 @@ const BENIGN_FLIGHT = new Set([
   // COLLABORATION panel slice 1 (board web-mtpzqrxl-z7jgbu): fetchRoadmapItems
   // only LISTS via `gh issue list --label roadmap`, and isRoadmapItem is a
   // pure label classifier — no assign, label, or comment write exists, same
-  // class as pool-client.ts and contributor-issue-list.ts above. The
+  // class as contributor-issue-list.ts above. The
   // dashboard panel and server route that will render this list are
   // separate, later slices that will need their own markers once they ship.
   'roadmap-items.ts',
@@ -2053,6 +2046,39 @@ describe('touchesSecuritySensitivePath', () => {
     expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/version-restore.ts'])).toBe(
       true,
     );
+  });
+
+  it('flags the social pass: resolveSocialIdentity decides maintainer or guest (epic 0019 law 1), planSocialProtocol holds the anti-spam caps (law 4), and executeSocialCommands runs the `gh issue create`/`gh issue comment` they admit, so a PR touching it queues for a human', () => {
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/social-pass.ts'])).toBe(true);
+    // Its pure toggle parser and its read-only fly.ts weave-in stay the
+    // benign modules the census records them as.
+    expect(
+      touchesSecuritySensitivePath(['apps/dashboard/src/flight/social-flight-trigger.ts']),
+    ).toBe(false);
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/social-flight-pass.ts'])).toBe(
+      false,
+    );
+  });
+
+  it("flags the pool client: it decides whether to claim, contest or skip a pool issue and plans and runs the claim's `gh issue comment` and `--add-assignee` writes on the canonical repo under the operator's login, so a PR touching it queues for a human", () => {
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/pool-client.ts'])).toBe(true);
+    // The pure claim ledger and marker builder it reads stay benign.
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/claim-ledger.ts'])).toBe(false);
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/claim-contract.ts'])).toBe(
+      false,
+    );
+  });
+
+  it('keeps BENIGN_FLIGHT honest: no file the census lets through unflagged builds a `gh` write argv, so a benign module that later grows an executor (as social-pass.ts and pool-client.ts did) fails a test instead of staying auto-mergeable', () => {
+    const ghWriteArgv =
+      /\[\s*'(?:issue|pr|label|release|repo)',\s*'(?:create|comment|edit|close|reopen|merge|review|delete|lock|transfer)'|'--method'/;
+    const writers = [...BENIGN_FLIGHT].filter((file) =>
+      ghWriteArgv.test(readFileSync(`${FLIGHT_SRC_DIR}/${file}`, 'utf8')),
+    );
+    expect(
+      writers,
+      'BENIGN_FLIGHT files that build a gh write — for EACH: give it a marker in SECURITY_SENSITIVE_PATH_MARKERS and drop it from BENIGN_FLIGHT',
+    ).toEqual([]);
   });
 
   it("keeps pace with new flight/*-execute.ts files automatically: every execute-wiring file in the flight directory is either flagged or explicitly allow-listed as benign, so a future ritual's write wiring can never silently slip past this ritual the way control-execute.ts did", () => {
