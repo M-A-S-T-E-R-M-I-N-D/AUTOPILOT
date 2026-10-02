@@ -5586,7 +5586,9 @@ export function terminalHudHtml(): string {
       ['off', 'terminalHudGlowOff', 'Off'],
       ['on', 'terminalHudGlowOn', 'On'],
     ]) +
-    '    <button type="button" class="terminal-hud-close" id="terminal-hud-close" aria-label="Dismiss the terminal HUD" data-i18n-aria="terminalHudDismiss" data-tip="Settings › HUD bar › Shown brings it back (so does Reset to defaults)" data-i18n-tip="terminalHudDismissTip"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>\n' +
+    '    <button type="button" class="terminal-hud-close" id="terminal-hud-close" aria-label="Dismiss the terminal HUD" data-i18n-aria="terminalHudDismiss" data-tip="Settings › HUD bar › Shown brings it back (so does Reset to defaults)" data-i18n-tip="terminalHudDismissTip">' +
+    iconSvg('x') +
+    '</button>\n' +
     '  </div>'
   );
 }
@@ -5842,7 +5844,7 @@ ${benchmarkSubjectHtml(project)}  <div class="snackbar-host" id="snackbar-host" 
   <aside class="ask-sheet" id="ask-sheet" role="dialog" aria-modal="false" aria-labelledby="ask-sheet-title" hidden>
     <div class="ask-sheet-head">
       <h2 class="ask-sheet-title" id="ask-sheet-title" data-i18n="askSheetTitle">Ask</h2>
-      <button type="button" class="ask-sheet-close" id="ask-sheet-close" aria-label="Close" data-i18n-aria="askSheetClose"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button type="button" class="ask-sheet-close" id="ask-sheet-close" aria-label="Close" data-i18n-aria="askSheetClose">${iconSvg('x')}</button>
     </div>
     <div class="ask-sheet-body" id="ask-sheet-body"></div>
     <div class="ask-sheet-foot" id="ask-sheet-foot"></div>
