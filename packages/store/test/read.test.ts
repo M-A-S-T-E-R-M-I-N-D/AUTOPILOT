@@ -1875,6 +1875,28 @@ describe('classifyUnverifiableCause', () => {
     );
   });
 
+  // firing.ts records a gate PORT that threw (a RemediatingGate git failure, a
+  // semaphore error) as `{ ok: false, crashed: true }` with no checks and the
+  // thrown message as gateError. The gate ran and crashed; it was never the
+  // dirty-tree refusal, so it must not be counted under no-checks.
+  it('classifies a thrown gate port (no checks, not the dirty-tree refusal) as crash', () => {
+    expect(
+      classifyUnverifiableCause({
+        gateChecks: [],
+        gateError: "fatal: Unable to create '.git/index.lock': File exists.",
+      }),
+    ).toBe('crash');
+  });
+
+  it('classifies a thrown gate port whose message names a timeout as timeout', () => {
+    expect(
+      classifyUnverifiableCause({
+        gateChecks: [],
+        gateError: 'gate slot wait timed out after 600000ms',
+      }),
+    ).toBe('timeout');
+  });
+
   it('classifies a timeout-worded gateError as timeout', () => {
     expect(
       classifyUnverifiableCause({
@@ -1983,6 +2005,25 @@ describe('unverifiableCauseBreakdown', () => {
     expect(unverifiableCauseBreakdown(store.db, 'ucb')).toEqual({
       total: 4,
       byCause: { 'no-checks': 1, timeout: 1, crash: 1, 'revert-failed': 1, unparsable: 0 },
+    });
+  });
+
+  it('counts a thrown gate port as a crash, apart from the dirty-tree refusals', () => {
+    insertFiringEvent(
+      'ucb',
+      unverifiable({
+        gateChecks: [],
+        gateError: 'refused: uncommitted changes remain after the commit',
+      }),
+    );
+    insertFiringEvent(
+      'ucb',
+      unverifiable({ gateChecks: [], gateError: 'Command failed: git commit -m autoformat' }),
+    );
+
+    expect(unverifiableCauseBreakdown(store.db, 'ucb')).toEqual({
+      total: 2,
+      byCause: { 'no-checks': 1, timeout: 0, crash: 1, 'revert-failed': 0, unparsable: 0 },
     });
   });
 
