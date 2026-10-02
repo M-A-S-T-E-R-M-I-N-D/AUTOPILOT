@@ -176,8 +176,17 @@ propagation, and the filled style does not match the nav.
    badge led with U+29C9 as a copy icon, in a font few UIs carry. It leads
    with a newly vendored `copy` now (`issueTriageDecisionIcon`), and the
    census pins the block at zero in web/ and STRINGS. Only the accept
-   badge's ✓ stays, one of the three plain marks the census allows. The
-   screenshots refresh (`docs/screens/`) is still open.
+   badge's ✓ stays, one of the three plain marks the census allows.
+   **Replay chevrons 2026-10-02:** the Firing Replay's "‹ Prev" and
+   "Next ›" buttons (en and he) led and trailed with single guillemets
+   (U+2039/U+203A) as chevrons. Prev leads with a newly vendored
+   `chevron-left` and Next trails with the existing `chevron-right`, both
+   mirrored under `dir="rtl"` like the back link; each label moved into an
+   inner `[data-i18n]` span, since `setSweptText()` keeps only a leading
+   icon. The census pins a guillemet at a label's edge to zero in web/ and
+   STRINGS. The "Settings › HUD bar › Shown" breadcrumb and the phase
+   rail's lone `›` separator stay free. The screenshots refresh
+   (`docs/screens/`) is still open.
 
 ## Related
 

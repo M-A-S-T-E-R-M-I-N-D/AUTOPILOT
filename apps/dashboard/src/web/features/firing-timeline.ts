@@ -338,8 +338,14 @@ function firingTraceSection(c) {
         prevBtn.setAttribute('data-i18n-aria', 'replayPrevAria');
         prevBtn.setAttribute('data-tip', 'Step back to the previous action in this replay');
         prevBtn.setAttribute('data-i18n-tip', 'replayPrevTip');
-        prevBtn.textContent = '‹ Prev';
-        prevBtn.setAttribute('data-i18n', 'replayPrev');
+        // Epic 0025 (board web-mtywp7zq-55f3o9): the vendored chevron replaces
+        // the ‹ STRINGS used to bake into the text, so the words ride an inner
+        // [data-i18n] span (the back link's shape) and CSS mirrors the icon
+        // under dir=rtl, where "previous" points right.
+        prevBtn.appendChild(iconEl('chevron-left'));
+        var prevText = el('span', '', 'Prev');
+        prevText.setAttribute('data-i18n', 'replayPrev');
+        prevBtn.appendChild(prevText);
         navBar.appendChild(prevBtn);
         var navLabel = el('span', 'replay-nav-label', nav.label);
         navLabel.setAttribute('role', 'status');
@@ -366,8 +372,12 @@ function firingTraceSection(c) {
         nextBtn.setAttribute('data-i18n-aria', 'replayNextAria');
         nextBtn.setAttribute('data-tip', 'Advance to the next action in this replay');
         nextBtn.setAttribute('data-i18n-tip', 'replayNextTip');
-        nextBtn.textContent = 'Next ›';
-        nextBtn.setAttribute('data-i18n', 'replayNext');
+        // The chevron TRAILS here — setSweptText() keeps only a leading icon,
+        // so the inner span is what lets the sweep repaint the words alone.
+        var nextText = el('span', '', 'Next');
+        nextText.setAttribute('data-i18n', 'replayNext');
+        nextBtn.appendChild(nextText);
+        nextBtn.appendChild(iconEl('chevron-right'));
         navBar.appendChild(nextBtn);
         var exitBtn = document.createElement('button');
         exitBtn.type = 'button';
