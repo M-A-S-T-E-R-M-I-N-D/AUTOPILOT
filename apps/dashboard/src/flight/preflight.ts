@@ -20,8 +20,23 @@
  */
 
 import type { DoctorCheck } from '../control/types.js';
+import { firingEngineCli, type NonClaudeEngine } from './firing-engine.js';
 
 export type PreflightLevel = 'block' | 'warn' | 'info';
+
+/** Where `AUTOPILOT_ENGINE` sends the flight's firings (epic 0036): Claude,
+ *  whose CLI is `PreflightFacts.cli`; the refusal `fly.ts` would print at
+ *  takeoff; or the Codex or Gemini CLI, and whether it answered `--version`. */
+export type EngineFact =
+  | { readonly kind: 'claude' }
+  | { readonly kind: 'refused'; readonly reason: string }
+  | {
+      readonly kind: 'cli';
+      readonly engine: NonClaudeEngine;
+      readonly model: string;
+      readonly found: boolean;
+      readonly version: string | null;
+    };
 
 export interface PreflightCheck extends DoctorCheck {
   readonly level: PreflightLevel;
@@ -45,6 +60,9 @@ export interface PreflightFacts {
    *  waiting for the operator. */
   readonly parkedHeads: number;
   readonly cli: { readonly found: boolean; readonly version: string | null };
+  /** A Codex or Gemini lane still needs `claude`: the commit reviewer and
+   *  the merge-escalation agent stay on it. */
+  readonly engine: EngineFact;
   readonly authDescription: string;
   readonly caps: { readonly wallClockMin: number; readonly idleMin: number };
   /** Lanes this launch will run (1 for a plain flight). */
@@ -66,6 +84,31 @@ export const WIDE_FLEET_LANES = 4;
 
 function gib(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GiB`;
+}
+
+/** A Codex or Gemini lane flies once its setting holds and its CLI answers:
+ *  either miss fails every firing, and a firing that commits nothing gives
+ *  the demotion count nothing to judge. A Claude lane adds no line. */
+function engineCheck(engine: EngineFact): PreflightCheck | null {
+  if (engine.kind === 'claude') return null;
+  if (engine.kind === 'refused') {
+    return { level: 'block', name: 'engine', ok: false, detail: engine.reason };
+  }
+  const cli = firingEngineCli(engine.engine);
+  if (!engine.found) {
+    return {
+      level: 'block',
+      name: 'engine',
+      ok: false,
+      detail: `\`${engine.engine}\` is not on the PATH — AUTOPILOT_ENGINE=${engine.engine} flies every firing on the ${cli} CLI; install it and sign in once, or unset AUTOPILOT_ENGINE`,
+    };
+  }
+  return {
+    level: 'info',
+    name: 'engine',
+    ok: true,
+    detail: `${cli} CLI ${engine.version ?? '(version unknown)'} on ${engine.model} (AUTOPILOT_ENGINE) — no cost is recorded, since ${cli} reports no price`,
+  };
 }
 
 export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
@@ -127,6 +170,9 @@ export function evaluatePreflight(facts: PreflightFacts): PreflightReport {
       detail: `claude ${facts.cli.version ?? '(version unknown)'} — ${facts.authDescription}`,
     });
   }
+
+  const engine = engineCheck(facts.engine);
+  if (engine !== null) checks.push(engine);
 
   if (facts.freeBytes !== null && facts.freeBytes < MIN_FREE_BYTES_BLOCK) {
     checks.push({

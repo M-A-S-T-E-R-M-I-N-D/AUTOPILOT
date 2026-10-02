@@ -24,6 +24,7 @@ function facts(over: Partial<PreflightFacts> = {}): PreflightFacts {
     dirtyLanes: [],
     parkedHeads: 0,
     cli: { found: true, version: '2.1.273 (Claude Code)' },
+    engine: { kind: 'claude' },
     authDescription: 'Claude subscription (Claude Code login)',
     caps: { wallClockMin: 90, idleMin: 20 },
     laneCount: 1,
@@ -142,6 +143,102 @@ describe('evaluatePreflight — the go/no-go before a flight spends a dollar', (
     expect(check(unknown, 'claude-cli').detail).toBe(
       'claude (version unknown) — Claude subscription (Claude Code login)',
     );
+  });
+
+  it('a Claude lane adds no engine line', () => {
+    expect(evaluatePreflight(facts()).checks.some((c) => c.name === 'engine')).toBe(false);
+  });
+
+  it('an AUTOPILOT_ENGINE setting the flight would refuse BLOCKS with its own reason', () => {
+    const reason =
+      'AUTOPILOT_ENGINE=codex needs AUTOPILOT_ENGINE_MODEL to name the model Codex runs (e.g. gpt-5-codex).';
+    const report = evaluatePreflight(facts({ engine: { kind: 'refused', reason } }));
+    expect(report.go).toBe(false);
+    expect(check(report, 'engine')).toEqual({
+      level: 'block',
+      name: 'engine',
+      ok: false,
+      detail: reason,
+    });
+  });
+
+  it('a codex or gemini lane whose CLI is not on the PATH BLOCKS, naming the binary', () => {
+    const codex = evaluatePreflight(
+      facts({
+        engine: { kind: 'cli', engine: 'codex', model: 'gpt-5-codex', found: false, version: null },
+      }),
+    );
+    expect(codex.go).toBe(false);
+    expect(check(codex, 'engine')).toEqual({
+      level: 'block',
+      name: 'engine',
+      ok: false,
+      detail:
+        '`codex` is not on the PATH — AUTOPILOT_ENGINE=codex flies every firing on the Codex CLI; install it and sign in once, or unset AUTOPILOT_ENGINE',
+    });
+    const gemini = evaluatePreflight(
+      facts({
+        engine: {
+          kind: 'cli',
+          engine: 'gemini',
+          model: 'gemini-2.5-pro',
+          found: false,
+          version: null,
+        },
+      }),
+    );
+    expect(check(gemini, 'engine').detail).toBe(
+      '`gemini` is not on the PATH — AUTOPILOT_ENGINE=gemini flies every firing on the Gemini CLI; install it and sign in once, or unset AUTOPILOT_ENGINE',
+    );
+  });
+
+  it('a codex or gemini lane whose CLI answers reports its version and model after claude-cli', () => {
+    const report = evaluatePreflight(
+      facts({
+        engine: {
+          kind: 'cli',
+          engine: 'gemini',
+          model: 'gemini-2.5-pro',
+          found: true,
+          version: '0.8.2',
+        },
+      }),
+    );
+    expect(report.go).toBe(true);
+    const names = report.checks.map((c) => c.name);
+    expect(names.indexOf('engine')).toBe(names.indexOf('claude-cli') + 1);
+    expect(check(report, 'engine')).toEqual({
+      level: 'info',
+      name: 'engine',
+      ok: true,
+      detail:
+        'Gemini CLI 0.8.2 on gemini-2.5-pro (AUTOPILOT_ENGINE) — no cost is recorded, since Gemini reports no price',
+    });
+    const unknown = evaluatePreflight(
+      facts({
+        engine: { kind: 'cli', engine: 'codex', model: 'gpt-5-codex', found: true, version: null },
+      }),
+    );
+    expect(check(unknown, 'engine').detail).toBe(
+      'Codex CLI (version unknown) on gpt-5-codex (AUTOPILOT_ENGINE) — no cost is recorded, since Codex reports no price',
+    );
+  });
+
+  it('a codex lane still needs `claude`: the commit reviewer stays on it', () => {
+    const report = evaluatePreflight(
+      facts({
+        cli: { found: false, version: null },
+        engine: {
+          kind: 'cli',
+          engine: 'codex',
+          model: 'gpt-5-codex',
+          found: true,
+          version: '0.46.0',
+        },
+      }),
+    );
+    expect(report.go).toBe(false);
+    expect(check(report, 'claude-cli').level).toBe('block');
   });
 
   it('disk space: block under the floor, warn under the comfort line, silent when unknown', () => {

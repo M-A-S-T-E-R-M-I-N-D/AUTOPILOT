@@ -98,6 +98,7 @@ refusal reads `preflight refused: <check>: <what to do>` and names one of:
 | `target-clean` | changed or untracked paths in the live checkout — every sync-back into it would refuse | commit or stash them                                       |
 | `git-identity` | `user.name` / `user.email` unset — every commit the flight makes fails | `git config user.name …` / `git config user.email …`       |
 | `claude-cli`   | `claude` is not on the PATH                                        | install Claude Code and sign in once                       |
+| `engine`       | `AUTOPILOT_ENGINE` names a setting the flight would refuse, or a `codex`/`gemini` that is not on the PATH | fix the setting the line names, or install that CLI and sign in once |
 | `disk-space`   | under 1 GiB free                                                   | free space; the gate, the snapshot and a lane need it      |
 
 Warnings let the flight go and say what to expect: a build older than
@@ -307,8 +308,12 @@ that, and every firing then exits untrusted. Two gate-reverted firings in a row 
 `Stopped by: demoted`. An unknown engine, a missing model or a Claude model refuses the flight with
 a `⛔` line naming the fix, and so does a Gemini lane given a model the vendor table places with
 another publisher (`gpt-5-codex`, `llama-4-maverick`) or a locally served one (`ollama/…`), since
-the Gemini CLI reaches only Google's models. A name the table cannot place still flies. Spec and
-status:
+the Gemini CLI reaches only Google's models. A name the table cannot place still flies. A launch
+from the dashboard (the Fly button, `dashboard fleet`, the watchdog) meets each of those refusals
+in its preflight first, as `preflight refused: engine: …`, and so does a lane whose `codex` or
+`gemini` does not answer `--version` on the PATH; `claude-cli` stays required, since the commit
+reviewer runs on it. `pnpm dashboard:doctor <folder>` shows the CLI's version and model on its
+`engine` line. Spec and status:
 [`docs/epics/0036-provider-parity.md`](epics/0036-provider-parity.md).
 
 ### Substep routing & local offload (the M6 cost lever)

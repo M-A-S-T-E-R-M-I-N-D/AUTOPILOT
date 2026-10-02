@@ -298,7 +298,10 @@ codex lane puts its model in every model slot of its firing config, the quota fa
 resilience's pair included, skips per-task model routing, and runs `guardHookCommand`, the command
 the Claude settings file runs, as its guard hook. Its gate-reverted firings demote it after two in a
 row. An unknown engine, a missing model or a Claude model refuses the flight instead of flying Claude
-unasked.
+unasked. Since 2026-10-03 a dashboard launch meets that refusal before the lane starts: the flight
+PREFLIGHT (`flight/preflight.ts`) reads the same `firingEngineFromEnv` as its `engine` check, and
+blocks too when the engine's CLI does not answer `--version` on the PATH, since every firing would
+die on the missing binary and, committing nothing, never reach the demotion count.
 
 Since 2026-10-02 `AUTOPILOT_ENGINE=gemini` routes a lane to `GeminiCliModel` the same way, with the
 same model slots, routing skip and demotion. Since 2026-10-03 it also refuses a model
