@@ -41,6 +41,7 @@ import {
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from './claude-cli.js';
+import { GUARD_TIMEOUT_S } from '../guard.js';
 import { buildInvocation, CMD_SAFE_ARG } from './gate.js';
 import { resolveNpmShim } from './npm-shim.js';
 
@@ -304,6 +305,46 @@ export function isCodexResumeFailure(
   );
 }
 
+/**
+ * `text` as a TOML basic string. JSON's escapes are all TOML's too; DEL is the
+ * one control character TOML forbids raw that JSON leaves alone.
+ */
+function tomlBasicString(text: string): string {
+  return JSON.stringify(text).replace(/\u007f/g, '\\u007f');
+}
+
+/**
+ * The argv that runs `command` as `codex exec`'s PreToolUse hook on every shell
+ * call and file patch: the containment guard, as `ClaudeCliModel` gets it from
+ * `--settings` and `GeminiCliModel` from its system settings file. Read from
+ * openai/codex on 2026-10-02:
+ * - `-c key=value` parses the value as TOML onto a session-flags config layer,
+ *   and is `global`, so it parses after `exec` (`utils/cli/src/config_override.rs`).
+ *   Hooks load from that layer as from any other (`hooks/src/engine/discovery.rs`).
+ * - A matcher group's `hooks` take `type`, `command` and `timeout`, in seconds as
+ *   Claude's are (`config/src/hook_config.rs`). A matcher of bare names and `|`
+ *   is an exact match on any of them (`hooks/src/engine/matcher.rs`).
+ * - Every shell call, plain or unified `exec_command`, reaches the hook as `Bash`
+ *   with `tool_input.command` (`core/src/tools/hook_names.rs`), the Claude payload
+ *   `guard-hook.js` already judges, and a Claude deny is a Codex deny
+ *   (`hooks/src/events/pre_tool_use.rs`). A file edit reaches it as `apply_patch`
+ *   with the patch as `tool_input.command`, which `codex-guard.ts` reads as a
+ *   Claude `Write` or `Edit` of each file the patch names.
+ * - A hook from no managed layer runs only once its hash is trusted, or under
+ *   `--dangerously-bypass-hook-trust` (`utils/cli/src/shared_options.rs`), which
+ *   `exec` takes after the subcommand (`exec/src/cli.rs`, `mark_exec_global_args`).
+ * Codex runs the command through `$SHELL -lc`, or `cmd.exe /C` on Windows
+ * (`hooks/src/engine/command_runner.rs`), the shells `guardHookCommand` quotes for.
+ */
+export function codexGuardArgs(command: string): string[] {
+  const hook = `{type="command",command=${tomlBasicString(command)},timeout=${GUARD_TIMEOUT_S}}`;
+  return [
+    '-c',
+    `hooks.PreToolUse=[{matcher="Bash|apply_patch",hooks=[${hook}]}]`,
+    '--dangerously-bypass-hook-trust',
+  ];
+}
+
 export interface CodexCliOptions {
   readonly repo: string;
   /** CLI binary — discovered from PATH by default (never a hardcoded personal path). */
@@ -333,6 +374,15 @@ export interface CodexCliOptions {
    * one capability the parity matrix above credits this adapter with.
    */
   readonly sandbox?: 'read-only' | 'workspace-write' | 'danger-full-access';
+  /**
+   * The containment guard, Codex's counterpart of `GeminiCliOptions.guardSettingsPath`:
+   * the command line `guard.ts`'s `guardHookCommand(targetRoot, guardScriptPath)`
+   * builds, run as the child's PreToolUse hook on every shell call and file patch
+   * ({@link codexGuardArgs}). Empty or absent, the child runs with no guard hook.
+   * A run that would have to carry it through cmd.exe is refused, never flown
+   * without it.
+   */
+  readonly guardHookCommand?: string;
   /** Called for each query a web search ran ({@link codexWebSearchesFromEvent}),
    *  as its `item.completed` line arrives: `GeminiCliOptions.onWebSearch`'s
    *  counterpart (THREAT-MODEL T6 — the flight persists it as a `web-search`
@@ -383,7 +433,10 @@ export interface CodexCliOptions {
  * reads each stdout line as it lands and reports every query a web search ran,
  * the audit `StreamingClaudeCliModel` keeps for WebSearch (THREAT-MODEL T6).
  * Given {@link CodexCliOptions.onActivity}, it reports every tool call there the
- * same way, as the live activity timeline's steps. It skips the rest of the
+ * same way, as the live activity timeline's steps. Given
+ * {@link CodexCliOptions.guardHookCommand}, the child runs the containment guard
+ * as its PreToolUse hook on every shell call and file patch ({@link codexGuardArgs});
+ * the calls that hook denies are not yet read back as guard denials. It skips the rest of the
  * streaming hardening (partial usage on a kill), which the Claude driver gained
  * after real incidents this adapter has no flight history to have hit yet. It
  * shares the Claude driver's CLI-level resume fallback: a session id the CLI rejects
@@ -434,6 +487,8 @@ export class CodexCliModel implements ModelPort {
     // Global flags above are placed before the subcommand so they parse
     // correctly whether or not the CLI treats them as clap `global = true`
     // options (verified structure: openai/codex codex-rs/exec/src/cli.rs).
+    const guard = this.opts.guardHookCommand;
+    if (guard !== undefined && guard.length > 0) args.push(...codexGuardArgs(guard));
     if (resumeSessionId !== undefined && resumeSessionId.length > 0) {
       args.push('resume', resumeSessionId);
     }
@@ -456,11 +511,14 @@ export class CodexCliModel implements ModelPort {
     const pipePrompt =
       viaCmd || prompt.length > CLI_STDIN_PROMPT_THRESHOLD || prompt.startsWith('-');
     args.push(pipePrompt ? '-' : prompt);
-    // The model and a resume id still ride argv. Refused rather than spawned,
-    // a bad resume id reads as a resume failure, so invoke() retries it cold.
+    // The model, a resume id and the guard hook still ride argv. Refused rather
+    // than spawned, a bad resume id reads as a resume failure, so invoke()
+    // retries it cold. The guard's TOML never passes, so a guarded run is
+    // refused rather than flown without its guard.
     if (viaCmd && !args.every((arg) => CMD_SAFE_ARG.test(arg))) {
       return Promise.resolve({
-        stdout: 'codex-cli: refused to pass the model or resume id through cmd.exe',
+        stdout:
+          'codex-cli: refused to pass the model, a resume id or the guard hook through cmd.exe',
         exitCode: 1,
         envelope: null,
         sessionId: null,

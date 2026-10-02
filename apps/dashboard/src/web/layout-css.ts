@@ -1784,7 +1784,10 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .phase-name { text-transform: uppercase; letter-spacing: 0.04em; font-size: 9px; }
 .phase-count { font-weight: 700; font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--color-text); }
 .phase-on .phase-count { color: var(--color-accent-text); }
-.phase-arrow { color: var(--color-text-muted); }
+.phase-arrow { display: flex; color: var(--color-text-muted); }
+/* Epic 0025: the separators draw the vendored chevron-right; under dir=rtl the
+   rail runs right to left, so it mirrors like the plan chain's arrows. */
+[dir='rtl'] .phase-arrow > .icon { transform: scaleX(-1); }
 .flightmap { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 .fnode { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-size: var(--text-xs); padding: 2px var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); color: var(--color-text-muted); max-width: 100%; }
 .fnode-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1924,6 +1927,7 @@ main:focus { outline: none; }
 .ask-sheet-title { margin: 0; font-size: var(--text-base); }
 .ask-sheet-close { display: inline-flex; align-items: center; justify-content: center; inline-size: 2.5rem; block-size: 2.5rem; border-radius: var(--radius-full); border: 1px solid transparent; background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .ask-sheet-close:hover, .ask-sheet-close:focus-visible { color: var(--color-text); border-color: var(--color-border); }
+.ask-sheet-close > .icon { inline-size: 1.25rem; block-size: 1.25rem; }
 .ask-sheet-body { overflow: auto; overscroll-behavior: contain; padding: var(--space-3) var(--space-4); }
 /* The composer sits at the bottom, like every chat (operator, 2026-09-13): the
    form moves into the foot while the sheet is open, answers stack above it. */
@@ -1958,6 +1962,7 @@ html[data-theme="terminal"]:not([data-hud="hidden"]) .terminal-hud {
 .terminal-hud-label { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .terminal-hud-close { display: inline-flex; align-items: center; justify-content: center; inline-size: 2rem; block-size: 2rem; border-radius: var(--radius-full); border: 1px solid transparent; background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .terminal-hud-close:hover, .terminal-hud-close:focus-visible { color: var(--color-text); border-color: var(--color-border); }
+.terminal-hud-close > .icon { inline-size: 1.125rem; block-size: 1.125rem; }
 /* The effects themselves — decorative only, gated on the same two rows the
    HUD's buttons write (data-scanlines, data-glow), terminal theme only, and
    inert to pointer/selection so they never sit between a click and its

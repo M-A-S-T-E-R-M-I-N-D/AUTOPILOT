@@ -14,3 +14,28 @@ export interface ShaCitation {
 }
 
 export function findShaCitations(text: string): ShaCitation[];
+
+/** One `git merge-base --is-ancestor` run, as spawnSync reports it. */
+export interface GitRun {
+  status: number | null;
+  signal: string | null;
+  stderr: string;
+  spawnError: string | null;
+}
+
+export function describeGitFailure(run: GitRun): string;
+
+export type AncestryResult =
+  | { verdict: 'reachable' | 'unreachable' }
+  | { verdict: 'failed'; attempts: number; detail: string };
+
+export function checkAncestry(
+  sha: string,
+  deps: {
+    runOnce: (sha: string) => GitRun;
+    sleep: (ms: number) => void;
+    warn?: (line: string) => void;
+    maxAttempts?: number;
+    baseDelayMs?: number;
+  },
+): AncestryResult;

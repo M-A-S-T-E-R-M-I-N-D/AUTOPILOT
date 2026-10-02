@@ -24,17 +24,29 @@
  * chained into the shallow-clone "verify" matrix, which would misfire on
  * every legitimately old citation.
  *
+ * A git call that FAILS is not a verdict: only exit 1 means "not an
+ * ancestor". Any other failure is retried, and one that keeps failing is
+ * reported apart from the unreachable citations, with git's own error, so a
+ * red run says which of the two it is (see `checkAncestry`). Both fail the
+ * gate — an unchecked citation is not a verified one.
+ *
  * LEGACY_ALLOWLIST carries files with pre-existing violations broader than
  * this task's named scope (docs/epics/*, docs/EVALUATION-*) — known debt,
  * not silently ignored; shrink this list as each file gets its own cleanup
  * pass. Do not add newly-authored files here.
  */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const NUL = String.fromCharCode(0);
+
+// A `git merge-base` call that fails runs up to MAX_ATTEMPTS times in all,
+// pausing BASE_DELAY_MS, then twice that, between runs — enough to ride out a
+// transient failure under fleet load without stalling the gate for long.
+const MAX_ATTEMPTS = 3;
+const BASE_DELAY_MS = 1000;
 
 const LEGACY_ALLOWLIST = new Set([
   'docs/EVALUATION-2026-08-20-sota.md',
@@ -90,12 +102,68 @@ export function findShaCitations(text) {
   return citations;
 }
 
+/**
+ * One `git merge-base --is-ancestor` run, as spawnSync reports it.
+ * @typedef {{ status: number | null, signal: string | null, stderr: string, spawnError: string | null }} GitRun
+ */
+
+/**
+ * A failed git run in one line: why it failed, plus whatever git printed.
+ * @param {GitRun} run
+ * @returns {string}
+ */
+export function describeGitFailure({ status, signal, stderr, spawnError }) {
+  if (spawnError) return `git did not start: ${spawnError}`;
+  const how = signal ? `killed by ${signal}` : `exit ${status}`;
+  const said = stderr.trim();
+  return said ? `${how}: ${said}` : how;
+}
+
+/**
+ * Ask git whether `sha` is an ancestor of HEAD. `git merge-base --is-ancestor`
+ * answers with exit 0 (yes) or exit 1 (no); anything else — exit 128, a
+ * signal, a git that never started — means the call itself failed and says
+ * nothing about history. A failed call is retried with a growing pause, and
+ * one that keeps failing comes back as `failed` with git's last error, never
+ * as `unreachable`: under five-lane load a transient failure once read as a
+ * bad citation and got a correct landing reverted (dd079e5e). Pure apart from
+ * the injected `runOnce` / `sleep` / `warn`, so it is unit-tested directly.
+ * @param {string} sha
+ * @param {{
+ *   runOnce: (sha: string) => GitRun,
+ *   sleep: (ms: number) => void,
+ *   warn?: (line: string) => void,
+ *   maxAttempts?: number,
+ *   baseDelayMs?: number,
+ * }} deps
+ * @returns {{ verdict: 'reachable' | 'unreachable' } | { verdict: 'failed', attempts: number, detail: string }}
+ */
+export function checkAncestry(
+  sha,
+  { runOnce, sleep, warn = console.warn, maxAttempts = MAX_ATTEMPTS, baseDelayMs = BASE_DELAY_MS },
+) {
+  for (let attempt = 1; ; attempt++) {
+    const run = runOnce(sha);
+    if (run.status === 0) return { verdict: 'reachable' };
+    if (run.status === 1) return { verdict: 'unreachable' };
+    const detail = describeGitFailure(run);
+    if (attempt >= maxAttempts) return { verdict: 'failed', attempts: attempt, detail };
+    const delay = baseDelayMs * attempt;
+    warn(
+      `check-doc-commit-refs: git could not check \`${sha}\` (${detail}); ` +
+        `retrying in ${delay}ms (attempt ${attempt}/${maxAttempts})`,
+    );
+    sleep(delay);
+  }
+}
+
 // Stryker disable all: everything from here to the end of the file is the
 // gate's process shell — `listTrackedMarkdown` shells out to `git ls-files`,
-// `isReachableFromHead` to `git merge-base`, and `main` reads every tracked
-// doc from disk and calls `process.exit` — so it can only be exercised by
-// running the gate for real. The logic it delegates to, `findShaCitations`,
-// IS mutation-tested (config/mutation/stryker.ci-check-doc-commit-refs.config.mjs).
+// `runMergeBase` to `git merge-base`, `sleepSync` blocks the thread, and
+// `main` reads every tracked doc from disk and calls `process.exit` — so it
+// can only be exercised by running the gate for real. The logic it delegates
+// to, `findShaCitations` and `checkAncestry`, IS mutation-tested
+// (config/mutation/stryker.ci-check-doc-commit-refs.config.mjs).
 // (The `isMain` entry line at the bottom of the file is covered by this same
 // directive: a mutant on it could only fire `main()` during a test import.)
 /** @returns {string[]} */
@@ -108,45 +176,66 @@ function listTrackedMarkdown() {
   return out.split(NUL).filter(Boolean);
 }
 
-/** @param {string} sha @returns {boolean} */
-function isReachableFromHead(sha) {
-  try {
-    execFileSync('git', ['merge-base', '--is-ancestor', sha, 'HEAD'], {
-      windowsHide: true,
-      stdio: 'ignore',
-    });
-    return true;
-  } catch {
-    return false;
-  }
+/** @param {string} sha @returns {GitRun} */
+function runMergeBase(sha) {
+  const r = spawnSync('git', ['merge-base', '--is-ancestor', sha, 'HEAD'], {
+    windowsHide: true,
+    encoding: 'utf8',
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  return {
+    status: r.status,
+    signal: r.signal,
+    stderr: r.stderr ?? '',
+    spawnError: r.error ? r.error.message : null,
+  };
+}
+
+/** @param {number} ms */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 function main() {
   const files = listTrackedMarkdown().filter((f) => !LEGACY_ALLOWLIST.has(f));
   /** @type {string[]} */
-  const errors = [];
-  /** @type {Map<string, boolean>} */
+  const unreachable = [];
+  /** @type {string[]} */
+  const unchecked = [];
+  /** @type {Map<string, ReturnType<typeof checkAncestry>>} */
   const cache = new Map();
 
   for (const file of files) {
     const text = readFileSync(file, 'utf8');
     for (const { line, sha } of findShaCitations(text)) {
-      let reachable = cache.get(sha);
-      if (reachable === undefined) {
-        reachable = isReachableFromHead(sha);
-        cache.set(sha, reachable);
+      let result = cache.get(sha);
+      if (result === undefined) {
+        result = checkAncestry(sha, { runOnce: runMergeBase, sleep: sleepSync });
+        cache.set(sha, result);
       }
-      if (!reachable) {
-        errors.push(`${file}:${line}: commit \`${sha}\` is not reachable from HEAD`);
+      if (result.verdict === 'unreachable') {
+        unreachable.push(`${file}:${line}: commit \`${sha}\` is not reachable from HEAD`);
+      } else if (result.verdict === 'failed') {
+        unchecked.push(
+          `${file}:${line}: commit \`${sha}\` could not be checked — git failed ` +
+            `${result.attempts} time(s), last: ${result.detail}`,
+        );
       }
     }
   }
 
-  if (errors.length > 0) {
-    console.error(`check-doc-commit-refs FAILED: ${errors.length} unreachable citation(s):`);
-    for (const e of errors) console.error(`  - ${e}`);
-    process.exit(1);
+  if (unreachable.length > 0) {
+    console.error(`check-doc-commit-refs FAILED: ${unreachable.length} unreachable citation(s):`);
+    for (const e of unreachable) console.error(`  - ${e}`);
   }
+  if (unchecked.length > 0) {
+    console.error(
+      `check-doc-commit-refs FAILED: git could not check ${unchecked.length} citation(s) — ` +
+        `not a verdict on the doc; read git's error, then rerun:`,
+    );
+    for (const e of unchecked) console.error(`  - ${e}`);
+  }
+  if (unreachable.length > 0 || unchecked.length > 0) process.exit(1);
 
   console.log(
     `check-doc-commit-refs OK: ${files.length} doc(s) checked (${LEGACY_ALLOWLIST.size} legacy file(s) skipped)`,

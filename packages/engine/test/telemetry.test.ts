@@ -130,6 +130,33 @@ describe('parseProposalsLine', () => {
       { title: 't', dimension: null, severity: null, invalidTags: false, fromBacklog: false },
     ]);
   });
+
+  it('keeps the LAST PROPOSALS line, the one the prompt puts directly above METRICS', () => {
+    // The prompt renders its own template at line start; a reply that quotes
+    // it before writing the real line must not file a task titled "...".
+    const text = [
+      'The prompt asks for this shape:',
+      'PROPOSALS:[{"title":"...","dimension":"security","severity":"medium","source":"backlog"}]',
+      'so here is mine:',
+      'PROPOSALS:[{"title":"VERDICT blocked web-abc123: needs the operator","dimension":"ux"}]',
+      'METRICS:{"item":"web-abc123","outcome":"noop"}',
+    ].join('\n');
+    expect(parseProposalsLine(text)).toEqual([
+      {
+        title: 'VERDICT blocked web-abc123: needs the operator',
+        dimension: 'ux',
+        severity: null,
+        invalidTags: false,
+        fromBacklog: false,
+      },
+    ]);
+  });
+
+  it('is safe to call twice in a row (the last-match walk leaves no regex state behind)', () => {
+    const text = 'x\nPROPOSALS:[{"title":"a"}]\nPROPOSALS:[{"title":"b"}]';
+    expect(parseProposalsLine(text).map((p) => p.title)).toEqual(['b']);
+    expect(parseProposalsLine('PROPOSALS:[{"title":"c"}]').map((p) => p.title)).toEqual(['c']);
+  });
 });
 
 describe('parseMetricsLine', () => {
@@ -352,6 +379,43 @@ describe('resolveIteration', () => {
       outcome: 'shipped',
       iterMetrics: 'inferred',
     });
+  });
+
+  it.each([
+    // The board mints more than web- ids: every engine-filed task is
+    // ap-<ts36>-<n|kind> (62 of them name themselves in subjects in history,
+    // e.g. "feat(versions): reland ... (ap-mui2h3s1-1 slice 4)"), and a
+    // mirrored GitHub issue is github-<number>.
+    ['feat(versions): reland the Versions panel (ap-mui2h3s1-1 slice 4)', 'ap-mui2h3s1-1'],
+    ['docs(debriefs): process ap-muk395cb-strand — fleet-5 fixes landed', 'ap-muk395cb-strand'],
+    ['fix(ci): clear ap-muhfpue7-ne4oua-convred', 'ap-muhfpue7-ne4oua-convred'],
+    ['feat(engine): codex lanes fly (github-21)', 'github-21'],
+    [
+      'fix(docs): freshen docfresh-docs-epics-0007-md-1790935491000',
+      'docfresh-docs-epics-0007-md-1790935491000',
+    ],
+  ])('derives the board id from %j', (subject, item) => {
+    const r = resolveIteration(missingParsed, {
+      envelopeOk: true,
+      headAdvanced: true,
+      commit: { subject, shortSha: 'beef43' },
+    });
+    expect(r).toMatchObject({ item, outcome: 'shipped', iterMetrics: 'inferred' });
+  });
+
+  it.each([
+    // Module names and prose that share a board prefix are not task ids:
+    // inbox- ids are free slugs, so "inbox-triage" would read as one.
+    'fix(inbox-triage): a markdown note drops its leading # marker',
+    'docs: github-flavored tables in the README',
+    'chore: snap-shot-2 refresh',
+  ])('keeps "inferred" for a subject with no board id: %j', (subject) => {
+    const r = resolveIteration(missingParsed, {
+      envelopeOk: true,
+      headAdvanced: true,
+      commit: { subject, shortSha: 'beef44' },
+    });
+    expect(r.item).toBe('inferred');
   });
 
   it('prefers the JIRA-style ticket when a subject carries both shapes', () => {

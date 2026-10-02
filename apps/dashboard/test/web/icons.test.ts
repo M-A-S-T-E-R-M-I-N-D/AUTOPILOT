@@ -13,11 +13,20 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { STRINGS } from '@autopilot/tokens';
 import { ICON_SHAPES, ICON_NAMES, iconSvg } from '../../src/web/icons.js';
+import { layoutCss } from '../../src/web/layout-css.js';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
 // vitest's root is the repo root, and under jsdom import.meta.url is an
 // http: URL (not file:), so resolve from cwd (icon-system-emoji-census.test.ts).
 const SRC_DIR = join(process.cwd(), 'apps/dashboard/src');
+
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('//'))
+    .join('\n');
+}
 
 /** Every dashboard source file but the icon data itself, comments stripped —
  *  a doc comment naming an icon is not a render site. */
@@ -25,14 +34,28 @@ function sourceOutsideIconData(): string {
   return readdirSync(SRC_DIR, { recursive: true })
     .map((f) => String(f))
     .filter((f) => f.endsWith('.ts') && !f.endsWith('icons.ts'))
-    .map((f) =>
-      readFileSync(join(SRC_DIR, f), 'utf8')
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .split('\n')
-        .filter((line) => !line.trim().startsWith('//'))
-        .join('\n'),
-    )
+    .map((f) => stripComments(readFileSync(join(SRC_DIR, f), 'utf8')))
     .join('\n');
+}
+
+/** The opening a hand-inlined 24-unit icon starts with. `iconSvg` prints
+ *  `<svg class="icon …" viewBox=…`, so a vendored icon never matches, and the
+ *  charts and the QR code draw other viewBoxes. */
+const HAND_INLINED_ICON = /<svg viewBox="0 0 24 24"/g;
+
+/** Each web/ file that still prints its own 24-unit icon markup, as
+ *  `file: count` with `/` separators, so the list reads the same on every disk. */
+function handInlinedIconSites(): string[] {
+  const webDir = join(SRC_DIR, 'web');
+  const sites: string[] = [];
+  for (const entry of readdirSync(webDir, { recursive: true })) {
+    const file = String(entry).replaceAll('\\', '/');
+    if (!file.endsWith('.ts') || file === 'icons.ts') continue;
+    const code = stripComments(readFileSync(join(webDir, file), 'utf8'));
+    const count = code.match(HAND_INLINED_ICON)?.length ?? 0;
+    if (count > 0) sites.push(`${file}: ${count}`);
+  }
+  return sites.sort();
 }
 
 describe('the vendored icon set', () => {
@@ -101,6 +124,45 @@ describe('iconSvg — the server printer', () => {
     expect(iconSvg('nope')).toBe('');
     const shapes = ICON_SHAPES['flame']!;
     expect(shapes[0]![1]['d']).not.toContain('"');
+  });
+});
+
+// Law 1 names icons.ts as the one place an icon's path lives, yet the Ask
+// sheet's and the terminal HUD's close buttons each printed a hand-copied x
+// beside the snackbar's vendored one. They print the vendored x now, sized by
+// CSS at the pixel size their width/height attributes used to give them.
+describe('server-printed chrome draws vendored icons (law 1)', () => {
+  it('the Ask sheet and terminal HUD close buttons print the vendored x and keep their names', () => {
+    const page = new DOMParser().parseFromString(renderShell(), 'text/html');
+    for (const id of ['ask-sheet-close', 'terminal-hud-close']) {
+      const button = page.getElementById(id) as HTMLButtonElement;
+      expect(button, id).not.toBeNull();
+      expect(button.children, id).toHaveLength(1);
+      const icon = button.querySelector('svg.icon.icon-x');
+      expect(icon, id).not.toBeNull();
+      expect(icon!.getAttribute('aria-hidden')).toBe('true');
+      expect(icon!.hasAttribute('width'), id).toBe(false);
+      expect(button.textContent, id).toBe('');
+      expect(button.getAttribute('aria-label'), id).toBeTruthy();
+      expect(button.getAttribute('data-i18n-aria'), id).toBeTruthy();
+    }
+  });
+
+  it('sizes each close icon from the type scale at its old pixel size', () => {
+    const css = layoutCss();
+    expect(css).toContain(
+      '.ask-sheet-close > .icon { inline-size: 1.25rem; block-size: 1.25rem; }',
+    );
+    expect(css).toContain(
+      '.terminal-hud-close > .icon { inline-size: 1.125rem; block-size: 1.125rem; }',
+    );
+  });
+
+  // Shrink-only: the subject rail's Feather-derived table (three link
+  // builders and the focus toggle), the lucky button's filled clover and the
+  // Ask button's Feather message-circle still print their own markup.
+  it('hand-inlines no 24-unit icon outside the vendored set beyond the known sites', () => {
+    expect(handInlinedIconSites()).toEqual(['shell-html.ts: 4', 'shell.ts: 2']);
   });
 });
 

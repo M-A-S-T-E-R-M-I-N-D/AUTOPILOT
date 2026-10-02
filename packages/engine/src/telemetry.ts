@@ -200,18 +200,26 @@ export interface TaskProposal {
   readonly fromBacklog: boolean;
 }
 
-const PROPOSALS_RE = /^PROPOSALS:(\[.*\])\s*$/m;
+// Global for the same reason as METRICS_RE: the prompt asks for this line
+// DIRECTLY ABOVE the METRICS line and renders its own template at line start,
+// so a reply that quotes the template first must not have it read as a real
+// proposal (a board task titled "...") — the LAST match is the real one.
+const PROPOSALS_RE = /^PROPOSALS:(\[.*\])\s*$/gm;
 export const MAX_PROPOSALS = 5;
 const MAX_PROPOSAL_TITLE_CHARS = 200;
 
 /**
- * Extract the agent's `PROPOSALS:[…]` line (emitted when the operator's board
- * is empty): suggested next tasks across quality lenses, surfaced on the
+ * Extract the agent's last `PROPOSALS:[…]` line (emitted when the operator's
+ * board is empty): suggested next tasks across quality lenses, surfaced on the
  * dashboard for APPROVAL — the agent never enacts its own proposals. Defensive
  * like the METRICS parser: anything malformed yields [] and never throws.
  */
 export function parseProposalsLine(resultText: string): readonly TaskProposal[] {
-  const match = PROPOSALS_RE.exec(resultText);
+  // Same last-match walk as parseMetricsLine; it leaves `lastIndex` at 0.
+  let match: RegExpExecArray | null = null;
+  for (let m = PROPOSALS_RE.exec(resultText); m !== null; m = PROPOSALS_RE.exec(resultText)) {
+    match = m;
+  }
   // Stryker disable next-line ConditionalExpression: when `match` is null,
   // skipping this early return just defers to the `catch` below — `match[1]`
   // throws immediately on a null `match`, and that catch also returns `[]` — so
@@ -300,14 +308,22 @@ function firstWord(subject: string): string | null {
   return m ? (m[1] ?? null) : null;
 }
 
+// The board's task-id shapes (packages/store's VERDICT_TASK_ID_RE) that cannot
+// pass for prose: a machine prefix plus at least two hyphen segments, or
+// github-<issue number>. `inbox-` is left out — its ids are free slugs, and
+// a `fix(inbox-triage):` scope would read as one.
+const BOARD_TASK_ID_RE =
+  /\b((?:web|ap|docfresh|mutred|codescan)-[a-z0-9]+(?:-[a-z0-9]+)+|github-\d+)\b/;
+
 function ticketId(subject: string): string | null {
   const jira = /([A-Z]{2,}-\d+)/.exec(subject);
   if (jira?.[1] !== undefined) return jira[1];
-  // Board task ids (web-<time36>-<nonce36>, the taskIdSource shape) — a firing
-  // that omits METRICS but names its task in the commit subject must still
-  // attribute; the JIRA-only shape left such ships item='inferred' and their
-  // board tasks open forever (2026-08-22 live gap, web-msnsndlk-exw3t9).
-  const board = /\b(web-[a-z0-9]+-[a-z0-9]+)\b/.exec(subject);
+  // Board task ids — a firing that omits METRICS but names its task in the
+  // commit subject must still attribute; the JIRA-only shape left such ships
+  // item='inferred' and their board tasks open forever (2026-08-22 live gap,
+  // web-msnsndlk-exw3t9), and so did a web-only shape for every ap- id the
+  // engine files itself.
+  const board = BOARD_TASK_ID_RE.exec(subject);
   return board?.[1] ?? null;
 }
 

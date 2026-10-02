@@ -23,6 +23,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderShell, clientJs } from '../../src/web/shell.js';
+import { layoutCss } from '../../src/web/layout-css.js';
 
 const PROJECT = {
   id: 'p1',
@@ -120,5 +121,23 @@ describe('phase-rail buttons explain themselves on hover/focus', () => {
     expect(gate?.getAttribute('data-tip')).toBe(
       'GATE — typecheck + test + build must pass — 0 activities, toggle detail',
     );
+  });
+
+  // Epic 0025: the separators between the segments painted a lone › as their
+  // whole face, a text node left in the accessibility tree between the phase
+  // buttons. Each is the vendored chevron-right stroke now, decorative and
+  // mirrored under dir=rtl like the plan chain's arrows.
+  it('joins the segments with decorative chevron-right icons, not a › glyph', async () => {
+    boot('p1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    const arrows = Array.from(document.querySelectorAll('.phaserail > .phase-arrow'));
+    expect(arrows).toHaveLength(3);
+    for (const arrow of arrows) {
+      expect(arrow.getAttribute('aria-hidden')).toBe('true');
+      expect(arrow.textContent).toBe('');
+      expect(arrow.firstElementChild?.getAttribute('class')).toBe('icon icon-chevron-right');
+    }
+    expect(layoutCss()).toContain("[dir='rtl'] .phase-arrow > .icon");
   });
 });

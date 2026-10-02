@@ -327,6 +327,47 @@ describe('guard-hook as the Gemini CLI BeforeTool hook', () => {
   });
 });
 
+/** A Codex CLI `PreToolUse` hook payload (epic 0036, codex-guard.ts). */
+function codexPayload(toolName: string, toolInput: unknown): string {
+  return JSON.stringify({
+    hook_event_name: 'PreToolUse',
+    cwd: '/work/sbx',
+    tool_name: toolName,
+    tool_input: toolInput,
+  });
+}
+
+describe('guard-hook as the Codex CLI PreToolUse hook', () => {
+  it("prints Claude's deny for an apply_patch that writes outside the target", async () => {
+    const { output, exitCodes } = await runGuardHook('/work/sbx', [
+      codexPayload('apply_patch', {
+        command: '*** Begin Patch\n*** Add File: ../escape.ts\n+x\n*** End Patch',
+      }),
+    ]);
+    const decision = JSON.parse(output) as {
+      hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
+    };
+    expect(decision.hookSpecificOutput.permissionDecision).toBe('deny');
+    expect(decision.hookSpecificOutput.permissionDecisionReason).toContain('/work/escape.ts');
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('prints nothing for an in-bounds apply_patch, and judges a Codex shell call as it stands', async () => {
+    const inBounds = await runGuardHook('/work/sbx', [
+      codexPayload('apply_patch', {
+        command: '*** Begin Patch\n*** Update File: src/a.ts\n@@\n-a\n+b\n*** End Patch',
+      }),
+    ]);
+    expect(inBounds.output).toBe('');
+    expect(inBounds.exitCodes).toEqual([0]);
+
+    const shell = await runGuardHook('/work/sbx', [
+      codexPayload('Bash', { command: 'cat /etc/passwd' }),
+    ]);
+    expect(shell.output).toContain('permissionDecision');
+  });
+});
+
 function gitSync(repo: string, args: string[]): string {
   return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
 }

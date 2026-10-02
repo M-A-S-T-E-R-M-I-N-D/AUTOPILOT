@@ -357,6 +357,18 @@ flight behaves exactly as before. None of this changes the four locks above
 or the acceptance criteria below; all six slices remain unchanged and live
 in production.
 
+Freshness check (2026-10-02, afternoon): `flight/runner.ts` gained one commit
+since the late-morning check above — `1fa6fee1`, epic 0016 slice 3's
+operator-facing Social pass select in the fly bar. The only change inside
+`runner.ts` is a JSDoc comment on `StartFlightInput.socialFlight` noting that
+the field is now set by that UI control instead of awaiting one; the field's
+type, default (`undefined` → child inherits the dashboard process's own
+`AUTOPILOT_SOCIAL_FLIGHT`), and `FlightRunner`/`spawnFlight` plumbing are
+unchanged. Lock 2 (singleton `FlightRunner`) and the cross-project isolation
+guarantees this epic tracks are untouched. None of this changes the four
+locks below or the acceptance criteria; all six slices remain unchanged and
+live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this

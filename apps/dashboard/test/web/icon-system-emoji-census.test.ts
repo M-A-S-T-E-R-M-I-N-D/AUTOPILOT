@@ -102,10 +102,11 @@ const MATH_SYMBOLS_B_PATTERN = /[\u{2980}-\u{29FF}]/gu;
  *  yet the Firing Replay's "‹ Prev" and "Next ›" buttons led and trailed with
  *  them as chevrons (en and he). They took the vendored chevron-left and
  *  chevron-right (2026-10-02), mirrored under dir=rtl like the back link.
- *  Only a guillemet at a label's edge stands in for an icon: the "Settings ›
- *  HUD bar › Shown" breadcrumb and the phase rail's lone '›' separator stay
- *  free, the way ⇧ and ⌘ stay free as key names. In web/ the edge is a string
- *  literal's quote; in STRINGS it is the value's own start or end. */
+ *  Only a guillemet at a label's edge stands in for an icon here: the
+ *  "Settings › HUD bar › Shown" breadcrumb stays free, the way ⇧ and ⌘ stay
+ *  free as key names, and a lone '›' face is the lone-face census's below. In
+ *  web/ the edge is a string literal's quote; in STRINGS it is the value's own
+ *  start or end. */
 const EDGE_GUILLEMET_WEB_PATTERN = /(?<=['"`])‹(?=\s)|(?<=\s)›(?=['"`])/gu;
 const EDGE_GUILLEMET_VALUE_PATTERN = /^‹(?=\s)|(?<=\s)›$/gu;
 
@@ -132,8 +133,11 @@ const CSS_CONTENT_MARK_PATTERN = /content:\s*['"]([✓✗])/gu;
  *  lone → is an icon, and one that kept pointing right under dir=rtl while
  *  its row ran right to left. The landing branch line's merge arrow and the
  *  plan chain's step separators took the vendored arrow-right, mirrored like
- *  the back link (2026-10-02), so it pins zero. */
-const LONE_ARROW_FACE_PATTERN = /(?<=el\('[a-z]+', '[^']*', ')→(?='\))/gu;
+ *  the back link (2026-10-02), so it pins zero. A lone › face is the same
+ *  icon: the activity phase rail's separators painted one between its
+ *  segments, left in the accessibility tree as text, until they took the
+ *  vendored chevron-right, decorative and mirrored the same way (2026-10-02). */
+const LONE_ARROW_FACE_PATTERN = /(?<=el\('[a-z]+', '[^']*', ')[→›](?='\))/gu;
 
 /** Every `el('button', cls, '✓ …')` face in `files`, as `file: glyph` with
  *  `/` separators, so the list reads the same on every disk. */
@@ -236,15 +240,16 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
     expect(sites).toEqual([]);
   });
 
-  it('paints no element face that is a lone → in any web/ source file outside comments', () => {
+  it('paints no element face that is a lone → or › in any web/ source file outside comments', () => {
     const offenders = webOffenders(files, LONE_ARROW_FACE_PATTERN);
     expect(offenders, offenders.join('\n')).toEqual([]);
   });
 
-  it("matches a lone → face but leaves a sentence's → alone", () => {
+  it("matches a lone →/› face but leaves a sentence's → and the breadcrumb's › alone", () => {
     const source =
-      "el('span', 'plan-arrow', '→'); text: currentVersion + ' → ' + plan.version; el('p', 'x', 'a → b')";
-    expect(source.match(LONE_ARROW_FACE_PATTERN)).toEqual(['→']);
+      "el('span', 'plan-arrow', '→'); text: currentVersion + ' → ' + plan.version; el('p', 'x', 'a → b'); " +
+      "el('span', 'phase-arrow', '›'); el('p', 'x', 'Settings › HUD bar › Shown')";
+    expect(source.match(LONE_ARROW_FACE_PATTERN)).toEqual(['→', '›']);
   });
 
   it("matches a CSS-painted ✓ but leaves a result line's ✓ alone", () => {
@@ -257,7 +262,7 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
     expect([...source.matchAll(BUTTON_FACE_MARK_PATTERN)].map((m) => m[1])).toEqual(['✓']);
   });
 
-  it("matches an edge chevron but leaves the breadcrumb and the phase rail's lone separator alone", () => {
+  it("matches an edge chevron but leaves the breadcrumb and a lone face (the lone-face census's) alone", () => {
     const source = "'‹ Prev' 'Next ›' 'Settings › HUD bar › Shown' '›'";
     expect(source.match(EDGE_GUILLEMET_WEB_PATTERN)).toEqual(['‹', '›']);
   });

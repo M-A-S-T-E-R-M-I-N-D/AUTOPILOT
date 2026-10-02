@@ -80,6 +80,13 @@ pnpm run verify   # typecheck + lint + format + test+coverage + build + CI valid
 An automated request-changes is not a rejection — fix the named reason and
 push; the ritual re-triages on every update.
 
+A **draft** PR never enters the KEEPER's sweep: it gets no verdict and no
+comment until you mark it ready for review. The KEEPER never reads your
+description, so the template's human-judgment box routes nothing on its own.
+If your change needs a human's judgment (visual, UX, ethics, intent), open it
+as a draft, say in the description what needs judging, and mark it ready once
+the maintainer has answered.
+
 ## Changing `packages/store`'s schema
 
 `docs/DATA-MODEL.md` is generated from `packages/store/src/schema.ts`'s

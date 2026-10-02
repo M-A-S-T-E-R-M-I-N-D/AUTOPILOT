@@ -8,9 +8,12 @@ import {
   parseCodexExecOutput,
   CodexCliModel,
   codexActivityReader,
+  codexGuardArgs,
   codexWebSearchesFromEvent,
   isCodexResumeFailure,
 } from '../../src/adapters/codex-cli.js';
+import { evaluateHookInput, guardHookCommand, GUARD_TIMEOUT_S } from '../../src/guard.js';
+import { geminiToClaudeHookPayloads } from '../../src/gemini-guard.js';
 import {
   capDeathNote,
   CLI_STDIN_PROMPT_THRESHOLD,
@@ -56,6 +59,9 @@ function jsonl(...events: readonly unknown[]): string {
 
 const THREAD = { type: 'thread.started', thread_id: '0199a213-81c0-7800-8aa1-bbab2a035a53' };
 const TURN_STARTED = { type: 'turn.started' };
+
+/** The guard command a flight hands the adapter, built as Claude's and Gemini's are. */
+const GUARD_COMMAND = guardHookCommand('/work/sbx', '/opt/autopilot/engine/dist/guard-hook.js');
 
 function agentMessage(id: string, text: string): unknown {
   return { type: 'item.completed', item: { id, type: 'agent_message', text } };
@@ -592,6 +598,47 @@ describe('codexActivityReader — the live activity timeline (StreamingClaudeCli
   });
 });
 
+describe('codexGuardArgs — the containment guard as a session-layer PreToolUse hook (GeminiCliModel parity)', () => {
+  it('is one -c override naming a command hook on Bash and apply_patch, timed in seconds as Claude times it, plus the flag that runs it without persisted hook trust', () => {
+    expect(codexGuardArgs(GUARD_COMMAND)).toEqual([
+      '-c',
+      'hooks.PreToolUse=[{matcher="Bash|apply_patch",hooks=[{type="command",' +
+        'command="node \\"/opt/autopilot/engine/dist/guard-hook.js\\" \\"/work/sbx\\"",' +
+        `timeout=${GUARD_TIMEOUT_S}}]}]`,
+      '--dangerously-bypass-hook-trust',
+    ]);
+  });
+
+  it('writes the command as a TOML basic string: quotes, backslashes and control characters escaped, DEL too', () => {
+    const [, override] = codexGuardArgs('node "dist\\x\u007f\ty"');
+
+    expect(override).toContain('command="node \\"dist\\\\x\\u007f\\ty\\"",');
+  });
+
+  it('hands guard-hook.js a payload it judges as it stands: Codex names every shell call Bash, with the command in tool_input.command', () => {
+    const payload = (command: string): string =>
+      JSON.stringify({
+        session_id: '0199a213-81c0-7800-8aa1-bbab2a035a53',
+        turn_id: 'turn-1',
+        cwd: '/work/sbx',
+        hook_event_name: 'PreToolUse',
+        model: 'gpt-5-codex',
+        tool_name: 'Bash',
+        tool_input: { command },
+        tool_use_id: 'call_1',
+      });
+
+    // Not a Gemini BeforeTool call, so guard-hook.ts judges it as Claude's.
+    expect(geminiToClaudeHookPayloads(payload('git push --force origin main'))).toBeNull();
+    expect(
+      JSON.parse(evaluateHookInput(payload('git push --force origin main'), '/work/sbx') ?? '{}'),
+    ).toMatchObject({
+      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny' },
+    });
+    expect(evaluateHookInput(payload('pnpm run test'), '/work/sbx')).toBeNull();
+  });
+});
+
 describe('CodexCliModel', () => {
   let stdinEnd: ReturnType<typeof vi.fn>;
 
@@ -782,6 +829,39 @@ describe('CodexCliModel', () => {
     expect(args[args.indexOf('--sandbox') + 1]).toBe('danger-full-access');
   });
 
+  it('hands the child the containment guard as its PreToolUse hook, ahead of resume and the prompt', async () => {
+    mockExecFileResult(null, '');
+
+    await new CodexCliModel({
+      repo: '/work/sbx',
+      platform: 'linux',
+      guardHookCommand: GUARD_COMMAND,
+    }).invoke('gpt-5-codex', 'continue', THREAD.thread_id);
+
+    const args = spawnedArgs();
+    const at = args.indexOf('-c');
+    expect(at).toBeGreaterThan(args.indexOf('exec'));
+    expect(args.slice(at, at + 3)).toEqual(codexGuardArgs(GUARD_COMMAND));
+    expect(args.slice(-3)).toEqual(['resume', THREAD.thread_id, 'continue']);
+  });
+
+  it('runs no hook and bypasses no hook trust without a guard, or with an empty one', async () => {
+    mockExecFileResult(null, '');
+
+    await new CodexCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke('gpt-5-codex', 'do');
+    await new CodexCliModel({ repo: '/work/sbx', platform: 'linux', guardHookCommand: '' }).invoke(
+      'gpt-5-codex',
+      'do',
+    );
+
+    expect(execFileMock.mock.calls).toHaveLength(2);
+    for (const call of execFileMock.mock.calls) {
+      const args = (call as [string, string[]])[1];
+      expect(args).not.toContain('-c');
+      expect(args).not.toContain('--dangerously-bypass-hook-trust');
+    }
+  });
+
   describe('on Windows, where npm installs codex as a codex.cmd shim', () => {
     // Under this repo's placeholder home (validate-no-personal-paths.mjs).
     const NPM = 'C:\\Users\\operator\\AppData\\Roaming\\npm';
@@ -836,6 +916,22 @@ describe('CodexCliModel', () => {
       const [, args] = execFileMock.mock.calls[0] as [string, string[]];
       expect(args[args.indexOf('--model') + 1]).toBe('gpt-5 (high)');
       expect(args.slice(-3)).toEqual(['resume', 'nightly run', 'continue']);
+    });
+
+    it('passes the guard hook as given there, its quotes and braces intact, since no shell parses argv', async () => {
+      mockExecFileResult(null, '');
+      resolveNpmShimMock.mockReturnValue(NODE_LAUNCH);
+
+      await new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'win32',
+        guardHookCommand: GUARD_COMMAND,
+      }).invoke('gpt-5-codex', 'do it');
+
+      const [binary, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(binary).toBe(NODE_LAUNCH.bin);
+      const at = args.indexOf('-c');
+      expect(args.slice(at, at + 3)).toEqual(codexGuardArgs(GUARD_COMMAND));
     });
 
     it('runs node attached, as the cmd.exe route does: a detached node has no console, so Windows would open one for the native codex the entry spawns', async () => {
@@ -942,6 +1038,22 @@ describe('CodexCliModel', () => {
       expect(args.some((a) => a.includes('calc'))).toBe(false);
       expect(args).not.toContain('resume');
       expect(res.resumed).toBe(false);
+    });
+
+    it('refuses a guarded run the cmd.exe route would have to carry, rather than fly it without its guard', async () => {
+      mockExecFileResult(null, '');
+
+      const res = await new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'win32',
+        guardHookCommand: GUARD_COMMAND,
+      }).invoke('gpt-5-codex', 'do it', THREAD.thread_id);
+
+      // The cold retry a refusal earns is refused too: nothing ever spawns.
+      expect(execFileMock.mock.calls).toHaveLength(0);
+      expect(res.exitCode).toBe(1);
+      expect(res.envelope).toBeNull();
+      expect(res.stdout).toContain('guard hook');
     });
 
     it('keeps model names with the characters real ones use (dots, colons, slashes) on the cmd.exe route', async () => {
