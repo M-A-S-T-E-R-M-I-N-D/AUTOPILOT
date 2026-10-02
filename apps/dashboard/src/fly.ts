@@ -1210,13 +1210,15 @@ async function main(): Promise<void> {
     const engineRoute = engineChoice.route;
     // A gemini lane's guard is a BeforeTool hook in a settings file of its own,
     // handed to the child as GEMINI_CLI_SYSTEM_SETTINGS_PATH, so it is written
-    // and read back here the way the Claude file above is: fail CLOSED.
+    // and read back here the way the Claude file above is: fail CLOSED. The
+    // same file carries the turn cap `--max-turns` gives a Claude firing, so
+    // the TURN BUDGET the prompt states is the one the Gemini CLI stops at.
     const geminiGuardSettingsPath =
       engineRoute.engine === 'gemini'
         ? join(dirname(dbPath), geminiGuardSettingsFileName(lockProjectId, instanceId))
         : null;
     if (geminiGuardSettingsPath !== null) {
-      const geminiSettings = buildGeminiFlightSettings(flightRoot, guardScriptPath);
+      const geminiSettings = buildGeminiFlightSettings(flightRoot, guardScriptPath, maxTurns);
       writeFileSync(geminiGuardSettingsPath, `${JSON.stringify(geminiSettings, null, 2)}\n`);
       const geminiVerification = verifyGuardSettings(
         geminiGuardSettingsPath,
