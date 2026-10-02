@@ -52,15 +52,42 @@ describe('firingEngineFromEnv', () => {
     }
   });
 
-  it('refuses an engine no lane can fly on, Gemini included until its guard is wired', () => {
-    for (const engine of ['gemini', 'copilot', 'ollama']) {
+  it('routes a gemini lane to the model AUTOPILOT_ENGINE_MODEL names', () => {
+    expect(
+      firingEngineFromEnv({
+        AUTOPILOT_ENGINE: ' Gemini ',
+        AUTOPILOT_ENGINE_MODEL: 'gemini-2.5-pro',
+      }),
+    ).toEqual({ ok: true, route: { engine: 'gemini', model: 'gemini-2.5-pro' } });
+  });
+
+  it('refuses a gemini lane with no model of its own, naming a Gemini model', () => {
+    const choice = firingEngineFromEnv({ AUTOPILOT_ENGINE: 'gemini' });
+    expect(choice.ok).toBe(false);
+    expect(choice.ok === false && choice.reason).toContain(
+      'AUTOPILOT_ENGINE=gemini needs AUTOPILOT_ENGINE_MODEL to name the model Gemini runs',
+    );
+    expect(choice.ok === false && choice.reason).toContain('gemini-2.5-pro');
+  });
+
+  it('refuses a gemini lane pointed at a Claude model', () => {
+    expect(
+      firingEngineFromEnv({ AUTOPILOT_ENGINE: 'gemini', AUTOPILOT_ENGINE_MODEL: 'opus' }),
+    ).toEqual({
+      ok: false,
+      reason: 'AUTOPILOT_ENGINE_MODEL=opus names a Claude model, which the Gemini CLI cannot run.',
+    });
+  });
+
+  it('refuses an engine no lane can fly on', () => {
+    for (const engine of ['copilot', 'ollama']) {
       const choice = firingEngineFromEnv({
         AUTOPILOT_ENGINE: engine,
         AUTOPILOT_ENGINE_MODEL: 'any',
       });
       expect(choice).toEqual({
         ok: false,
-        reason: `AUTOPILOT_ENGINE=${engine} names no engine a lane can fly on (claude or codex).`,
+        reason: `AUTOPILOT_ENGINE=${engine} names no engine a lane can fly on (claude, codex or gemini).`,
       });
     }
   });
@@ -98,6 +125,16 @@ describe('firingConfigForEngine', () => {
     expect(config.primaryModel).toBe('sonnet');
     expect(config.resilience.fallbackModel).toBe('opus');
   });
+
+  it('puts every model slot of a gemini lane on its model', () => {
+    const gemini = firingConfigForEngine(config, { engine: 'gemini', model: 'gemini-2.5-pro' });
+    expect([
+      gemini.primaryModel,
+      gemini.fallbackModel,
+      gemini.resilience.primaryModel,
+      gemini.resilience.fallbackModel,
+    ]).toEqual(['gemini-2.5-pro', 'gemini-2.5-pro', 'gemini-2.5-pro', 'gemini-2.5-pro']);
+  });
 });
 
 describe('firingEngineLine', () => {
@@ -111,6 +148,16 @@ describe('firingEngineLine', () => {
     expect(line).toContain('Model routing is off');
     expect(line).toContain('PreToolUse hook');
     expect(line).toContain('no cost is recorded');
+    expect(line).toContain(`${NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES} reverted firings in a row`);
+  });
+
+  it('names a gemini lane, its BeforeTool guard and the trust it is flown with', () => {
+    const line = firingEngineLine({ engine: 'gemini', model: 'gemini-2.5-pro' });
+    expect(line).toContain('Engine: Gemini CLI on gemini-2.5-pro (AUTOPILOT_ENGINE)');
+    expect(line).toContain('Model routing is off');
+    expect(line).toContain('BeforeTool hook');
+    expect(line).toContain('trusted for this session');
+    expect(line).toContain('no cost is recorded, since Gemini reports no price');
     expect(line).toContain(`${NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES} reverted firings in a row`);
   });
 

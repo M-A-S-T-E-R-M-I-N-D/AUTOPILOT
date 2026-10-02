@@ -72,9 +72,11 @@ import {
   classifyBreaches,
   describeBreach,
   buildFlightSettings,
+  buildGeminiFlightSettings,
   guardHookScriptPath,
   guardHookCommand,
   CodexCliModel,
+  GeminiCliModel,
   FileInstanceLock,
   FileGateSemaphore,
   RetryLoadedGate,
@@ -212,6 +214,7 @@ import {
 import {
   deriveFlyProjectId,
   engineLockFileName,
+  geminiGuardSettingsFileName,
   guardSettingsFileName,
   isAnyFlightLockLive,
   liveFlightLockPids,
@@ -1156,17 +1159,9 @@ async function main(): Promise<void> {
     // and confirm it, and the script it invokes, are really there before
     // ever spawning the model — fail CLOSED (refuse to fly) rather than
     // silently unguarded.
-    const guardVerification = verifyGuardSettings(
-      guardSettingsPath,
-      flightSettings,
-      guardScriptPath,
-      (p) => readFileSync(p, 'utf8'),
-      existsSync,
-    );
-    if (!guardVerification.ok) {
-      out(
-        `⛔ CONTAINMENT GUARD VERIFICATION FAILED — refusing to fly unguarded: ${guardVerification.reason}`,
-      );
+    const readSettings = (p: string): string => readFileSync(p, 'utf8');
+    const refuseUnguarded = (reason: string | undefined): void => {
+      out(`⛔ CONTAINMENT GUARD VERIFICATION FAILED — refusing to fly unguarded: ${reason}`);
       out('   See docs/FLIGHT-CONTAINMENT.md.');
       // Gate-decision observability (board web-mtq70agu-pjs8mg): this refusal
       // previously only reached the console — nothing persisted it, so an
@@ -1183,13 +1178,23 @@ async function main(): Promise<void> {
             projectId,
             null,
             'guard-verify-failed',
-            JSON.stringify({ reason: guardVerification.reason ?? 'unknown' }),
+            JSON.stringify({ reason: reason ?? 'unknown' }),
             now(),
           );
       } catch {
         // Telemetry is best-effort — never let it mask the real refusal.
       }
       process.exitCode = 1;
+    };
+    const guardVerification = verifyGuardSettings(
+      guardSettingsPath,
+      flightSettings,
+      guardScriptPath,
+      readSettings,
+      existsSync,
+    );
+    if (!guardVerification.ok) {
+      refuseUnguarded(guardVerification.reason);
       return;
     }
     out(`Containment guard: PreToolUse path guard active (confined to ${flightRoot}).`);
@@ -1203,6 +1208,28 @@ async function main(): Promise<void> {
       return;
     }
     const engineRoute = engineChoice.route;
+    // A gemini lane's guard is a BeforeTool hook in a settings file of its own,
+    // handed to the child as GEMINI_CLI_SYSTEM_SETTINGS_PATH, so it is written
+    // and read back here the way the Claude file above is: fail CLOSED.
+    const geminiGuardSettingsPath =
+      engineRoute.engine === 'gemini'
+        ? join(dirname(dbPath), geminiGuardSettingsFileName(lockProjectId, instanceId))
+        : null;
+    if (geminiGuardSettingsPath !== null) {
+      const geminiSettings = buildGeminiFlightSettings(flightRoot, guardScriptPath);
+      writeFileSync(geminiGuardSettingsPath, `${JSON.stringify(geminiSettings, null, 2)}\n`);
+      const geminiVerification = verifyGuardSettings(
+        geminiGuardSettingsPath,
+        geminiSettings,
+        guardScriptPath,
+        readSettings,
+        existsSync,
+      );
+      if (!geminiVerification.ok) {
+        refuseUnguarded(geminiVerification.reason);
+        return;
+      }
+    }
     const firingConfig = firingConfigForEngine(config, engineRoute);
     const engineLine = firingEngineLine(engineRoute);
     if (engineLine !== null) out(engineLine);
@@ -1358,7 +1385,24 @@ async function main(): Promise<void> {
     // A codex lane (flight/firing-engine.ts) runs the guard command the Claude
     // settings above run, as Codex's PreToolUse hook on every shell call and
     // patch, with the same activity feed, web-search audit, pid registry and caps.
-    const codexModel =
+    // A gemini lane runs it as the BeforeTool hook of the settings file written
+    // above. Gemini registers hooks only in a trusted folder and headless mode
+    // exits in an untrusted one, so the worktree is trusted for each session,
+    // as `claude -p` runs without a trust prompt.
+    const cliCaps = {
+      ...(cliTimeoutMs !== undefined ? { timeoutMs: cliTimeoutMs } : {}),
+      ...(cliIdleTimeoutMs !== undefined ? { idleTimeoutMs: cliIdleTimeoutMs } : {}),
+    };
+    // Written and read back above, or the flight already refused. A gemini
+    // lane without one is a bug that stops the flight, never one that flies
+    // Claude in its place or Gemini unguarded.
+    const verifiedGeminiGuard = (): string => {
+      if (geminiGuardSettingsPath === null) {
+        throw new Error('a gemini lane reached its model without a verified guard settings file');
+      }
+      return geminiGuardSettingsPath;
+    };
+    const nonClaudeModel =
       engineRoute.engine === 'codex'
         ? new CodexCliModel({
             repo: flightRoot,
@@ -1366,14 +1410,23 @@ async function main(): Promise<void> {
             onActivity: recordActivity,
             onWebSearch: recordWebSearch,
             pidRegistry,
-            ...(cliTimeoutMs !== undefined ? { timeoutMs: cliTimeoutMs } : {}),
-            ...(cliIdleTimeoutMs !== undefined ? { idleTimeoutMs: cliIdleTimeoutMs } : {}),
+            ...cliCaps,
           })
-        : null;
+        : engineRoute.engine === 'gemini'
+          ? new GeminiCliModel({
+              repo: flightRoot,
+              guardSettingsPath: verifiedGeminiGuard(),
+              trustWorkspace: true,
+              onActivity: recordActivity,
+              onWebSearch: recordWebSearch,
+              pidRegistry,
+              ...cliCaps,
+            })
+          : null;
     const loop: LoopDeps = {
       firing: {
         model:
-          codexModel ??
+          nonClaudeModel ??
           new StreamingClaudeCliModel({
             repo: flightRoot,
             config,

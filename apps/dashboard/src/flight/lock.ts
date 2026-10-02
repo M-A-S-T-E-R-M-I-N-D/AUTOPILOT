@@ -65,6 +65,19 @@ export function guardSettingsFileName(projectId: string, instanceId?: string): s
 }
 
 /**
+ * The Gemini CLI's containment-guard settings file (epic 0036): a gemini lane
+ * hands it to the child as `GEMINI_CLI_SYSTEM_SETTINGS_PATH`
+ * (`buildGeminiFlightSettings`), keyed per instance exactly as
+ * {@link guardSettingsFileName} is, for the same redirect-a-sibling reason. Its
+ * `.gemini-settings.json` suffix can never equal a `.settings.json` name, so no
+ * project id makes it overwrite a Claude flight's `--settings` file.
+ */
+export function geminiGuardSettingsFileName(projectId: string, instanceId?: string): string {
+  const key = instanceId ? `${projectId}--${slugify(instanceId)}` : projectId;
+  return `flight-guard-${key}.gemini-settings.json`;
+}
+
+/**
  * The Ask escalation tier's OWN containment-guard settings file (epic 0012
  * slice 2, `docs/epics/0012-agentic-ask-escalation.md`) — a distinct
  * `ask-escalation-guard-` prefix, never `flight-guard-`, so a concurrent ask
