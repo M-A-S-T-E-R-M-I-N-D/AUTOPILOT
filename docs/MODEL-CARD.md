@@ -109,7 +109,7 @@ hand-maintained._
 | Containment posture | `docs/FLIGHT-CONTAINMENT.md` — detection (done) + CLI prevention (done) + OS sandbox
   (platform-gated, not native Windows) |
 | Verification boundary (🟢 autonomous vs. 🟣 human-required) | `docs/MASTER-PLAN.md` §17 |
-| This card last reviewed against the above | 2026-10-01 |
+| This card last reviewed against the above | 2026-10-02 |
 
 **2026-10-01 review (DOC-FRESHNESS flag against `prompt.ts`):** the flagged commits
 (`355c7895`, `a224c3d0`) added a per-project `Subagents: off` SOUL override — a
@@ -132,6 +132,18 @@ PARALLEL-delegation-shaped change, and no §3/§4/§5 claim here names internet 
 the "Research first" section, or a per-firing turn cap by feature, so no narrative
 changed. Re-checked: `package.json` version is still `0.56.0`, `FIRING_PROMPT_VERSION`
 is still `'firing-v17'`, and `packages/store/src/eval-gate.ts` still has no commits
+since genesis. All still true.
+
+**2026-10-02 review (DOC-FRESHNESS flag against `prompt.ts`):** the flagged commit
+(`6c878129`, 2026-10-01 21:58:51 +0300) changes how much of a task's operator note each
+board row quotes: the notes in one board section now share an 8000-character budget in
+board order, and each note keeps at least its first 1000 characters. That text is the
+task's own note, quoted as data. The commit adds no static instruction to the prompt,
+so it shipped under `firing-v17` with no version bump, the same reasoning `d97fc456`
+recorded for the original note line. No §1–§5 claim here names board notes or their
+length, so no narrative changed. Re-checked: `package.json` version is still `0.56.0`,
+`FIRING_PROMPT_VERSION` is still `'firing-v17'`, `pnpm self-study:gate` still runs
+`check-prompt-gate.mjs`, and `packages/store/src/eval-gate.ts` still has no commits
 since genesis. All still true.
 
 ## 7. AI-Use Disclosure
