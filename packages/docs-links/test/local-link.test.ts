@@ -179,6 +179,30 @@ describe('withoutCode', () => {
     expect(extractLinkTargets(markdown)).toEqual(['z.md']);
   });
 
+  it('does not close a fence on a line carrying an info string (CommonMark 4.5)', () => {
+    // A nested example opened with the same fence length: `\`\`\`js` is
+    // content, not a closer — so the example link stays blanked and the real
+    // link after the true closer is still read.
+    const markdown = '```md\n```js\n[a](x.md)\n```\n[b](README.md)\n';
+    expect(extractLinkTargets(markdown)).toEqual(['README.md']);
+  });
+
+  it('closes a fence on a line with only trailing spaces, tabs or a CR', () => {
+    const markdown = '```\n[a](x.md)\n``` \t\r\n[b](README.md)\n';
+    expect(extractLinkTargets(markdown)).toEqual(['README.md']);
+  });
+
+  it('does not open a fence on a backtick run whose info string holds a backtick', () => {
+    // Inline code at the start of a line, not a fence — reading it as one
+    // blanked every link to the end of the document.
+    const markdown = '```` ``` ```` is how you write a fence.\n[a doc](README.md)\n';
+    expect(extractLinkTargets(markdown)).toEqual(['README.md']);
+  });
+
+  it('still opens a tilde fence whose info string holds a backtick', () => {
+    expect(extractLinkTargets('~~~ `md`\n[a](x.md)\n~~~\n[b](README.md)\n')).toEqual(['README.md']);
+  });
+
   it('treats an unterminated fence as running to the end, the way a renderer does', () => {
     expect(extractLinkTargets('```\n[a](x.md)\n')).toEqual([]);
   });

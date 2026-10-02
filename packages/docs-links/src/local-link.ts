@@ -70,11 +70,21 @@ export function withoutCode(markdown: string): string {
   return blankInlineCode(blankFencedBlocks(markdown));
 }
 
-/** `markdown` with every fenced block blanked, newlines kept. */
+/** `markdown` with every fenced block blanked, newlines kept.
+ *
+ *  The two CommonMark 4.5 rules a bare run-of-ticks match missed: a closing
+ *  fence may be followed only by spaces or tabs, so a nested `` ```js `` inside
+ *  an open ```` ``` ```` block is content and not its end; and a backtick
+ *  fence's info string may not hold a backtick, so a line opening with
+ *  inline code (```` ``` ```` written as code) is prose, not a fence that
+ *  blanks every link to the end of the document. */
 function blankFencedBlocks(markdown: string): string {
-  const fenceOf = (line: string): string | null => {
+  // The info is sliced off rather than captured: `.` never matches the `\r`
+  // a CRLF line ends with, so a `(.*)$` capture would find no fence there.
+  const fenceOf = (line: string): { run: string; info: string } | null => {
     const match = /^ {0,3}(`{3,}|~{3,})/.exec(line);
-    return match === null ? null : (match[1] ?? null);
+    const run = match?.[1];
+    return match === null || run === undefined ? null : { run, info: line.slice(match[0].length) };
   };
   let open: string | null = null;
   return markdown
@@ -82,12 +92,19 @@ function blankFencedBlocks(markdown: string): string {
     .map((line) => {
       const fence = fenceOf(line);
       if (open !== null) {
-        // Only a fence of the SAME character, at least as long, closes one.
-        if (fence !== null && fence[0] === open[0] && fence.length >= open.length) open = null;
+        // Only a bare fence of the SAME character, at least as long, closes one.
+        if (
+          fence !== null &&
+          fence.run[0] === open[0] &&
+          fence.run.length >= open.length &&
+          fence.info.trim().length === 0
+        ) {
+          open = null;
+        }
         return ' '.repeat(line.length);
       }
-      if (fence !== null) {
-        open = fence;
+      if (fence !== null && !(fence.run[0] === '`' && fence.info.includes('`'))) {
+        open = fence.run;
         return ' '.repeat(line.length);
       }
       return line;
