@@ -42,11 +42,17 @@ import {
   type MirrorPassClaimedIssue,
   type MirrorPassFinding,
   type MirrorPassStaleClaimFinding,
+  type MirrorPassCommand,
   isAssignedTo,
 } from '../../src/flight/mirror-pass.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import { STALE_TASK_DAYS } from '../../src/web/task-queue.js';
 import { claimLedger } from '../../src/flight/claim-ledger.js';
+import {
+  issueTemplateGaps,
+  planIssueTriage,
+  type IncomingIssue,
+} from '../../src/flight/issue-triage.js';
 
 describe('issueNumberFromTaskId', () => {
   it('parses the github-<n> task id convention', () => {
@@ -1583,4 +1589,85 @@ describe('EPIC 0019 additive-only law — two pure-planner edges no fixture reac
     expect(`${title}\n${body}`).not.toContain('links');
     expect(command.details).toBe('filing a broken-link finding: 1 dead link(s) in README.md');
   });
+});
+
+// The mirror pass files three kinds of drift issue on the project's own repo
+// (a stale version claim, a stale package count, dead internal links), and
+// KEEPER's issue triage gates every incoming issue on the bug/feature
+// template's sections before it boards one (issue-triage.ts, operator
+// 2026-09-12). Only the repo owner's own issues are exempt: on an
+// organization's repo the owner is the org, not the login the pass runs as,
+// and an unresolved owner exempts nothing. Each drift body writes the bug
+// template's three headings, but nothing held them to the gate. A heading the
+// gate renames, or a body rewritten without one, would have KEEPER label the
+// fleet's own finding `status: needs-format`, ask in public for the template,
+// and never board the fix.
+describe("EPIC 0019 additive-only law — the drift issues the mirror pass files pass KEEPER's issue protocol gate", () => {
+  const filed: Array<[string, MirrorPassCommand]> = [
+    [
+      'version-drift',
+      planMirrorPassVersionDriftCommand({
+        action: 'file-version-drift-issue',
+        source: 'README.md',
+        claimedVersion: '0.24.0',
+        actualVersion: '0.25.0',
+      }),
+    ],
+    [
+      'package-count drift',
+      planMirrorPassCountsDriftCommand({
+        action: 'file-counts-drift-issue',
+        source: 'THANKS.md',
+        claimedCount: 900,
+        actualCount: 912,
+      }),
+    ],
+    [
+      'single broken-link',
+      planMirrorPassLinkDriftCommand({
+        action: 'file-broken-link-issue',
+        source: 'README.md',
+        brokenLinks: ['docs/gone.md'],
+      }),
+    ],
+    [
+      'several-broken-links',
+      planMirrorPassLinkDriftCommand({
+        action: 'file-broken-link-issue',
+        source: 'docs/INDEX.md',
+        brokenLinks: ['docs/gone.md', 'docs/also-gone.md'],
+      }),
+    ],
+  ];
+
+  /** The issue as KEEPER lists it back: the filed title and body, opened by
+   *  a login that is not the org that owns the repo. */
+  const asListed = (command: MirrorPassCommand): IncomingIssue => ({
+    number: 41,
+    title: command.args[command.args.indexOf('--title') + 1] ?? '',
+    body: command.args[command.args.indexOf('--body') + 1] ?? '',
+    author: 'steward-login',
+  });
+  const triage = (issue: IncomingIssue) =>
+    planIssueTriage(issue, [], [], undefined, undefined, 'owning-org').decision;
+
+  it.each(filed)(
+    'the %s issue carries every section the bug template requires',
+    (_kind, command) => {
+      expect(issueTemplateGaps(asListed(command))).toBeNull();
+    },
+  );
+
+  it.each(filed)(
+    'KEEPER boards the %s issue instead of asking the pass for the template',
+    (_kind, command) => {
+      const issue = asListed(command);
+      // The gate is live for this author and owner: the same issue with its
+      // headings flattened to prose is held for the template.
+      const unformatted = { ...issue, body: issue.body.replace(/^#+\s*/gm, '') };
+      expect(triage(unformatted)).toBe('needs-format');
+
+      expect(triage(issue)).toBe('accept');
+    },
+  );
 });
