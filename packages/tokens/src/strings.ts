@@ -1086,15 +1086,16 @@ const EN_STRINGS = {
   boardColDone: 'Done',
   // The task board's notes and per-task decision buttons (shell.ts's
   // tasksSection(), board web-msnsndki-dz3vn1): the FOCUS-MODE lock note, the
-  // empty-board note, and ✓ approve / ✗ reject on a self-proposed task,
-  // ✓ done on an open one. Only the buttons' visible label rides the
-  // [data-i18n] sweep — their data-tip/aria-label stay the per-task
-  // taskActionTip() sentence.
+  // empty-board note, and approve / reject on a self-proposed task, done
+  // on an open one. Only the buttons' visible label rides the [data-i18n]
+  // sweep — their data-tip/aria-label stay the per-task taskActionTip()
+  // sentence. Epic 0025: each button leads with a vendored check or x icon,
+  // so the labels carry no ✓/✗ of their own.
   tasksFocusNote: 'Focus locked: flights work ONLY the focused task(s) until done.',
   tasksEmpty: 'No tasks yet — add one below, or let the autopilot seed its own board as it flies.',
-  taskApprove: '✓ approve',
-  taskReject: '✗ reject',
-  taskDone: '✓ done',
+  taskApprove: 'approve',
+  taskReject: 'reject',
+  taskDone: 'done',
   // The board's keyboard legend (shell.ts's boardKeysHint(), epic 0026): one
   // label per key group — the <kbd> keys themselves are not translated.
   boardKeysMove: 'move',
@@ -2711,9 +2712,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     tasksFocusNote: 'המיקוד נעול: הטיסות עובדות רק על המשימות הממוקדות עד לסיומן.',
     tasksEmpty:
       'אין משימות עדיין — הוסיפו אחת למטה, או תנו ל-AUTOPILOT לזרוע את הלוח שלו בעצמו תוך כדי טיסה.',
-    taskApprove: '✓ אשר',
-    taskReject: '✗ דחה',
-    taskDone: '✓ בוצע',
+    taskApprove: 'אשר',
+    taskReject: 'דחה',
+    taskDone: 'בוצע',
     boardKeysMove: 'מעבר',
     boardKeysOpen: 'פתיחה',
     boardKeysSelect: 'בחירה',

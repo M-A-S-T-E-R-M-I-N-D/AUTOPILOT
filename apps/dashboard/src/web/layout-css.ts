@@ -566,6 +566,10 @@ main > * { min-width: 0; }
 .chip > .icon, .pill > .icon { margin-inline-end: 0.35em; }
 .task-move > .icon, .task-focus-btn > .icon, .task-delete-btn > .icon, .task-unpin-btn > .icon { inline-size: 1.1em; block-size: 1.1em; vertical-align: middle; }
 .task-drag-handle > .icon { vertical-align: middle; }
+/* The decision buttons pair their icon with a word (approve/done take check,
+   reject takes x): text-sized, not the icon-only 1.1em the reject button's
+   .task-delete-btn class would otherwise give it. */
+.task-done-btn > .icon, .task-reject-btn > .icon { inline-size: 1em; block-size: 1em; vertical-align: -0.125em; margin-inline-end: 0.35em; }
 .chip { font-size: var(--text-xs); color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: 2px var(--space-2); text-decoration: none; display: inline-block; }
 .chip-proposed { color: var(--color-needs-you); border-color: var(--color-needs-you); }
 .chip-anomaly { color: var(--color-needs-you); border-color: var(--color-needs-you); }

@@ -185,8 +185,16 @@ propagation, and the filled style does not match the nav.
    inner `[data-i18n]` span, since `setSweptText()` keeps only a leading
    icon. The census pins a guillemet at a label's edge to zero in web/ and
    STRINGS. The "Settings › HUD bar › Shown" breadcrumb and the phase
-   rail's lone `›` separator stay free. The screenshots refresh
-   (`docs/screens/`) is still open.
+   rail's lone `›` separator stay free. **Task row decision buttons
+   2026-10-02:** ✓/✗ stay free in result lines and decision badges, but
+   the task row's "✓ approve", "✗ reject" and "✓ done" buttons painted
+   them as icons beside the trash-2 delete and the arrow reorder buttons.
+   Approve and done lead with a newly vendored `check`, reject with the
+   existing `x`, and `taskApprove`/`taskReject`/`taskDone` drop the glyph
+   in both locales. The census gained a shrink-only list of the button
+   faces (`el('button', …, '✓ …')`) that still lead with one: the SOUL
+   cards' ratify/dismiss pair (drawn twice) and the backlog's confirm-done
+   button. The screenshots refresh (`docs/screens/`) is still open.
 
 ## Related
 
