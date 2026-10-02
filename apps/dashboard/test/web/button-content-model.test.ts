@@ -17,12 +17,10 @@
  * controls and drill-downs are in the scan — and asserts that no <button> on
  * either page nests a focusable descendant.
  *
- * One known debt is pinned rather than hidden: the flight-log row heads
- * (`button.flight-head`, shell.ts flightGroupRow and flightLogNode) still nest
- * their dot/headline/cost/ago fields as tabindex spans — the same shape the
- * firing row had. The ratchet below fails the moment that fix lands, with the
- * instruction to delete the carve-out, so the guard tightens to zero instead
- * of the exception quietly outliving its reason.
+ * The flight-log row heads (`.flight-head`, shell.ts flightGroupRow and
+ * flightLogNode) were the last pinned debt — the same shape the firing row
+ * had; they got the same fix (board ap-muq3t2m5-0), so the scan now runs with
+ * no exception at all.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -130,9 +128,6 @@ const FORBIDDEN_INSIDE_BUTTON =
   '[tabindex], a[href], button, input, select, textarea, iframe, ' +
   '[contenteditable]:not([contenteditable="false"])';
 
-/** The one pinned debt — see the file comment. Delete with the flight-log fix. */
-const KNOWN_DEBT = 'button.flight-head';
-
 function label(el: Element): string {
   const cls = el.className ? '.' + String(el.className).trim().split(/\s+/).join('.') : '';
   const tab = el.hasAttribute('tabindex') ? `[tabindex="${el.getAttribute('tabindex')}"]` : '';
@@ -140,19 +135,12 @@ function label(el: Element): string {
 }
 
 /** Every (button → nested focusable) pair on the page, readable. */
-function nestedFocusables(): Array<{ button: Element; nested: string }> {
+function nestedFocusables(): string[] {
   return Array.from(document.querySelectorAll('button')).flatMap((button) =>
-    Array.from(button.querySelectorAll(FORBIDDEN_INSIDE_BUTTON)).map((nested) => ({
-      button,
-      nested: `${label(button)} > ${label(nested)}`,
-    })),
+    Array.from(button.querySelectorAll(FORBIDDEN_INSIDE_BUTTON)).map(
+      (nested) => `${label(button)} > ${label(nested)}`,
+    ),
   );
-}
-
-function offendersOutsideKnownDebt(): string[] {
-  return nestedFocusables()
-    .filter(({ button }) => !button.matches(KNOWN_DEBT))
-    .map(({ nested }) => nested);
 }
 
 async function boot(project?: string): Promise<void> {
@@ -191,7 +179,7 @@ describe('no <button> on the dashboard nests focusable content (HTML button cont
     expect(document.querySelectorAll('.card').length).toBe(1);
     expect(document.querySelectorAll('button').length).toBeGreaterThan(10);
 
-    expect(offendersOutsideKnownDebt()).toEqual([]);
+    expect(nestedFocusables()).toEqual([]);
   });
 
   it('the project page with a firing row, a flight-log row and a task row OPEN', async () => {
@@ -214,21 +202,10 @@ describe('no <button> on the dashboard nests focusable content (HTML button cont
 
     expect(document.querySelectorAll('.firing-timeline .firing-toggle').length).toBe(2);
     expect(document.querySelectorAll('.task').length).toBe(2);
+    // The flight-log rows are in the scan: the slice row (f2, open) and the
+    // clean row (f1), each with its dot/headline/cost/ago fields.
+    expect(document.querySelectorAll('.flightlog .flight-head').length).toBe(2);
 
-    expect(offendersOutsideKnownDebt()).toEqual([]);
-  });
-
-  it('the pinned debt is still real — delete the KNOWN_DEBT carve-out with the flight-log fix', async () => {
-    await boot('p1');
-
-    // The ratchet: the moment the flight-log row heads stop nesting tabindex
-    // spans, this fails on purpose, and the fix is to drop KNOWN_DEBT above so
-    // the two scans guard the whole dashboard with no exception.
-    const debt = nestedFocusables().filter(({ button }) => button.matches(KNOWN_DEBT));
-    expect(
-      debt.length,
-      'flight-log heads no longer nest focusables: remove KNOWN_DEBT',
-    ).toBeGreaterThan(0);
-    for (const { nested } of debt) expect(nested).toMatch(/^button\.flight-head > span\./);
+    expect(nestedFocusables()).toEqual([]);
   });
 });

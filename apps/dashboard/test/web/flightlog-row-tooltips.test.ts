@@ -100,7 +100,11 @@ describe('the flight-log row explains itself on hover/focus', () => {
 
     const dots = Array.from(document.querySelectorAll('.flight-dot'));
     expect(dots.length).toBe(2);
-    expect(dots[0]?.getAttribute('tabindex')).toBe('0');
+    // Reachable through the row's roving group: the headline button holds
+    // the Tab stop (board ap-muq3t2m5-0), and ArrowLeft lands on the dot.
+    expect(dots[0]?.getAttribute('tabindex')).toBe('-1');
+    // A labelled graphic: an empty role-less span may not carry aria-label.
+    expect(dots[0]?.getAttribute('role')).toBe('img');
     expect(dots[0]?.getAttribute('data-tip')).toBe('How this firing ended: shipped');
     expect(dots[0]?.getAttribute('aria-label')).toBe('verdict: shipped');
     expect(dots[1]?.getAttribute('data-tip')).toBe('How this firing ended: reverted');
@@ -113,8 +117,8 @@ describe('the flight-log row explains itself on hover/focus', () => {
     const shas = Array.from(document.querySelectorAll('.flight-sha'));
     expect(shas.length).toBe(1);
     // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): the sha
-    // is not the first field in its row's header (the verdict dot leads), so
-    // it starts at -1 — reachable via the row's roving group, not its own Tab
+    // is not its row header's Tab stop (the headline button is), so it
+    // starts at -1 — reachable via the row's roving group, not its own Tab
     // stop. tooltip/label content is unaffected either way.
     expect(shas[0]?.getAttribute('tabindex')).toBe('-1');
     expect(shas[0]?.getAttribute('data-tip')).toBe('Commit: abc1234');
@@ -128,8 +132,8 @@ describe('the flight-log row explains itself on hover/focus', () => {
     const costs = Array.from(document.querySelectorAll('.flight-cost'));
     expect(costs.length).toBe(2);
     for (const cost of costs) {
-      // Cost never leads a row's header (dot always does), so it's always -1
-      // — same roving-group reasoning as the sha assertion above.
+      // Cost never holds a row header's Tab stop (the headline button does),
+      // so it's always -1 — same roving-group reasoning as the sha above.
       expect(cost.getAttribute('tabindex')).toBe('-1');
       expect(cost.getAttribute('data-tip')).toBe('Total spend for this firing');
       expect(cost.getAttribute('aria-label')).toContain('cost:');
@@ -157,10 +161,10 @@ describe('the flight-log row explains itself on hover/focus', () => {
     expect(items.length).toBe(2);
     // f1's headline resolves to the task title "Fix the thing" — short enough
     // to show in full, but it should still be reachable and self-explaining.
-    // It sits second in the row's header (after the verdict dot), so it
-    // starts at -1, not its own Tab stop.
+    // It is the row's disclosure button, so it is the header's one Tab stop
+    // even though it sits second, after the verdict dot (board ap-muq3t2m5-0).
     expect(items[0]?.textContent).toBe('Fix the thing');
-    expect(items[0]?.getAttribute('tabindex')).toBe('-1');
+    expect(items[0]?.getAttribute('tabindex')).toBe('0');
     expect(items[0]?.getAttribute('data-tip')).toBe('Fix the thing');
     // D1 ATTRIBUTE PAYLOAD (epic 0015, web-mtd1wmqc-v7h6cq): no aria-label
     // duplicating the tip — the full headline rides aria-describedby into a
@@ -172,9 +176,9 @@ describe('the flight-log row explains itself on hover/focus', () => {
     const desc = document.getElementById(descId ?? '');
     expect(desc?.classList.contains('sr-only')).toBe(true);
     expect(desc?.textContent).toBe('Fix the thing');
-    // The desc must NOT sit inside the row button — a button's accessible
-    // name is computed from its contents, sr-only text included, so nesting
-    // it there would duplicate the headline into the button's name instead.
+    // The desc must NOT sit inside the headline button — a button's
+    // accessible name is computed from its contents, sr-only text included,
+    // so nesting it there would duplicate the headline into the button's name.
     expect(desc?.closest('.flight-head')).toBeNull();
   });
 
@@ -182,7 +186,7 @@ describe('the flight-log row explains itself on hover/focus', () => {
     boot('p1');
     await vi.advanceTimersByTimeAsync(1);
 
-    const head = document.querySelector('.flight-head') as HTMLButtonElement | null;
+    const head = document.querySelector('.flight-head .flight-item') as HTMLButtonElement | null;
     expect(head).not.toBeNull();
     head!.click();
     await vi.advanceTimersByTimeAsync(10);

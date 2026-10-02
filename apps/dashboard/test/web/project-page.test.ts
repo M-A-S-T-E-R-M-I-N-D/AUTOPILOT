@@ -663,7 +663,7 @@ describe('the per-project inside page', () => {
     // The compact row also carries a truncated sha chip — no click needed to
     // find which commit a firing produced (GitHub-familiar flight history).
     expect(row!.querySelector('.flight-sha')?.textContent).toBe('a1b2c3d');
-    (row!.querySelector('.flight-head') as HTMLButtonElement).click();
+    (row!.querySelector('.flight-head .flight-item') as HTMLButtonElement).click();
     // The deferred re-render goes through refresh() (fetch → json → render):
     // step the fake clock a few times so the whole promise chain settles.
     await vi.advanceTimersByTimeAsync(10);
@@ -684,7 +684,7 @@ describe('the per-project inside page', () => {
     const rows = Array.from(document.querySelectorAll('.flightlog .flight'));
     const unverifiedRow = rows[1] as HTMLLIElement;
     expect(unverifiedRow.querySelector('.flight-dot')?.className).toContain('flight-unverified');
-    (unverifiedRow.querySelector('.flight-head') as HTMLButtonElement).click();
+    (unverifiedRow.querySelector('.flight-head .flight-item') as HTMLButtonElement).click();
     await vi.advanceTimersByTimeAsync(10);
     await vi.advanceTimersByTimeAsync(10);
     const open = document.querySelectorAll('.flightlog .flight-open .flight-detail')[0];
