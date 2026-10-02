@@ -238,20 +238,20 @@ harness does not (yet) independently verify it by re-running the named test agai
 ## 4. Results
 
 <!-- DATA:SUMMARY:START -->
-_Generated 2026-10-02T04:12:53.834Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 790 recorded firing(s))._
+_Generated 2026-10-02T04:14:37.050Z by `pnpm self-study:update` from the local telemetry store (project `autopilot`, 791 recorded firing(s))._
 
 | Metric | Value |
 |---|---|
-| Firings recorded | 790 |
-| Firings shipped (gate-verified commit landed) | 600 (75.9%) |
-| Gate result | passed 601 (76.1%) · no-commit 112 (14.2%) · reverted 33 (4.2%) · checkpointed 30 (3.8%) · unverifiable 14 (1.8%) |
-| Completion (self-reported) | slice 343 (43.4%) · complete 327 (41.4%) · untagged 120 (15.2%) |
-| Commit kind | feat 203 (25.7%) · docs 171 (21.6%) · fix 160 (20.3%) · untagged 121 (15.3%) · test 117 (14.8%) · chore 11 (1.4%) · perf 4 (0.5%) · refactor 3 (0.4%) |
-| Firing-Prompt-Version (shipped commits, from git trailers) | firing-v17 445 (74.2%) · pre-trailer 75 (12.5%) · firing-v15 68 (11.3%) · firing-v13 5 (0.8%) · firing-v14 5 (0.8%) · firing-v16 2 (0.3%) |
-| Total cost (USD, self-reported) | $1889.95 |
-| Total tokens, in / out | 5,797,855 / 17,589,825 |
-| Cache read / write tokens | 3,266,484,199 / 84,644,170 |
-| Total turns | 42,749 |
+| Firings recorded | 791 |
+| Firings shipped (gate-verified commit landed) | 601 (76.0%) |
+| Gate result | passed 602 (76.1%) · no-commit 112 (14.2%) · reverted 33 (4.2%) · checkpointed 30 (3.8%) · unverifiable 14 (1.8%) |
+| Completion (self-reported) | slice 344 (43.5%) · complete 327 (41.3%) · untagged 120 (15.2%) |
+| Commit kind | feat 203 (25.7%) · docs 171 (21.6%) · fix 161 (20.4%) · untagged 121 (15.3%) · test 117 (14.8%) · chore 11 (1.4%) · perf 4 (0.5%) · refactor 3 (0.4%) |
+| Firing-Prompt-Version (shipped commits, from git trailers) | firing-v17 446 (74.2%) · pre-trailer 75 (12.5%) · firing-v15 68 (11.3%) · firing-v13 5 (0.8%) · firing-v14 5 (0.8%) · firing-v16 2 (0.3%) |
+| Total cost (USD, self-reported) | $1893.08 |
+| Total tokens, in / out | 5,827,614 / 17,618,333 |
+| Cache read / write tokens | 3,273,122,077 / 84,796,438 |
+| Total turns | 42,867 |
 | Firing date range | 2026-09-13 — 2026-10-02 |
 
 **Eval regression by prompt version (SOTA-MAP H3).** One row per `Firing-Prompt-Version` value recorded in the engine's own telemetry at firing time (`events.payload.promptVersion`), so every firing counts — not only the shipped commits the row above resolves via git trailers. Pass rate = shipped ÷ firings; cost variance is the population variance of `costUsd` across every firing in that version (a consistency signal, not the same thing as the median); cost/solved = total cost across every firing in that version ÷ number shipped. A prompt-version bump should be gated on these four numbers moving together, not on pass rate alone (H3: "optimizing pass rate alone selects for expensive, high-variance configurations").
@@ -295,7 +295,7 @@ _Generated 2026-10-02T04:12:53.834Z by `pnpm self-study:update` from the local t
 | gate failed AND the revert failed | 0 | 0.0% |
 | unclassified / pre-dates this classifier | 0 | 0.0% |
 
-Total unverifiable: 14 of 790 recorded firings (1.8%).
+Total unverifiable: 14 of 791 recorded firings (1.8%).
 
 **TDD-first compliance on fix tasks (backlog web-msnsxuep-ytwucr).** The firing prompt requires a FAILING test reproducing the bug BEFORE the fix on every `kind:"fix"` firing; the agent self-reports whether it followed that order (`METRICS.testFirst` → `metrics.test_first`). Self-reported, not (yet) independently verified by re-running the named test against the pre-fix commit — see the limitations this shares with `completion` in `docs/MODEL-CARD.md` §5.
 
@@ -342,7 +342,7 @@ Cost saved per extended firing vs. ordinary: $-2.18. Cost saved per turn, extend
 <!-- DATA:SUMMARY:END -->
 
 <!-- DATA:CHART:START -->
-_Generated 2026-10-02T04:12:53.859Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in DATA-SERIES.md (the machine appendix).
+_Generated 2026-10-02T04:14:37.070Z by `pnpm self-study:update` — the `DATA:SERIES` block's `perDay`/`perEra`/`turnsHistogram` rollups, charted (backlog web-msnsgcvf-zgmo7i, web-msnshaur-n40j8o). Colorblind-safe (Okabe–Ito); exact values are in DATA-SERIES.md (the machine appendix).
 
 **Firings per day**
 
