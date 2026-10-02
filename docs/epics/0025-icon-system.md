@@ -266,7 +266,15 @@ propagation, and the filled style does not match the nav.
    the Ask button's rule) and still spins it a quarter turn on
    hover and focus; its aria-label stays its only name. The hand-inlined
    list is gone and `apps/dashboard/test/web/icons.test.ts` pins zero: every
-   24-unit icon in `src/web/` comes from `icons.ts`.
+   24-unit icon in `src/web/` comes from `icons.ts`. **Awaiting-approval
+   docs 2026-10-03:** RUNBOOK §8 still told readers the KEEPER PR review
+   card's badge reads "🔒 awaiting approval to run CI" and its link "🔓
+   Review & approve on GitHub", though both lead with the vendored `lock`
+   and `lock-open` strokes and no terminal line prints either glyph. The
+   sentence quotes the painted words and names the icons, and
+   `apps/dashboard/test/tooling/icon-system-docs.test.ts` adds 🔒/🔓 to its
+   retired-glyph set and holds RUNBOOK to the badge's STRINGS label and the
+   link's text.
 
 ## Related
 
