@@ -6,6 +6,163 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.57.0] — 2026-10-02
+
+### Added
+
+- feat(i18n): the last six render-site literals reach STRINGS, closing issue #16's census
+- feat(engine): a lane the gate keeps reverting can be demoted (epic 0036)
+- feat(dashboard): the rail's Focus toggle draws the vendored maximize (epic 0025)
+- feat(engine): a Codex lane reports the tool calls its guard hook denied (epic 0036)
+- feat(dashboard): the Ask button draws the vendored message-circle (epic 0025)
+- feat(engine): a Codex lane's guard judges every file an apply_patch names (epic 0036)
+- feat(dashboard): the Ask sheet and terminal HUD close buttons print the vendored x (epic 0025)
+- feat(engine): a Codex lane runs the containment guard as its PreToolUse hook (epic 0036)
+- feat(dashboard): the phase rail's separators drop › for a mirrored chevron-right (epic 0025)
+- feat(engine): a Windows Codex lane launches the npm shim's node entry, not cmd.exe (epic 0036)
+- feat(web): a Social pass select in the fly bar sets one flight's social override
+- feat(dashboard): landing and plan-chain arrows drop → for a mirrored arrow-right (epic 0025)
+- feat(engine): a Codex lane reports its tool calls to the live activity timeline (epic 0036)
+- feat(dashboard): the ritual scrim's gate steps drop CSS ✓/✗ for the circle-family icons (epic 0025)
+- feat(engine): a Gemini lane reports its tool calls to the live activity timeline (epic 0036)
+- feat(flight): a per-flight AUTOPILOT_SOCIAL_FLIGHT override rides to the spawned child
+- feat(engine): a Codex lane audits the web searches it runs (epic 0036)
+- feat(dashboard): the SOUL ratify/dismiss and backlog confirm-done drop ✓/✗ for icons (epic 0025)
+- feat(engine): a Gemini lane audits the web searches it runs (epic 0036)
+- feat(dashboard): the task row's approve/reject/done buttons drop ✓/✗ for vendored icons (epic 0025)
+- feat(report): a fresh model reads a non-English composition back before the composer accepts it
+- feat(report): the CONNECT report form lets the reporter choose the report language
+- feat(dashboard): the Firing Replay's Prev/Next drop ‹/› for vendored chevrons (epic 0025)
+- feat(report): the report dialog lets the reporter choose the report language
+- feat(report): the issue composer checks the composition's script and falls back honestly to English
+- feat(flight): a reverted-commit streak proposes a SOUL note, the third streak-mined learning kind
+- feat(report): the CONNECT report form's note, title and body take the reporter's script direction
+- feat(dashboard): the triage duplicate badge drops ⧉ for the vendored copy icon (epic 0025)
+- feat(dashboard): the SOUL editor names the "Model: <name>" override in its seventh hint
+- feat(flight): a SOUL line "Model: <name>" pins one project's firings to a model
+- feat(dashboard): the task row's reorder buttons drop ↑/↓ for vendored arrow icons (epic 0025)
+- feat(flight): a SOUL line "Budget: $N" caps one project's firings under the fleet-wide budget
+- feat(dashboard): the Sync to GitHub button drops ⇪ for the vendored cloud-upload icon (epic 0025)
+- feat(flight): a SOUL line "Turns: N" caps one project's firings under the fleet-wide turn ceiling
+- feat(flight): a SOUL line "Internet: off" keeps one project's firings off the open internet
+- feat(engine): parse the Gemini CLI's stream-json output (epic 0036)
+- feat(report): the report dialog's note field takes the reporter's script direction
+- feat(dashboard): the SOUL editor names the "Subagents: off" override
+- feat(dashboard): the Start over button drops ↺ for the vendored rotate-ccw icon (epic 0025)
+- feat(flight): a SOUL line "Subagents: off" keeps one project's firings from delegating
+- feat(dashboard): the SOUL editor names the "Attribution: off" override
+- feat(flight): a SOUL line "Attribution: off" drops the commit trailer for one project
+- feat(report): the issue composer quotes a repo source path verbatim, as the language doctrine asks
+- feat(dashboard): the plan canvas zoom bar drops +/−/⤢ for vendored icons
+- feat(dashboard): the SOUL editor names the "Fleet wisdom: off" override
+- feat(control): a MUTATION RED task names the commit its run judged
+- feat(flight): a SOUL line "Fleet wisdom: off" opts one project out of the fleet layer
+- feat(dashboard): the SOUL editor is locked by default — unlock to edit
+- feat(dashboard): the per-firing trace's repeated chip drops ⟲ for the vendored repeat icon
+- feat(dashboard): the SOUL card's un-ratify chip drops ↺ for the vendored undo icon
+- feat(dashboard): the PR review panel's re-run and update-branch buttons drop ↻/⟳ for vendored icons
+- feat(flight): parse the operator interests STANDING 4/5 matches against
+- feat(dashboard): the report disclosure's ▸/▾ gives way to the vendored chevron (epic 0025)
+- feat(dashboard): the live activity heading's ● gives way to the vendored circle-dot
+- feat(engine): every WebSearch a flight issues is audit-logged whole (THREAT-MODEL T6)
+- feat(dashboard): the PR check strip's state glyphs give way to the circle icon family
+- feat(dashboard): the budget-risk chips' ⏱ gives way to the vendored timer icon
+- feat(dashboard): the triage panels' skip leads with a vendored skip-forward icon (epic 0025)
+- feat(dashboard): the task row's status pill leads with its status glyph (epic 0026 slice 1)
+- feat(dashboard): keeper reads as an inbox, each item once
+- feat(dashboard): the replay toggle's baked ▶ gives way to the vendored play icon
+
+### Fixed
+
+- fix(pool): the pool claim skips an issue the maintainer has declined
+- fix(keeper): triage holds an issue the maintainer marked on hold
+- fix(telemetry): a firing payload of JSON null no longer throws the cause breakdown
+- fix(telemetry): a gate port that threw counts as a crash, not a dirty tree
+- fix(keeper): the PR template's human-judgment box sends the PR through a draft
+- fix(telemetry): a METRICS-less ship naming an ap- task id closes that task
+- fix(ci): doc-commit-refs tells a failed git call from a commit not in history
+- fix(telemetry): a quoted PROPOSALS template no longer files a task titled "..."
+- fix(keeper): contributors are no longer promised a post when KEEPER queues their PR
+- fix(engine): a firing's record is saved whole or not at all
+- fix(engine): a record the store cannot save is logged, never kills the lane
+- fix(claim): the claim protocol's citation points at CONTRIBUTING.md, where the rules live
+- fix(telemetry): a picked_rank below 1 is no rank, and never kills the lane
+- fix(report): with no language chosen, the language check reads the note's language itself
+- fix(engine): a Gemini firing reports the tool calls the guard denied (epic 0036)
+- fix(engine): a Codex or Gemini firing that dies says why, not what it printed (epic 0036)
+- fix(flight): a PR touching the social pass or the pool claim queues for a human
+- fix(dashboard): the flight-log row heads stop being <button>s that nest focusable fields
+- fix(gate): a gate that crashed from load waits ninety seconds before its one retry
+- fix(dashboard): a click on any field of the per-firing trace row still toggles it
+- fix(report): the composer parsers measure each cap after trimming, like every title path
+- fix(flight): a PR touching the license grant queues for a human
+- fix(ask): the ARCHITECT prompt documents tasks_delete's projectId, which the executor requires
+- fix(dashboard): the per-firing trace row's toggle is a <button> that nests no focusable content
+- fix(flight): a PR touching the standing registry queues for a human
+- fix(mcp): tasks_create measures the title cap after trimming, like the dashboard form
+- fix(flight): the maintainer's merge leaves the PR's branch standing, like the ritual's
+- fix(dashboard): a docs-reader anchor link hands focus to the heading it scrolls to
+- fix(fleet): a lane's slice counts as exhausted once nothing in it is claimable
+- fix(engine): a Codex or Gemini firing records its own wall clock, not a null duration (epic 0036)
+- fix(engine): a binding INBOX note reaches the firing whole, not cut at 1000 characters
+- fix(flight): the maintainer's merge pins the head it verified
+- fix(keeper): triage refuses a project with no GitHub origin, and says why
+- fix(health): a landing reconciles sync-back refusals and intent collisions off the panel
+- fix(board): a verdict names the whole task id, and a landing holds the red it re-judges
+- fix(triage): an issue the maintainer has declined is never boarded
+- fix(keeper): triage refuses a project checked out of another repo
+- fix(engine): close the IPv4-mapped IPv6 SSRF guard bypass
+- fix(mirror-pass): previews refuse a project whose origin is another repo
+- fix(engine): a silent Gemini child is killed by the idle cap, not left to the wall clock (epic 0036)
+- fix(keeper): a discussion reply honors AUTOPILOT_ATTRIBUTION=off
+- fix(dashboard): detectDiskClass resolves NVMe/eMMC device names on Linux
+- fix(engine): the Gemini adapter launches npm's gemini.cmd shim on Windows (epic 0036)
+- fix(engine): a firing's record takes the driver's own turns and clock over an understating envelope
+- fix(engine): the Codex adapter launches npm's codex.cmd shim on Windows (epic 0036)
+- fix(scoreboard): an arm past its minimum prints "164 firings", not "164/15"
+- fix(claim): a claim command after a Releasing or Unassigning note counts again
+- fix(fleet-report): a section's label column widens to its longest label
+- fix(guard): a single & and the .exe spelling no longer hide git and kill
+- fix(control): the nightly-red filer dates a run's evidence by the commit it judged
+- fix(guard): refuse the Windows home variables Git Bash inherits
+- fix(post-push): a green landing closes the CI-red task it outlived
+- fix(mutation): ritual-lock's Stryker alias resolves the worktree exports it now needs
+- fix(dashboard): the ci strip says when a workflow's latest run came from a pull request
+- fix(deps): floor fast-uri at 3.1.8, the patched release the moderate CVE asks for
+- fix(server): rate limiter evicts expired client windows
+- fix(flight): hibernation after a dry account quota really waits
+- fix(engine): a firing the account quota killed does not use up the flight's firings
+- fix(guard): refuse commands that land in the system temp dir unnamed
+- fix(templates): the issue forms apply only labels a seed source creates
+- fix(dashboard): a refused browser Notification says so instead of vanishing
+- fix(steward): the taxonomy seeder reads milestones past the first page
+- fix(control): a mutation red fixed after the nightly run began is not filed again
+- fix(engine): the rung-4 merge agent is denied the web tools it would use unaudited (THREAT-MODEL T6)
+- fix(guard): refuse references to the system temp directory
+- fix(maintenance): the dependabot backlog read goes past gh's default 30
+- fix(guard): the PowerShell tool runs through the containment guard too
+- fix(dashboard): send a Permissions-Policy disclaiming camera, geolocation, mic, USB
+- fix(triage): the milestone read goes past the API's first page of 30
+- fix(claim): the reaper workflow's auto-release ends the claim in the ledger
+- fix(gate): the per-firing gate also runs tests that read a src/ file as text
+- fix(claim): a claimant's own /unclaim ends their pool claim in the ledger
+- fix(steward): the taxonomy seeder reads past gh's 30 oldest labels
+- fix(landing): a fleet launch and the dashboard's self-restart never overlap
+- fix(fleet-report): a firing the account quota killed is a quota death, not a model failure
+- fix(deps): floor brace-expansion at 5.0.12, root and the node-cli sample
+- fix(social): the social pass dedups against more than gh's 30 newest threads
+- fix(flight): a crashed gate no longer tells the next firing its commit was reverted
+- fix(flight): a lane that is not flying reads as parked in the fleet digest
+- fix(read): the detected backlog stops tying the whole board to one commit
+- fix(read): the health panel shows live alarms, not every event on record
+- fix(flight): a bare alias recorded by a dying firing no longer resets its model's scoreboard
+- fix(deps): floor ip-address at 10.5.1, the patched release two security alerts ask for
+
+### Performance
+
+- perf(dashboard): the non-English string tables leave panels.js for an on-demand /locales.js
+- perf(dashboard): the per-firing trace leaves the render-blocking core for panels.js
+
 ## [0.56.0] — 2026-09-29
 
 ### Added
