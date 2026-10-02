@@ -25,7 +25,13 @@
 
 import { execFile, type ExecFileOptions } from 'node:child_process';
 import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
-import { WEB_SEARCH_AUDIT_MAX_CHARS, type WebSearchAudit } from '../stream.js';
+import {
+  activityFromToolCall,
+  WEB_SEARCH_AUDIT_MAX_CHARS,
+  type Activity,
+  type MessageUsage,
+  type WebSearchAudit,
+} from '../stream.js';
 import {
   reapCliDescendants,
   cliDeathText,
@@ -195,6 +201,87 @@ export function codexWebSearchesFromEvent(
   }));
 }
 
+/** The `ThreadItemDetails` types that are a tool call (exec_events.rs). */
+const CODEX_TOOL_ITEMS: ReadonlySet<unknown> = new Set([
+  'command_execution',
+  'file_change',
+  'mcp_tool_call',
+  'web_search',
+]);
+
+/** One tool-call item as the steps it took: a step per file a patch
+ *  touched, as a Claude Edit is, and one step for any other call. */
+function toolItemSteps(
+  item: Record<string, unknown>,
+  said: string,
+  usage: MessageUsage,
+): readonly Activity[] {
+  switch (item['type']) {
+    case 'command_execution':
+      return [activityFromToolCall('command_execution', { command: item['command'] }, said, usage)];
+    case 'file_change': {
+      const changes = Array.isArray(item['changes']) ? item['changes'] : [];
+      const paths = changes.flatMap((change) => {
+        const path = strOrNull(recordOrEmpty(change)['path']);
+        return path === null ? [] : [path];
+      });
+      const inputs = paths.length === 0 ? [{}] : paths.map((path) => ({ path }));
+      return inputs.map((input) => activityFromToolCall('file_change', input, said, usage));
+    }
+    case 'mcp_tool_call': {
+      const server = strOrNull(item['server']);
+      const tool = strOrNull(item['tool']);
+      const name = server === null || tool === null ? 'mcp_tool_call' : `${server}.${tool}`;
+      return [activityFromToolCall(name, recordOrEmpty(item['arguments']), said, usage)];
+    }
+    default:
+      return [activityFromToolCall('web_search', { query: item['query'] }, said, usage)];
+  }
+}
+
+/**
+ * Reads one run's `codex exec --json` events, in wire order, into the live
+ * activity timeline `stream.ts`'s `activitiesFromEvent` builds off a Claude
+ * stream. Each tool-call item is a step, reported once, on its first line:
+ * `item.started` for a command, a patch or an MCP call, whose target is known
+ * before it runs (event_processor_with_jsonl_output.rs reuses the started id
+ * for its `item.completed`), and `item.completed` for a web search, whose query
+ * is empty until it has run (ext/web-search/src/tool.rs). Its reasoning is the
+ * `agent_message` text completed since the last tool item did, the preamble
+ * the model wrote before acting, so calls made together share it as a Claude
+ * message's do; a `reasoning` summary is the model's thinking, which the
+ * Claude timeline leaves out too. No event names the model that ran, so each
+ * step carries `model`, the one the engine requested, as the envelope's
+ * `modelUsed` does; tokens are `null`, since only `turn.completed` carries
+ * usage. It keeps state, so each run gets its own reader.
+ */
+export function codexActivityReader(
+  model: string | null,
+): (event: Record<string, unknown>) => readonly Activity[] {
+  const usage: MessageUsage = { model, tokensIn: null, tokensOut: null };
+  const reported = new Set<string>();
+  let said = '';
+  return (event) => {
+    const type = event['type'];
+    if (type !== 'item.started' && type !== 'item.completed') return [];
+    const item = recordOrEmpty(event['item']);
+    if (type === 'item.completed' && item['type'] === 'agent_message') {
+      const text = strOrNull(item['text']) ?? '';
+      said = said === '' ? text : `${said} ${text}`;
+      return [];
+    }
+    if (!CODEX_TOOL_ITEMS.has(item['type'])) return [];
+    const id = strOrNull(item['id']);
+    const unread =
+      (type === 'item.completed' || item['type'] !== 'web_search') &&
+      (id === null || !reported.has(id));
+    if (id !== null && unread) reported.add(id);
+    const steps = unread ? toolItemSteps(item, said, usage) : [];
+    if (type === 'item.completed') said = '';
+    return steps;
+  };
+}
+
 /**
  * True when `codex exec resume <id>` failed at the resume ITSELF — the CLI-level
  * fallback `ClaudeCliModel` already has (docs/epics/0009-warm-sessions.md).
@@ -250,6 +337,9 @@ export interface CodexCliOptions {
    *  counterpart (THREAT-MODEL T6 — the flight persists it as a `web-search`
    *  audit row). */
   readonly onWebSearch?: (search: WebSearchAudit) => void;
+  /** Called for each step a tool call took, as its line arrives
+   *  ({@link codexActivityReader}): `GeminiCliOptions.onActivity`'s counterpart. */
+  readonly onActivity?: (activity: Activity) => void;
   /** ORPHAN SWEEP crash-path follow-up (board ap-mt2ukjg5-2), containment
    *  parity with `ClaudeCliModel`/`GeminiCliModel` before this adapter is
    *  wired into routing (epic 0036): persists the child's pid for the
@@ -288,8 +378,9 @@ export interface CodexCliOptions {
  * lane for the whole wall clock. Given {@link CodexCliOptions.onWebSearch}, it
  * reads each stdout line as it lands and reports every query a web search ran,
  * the audit `StreamingClaudeCliModel` keeps for WebSearch (THREAT-MODEL T6).
- * It skips the rest of the streaming hardening
- * (live activity, partial usage on a kill), which the Claude driver gained
+ * Given {@link CodexCliOptions.onActivity}, it reports every tool call there the
+ * same way, as the live activity timeline's steps. It skips the rest of the
+ * streaming hardening (partial usage on a kill), which the Claude driver gained
  * after real incidents this adapter has no flight history to have hit yet. It
  * shares the Claude driver's CLI-level resume fallback: a session id the CLI rejects
  * ({@link isCodexResumeFailure}) is retried once, cold, as `resumed: false`.
@@ -394,12 +485,19 @@ export class CodexCliModel implements ModelPort {
       let idleDeath = false;
       // THREAT-MODEL T6: a search's query has left by the time the run ends,
       // so each is audited as its line lands, not read off the settled stdout.
+      // The activity timeline is live for the same reason.
       const onWebSearch = this.opts.onWebSearch;
+      const onActivity = this.opts.onActivity;
+      const readActivity = codexActivityReader(model === '' ? null : model);
       let unreadLine = '';
-      const auditWebSearches = (text: string): void => {
-        if (onWebSearch === undefined) return;
+      const readLines = (text: string): void => {
         for (const event of jsonObjectLines(text)) {
-          for (const search of codexWebSearchesFromEvent(event)) onWebSearch(search);
+          if (onActivity !== undefined) {
+            for (const activity of readActivity(event)) onActivity(activity);
+          }
+          if (onWebSearch !== undefined) {
+            for (const search of codexWebSearchesFromEvent(event)) onWebSearch(search);
+          }
         }
       };
       const child = execFile(
@@ -449,9 +547,9 @@ export class CodexCliModel implements ModelPort {
             // one; no turn count rides with it (ModelResponse.observed).
             observed: { elapsedMs },
           });
-          // A last line with no newline is audited too. After resolve, so a
+          // A last line with no newline is read too. After resolve, so a
           // sink that throws can never leave the run unsettled.
-          auditWebSearches(unreadLine);
+          readLines(unreadLine);
         },
       );
       const armIdle = (): void => {
@@ -472,7 +570,7 @@ export class CodexCliModel implements ModelPort {
       };
       armIdle();
       child.stdout?.on('data', armIdle);
-      if (onWebSearch !== undefined) {
+      if (onWebSearch !== undefined || onActivity !== undefined) {
         // execFile set the stream's encoding, so a chunk is a string. Only
         // the chunk is scanned, so a long command output line is never rescanned.
         child.stdout?.on('data', (chunk: string) => {
@@ -483,7 +581,7 @@ export class CodexCliModel implements ModelPort {
           }
           const complete = unreadLine + chunk.slice(0, end);
           unreadLine = chunk.slice(end + 1);
-          auditWebSearches(complete);
+          readLines(complete);
         });
       }
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);

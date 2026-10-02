@@ -119,7 +119,17 @@ target is read off the call's `parameters` by `stream.ts`'s own field rules
 assistant text streamed since the last `tool_result`: `nonInteractiveCli.ts` emits every call of
 one model response before any of their results, so calls made together share it as a Claude
 message's do. The model is the `init` event's (`config.getModel()`); tokens stay `null`, since no
-event before `result` carries usage. The Copilot CLI adapter remains unstarted and, per the
+event before `result` carries usage. Since 2026-10-02 a Codex run feeds the timeline too: given
+`onActivity`, `CodexCliModel` reports each tool-call item through `codexActivityReader`, once, on
+its first line. A `command_execution`, `file_change` or `mcp_tool_call` is read at `item.started`,
+whose target is known before it runs (`event_processor_with_jsonl_output.rs` reuses that id for
+the `item.completed`), and a `web_search` at `item.completed`, since its query is empty until it
+ran. A patch is a step per file it touches, as a Claude Edit is, and an MCP call is named
+`<server>.<tool>`. The reasoning is the `agent_message` text completed since the last tool item
+did, the preamble the model writes before acting; a `reasoning` summary is the model's thinking,
+which the Claude timeline leaves out too. No event names the model that ran, so a step carries
+the requested one, as the envelope's `modelUsed` does, and its tokens stay `null`, since only
+`turn.completed` carries usage. The Copilot CLI adapter remains unstarted and, per the
 2026-09-27 re-check below, is now explicitly blocked on capturing a real `--output-format=json`
 sample from the closed-source binary — not just unstarted for lack of a turn to spend on it.
 

@@ -139,7 +139,7 @@ function toActivity(
 
 /**
  * One tool call as an {@link Activity}, for a driver whose wire is not
- * Claude's (`gemini-cli.ts`): its target is read off `input` exactly as
+ * Claude's (`gemini-cli.ts`, `codex-cli.ts`): its target is read off `input` exactly as
  * {@link activitiesFromEvent} reads a `tool_use` block's, and `reasoningText`,
  * the text the model streamed with the call, is bounded the same way, null
  * when blank.
