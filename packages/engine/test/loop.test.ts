@@ -583,6 +583,108 @@ describe('runLoop', () => {
       expect(h.firingInputs[1]?.resumeSessionId).toBeUndefined();
     });
   });
+
+  describe('LANE DEMOTION (epic 0036): a lane the gate keeps reverting takes no more work', () => {
+    const reverted = (): FiringOutcome => outcome({ gateResult: 'reverted' });
+
+    it('ends the flight as demoted once the gate reverts that many firings in a row', async () => {
+      const h = harness([reverted(), reverted(), outcome()]);
+      const summary = await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, {
+        maxIterations: 3,
+        demoteAfterGateFailures: 2,
+      });
+      expect(summary).toEqual({ firings: 2, stoppedBy: 'demoted' });
+      expect(h.firingInputs).toHaveLength(2);
+      // Paced after the first revert, never after the demoting one.
+      expect(h.sleeps).toEqual([5]);
+      expect(h.log).toContain(
+        'DEMOTED: the gate reverted 2 firings in a row — this lane takes no more work',
+      );
+    });
+
+    it('demotes on the first revert when the threshold is 1', async () => {
+      const h = harness([reverted(), outcome()]);
+      const summary = await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, {
+        maxIterations: 2,
+        demoteAfterGateFailures: 1,
+      });
+      expect(summary).toEqual({ firings: 1, stoppedBy: 'demoted' });
+      expect(h.log).toContain(
+        'DEMOTED: the gate reverted 1 firing in a row — this lane takes no more work',
+      );
+    });
+
+    it('starts the count over after any firing the gate did not revert', async () => {
+      // A gate crash ('unverifiable') is no proof the work was bad, and a firing
+      // with no commit gave the gate nothing to judge: neither extends the run.
+      const h = harness([
+        reverted(),
+        outcome({ gateResult: 'unverifiable' }),
+        reverted(),
+        outcome({ gateResult: 'no-commit' }),
+        reverted(),
+        outcome({ gateResult: 'checkpointed' }),
+        reverted(),
+        outcome(),
+        reverted(),
+      ]);
+      const summary = await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, {
+        maxIterations: 9,
+        demoteAfterGateFailures: 2,
+      });
+      expect(summary).toEqual({ firings: 9, stoppedBy: 'max-iterations' });
+      expect(h.log.some((m) => m.startsWith('DEMOTED'))).toBe(false);
+    });
+
+    it('counts a revert the quota-killed firing still had, though that firing is not one of the flight’s', async () => {
+      // The quota ended the run AFTER it committed, and the gate reverted that
+      // commit: bad work all the same, even if the firing is flown again.
+      const h = harness([outcome({ gateResult: 'reverted', globalExhaust: true }), reverted()]);
+      const summary = await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, {
+        maxIterations: 3,
+        demoteAfterGateFailures: 2,
+      });
+      expect(summary).toEqual({ firings: 1, stoppedBy: 'demoted' });
+      expect(h.firingInputs).toHaveLength(2);
+    });
+
+    it('never demotes a lane when the option is left out', async () => {
+      const h = harness([reverted(), reverted(), reverted()]);
+      const summary = await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 3 });
+      expect(summary).toEqual({ firings: 3, stoppedBy: 'max-iterations' });
+    });
+
+    it('hands the demoting firing to onFiringComplete before it stops, so its claim is released', async () => {
+      const completed: string[] = [];
+      const h = harness([
+        outcome({ gateResult: 'reverted', record: { ...RECORD, item: 'A' } }),
+        outcome({ gateResult: 'reverted', record: { ...RECORD, item: 'B' } }),
+      ]);
+      const deps: LoopDeps = {
+        ...h.deps,
+        onFiringComplete: (o) => {
+          completed.push(o.record.item ?? '');
+        },
+      };
+      await runLoop(deps, DEFAULT_ENGINE_CONFIG, { demoteAfterGateFailures: 2 });
+      expect(completed).toEqual(['A', 'B']);
+      expect(h.saved).toHaveLength(2);
+    });
+
+    it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+      'refuses a threshold of %s before any firing runs',
+      async (threshold) => {
+        const h = harness([reverted()]);
+        await expect(
+          runLoop(h.deps, DEFAULT_ENGINE_CONFIG, {
+            maxIterations: 1,
+            demoteAfterGateFailures: threshold,
+          }),
+        ).rejects.toThrow(RangeError);
+        expect(h.firingInputs).toHaveLength(0);
+      },
+    );
+  });
 });
 
 describe('sleepUnlessStopped', () => {

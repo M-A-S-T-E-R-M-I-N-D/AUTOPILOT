@@ -22,4 +22,10 @@ describe('formatFlightDoneLine', () => {
       'Done — 3 firing(s), 2/3 shipped (gate-verified). Stopped by: stop.',
     );
   });
+
+  it('names the requested count when the lane was demoted, so the firings it never flew show', () => {
+    expect(formatFlightDoneLine({ firings: 2, stoppedBy: 'demoted' }, 5, 0, 2)).toBe(
+      'Done — 2 firing(s) (requested 5), 0/2 shipped (gate-verified). Stopped by: demoted.',
+    );
+  });
 });
