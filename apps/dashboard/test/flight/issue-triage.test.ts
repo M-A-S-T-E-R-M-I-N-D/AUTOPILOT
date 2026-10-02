@@ -24,7 +24,10 @@ import {
   executeIssueTriageCommands,
   runIssueTriageRitual,
   MAX_ISSUE_LIST,
+  type IssueTriageCommand,
 } from '../../src/flight/issue-triage.js';
+import { planContributorDossierCommands } from '../../src/flight/contributor-dossier.js';
+import { issueTriageCommentLinks } from '../../src/web/issue-triage-panel.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function project(s: Store, id: string): void {
@@ -1392,5 +1395,73 @@ describe('supersededFamilyLabels', () => {
     expect(
       supersededFamilyLabels(['pool: accessibility'], ['area: i18n', 'priority: high']),
     ).toEqual([]);
+  });
+});
+
+/**
+ * THE PANEL LINKS EVERY COMMENT THE RITUAL POSTS (epic 0020 "the legible
+ * surface", board web-mtt8loci-8hnte4). `gh issue comment` prints the new
+ * comment's URL and the KEEPER panel's `issueTriageCommentLinks` turns it
+ * into a link — but it can only tell a comment call by its `details` phrase,
+ * "as a comment on #N", because `gh issue edit` prints a URL too (the
+ * issue's own). Only the accept/duplicate reasoning comment said it: the
+ * protocol gate's one reply and the contributor dossier were posted with no
+ * link to either.
+ */
+describe('every comment the triage ritual posts is one the KEEPER panel links', () => {
+  const issueUrl = (ref: string | undefined): string =>
+    `https://github.com/example/repo/issues/${ref ?? ''}`;
+  // gh's own stdout on success: `issue comment` prints the comment's URL,
+  // `issue edit` the issue's.
+  const post: CliExec = async (_bin, args) => ({
+    code: 0,
+    stdout:
+      args[1] === 'comment' ? `${issueUrl(args[2])}#issuecomment-1\n` : `${issueUrl(args[2])}\n`,
+  });
+
+  const plannedBy = (
+    issue: { number: number; title: string; body: string },
+    boardTasks: { id: string; title: string }[] = [],
+  ): readonly IssueTriageCommand[] =>
+    planIssueTriageCommands(issue, planIssueTriage(issue, boardTasks, []));
+
+  it.each([
+    [
+      'accept',
+      plannedBy({
+        number: 9,
+        title: 'Keyboard nav is broken in the fleet table',
+        body: TEMPLATED_BODY,
+      }),
+      9,
+    ],
+    [
+      'duplicate',
+      plannedBy(
+        { number: 10, title: 'Keyboard nav is broken in the fleet table', body: TEMPLATED_BODY },
+        [{ id: 'web-abc', title: 'Keyboard nav is broken in the fleet table' }],
+      ),
+      10,
+    ],
+    [
+      'needs-format',
+      plannedBy({ number: 11, title: 'Keyboard nav is broken', body: 'It just does not work.' }),
+      11,
+    ],
+  ])('a %s decision’s comment gets its link, its label edit none', async (_kind, commands, n) => {
+    const results = await executeIssueTriageCommands(commands, post);
+    expect(issueTriageCommentLinks(results)).toEqual([
+      { issueNumber: n, url: `${issueUrl(String(n))}#issuecomment-1` },
+    ]);
+  });
+
+  it('a contributor dossier’s comment gets its link, its marker edit none', async () => {
+    // The facts lookup is best-effort; a failing gh still yields a dossier.
+    const lookup: CliExec = async () => ({ code: 1, stdout: '' });
+    const commands = await planContributorDossierCommands(12, 'octocat', lookup, 100);
+    const results = await executeIssueTriageCommands(commands, post);
+    expect(issueTriageCommentLinks(results)).toEqual([
+      { issueNumber: 12, url: `${issueUrl('12')}#issuecomment-1` },
+    ]);
   });
 });

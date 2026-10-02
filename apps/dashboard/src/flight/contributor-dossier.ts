@@ -260,7 +260,8 @@ export async function planContributorDossierCommands(
     {
       command: 'gh',
       args: ['issue', 'comment', issueRef, '--body', dossier],
-      details: `posting KEEPER's contributor evidence dossier on #${issueNumber}`,
+      // "as a comment on #N": the phrase the KEEPER panel's comment link reads.
+      details: `posting KEEPER's contributor evidence dossier as a comment on #${issueNumber}`,
     },
   ];
 }
