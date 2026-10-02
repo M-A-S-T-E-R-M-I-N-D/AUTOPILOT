@@ -1759,6 +1759,13 @@ describe('touchesSecuritySensitivePath', () => {
     expect(touchesSecuritySensitivePath(['packages/engine/src/adapters/npm-shim.ts'])).toBe(true);
   });
 
+  it('flags the engine choice that decides which agent CLI a lane flies on, even without a security-keyword path', () => {
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/firing-engine.ts'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['apps/dashboard/test/flight/firing-engine.test.ts'])).toBe(
+      false,
+    );
+  });
+
   it('keeps pace with new engine/src/adapters files automatically: every adapter is either flagged or explicitly allow-listed as benign, so a future adapter can never silently slip past this ritual the way fs-control.ts and instance-lock.ts just did', () => {
     const adapterFiles = readdirSync(ENGINE_ADAPTERS_DIR).filter((name) => name.endsWith('.ts'));
     expect(adapterFiles.length).toBeGreaterThan(0);

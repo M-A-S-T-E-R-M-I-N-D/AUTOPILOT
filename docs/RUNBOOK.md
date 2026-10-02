@@ -282,6 +282,24 @@ prompt is built. No 🧭 line means the firing ran on the flight-wide default. M
 fallback (quota exhaustion → fallback model) keys off the per-firing primary, so routed firings
 degrade exactly like default ones.
 
+### Flying a lane on the Codex CLI (epic 0036)
+
+Every lane flies the Claude Code CLI unless its flight is launched with two more env levers:
+
+- `AUTOPILOT_ENGINE=codex` — fly this flight's firings on the OpenAI Codex CLI (`codex` on PATH,
+  already logged in). Unset or `claude` changes nothing.
+- `AUTOPILOT_ENGINE_MODEL` — the model Codex runs, for example `gpt-5-codex`. Required: the other
+  model levers above name Claude models, which Codex cannot run, and they keep driving the flight's
+  Claude calls (commit review, the merge-escalation agent).
+
+The flight log then prints `Engine: Codex CLI on <model> (AUTOPILOT_ENGINE)` right after the
+containment-guard line. On such a lane, model routing is off (no 🧭 lines), the containment guard
+runs as Codex's PreToolUse hook on every shell call and file patch, and no cost is recorded, since
+Codex reports no price, so a total-budget cap never trips on it. Two gate-reverted firings in a row
+end the flight with `Stopped by: demoted`. An unknown engine, a missing model or a Claude model
+refuses the flight with a `⛔` line naming the fix. Spec and status:
+[`docs/epics/0036-provider-parity.md`](epics/0036-provider-parity.md).
+
 ### Substep routing & local offload (the M6 cost lever)
 
 Separate from the per-firing PRIMARY model above, individual tool-less SUBSTEPS route through
