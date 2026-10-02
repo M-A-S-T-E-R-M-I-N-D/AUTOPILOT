@@ -1242,6 +1242,77 @@ describe('brokenDocLinks', () => {
       cleanupDir(dir);
     }
   });
+
+  /** A file the onboarding walk listed — `project_index` holds every one,
+   *  binaries and oversized files included, while `project_search` (the
+   *  full-text index) skips both. */
+  function listedFile(s: Store, projectId: string, path: string): void {
+    s.db
+      .prepare(
+        `INSERT INTO project_index (project_id, path, content_hash, size, language, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(projectId, path, 'b'.repeat(64), 1024, 'other', 1);
+  }
+
+  it('omits a link to an existing image — a binary the full-text index never holds', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-links-'));
+    const dbPath = join(dir, 'a.db');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      project('p1', 'p1', 'registered', null, s);
+      listedFile(s, 'p1', 'docs/screens/fleet-dark.png');
+      s.close();
+
+      // README.md's own screenshots: the reader renders each as a doc link,
+      // so every one was painted "(broken link)" on the most-read document.
+      const content =
+        '![The fleet home](docs/screens/fleet-dark.png) [gone](docs/screens/gone.png)';
+      expect(brokenDocLinks(dbPath, 'p1', 'README.md', content)).toEqual(['docs/screens/gone.png']);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('omits a link to a directory the index lists files under, with or without a trailing slash', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-links-'));
+    const dbPath = join(dir, 'a.db');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      project('p1', 'p1', 'registered', null, s);
+      listedFile(s, 'p1', 'docs/archive/old.md');
+      s.close();
+
+      const content = '[archive](archive) [archive/](archive/) [nested](../docs/archive)';
+      expect(brokenDocLinks(dbPath, 'p1', 'docs/README.md', content)).toEqual([]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('still reports a directory link whose name is only a prefix of an indexed path', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-links-'));
+    const dbPath = join(dir, 'a.db');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      project('p1', 'p1', 'registered', null, s);
+      listedFile(s, 'p1', 'docs/archive-old.md');
+      listedFile(s, 'p1', 'docs/archived/note.md');
+      // Another project's files never vouch for this one's links.
+      project('p2', 'p2', 'registered', null, s);
+      listedFile(s, 'p2', 'docs/archive/old.md');
+      s.close();
+
+      expect(brokenDocLinks(dbPath, 'p1', 'docs/README.md', '[archive](archive/)')).toEqual([
+        'docs/archive/',
+      ]);
+    } finally {
+      cleanupDir(dir);
+    }
+  });
 });
 
 describe('docLinksHere', () => {
