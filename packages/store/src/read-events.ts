@@ -564,7 +564,7 @@ export function evaluationLabelDayCounts(db: Db, projectId: string): EvaluationL
 }
 
 /**
- * The four `gateResult: 'unverifiable'` cause buckets (verdict-quality, board
+ * The five `gateResult: 'unverifiable'` cause buckets (verdict-quality, board
  * web-mtq6zn6x-3khfkb: "~47.9% of the 96-attempt public sample gate results
  * were UNVERIFIABLE — classify each by cause"):
  *
@@ -575,7 +575,9 @@ export function evaluationLabelDayCounts(db: Db, projectId: string): EvaluationL
  * - `timeout`: a gate command was killed by its own wall-clock budget before
  *   finishing (`adapters/gate.ts`'s `crashReason: 'timeout'`).
  * - `crash`: a gate command crashed for a reason OTHER than a timeout (spawn
- *   failure, OOM, tool error).
+ *   failure, OOM, tool error), or the gate port itself threw before it could
+ *   return any checks (a RemediatingGate git failure, a semaphore error —
+ *   `firing.ts` records that as `crashed: true` with the thrown message).
  * - `revert-failed`: the gate ran and failed, but the additive revert of the
  *   agent's commit itself failed too — the commit is neither certified nor
  *   undone.
@@ -598,26 +600,35 @@ export interface UnverifiableCauseBreakdown {
   readonly byCause: Readonly<Record<UnverifiableCause, number>>;
 }
 
+/** The opening of `firing.ts`'s dirty-tree-after-commit refusal, unchanged
+ *  since genesis — the one `gateError` that means the gate never ran. */
+const DIRTY_TREE_REFUSAL = /^refused: uncommitted/;
+
 /**
  * Classify one `'firing'` event's parsed payload into an {@link
  * UnverifiableCause} — exported standalone so a caller with the record
- * already in hand (no second DB round-trip) can classify it too. `gateChecks`
- * empty means the gate itself never ran (the dirty-tree-after-commit refusal
- * in `firing.ts` short-circuits before `deps.gate.run()`), which is checked
- * BEFORE the error-text patterns below since that branch's own `gateError`
- * message also happens to be static (never mentions timeout/crash/revert).
+ * already in hand (no second DB round-trip) can classify it too.
+ *
+ * Empty `gateChecks` has two sources in `firing.ts`: the dirty-tree refusal,
+ * which short-circuits before `deps.gate.run()`, and a gate port that THREW,
+ * which leaves no checks and the thrown message as `gateError`. Only the
+ * refusal (or a row with no reason at all) is `no-checks`. A thrown port goes
+ * through the same error-text patterns as any other row, and lands on `crash`
+ * when none of them match: it ran and crashed, so `unparsable` would hide it.
  */
 export function classifyUnverifiableCause(record: {
   readonly gateChecks?: unknown;
   readonly gateError?: unknown;
 }): UnverifiableCause {
   const checks = Array.isArray(record.gateChecks) ? record.gateChecks : [];
-  if (checks.length === 0) return 'no-checks';
   const error = typeof record.gateError === 'string' ? record.gateError : null;
+  if (checks.length === 0 && (error === null || DIRTY_TREE_REFUSAL.test(error))) {
+    return 'no-checks';
+  }
   if (error === null) return 'unparsable';
   if (/timeout|timed out/i.test(error)) return 'timeout';
   if (/revert failed/i.test(error)) return 'revert-failed';
-  if (/crash/i.test(error)) return 'crash';
+  if (/crash/i.test(error) || checks.length === 0) return 'crash';
   return 'unparsable';
 }
 
@@ -642,13 +653,14 @@ export function unverifiableCauseBreakdown(db: Db, projectId: string): Unverifia
   let total = 0;
   for (const row of rows) {
     if (row.payload === null) continue;
-    let parsed: { gateResult?: unknown; gateChecks?: unknown; gateError?: unknown };
+    let parsed: { gateResult?: unknown; gateChecks?: unknown; gateError?: unknown } | null;
     try {
       parsed = JSON.parse(row.payload);
     } catch {
       continue; // skip a malformed firing payload, same convention as evaluationLabelSummary
     }
-    if (parsed.gateResult !== 'unverifiable') continue;
+    // A `'null'` payload parses cleanly to null; reading a field off it would throw.
+    if (parsed === null || parsed.gateResult !== 'unverifiable') continue;
     total += 1;
     byCause[classifyUnverifiableCause(parsed)] += 1;
   }

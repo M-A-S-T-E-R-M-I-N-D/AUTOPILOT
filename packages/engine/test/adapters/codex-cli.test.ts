@@ -4,15 +4,24 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFile, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { appendFileSync, existsSync, mkdtempSync } from 'node:fs';
+import type * as NodeFs from 'node:fs';
+import { dirname } from 'node:path';
 import {
   parseCodexExecOutput,
   CodexCliModel,
   codexActivityReader,
   codexGuardArgs,
+  codexGuardDenialsFromLog,
   codexWebSearchesFromEvent,
   isCodexResumeFailure,
 } from '../../src/adapters/codex-cli.js';
-import { evaluateHookInput, guardHookCommand, GUARD_TIMEOUT_S } from '../../src/guard.js';
+import {
+  buildDenyDecision,
+  evaluateHookInput,
+  guardHookCommand,
+  GUARD_TIMEOUT_S,
+} from '../../src/guard.js';
 import { geminiToClaudeHookPayloads } from '../../src/gemini-guard.js';
 import {
   capDeathNote,
@@ -34,6 +43,13 @@ vi.mock('node:child_process', () => ({ execFile: vi.fn(), spawn: vi.fn() }));
 // installed here would change which Windows launch every test sees.
 vi.mock('../../src/adapters/npm-shim.js', () => ({ resolveNpmShim: vi.fn() }));
 const resolveNpmShimMock = vi.mocked(resolveNpmShim);
+// The real mkdtempSync, watched, so a test sees every deny-log directory a run
+// made, including one a refused run never hands to a spawn.
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof NodeFs>();
+  return { ...actual, mkdtempSync: vi.fn(actual.mkdtempSync) };
+});
+const mkdtempSyncMock = vi.mocked(mkdtempSync);
 
 // execFile is heavily overloaded (options shape picks the callback signature);
 // fighting that overload set from a test double buys nothing, so the mock is
@@ -62,6 +78,26 @@ const TURN_STARTED = { type: 'turn.started' };
 
 /** The guard command a flight hands the adapter, built as Claude's and Gemini's are. */
 const GUARD_COMMAND = guardHookCommand('/work/sbx', '/opt/autopilot/engine/dist/guard-hook.js');
+
+/** The deny log a guarded spawn names as its guard command's last argument. */
+function denialLogOf(args: readonly string[]): string {
+  const override = args[args.indexOf('-c') + 1] ?? '';
+  const log = /\\"([^"\\]+)\\"",timeout=/.exec(override)?.[1];
+  if (log === undefined) throw new Error(`no deny log in ${override}`);
+  return log;
+}
+
+/** The deny guard-hook.js prints, and logs, for a Codex shell call. */
+function codexShellDeny(command: string): string {
+  const payload = JSON.stringify({
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    tool_input: { command },
+  });
+  const decision = evaluateHookInput(payload, '/work/sbx');
+  if (decision === null) throw new Error(`the guard allows ${command}`);
+  return decision;
+}
 
 function agentMessage(id: string, text: string): unknown {
   return { type: 'item.completed', item: { id, type: 'agent_message', text } };
@@ -639,6 +675,35 @@ describe('codexGuardArgs — the containment guard as a session-layer PreToolUse
   });
 });
 
+describe('codexGuardDenialsFromLog — the calls the guard hook denied, read off its deny log', () => {
+  it('reads each logged deny as the structured denial a Claude stream yields, in log order', () => {
+    const log = `${codexShellDeny('cat /etc/passwd')}\n${codexShellDeny('git push --force origin main')}\n`;
+
+    const denials = codexGuardDenialsFromLog(log);
+
+    expect(denials).toHaveLength(2);
+    expect(denials[0]).toEqual({
+      kind: 'containment',
+      target: expect.stringContaining('/etc/passwd') as string,
+    });
+    expect(denials[1]?.kind).toBe('containment');
+    expect(denials[1]?.target).not.toContain('/etc/passwd');
+  });
+
+  it('skips a line torn by a kill, a reason no guard wrote, and a decision with no reason', () => {
+    const log = [
+      buildDenyDecision('blocked by policy'),
+      JSON.stringify({ hookSpecificOutput: { permissionDecision: 'deny' } }),
+      codexShellDeny('cat /etc/passwd').slice(0, 40),
+      'not json',
+      '',
+    ].join('\n');
+
+    expect(codexGuardDenialsFromLog(log)).toEqual([]);
+    expect(codexGuardDenialsFromLog('')).toEqual([]);
+  });
+});
+
 describe('CodexCliModel', () => {
   let stdinEnd: ReturnType<typeof vi.fn>;
 
@@ -651,6 +716,7 @@ describe('CodexCliModel', () => {
     spawnMock.mockReturnValue({ on: vi.fn() } as never);
     resolveNpmShimMock.mockReset();
     resolveNpmShimMock.mockReturnValue(null);
+    mkdtempSyncMock.mockClear();
     stdinEnd = vi.fn();
   });
 
@@ -841,8 +907,141 @@ describe('CodexCliModel', () => {
     const args = spawnedArgs();
     const at = args.indexOf('-c');
     expect(at).toBeGreaterThan(args.indexOf('exec'));
-    expect(args.slice(at, at + 3)).toEqual(codexGuardArgs(GUARD_COMMAND));
+    expect(args.slice(at, at + 3)).toEqual(
+      codexGuardArgs(`${GUARD_COMMAND} "${denialLogOf(args)}"`),
+    );
     expect(args.slice(-3)).toEqual(['resume', THREAD.thread_id, 'continue']);
+  });
+
+  describe('guard denials — read back from the deny log the hook writes, since `exec --json` never shows a blocked call (GeminiCliModel parity)', () => {
+    /** A guarded run whose hook denied each of `commands` before the CLI exited. */
+    function mockGuardedRun(commands: readonly string[], stdout = ''): string[] {
+      const logs: string[] = [];
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        const cb = args[args.length - 1] as ExecFileCallback;
+        const log = denialLogOf(args[1] as string[]);
+        logs.push(log);
+        for (const command of commands) appendFileSync(log, `${codexShellDeny(command)}\n`);
+        queueMicrotask(() => cb(null, stdout, ''));
+        return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
+      });
+      return logs;
+    }
+
+    it('names a fresh deny log as the guard command’s last argument, and reports each call the hook denied there', async () => {
+      mockGuardedRun(['cat /etc/passwd', 'git push --force origin main']);
+
+      const res = await new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        guardHookCommand: GUARD_COMMAND,
+      }).invoke('gpt-5-codex', 'do it');
+
+      expect(denialLogOf(spawnedArgs())).toMatch(/autopilot-codex-guard-[^/]+\/denials\.jsonl$/);
+      expect(res.guardDenials).toBe(2);
+      expect(res.guardDenialDetails).toEqual(
+        codexGuardDenialsFromLog(
+          `${codexShellDeny('cat /etc/passwd')}\n${codexShellDeny('git push --force origin main')}\n`,
+        ),
+      );
+    });
+
+    it('reports them on a run that left no envelope too: the guard said no either way', async () => {
+      mockGuardedRun(['cat /etc/passwd'], jsonl(THREAD, TURN_STARTED));
+
+      const res = await new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        guardHookCommand: GUARD_COMMAND,
+      }).invoke('gpt-5-codex', 'do it');
+
+      expect(res.envelope).toBeNull();
+      expect(res.guardDenials).toBe(1);
+    });
+
+    it('reports 0 and [] for a guarded run the hook denied nothing in', async () => {
+      mockGuardedRun([]);
+
+      const res = await new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        guardHookCommand: GUARD_COMMAND,
+      }).invoke('gpt-5-codex', 'do it');
+
+      expect(res.guardDenials).toBe(0);
+      expect(res.guardDenialDetails).toEqual([]);
+    });
+
+    it('removes the deny log once the run settles', async () => {
+      const logs = mockGuardedRun(['cat /etc/passwd']);
+
+      await new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        guardHookCommand: GUARD_COMMAND,
+      }).invoke('gpt-5-codex', 'do it');
+
+      expect(logs).toHaveLength(1);
+      expect(existsSync(dirname(logs[0] ?? ''))).toBe(false);
+    });
+
+    it('gives each attempt its own log: a cold retry after a stale resume reports only its own denials', async () => {
+      const logs: string[] = [];
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        const cb = args[args.length - 1] as ExecFileCallback;
+        const log = denialLogOf(args[1] as string[]);
+        logs.push(log);
+        const retry = logs.length > 1;
+        if (retry) appendFileSync(log, `${codexShellDeny('cat /etc/passwd')}\n`);
+        queueMicrotask(() =>
+          retry
+            ? cb(null, '', '')
+            : cb(Object.assign(new Error('exit 1'), { code: 1 }), '', 'no such thread'),
+        );
+        return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
+      });
+
+      const res = await new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        guardHookCommand: GUARD_COMMAND,
+      }).invoke('gpt-5-codex', 'continue', THREAD.thread_id);
+
+      expect(logs).toHaveLength(2);
+      expect(logs[0]).not.toBe(logs[1]);
+      expect(res.resumed).toBe(false);
+      expect(res.guardDenials).toBe(1);
+    });
+
+    it('still flies the guard when no deny log can be made, and then claims no denial count', async () => {
+      mockExecFileResult(null, '');
+      mkdtempSyncMock.mockImplementationOnce(() => {
+        throw Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+      });
+
+      const res = await new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        guardHookCommand: GUARD_COMMAND,
+      }).invoke('gpt-5-codex', 'do it');
+
+      const args = spawnedArgs();
+      const at = args.indexOf('-c');
+      expect(args.slice(at, at + 3)).toEqual(codexGuardArgs(GUARD_COMMAND));
+      expect(res).not.toHaveProperty('guardDenials');
+    });
+
+    it('claims no denial count for a run with no guard, since no hook judged it', async () => {
+      mockExecFileResult(null, '');
+
+      const res = await new CodexCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
+        'gpt-5-codex',
+        'do it',
+      );
+
+      expect(res).not.toHaveProperty('guardDenials');
+      expect(res).not.toHaveProperty('guardDenialDetails');
+    });
   });
 
   it('runs no hook and bypasses no hook trust without a guard, or with an empty one', async () => {
@@ -931,7 +1130,9 @@ describe('CodexCliModel', () => {
       const [binary, args] = execFileMock.mock.calls[0] as [string, string[]];
       expect(binary).toBe(NODE_LAUNCH.bin);
       const at = args.indexOf('-c');
-      expect(args.slice(at, at + 3)).toEqual(codexGuardArgs(GUARD_COMMAND));
+      expect(args.slice(at, at + 3)).toEqual(
+        codexGuardArgs(`${GUARD_COMMAND} "${denialLogOf(args)}"`),
+      );
     });
 
     it('runs node attached, as the cmd.exe route does: a detached node has no console, so Windows would open one for the native codex the entry spawns', async () => {
@@ -1054,6 +1255,10 @@ describe('CodexCliModel', () => {
       expect(res.exitCode).toBe(1);
       expect(res.envelope).toBeNull();
       expect(res.stdout).toContain('guard hook');
+      // Each refused attempt removes the deny log it made.
+      const made = mkdtempSyncMock.mock.results.map((made) => made.value as string);
+      expect(made).toHaveLength(2);
+      for (const dir of made) expect(existsSync(dir)).toBe(false);
     });
 
     it('keeps model names with the characters real ones use (dots, colons, slashes) on the cmd.exe route', async () => {

@@ -114,6 +114,12 @@ export function isPoolIssue(labels: readonly string[]): boolean {
   return poolDimension(labels) !== undefined;
 }
 
+/** The house taxonomy's `declined` (taxonomy-seed.ts): the maintainer has
+ *  answered the issue no, the reason in a comment. It may stay open, pool
+ *  label and all, for the reporter to reply to (CONTRIBUTING.md), so the
+ *  pool still lists it; KEEPER triage skips it on the same label. */
+export const DECLINED_LABEL = 'declined';
+
 /** The issue's live claims — the ledger when the fetch carried comments,
  *  else the assignees as undated claims (the pre-ledger reading). */
 export function issueClaims(issue: PoolIssue): readonly PoolClaim[] {
@@ -273,7 +279,8 @@ function isoDay(ms: number | null): string {
 /**
  * Decides whether `issue` can be claimed for `claimant`: skip when it
  * carries no `pool: <dimension>` label ({@link isPoolIssue}) — it was never
- * accepted into the pool — or when it is already assigned ({@link
+ * accepted into the pool — when the maintainer has since declined it
+ * ({@link DECLINED_LABEL}), or when it is already assigned ({@link
  * isClaimedPoolIssue}), otherwise claim. Pure: reuses the same classifiers
  * `fetchPoolIssues` already filters by rather than re-deriving pool/claimed
  * status a second way.
@@ -287,6 +294,12 @@ export function planClaimPoolIssue(
     return {
       decision: 'skip',
       reasoning: `#${issue.number} carries no pool: label — it was never accepted into the pool`,
+    };
+  }
+  if (issue.labels.includes(DECLINED_LABEL)) {
+    return {
+      decision: 'skip',
+      reasoning: `#${issue.number} carries "${DECLINED_LABEL}" — the maintainer has answered it, so nobody should claim it`,
     };
   }
   const standings = claimStandings(issueClaims(issue), nowMs);

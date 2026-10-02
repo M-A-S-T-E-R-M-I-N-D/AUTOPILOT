@@ -192,6 +192,13 @@ const EPIC_LABEL = 'epic';
  *  answered the issue no, the reason in a comment. It may stay open for the
  *  reporter to reply to (CONTRIBUTING.md), so every pass still lists it. */
 const DECLINED_LABEL = 'declined';
+/** The house taxonomy's hold labels (taxonomy-seed.ts): the maintainer put
+ *  the issue on hold by hand — "waiting on an operator/maintainer decision
+ *  by design" or "cannot proceed — blocker named in a comment". Epic 0019
+ *  law 2 (docs/epics/0019-github-steward.md): what the maintainer marks
+ *  outranks triage, so neither label is ever scored, re-labeled, or
+ *  answered — the maintainer lifts it by hand when the hold is over. */
+const HOLD_LABELS = ['status: awaiting-human', 'status: blocked'] as const;
 
 /**
  * Is this issue the maintainer's own?
@@ -569,7 +576,9 @@ export function classifyIssueMilestone(text: string): MilestoneTitle {
  * IncomingIssue.assignees} non-empty) plans a `'skip'` — COLLAB PROTOCOL:
  * an issue a human has claimed must never be picked onto the board by a
  * firing, no matter how it would otherwise classify. Nor may one the
- * maintainer has declined ({@link DECLINED_LABEL}). An issue a previous
+ * maintainer has declined ({@link DECLINED_LABEL}) or put on hold by hand
+ * ({@link HOLD_LABELS} — epic 0019 law 2: a maintainer's mark outranks
+ * triage). An issue a previous
  * pass already handled — one carrying a `pool: *` or `duplicate` label, or
  * whose own {@link issueTaskId} task is already on the board (the labeling
  * half may have failed) — also plans a `'skip'`: without that, an accepted
@@ -627,6 +636,15 @@ export function planIssueTriage(
       reasoning:
         `#${issue.number} "${issue.title}" carries "${DECLINED_LABEL}" — the maintainer has ` +
         'answered it, so the fleet must not pick it onto the board.',
+    };
+  }
+  const holdLabel = HOLD_LABELS.find((label) => labels.includes(label));
+  if (holdLabel) {
+    return {
+      decision: 'skip',
+      reasoning:
+        `#${issue.number} "${issue.title}" carries "${holdLabel}" — the maintainer put it on ` +
+        'hold by hand, so the fleet must not score, re-label, or answer it until they lift it.',
     };
   }
 

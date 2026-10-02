@@ -92,11 +92,22 @@ export interface LoopDeps {
 export interface LoopOptions {
   /** Bound the loop (tests + safety). Omit to run until STOP. */
   readonly maxIterations?: number;
+  /**
+   * LANE DEMOTION (epic 0036's "quality gate that demotes a lane that fails
+   * twice"): end the flight, `stoppedBy: 'demoted'`, once the gate has
+   * reverted this many firings in a row, so a lane flown on an engine that
+   * keeps producing broken work stops taking new work instead of spending
+   * every firing it was given. Only a `'reverted'` gate counts: a gate crash
+   * (`'unverifiable'`) is no proof the work was bad, and a firing with no
+   * commit gave the gate nothing to judge, so either starts the count over.
+   * A positive integer; omitted, a lane is never demoted.
+   */
+  readonly demoteAfterGateFailures?: number;
 }
 
 export interface LoopSummary {
   readonly firings: number;
-  readonly stoppedBy: 'stop' | 'max-iterations';
+  readonly stoppedBy: 'stop' | 'max-iterations' | 'demoted';
 }
 
 const CONSEC_BAD_ALERT = 2;
@@ -141,9 +152,16 @@ export async function runLoop(
 ): Promise<LoopSummary> {
   const fire = deps.runFiring ?? runFiring;
   const max = options.maxIterations ?? Number.POSITIVE_INFINITY;
+  const demoteAfter = options.demoteAfterGateFailures;
+  if (demoteAfter !== undefined && !(Number.isInteger(demoteAfter) && demoteAfter >= 1)) {
+    throw new RangeError(
+      `demoteAfterGateFailures must be a positive integer, got ${String(demoteAfter)}`,
+    );
+  }
 
   let state = await deps.loadState();
   let consecBad = 0;
+  let consecReverted = 0;
   let iterations = 0;
   let quotaWaits = 0;
   // Flight-scoped, in-memory only (docs/epics/0009-warm-sessions.md): this
@@ -261,6 +279,18 @@ export async function runLoop(
     const waitedOut = outcome.globalExhaust && quotaWaits < MAX_QUOTA_WAITS;
     quotaWaits = outcome.globalExhaust ? quotaWaits + 1 : 0;
     if (!waitedOut) iterations++;
+
+    // After onFiringComplete above, so the demoting firing's claim is
+    // released like any other's before the lane stops. A quota-killed firing
+    // waited out above still counts here when the gate reverted its commit:
+    // it is not one of the flight's firings, but its work was bad all the same.
+    consecReverted = outcome.gateResult === 'reverted' ? consecReverted + 1 : 0;
+    if (demoteAfter !== undefined && consecReverted >= demoteAfter) {
+      deps.log(
+        `DEMOTED: the gate reverted ${consecReverted} firing${consecReverted === 1 ? '' : 's'} in a row — this lane takes no more work`,
+      );
+      return { firings: iterations, stoppedBy: 'demoted' };
+    }
 
     if (await deps.stopRequested()) return { firings: iterations, stoppedBy: 'stop' };
 

@@ -352,6 +352,40 @@ describe('planIssueTriage', () => {
     expect(decision.decision).toBe('skip');
   });
 
+  it('holds an issue the maintainer marked "status: awaiting-human", never triaging it', () => {
+    const decision = planIssueTriage(
+      {
+        number: 70,
+        title: 'Keyboard nav is broken in the fleet table',
+        body: TEMPLATED_BODY,
+        labels: ['status: awaiting-human'],
+      },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain('#70');
+    expect(decision.reasoning).toContain('status: awaiting-human');
+  });
+
+  it('holds an issue the maintainer marked "status: blocked", never triaging it', () => {
+    const decision = planIssueTriage(
+      {
+        number: 71,
+        title: 'Keyboard nav is broken in the fleet table',
+        body: TEMPLATED_BODY,
+        labels: ['status: blocked'],
+      },
+      [],
+      [],
+    );
+
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain('#71');
+    expect(decision.reasoning).toContain('status: blocked');
+  });
+
   it('skips an issue whose own board task already exists instead of calling it a duplicate of itself', () => {
     // Regression: after a first pass accepts #9 (creating task github-9 with
     // the same title), a second pass used to score the still-open issue

@@ -1023,6 +1023,18 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    note): `fetchPoolIssues` now asks `gh issue list` for up to
    `MAX_ISSUE_LIST` rows; with gh's default 30 newest, the oldest pool issues
    were never shown, claimable, or checked by the stale-claim preview.
+   Refined 2026-10-02 (board web-mtsylqbd-q2rg8k, epic 0019's additive-only
+   law, the twin of slice 3's `declined` skip): an issue keeps its
+   `pool: <dimension>` label after the maintainer declines it, and stays open
+   for the reporter to reply to, so the pool kept listing it as claimable and
+   a claim posted a comment and an assignee on an issue already answered no.
+   `planClaimPoolIssue` now plans a skip for an issue carrying `declined`
+   (`DECLINED_LABEL`), right after the pool-label check and before any claim
+   is weighed, so no `gh` write is spent and no board task is queued. The
+   browse row still shows it, with the reason in its tip. Covered by
+   `test/flight/taxonomy-seed.test.ts` (the label is the one the seeder
+   stamps; a declined pool issue skips; the composed claim runs only its two
+   reads).
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable

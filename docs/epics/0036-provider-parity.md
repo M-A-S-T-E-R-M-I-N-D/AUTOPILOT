@@ -95,9 +95,10 @@ the way `StreamingClaudeCliModel`'s does, so the firing's guard-denial events an
 BeforeTool deny into an error whose `message` is the hook's own reason, and `nonInteractiveCli.ts`
 emits that call as a `tool_result` with `status: 'error'` and `error.message`. That reason is the
 Claude guard's deny text, so `stream.ts`'s `guardDenialFromText` reads both wires. Only the error
-is trusted: a tool that succeeded can print the same words in `output`. A Codex run can carry the
-guard hook since 2026-10-02 (finding 3, below), but it reports no denials yet: how a hook-denied
-call looks on the `exec --json` stream has not been read. Since 2026-10-02 a Gemini run also feeds THREAT-MODEL T6's web-search audit:
+is trusted: a tool that succeeded can print the same words in `output`. A Codex run has carried the
+guard hook since 2026-10-02 (finding 3, below), and since the same day it reports the calls that
+hook denied too, read off a deny log rather than the wire, since `exec --json` never shows a
+blocked call (finding 3). Since 2026-10-02 a Gemini run also feeds THREAT-MODEL T6's web-search audit:
 given `onWebSearch`, `GeminiCliModel` reads each stdout line as it lands and reports every
 `google_web_search` `tool_use` (`nonInteractiveCli.ts` emits it before the tool runs) through
 `geminiWebSearchFromEvent` as the `WebSearchAudit` `StreamingClaudeCliModel` hands the flight's
@@ -272,10 +273,19 @@ Update hunk from the line trimmed at its end only, so an indented header there s
 line, and `*** Move to: ` read only there. `codexPatchToClaudeHookPayloads` resolves each path
 against the payload's `cwd`, the turn cwd the handler resolves it against, so a `../` escape is
 judged where it lands, and `guard-hook.js` judges each as a Claude `Write` (Add, Move to) or `Edit`
-(Update, Delete). Still open: `exec_command`'s `workdir` never reaches the hook, so a command is
-judged without it; nothing wires the guard into a lane yet, since no lane routes to Codex; and how a
-hook-denied call looks on the `exec --json` stream has not been read, so a Codex lane still reports
-no guard denials.
+(Update, Delete). A hook-denied call, read on 2026-10-02, leaves no trace on the `exec --json`
+stream. `core/src/tools/registry.rs` returns the block to the model before the handler runs, so no
+`command_execution` or `file_change` item ever starts, and `exec/src/event_processor_with_jsonl_output.rs`
+drops `HookStarted` and `HookCompleted`. A sync hook's own `systemMessage` rides only on the dropped
+`HookCompleted` (`hooks/src/events/pre_tool_use.rs`), and a command hook takes no `env` of its own
+(`config/src/hook_config.rs`), while one set on the CLI would reach the agent's shell too.
+So the denials come back through argv: `CodexCliModel` makes a deny log for each attempt under the
+OS temp directory, outside the target, and appends its path to the guard command as a third
+argument. `guard-hook.js` appends every deny it prints there, one decision per line, and after the
+run settles `codexGuardDenialsFromLog` reads it into `guardDenials`/`guardDenialDetails`, by
+`guardDenialFromText` as Gemini's are, and the log is removed. Still open: `exec_command`'s `workdir`
+never reaches the hook, so a command is judged without it; and nothing wires the guard into a lane
+yet, since no lane routes to Codex.
 
 **4. Google Gemini CLI** — headless mode triggers on a non-TTY or `-p`/`--prompt`; `--output-format
 json` returns one JSON object with response + usage statistics, or JSONL for a stream
@@ -340,7 +350,8 @@ only for the dashboard's single-turn triage substep (`apps/dashboard/src/fly.ts`
 names why: no tool use, no agent loop). Promoting it to a real mechanical-work lane (docs,
 formatting, test scaffolds) is a scheduling/routing change in the loop, not a `ModelPort` change —
 `OllamaModel` itself needs no new capability, but the lane needs the "demotes a lane that fails
-twice" quality gate the roadmap names, which doesn't exist yet for any lane.
+twice" quality gate the roadmap names. Since 2026-10-02 the loop has it as an option no lane passes
+yet (`demoteAfterGateFailures`, see the acceptance criteria below).
 
 **7. A parity matrix in the docs** — the table below. Kept here rather than in a separate file per
 the epic-spec convention (`docs/epics/README.md`): one committed spec per epic, not a spec plus a
@@ -352,7 +363,7 @@ disconnected reference doc that can drift out of sync with it.
 | Ollama (`OllamaModel`) | No | No — single-turn only | Real `$0` (local compute) | **Shipped**, triage-only lane |
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`) |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`) |
-| OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it; since 2026-10-02 it runs the containment guard as its `PreToolUse` hook on every shell call and `apply_patch` (`codexGuardArgs`, `codex-guard.ts`, finding 3), but hook denials are not read back |
+| OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it; since 2026-10-02 it runs the containment guard as its `PreToolUse` hook on every shell call and `apply_patch` (`codexGuardArgs`, `codex-guard.ts`, finding 3), and reports the calls it denied from a per-run deny log (`codexGuardDenialsFromLog`) |
 | Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed); a stale id retries cold | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); not yet wired into routing/config, so no lane flies on it |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | `--output-format=json` exists but its wire schema is undocumented and unverifiable (closed-source binary) | **Blocked** — needs a real captured output sample before an adapter can be fixture-tested |
 
@@ -370,7 +381,15 @@ disconnected reference doc that can drift out of sync with it.
   to this repo.
 - A lane flown on a non-Claude engine is demoted (stops being offered new work) after two consecutive
   gate-failing firings — the "quality gate that demotes a lane that fails twice" the roadmap names,
-  needed before Ollama's promotion and reusable for any CLI adapter's lane.
+  needed before Ollama's promotion and reusable for any CLI adapter's lane. **Mechanism shipped
+  2026-10-02, not yet switched on:** `runLoop`'s `demoteAfterGateFailures` option
+  (`packages/engine/src/loop.ts`) ends the flight `stoppedBy: 'demoted'`, after the demoting
+  firing's claim is released, once the gate has reverted that many firings in a row. Only a
+  `'reverted'` gate counts. A gate crash (`'unverifiable'`) is no proof the work was bad, and a
+  firing with no commit gave the gate nothing to judge, so either starts the count over. The
+  flight log says `DEMOTED: …`, and the done line names the requested count it fell short of.
+  The option is off by default, and no lane flies a non-Claude engine yet. The routing slice that
+  first does should pass `demoteAfterGateFailures: 2` for such a lane.
 - The parity matrix table above is kept current as each row's Status changes — updated in the SAME
   commit that ships the adapter, not a follow-up.
 

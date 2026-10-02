@@ -20,6 +20,7 @@ import {
   LOCALE_NAMES,
   LOCALE_LABELS,
 } from '@autopilot/tokens';
+import { iconSvg } from './icons.js';
 
 /** The theme switcher nav's per-theme `<button>` markup, one per known theme.
  *  Each button explains itself on hover+focus (interactivity audit
@@ -277,7 +278,9 @@ export function subjectNavHtml(project?: string): string {
   // place — and its exit pill sits outside the nav so it survives the nav
   // leaving the page. Never persisted: a reload is always the way home.
   const focusToggle =
-    '    <button type="button" class="subject-link subject-focus" id="focus-toggle" aria-pressed="false" data-tip="Hide the chrome, keep the work (Esc to exit)" data-i18n-tip="focusModeTip"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg><span data-i18n="focusMode">Focus</span></button>\n';
+    '    <button type="button" class="subject-link subject-focus" id="focus-toggle" aria-pressed="false" data-tip="Hide the chrome, keep the work (Esc to exit)" data-i18n-tip="focusModeTip">' +
+    iconSvg('maximize') +
+    '<span data-i18n="focusMode">Focus</span></button>\n';
   return (
     '  <nav class="subject-nav" id="subject-nav" aria-label="Sections" data-i18n-aria="subjectNav">\n' +
     links.join('') +
