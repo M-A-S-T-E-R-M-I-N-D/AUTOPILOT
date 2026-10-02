@@ -68,6 +68,33 @@ describe('RetryLoadedGate', () => {
     expect(await new RetryLoadedGate({ inner: twice, retries: 2 }).run()).toBe(GREEN);
   });
 
+  it('waits out the load before each retry — told, then paused, then run (2026-10-02)', async () => {
+    // Round 55, fleet-4: both runs of one firing's gate crashed from load
+    // because the retry started the instant the first run died, inside the
+    // same burst of sibling gates.
+    const order: string[] = [];
+    const onRetry = vi.fn((attempt: number) => order.push(`told ${attempt}`));
+    const pause = vi.fn(async (attempt: number) => {
+      order.push(`paused ${attempt}`);
+    });
+    const inner = {
+      run: vi.fn(async () => {
+        order.push('ran');
+        return order.filter((s) => s === 'ran').length < 3 ? LOADED : GREEN;
+      }),
+    };
+    expect(await new RetryLoadedGate({ inner, retries: 2, onRetry, pause }).run()).toBe(GREEN);
+    expect(order).toEqual(['ran', 'told 1', 'paused 1', 'ran', 'told 2', 'paused 2', 'ran']);
+  });
+
+  it('never pauses when nothing crashed from load', async () => {
+    const pause = vi.fn(async () => {});
+    for (const result of [GREEN, RED, TIMED_OUT]) {
+      await new RetryLoadedGate({ inner: gateOf(result, GREEN), pause }).run();
+    }
+    expect(pause).not.toHaveBeenCalled();
+  });
+
   it('never retries a green, a red, or another kind of crash', async () => {
     for (const result of [GREEN, RED, TIMED_OUT]) {
       const inner = gateOf(result, GREEN);
