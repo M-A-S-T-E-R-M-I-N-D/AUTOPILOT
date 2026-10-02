@@ -81,6 +81,9 @@ const VENDORS: Readonly<Record<ModelVendorId, ModelVendor>> = {
  *  specific markers sit above the families that contain them. */
 interface VendorRule {
   readonly match: readonly string[];
+  /** For a name too short to match as a substring: OpenAI's `o3` names a
+   *  model on its own, but the same letters inside another id name nothing. */
+  readonly pattern?: RegExp;
   readonly vendor: ModelVendorId;
   readonly because: string;
 }
@@ -92,7 +95,9 @@ const RULES: readonly VendorRule[] = [
     because: 'the Claude family names (including the bare aliases the CLI resolves)',
   },
   {
-    match: ['gpt-', 'gpt4', 'o1-', 'o3-', 'o4-', 'codex'],
+    match: ['gpt-', 'gpt4', 'codex'],
+    // `o3`, `o4-mini`, `openai/o3`: the o-series only where it starts the name.
+    pattern: /(?:^|\/)o\d+(?:-|$)/,
     vendor: 'openai',
     because: 'the GPT/o-series/Codex naming',
   },
@@ -136,7 +141,7 @@ export function resolveModelVendor(model: string): VendorResolution {
   const bare = marker === undefined ? id : id.slice(marker.length);
 
   for (const rule of RULES) {
-    if (rule.match.some((needle) => bare.includes(needle))) {
+    if (rule.match.some((needle) => bare.includes(needle)) || rule.pattern?.test(bare) === true) {
       return {
         vendor: VENDORS[rule.vendor],
         confidence: 'named',
