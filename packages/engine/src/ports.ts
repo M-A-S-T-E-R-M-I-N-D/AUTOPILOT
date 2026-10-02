@@ -89,8 +89,9 @@ export interface ModelResponse {
    * `stream.ts`'s `guardDenialsFromEvent`. Only a streaming driver can see
    * this (it reads the per-event `tool_result` blocks the plain `-p
    * --output-format json` envelope never carries): absent for
-   * {@link ClaudeCliModel} and any non-streaming/non-Claude-CLI driver,
-   * `0` for a streaming attempt that saw none.
+   * {@link ClaudeCliModel} and any non-streaming driver, or one the guard
+   * does not hook (Codex), `0` for a streaming attempt that saw none.
+   * `GeminiCliModel` reads it off its own errored `tool_result` events.
    */
   readonly guardDenials?: number;
   /**

@@ -347,6 +347,104 @@ describe('parseGeminiStreamJsonOutput', () => {
   });
 });
 
+describe('parseGeminiStreamJsonOutput — guard denials (StreamingClaudeCliModel parity)', () => {
+  /** What a BeforeTool hook deny becomes on the wire: coreToolHookTriggers.ts
+   *  answers `Tool execution blocked: <reason>` with `error.message` the hook's
+   *  own reason, and nonInteractiveCli.ts emits it as an errored tool_result. */
+  function blocked(toolId: string, reason: string): Record<string, unknown> {
+    return {
+      type: 'tool_result',
+      tool_id: toolId,
+      status: 'error',
+      output: `Tool execution blocked: ${reason}`,
+      error: { type: 'execution_failed', message: reason },
+    };
+  }
+
+  const CONTAINMENT_DENY =
+    'CONTAINMENT: this flight is confined to /work/sbx — Read of a path outside the ' +
+    'target repo: /etc/passwd. Work only inside the target repository.';
+  const READ_HYGIENE_DENY =
+    'READ HYGIENE: generated/vendored output: dist/index.js. ' +
+    'Consult the repo source or official docs.';
+
+  it("counts each tool call the containment guard's BeforeTool hook denied, in wire order", () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(
+        INIT,
+        { type: 'tool_use', tool_name: 'read_file', tool_id: 't1', parameters: {} },
+        blocked('t1', CONTAINMENT_DENY),
+        { type: 'tool_use', tool_name: 'read_file', tool_id: 't2', parameters: {} },
+        blocked('t2', READ_HYGIENE_DENY),
+        { type: 'result', status: 'success', stats: streamStats({}) },
+      ),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(response.guardDenials).toBe(2);
+    expect(response.guardDenialDetails).toEqual([
+      { kind: 'containment', target: 'Read of a path outside the target repo: /etc/passwd.' },
+      { kind: 'read-hygiene', target: 'generated/vendored output: dist/index.js.' },
+    ]);
+  });
+
+  it('reports zero, not absent, for a run the guard never denied: this driver sees the wire', () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(INIT, { type: 'result', status: 'success', stats: streamStats({}) }),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(response.guardDenials).toBe(0);
+    expect(response.guardDenialDetails).toEqual([]);
+  });
+
+  it('keeps the denials of a run killed before its result', () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(INIT, blocked('t1', CONTAINMENT_DENY)),
+      1,
+      'gemini-2.5-pro',
+    );
+    expect(response.envelope).toBeNull();
+    expect(response.guardDenials).toBe(1);
+  });
+
+  it('never counts a tool failure the guard did not cause, nor guard text in a tool that succeeded', () => {
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(
+        INIT,
+        // An ordinary failing shell command.
+        {
+          type: 'tool_result',
+          tool_id: 't1',
+          status: 'error',
+          error: { type: 'execution_failed', message: 'Command exited with code 1' },
+        },
+        // The agent reading a doc that quotes the deny text.
+        { type: 'tool_result', tool_id: 't2', status: 'success', output: CONTAINMENT_DENY },
+        // A denied-looking reason with no error status: not what the CLI writes.
+        { type: 'tool_result', tool_id: 't3', error: { message: CONTAINMENT_DENY } },
+        // Malformed error fields.
+        { type: 'tool_result', tool_id: 't4', status: 'error', error: CONTAINMENT_DENY },
+        { type: 'tool_result', tool_id: 't5', status: 'error', error: { message: 42 } },
+        // Only the hook's reason counts, never the display text wrapped around it.
+        {
+          type: 'tool_result',
+          tool_id: 't6',
+          status: 'error',
+          output: `Tool execution blocked: ${CONTAINMENT_DENY}`,
+        },
+        // A message event quoting the text is not a tool result.
+        { type: 'message', role: 'assistant', content: CONTAINMENT_DENY, delta: true },
+        { type: 'result', status: 'success', stats: streamStats({}) },
+      ),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(response.guardDenials).toBe(0);
+    expect(response.guardDenialDetails).toEqual([]);
+  });
+});
+
 describe('isGeminiResumeFailure', () => {
   // gemini.tsx `resolveSessionId` exits FATAL_INPUT_ERROR (42) on an unknown
   // --resume id, before the run starts, so no output object is ever written.
@@ -423,6 +521,27 @@ describe('GeminiCliModel', () => {
     });
     expect(res.sessionId).toBe(SESSION);
     expect(res.envelope).toMatchObject({ isError: false, result: 'done', tokensIn: 1_200 });
+  });
+
+  it("hands firing.ts the guard's denials even when a dead run's stdout becomes its stderr tail", async () => {
+    const reason = 'CONTAINMENT: this flight is confined to /work/sbx — blocked.';
+    mockExecFileResult(
+      Object.assign(new Error('exit 1'), { code: 1 }),
+      jsonl(INIT, {
+        type: 'tool_result',
+        tool_id: 't1',
+        status: 'error',
+        error: { type: 'execution_failed', message: reason },
+      }),
+      'API error: quota exhausted',
+    );
+
+    const res = await new GeminiCliModel({ repo: '/work/sbx' }).invoke('gemini-2.5-pro', 'do it');
+
+    expect(res.envelope).toBeNull();
+    expect(res.stdout).toContain('quota exhausted');
+    expect(res.guardDenials).toBe(1);
+    expect(res.guardDenialDetails).toEqual([{ kind: 'containment', target: 'blocked.' }]);
   });
 
   it('spawns the default "gemini" binary headless with stream-json output, the model, yolo approval, and the prompt last', async () => {
