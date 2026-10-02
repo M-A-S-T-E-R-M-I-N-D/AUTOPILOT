@@ -246,9 +246,27 @@ describe('server-printed chrome draws vendored icons (law 1)', () => {
     expect(css).toContain('.project-tab svg { inline-size: 1.125rem; block-size: 1.125rem;');
   });
 
-  // Shrink-only: the lucky button's filled clover still prints its own markup.
-  it('hand-inlines no 24-unit icon outside the vendored set beyond the known sites', () => {
-    expect(handInlinedIconSites()).toEqual(['shell.ts: 1']);
+  // The lucky button printed a filled, hand-drawn clover; it draws Lucide's
+  // stroke clover now, still sized and spun by the `#fly-lucky svg` rules.
+  it('the lucky button prints the vendored clover and keeps its name', () => {
+    const page = new DOMParser().parseFromString(renderShell(), 'text/html');
+    const button = page.getElementById('fly-lucky') as HTMLButtonElement;
+    expect(button).not.toBeNull();
+    expect(button.children).toHaveLength(1);
+    const icon = button.querySelector('svg.icon.icon-clover');
+    expect(icon).not.toBeNull();
+    expect(icon!.getAttribute('aria-hidden')).toBe('true');
+    expect(icon!.getAttribute('fill')).toBe('none');
+    expect(icon!.hasAttribute('width')).toBe(false);
+    expect(button.textContent).toBe('');
+    expect(button.getAttribute('aria-label')).toBe(STRINGS.en.flyLuckyAria);
+    expect(button.getAttribute('data-i18n-aria')).toBe('flyLuckyAria');
+    expect(layoutCss()).toContain('#fly-lucky svg { inline-size: 1.35em; block-size: 1.35em;');
+  });
+
+  // Every web/ file draws its icons through the vendored set now.
+  it('hand-inlines no 24-unit icon outside the vendored set', () => {
+    expect(handInlinedIconSites()).toEqual([]);
   });
 });
 
