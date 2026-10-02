@@ -305,7 +305,10 @@ session (`--skip-trust`), which also loads the target's own `.gemini/settings.js
 `GEMINI_RESTRICTED_MODE=true` or `GEMINI_CLI_TRUST_WORKSPACE=false` in the flight's env overrides
 that, and every firing then exits untrusted. Two gate-reverted firings in a row end the flight with
 `Stopped by: demoted`. An unknown engine, a missing model or a Claude model refuses the flight with
-a `⛔` line naming the fix. Spec and status:
+a `⛔` line naming the fix, and so does a Gemini lane given a model the vendor table places with
+another publisher (`gpt-5-codex`, `llama-4-maverick`) or a locally served one (`ollama/…`), since
+the Gemini CLI reaches only Google's models. A name the table cannot place still flies. Spec and
+status:
 [`docs/epics/0036-provider-parity.md`](epics/0036-provider-parity.md).
 
 ### Substep routing & local offload (the M6 cost lever)

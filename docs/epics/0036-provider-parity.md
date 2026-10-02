@@ -301,7 +301,11 @@ row. An unknown engine, a missing model or a Claude model refuses the flight ins
 unasked.
 
 Since 2026-10-02 `AUTOPILOT_ENGINE=gemini` routes a lane to `GeminiCliModel` the same way, with the
-same model slots, routing skip and demotion. Its guard is the `BeforeTool` hook
+same model slots, routing skip and demotion. Since 2026-10-03 it also refuses a model
+`resolveModelVendor` places with any publisher but Google, or one served locally: the Gemini CLI
+calls Google's API alone, so such a model would fail every firing instead of refusing once. Codex
+keeps only the Claude refusal, since its own config can point it at other providers, and a name the
+vendor table cannot place flies on either engine. A Gemini lane's guard is the `BeforeTool` hook
 `buildGeminiFlightSettings` builds: `fly.ts` writes it to a per-instance
 `flight-guard-<project>[--<instance>].gemini-settings.json` (`geminiGuardSettingsFileName`, whose
 suffix no Claude `--settings` name can share), reads it back through `verifyGuardSettings` as it

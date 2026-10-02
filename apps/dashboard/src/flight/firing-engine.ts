@@ -16,7 +16,12 @@
  * the flight instead of flying Claude unasked.
  */
 
-import { resolveModelVendor, type EngineConfig } from '@autopilot/engine';
+import {
+  isLocallyServed,
+  resolveModelVendor,
+  type EngineConfig,
+  type ModelVendorId,
+} from '@autopilot/engine';
 
 /** The CLIs a lane can fly on besides Claude's. */
 export type NonClaudeEngine = 'codex' | 'gemini';
@@ -34,10 +39,15 @@ export type FiringEngineChoice =
  *  (`runLoop`'s `demoteAfterGateFailures`). */
 export const NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES = 2;
 
-/** How each non-Claude engine is named in the flight log, and a model it runs. */
-const ENGINES: Readonly<Record<NonClaudeEngine, { cli: string; exampleModel: string }>> = {
+/** How each non-Claude engine is named in the flight log, a model it runs,
+ *  and the one publisher whose models it can reach when it has one. Codex
+ *  reaches other providers through its own config, so only a Claude model is
+ *  refused there; the Gemini CLI calls Google's API alone. */
+const ENGINES: Readonly<
+  Record<NonClaudeEngine, { cli: string; exampleModel: string; onlyVendor?: ModelVendorId }>
+> = {
   codex: { cli: 'Codex', exampleModel: 'gpt-5-codex' },
-  gemini: { cli: 'Gemini', exampleModel: 'gemini-2.5-pro' },
+  gemini: { cli: 'Gemini', exampleModel: 'gemini-2.5-pro', onlyVendor: 'google' },
 };
 
 function isNonClaudeEngine(engine: string): engine is NonClaudeEngine {
@@ -54,7 +64,7 @@ export function firingEngineFromEnv(env: NodeJS.ProcessEnv): FiringEngineChoice 
       reason: `AUTOPILOT_ENGINE=${engine} names no engine a lane can fly on (claude, codex or gemini).`,
     };
   }
-  const { cli, exampleModel } = ENGINES[engine];
+  const { cli, exampleModel, onlyVendor } = ENGINES[engine];
   const model = (env['AUTOPILOT_ENGINE_MODEL'] ?? '').trim();
   if (model === '') {
     return {
@@ -62,10 +72,23 @@ export function firingEngineFromEnv(env: NodeJS.ProcessEnv): FiringEngineChoice 
       reason: `AUTOPILOT_ENGINE=${engine} needs AUTOPILOT_ENGINE_MODEL to name the model ${cli} runs (e.g. ${exampleModel}).`,
     };
   }
-  if (resolveModelVendor(model).vendor.id === 'anthropic') {
+  const { vendor } = resolveModelVendor(model);
+  if (vendor.id === 'anthropic') {
     return {
       ok: false,
       reason: `AUTOPILOT_ENGINE_MODEL=${model} names a Claude model, which the ${cli} CLI cannot run.`,
+    };
+  }
+  // Only a model this build can place elsewhere is refused: an unrecognized
+  // name may be the engine's own model, newer than the vendor table. A local
+  // runner's prefix counts even on the right publisher's model (`ollama/gemma3`).
+  const local = isLocallyServed(model);
+  const placedElsewhere = vendor.id !== onlyVendor && vendor.id !== 'unknown';
+  if (onlyVendor !== undefined && (local || placedElsewhere)) {
+    const named = local ? 'a locally served model' : `a model by ${vendor.name}`;
+    return {
+      ok: false,
+      reason: `AUTOPILOT_ENGINE_MODEL=${model} names ${named}, which the ${cli} CLI cannot run.`,
     };
   }
   return { ok: true, route: { engine, model } };

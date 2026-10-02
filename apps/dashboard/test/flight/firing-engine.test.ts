@@ -79,6 +79,55 @@ describe('firingEngineFromEnv', () => {
     });
   });
 
+  it("refuses a gemini lane pointed at another publisher's model", () => {
+    // The Gemini CLI calls Google's API, so a model named as OpenAI's or
+    // Meta's would fail every firing instead of refusing the flight once.
+    for (const [model, publisher] of [
+      ['gpt-5-codex', 'OpenAI'],
+      ['o3', 'OpenAI'],
+      ['llama-4-maverick', 'Meta'],
+    ] as const) {
+      expect(
+        firingEngineFromEnv({ AUTOPILOT_ENGINE: 'gemini', AUTOPILOT_ENGINE_MODEL: model }),
+      ).toEqual({
+        ok: false,
+        reason: `AUTOPILOT_ENGINE_MODEL=${model} names a model by ${publisher}, which the Gemini CLI cannot run.`,
+      });
+    }
+  });
+
+  it('refuses a gemini lane pointed at a locally served model, even a Google one', () => {
+    // `ollama/gemma3` is published by Google but served by Ollama, which the
+    // Gemini CLI never calls.
+    for (const model of ['ollama/my-finetune', 'ollama/gemma3']) {
+      expect(
+        firingEngineFromEnv({ AUTOPILOT_ENGINE: 'gemini', AUTOPILOT_ENGINE_MODEL: model }),
+      ).toEqual({
+        ok: false,
+        reason: `AUTOPILOT_ENGINE_MODEL=${model} names a locally served model, which the Gemini CLI cannot run.`,
+      });
+    }
+  });
+
+  it('flies a gemini lane on a Gemma model or on a name this build cannot place', () => {
+    // Gemma is Google's, and an unrecognized name may be a Gemini model newer
+    // than this build: the vendor table describes, it never refuses the unknown.
+    for (const model of ['gemma-3-27b-it', 'nano-banana-9']) {
+      expect(
+        firingEngineFromEnv({ AUTOPILOT_ENGINE: 'gemini', AUTOPILOT_ENGINE_MODEL: model }),
+      ).toEqual({ ok: true, route: { engine: 'gemini', model } });
+    }
+  });
+
+  it("still flies a codex lane on another publisher's model, which Codex can be configured to reach", () => {
+    expect(
+      firingEngineFromEnv({
+        AUTOPILOT_ENGINE: 'codex',
+        AUTOPILOT_ENGINE_MODEL: 'llama-4-maverick',
+      }),
+    ).toEqual({ ok: true, route: { engine: 'codex', model: 'llama-4-maverick' } });
+  });
+
   it('refuses an engine no lane can fly on', () => {
     for (const engine of ['copilot', 'ollama']) {
       const choice = firingEngineFromEnv({
