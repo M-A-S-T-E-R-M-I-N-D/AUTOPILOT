@@ -3750,8 +3750,9 @@ export interface PrReviewCommandResult {
  * Runs a KEEPER review plan's {@link PrReviewCommand}s in order through the
  * injectable `exec` — the write-side counterpart to {@link
  * fetchOpenPrCandidates}'s read wiring, same `CliExec` shape. Stops at the
- * first failing command rather than continuing (unlike `issue-triage.ts`'s
- * `executeIssueTriageCommands`): a merge decision's approve-then-merge pair
+ * first failing command rather than continuing (as `issue-triage.ts`'s
+ * `executeIssueTriageCommands` now does too, though that one still reports
+ * the unrun tail as `withheld`): a merge decision's approve-then-merge pair
  * is a real dependency — merging after a failed approve would apply the
  * "policy-green" outcome without the approval that justified it, so a
  * failed step must not be silently followed by the next one. Called by the

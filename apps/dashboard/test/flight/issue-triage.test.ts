@@ -24,9 +24,13 @@ import {
   executeIssueTriageCommands,
   runIssueTriageRitual,
   MAX_ISSUE_LIST,
+  WITHHELD_COMMAND_CODE,
   type IssueTriageCommand,
 } from '../../src/flight/issue-triage.js';
-import { planContributorDossierCommands } from '../../src/flight/contributor-dossier.js';
+import {
+  DOSSIER_POSTED_LABEL,
+  planContributorDossierCommands,
+} from '../../src/flight/contributor-dossier.js';
 import { issueTriageCommentLinks } from '../../src/web/issue-triage-panel.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
@@ -1105,18 +1109,83 @@ describe('executeIssueTriageCommands', () => {
     ]);
   });
 
-  it('keeps running later commands after an earlier one fails, reporting every result', async () => {
-    const decision = planIssueTriage(issue, [], []);
-    const commands = planIssueTriageCommands(issue, decision);
+  /**
+   * THE REPLY IS GATED ON ITS MARKER (board ap-mur9xjwq-0). Every plan is a
+   * marker label edit followed by the one reply that marker makes a one-off:
+   * `status: needs-format`, `dossier-posted`, `duplicate` and the `pool:`
+   * label are each what a later pass's `planIssueTriage` reads to skip the
+   * issue. `gh issue edit` resolves a label NAME against the repo's live
+   * labels, so an unseeded name fails the whole edit — and the reply used to
+   * post anyway: the marker never landed, and every later pass re-decided
+   * the same issue and replied again.
+   */
+  it('withholds the needs-format reply when its marker label edit fails, instead of re-replying every pass', async () => {
+    const offTemplate = {
+      number: 11,
+      title: 'Keyboard nav is broken',
+      body: 'It just does not work.',
+    };
+    const commands = planIssueTriageCommands(offTemplate, planIssueTriage(offTemplate, [], []));
+    expect(commands.map((c) => c.args[1])).toEqual(['edit', 'comment']);
     const exec: CliExec = vi
       .fn()
-      .mockResolvedValueOnce({ code: 1, stdout: 'label already exists' })
-      .mockResolvedValueOnce({ code: 0, stdout: 'commented' });
+      .mockResolvedValueOnce({ code: 1, stdout: "'status: needs-format' not found" });
+
+    const results = await executeIssueTriageCommands(commands, exec);
+
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(results).toEqual([
+      { command: commands[0], code: 1, stdout: "'status: needs-format' not found" },
+      { command: commands[1], code: WITHHELD_COMMAND_CODE, stdout: '', withheld: true },
+    ]);
+  });
+
+  it('withholds the contributor dossier when its dossier-posted marker edit fails', async () => {
+    // The facts lookup is best-effort; a failing gh still yields a dossier.
+    const lookup: CliExec = async () => ({ code: 1, stdout: '' });
+    const commands = await planContributorDossierCommands(12, 'octocat', lookup, 100);
+    const exec: CliExec = vi.fn().mockResolvedValueOnce({ code: 1, stdout: '' });
+
+    const results = await executeIssueTriageCommands(commands, exec);
+
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(exec).toHaveBeenCalledWith('gh', [
+      'issue',
+      'edit',
+      '12',
+      '--add-label',
+      DOSSIER_POSTED_LABEL,
+    ]);
+    expect(results.map((r) => r.withheld)).toEqual([undefined, true]);
+  });
+
+  it('withholds the reasoning comment when the pool label edit fails — that label is the marker a re-run skips on', async () => {
+    const commands = planIssueTriageCommands(issue, planIssueTriage(issue, [], []));
+    const exec: CliExec = vi.fn().mockResolvedValueOnce({ code: 1, stdout: 'label not found' });
+
+    const results = await executeIssueTriageCommands(commands, exec);
+
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(results.map((r) => [r.code, r.withheld])).toEqual([
+      [1, undefined],
+      [WITHHELD_COMMAND_CODE, true],
+    ]);
+  });
+
+  it('marks nothing withheld when every command ran, whatever its exit', async () => {
+    const commands = planIssueTriageCommands(issue, planIssueTriage(issue, [], []));
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({ code: 0, stdout: 'labeled' })
+      .mockResolvedValueOnce({ code: 1, stdout: 'comment rejected' });
 
     const results = await executeIssueTriageCommands(commands, exec);
 
     expect(exec).toHaveBeenCalledTimes(2);
-    expect(results.map((r) => r.code)).toEqual([1, 0]);
+    expect(results.map((r) => [r.code, r.withheld])).toEqual([
+      [0, undefined],
+      [1, undefined],
+    ]);
   });
 
   it('returns an empty array for an empty plan without calling exec', async () => {
