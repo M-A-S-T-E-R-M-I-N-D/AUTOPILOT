@@ -875,6 +875,13 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    trusted a shim it could not fully read, would launch a file planted in the
    flight's own target — the same defeat-a-safety-mechanism class
    `engine/src/adapters/worktree.ts` above is flagged for; added in `e49f4bd7`),
+   the firing-engine security marker (`flight/firing-engine.ts` added to
+   `SECURITY_SENSITIVE_PATH_MARKERS` — epic 0036's `AUTOPILOT_ENGINE` env switch
+   decides WHICH agent CLI binary flies a lane's firings and under what model,
+   the same decide-what-gets-spawned class `flight/self-study.ts` above is
+   flagged for; a PR that fell back to an unguarded engine, or let an unknown
+   `AUTOPILOT_ENGINE` fly instead of refusing, would change what runs in the
+   target with no security keyword in its path; added in `c2d73137`),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do — the deleted-test
    guard above is a header-level fact, not a reading of the change), and
