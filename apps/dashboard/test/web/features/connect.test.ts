@@ -58,10 +58,14 @@ describe('connectJs', () => {
       expect(connectJs()).toContain(reportComposeStatusMeta.toString());
     });
 
-    it('POSTs only the free-text note to /api/report/compose — one field, description', () => {
+    it('POSTs only the free-text note and the chosen report language to /api/report/compose', () => {
       const out = connectJs();
       expect(out).toContain("ritualFetch('compose', '/api/report/compose'");
-      expect(out).toContain('body: JSON.stringify({ description: note })');
+      // Composer language doctrine, rule 2 — connect-report-language.test.ts
+      // pins the live behaviour.
+      expect(out).toContain(
+        'body: JSON.stringify({ description: note, language: (ghIssueLanguage && ghIssueLanguage.value) || undefined })',
+      );
     });
 
     it('never sends the raw note to the GitHub issue execute endpoint', () => {

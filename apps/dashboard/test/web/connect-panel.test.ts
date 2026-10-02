@@ -595,6 +595,35 @@ describe('reportComposeStatusMeta', () => {
     );
   });
 
+  // Rule 2: a note that reads as another language than the chosen one is
+  // surfaced, with the way back named — never silently overridden.
+  it('appends the note-language note when the note reads as another language', () => {
+    const composed = { ok: true, title: 't', body: 'b', labels: ['bug'] };
+    expect(reportComposeStatusMeta({ ...composed, noteLanguageDiffers: true }, trEn).text).toBe(
+      'Composed — suggested labels: bug. Review the fields below, then submit. ' +
+        STRINGS.en.composeNoteLanguageDiffers,
+    );
+    expect(reportComposeStatusMeta({ ...composed, noteLanguageDiffers: true }, trHe).text).toBe(
+      STRINGS.he.reportComposeReady.split('{labels}').join('bug') +
+        ' ' +
+        STRINGS.he.composeNoteLanguageDiffers,
+    );
+    expect(
+      reportComposeStatusMeta(
+        { ...composed, languageFallback: true, noteLanguageDiffers: true },
+        trEn,
+      ).text,
+    ).toBe(
+      'Composed — suggested labels: bug. Review the fields below, then submit. ' +
+        STRINGS.en.composeLanguageFallback +
+        ' ' +
+        STRINGS.en.composeNoteLanguageDiffers,
+    );
+    expect(reportComposeStatusMeta({ ...composed, noteLanguageDiffers: false }, trEn).text).toBe(
+      'Composed — suggested labels: bug. Review the fields below, then submit.',
+    );
+  });
+
   it('reports the rejection reasoning and empty title/body for a refused composition', () => {
     const meta = reportComposeStatusMeta(
       { ok: false, reasoning: 'a report needs a non-empty description to compose from.' },

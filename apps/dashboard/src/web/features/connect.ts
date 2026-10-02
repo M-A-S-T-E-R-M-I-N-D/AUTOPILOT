@@ -157,6 +157,30 @@ function connectInit() {
     }
     ghIssueAction.addEventListener('change', updateGhIssueSubmitLabel);
   }
+  // Composer language doctrine, rule 2, on this form too: the report language
+  // is choosable — the page's locale by default, or "Same as my note". Built
+  // by reportLanguageSelect()/reportLanguageFollowPage(), BARE hoisted
+  // identifiers from report-menu.ts like reportActionLabel above, so the two
+  // forms offer the same languages from one builder. It sits between the note
+  // and the Compose button it governs, and follows the page's locale each time
+  // the form opens until the reporter picks one.
+  var ghIssueLanguage = null;
+  if (ghIssueNote && ghIssueComposeBtn) {
+    var ghIssueLangLabel = document.createElement('label');
+    ghIssueLangLabel.setAttribute('for', 'gh-issue-language');
+    ghIssueLangLabel.dataset.i18n = 'reportLanguageLabel';
+    ghIssueLangLabel.textContent = tr('reportLanguageLabel');
+    ghIssueLanguage = reportLanguageSelect('gh-issue-language');
+    ghIssueLanguage.name = 'language';
+    ghIssueComposeBtn.parentNode.insertBefore(ghIssueLangLabel, ghIssueComposeBtn);
+    ghIssueComposeBtn.parentNode.insertBefore(ghIssueLanguage, ghIssueComposeBtn);
+    var ghIssueLanguageChosen = false;
+    ghIssueLanguage.addEventListener('change', function () { ghIssueLanguageChosen = true; });
+    var ghReport = ghIssueForm ? ghIssueForm.closest('details') : null;
+    if (ghReport) ghReport.addEventListener('toggle', function () {
+      if (ghReport.open && !ghIssueLanguageChosen) reportLanguageFollowPage(ghIssueLanguage);
+    });
+  }
   // The non-'issue' targets reuse the SAME report-from-here ritual
   // report-menu.ts's dialog runs — preview first (its own "always previewed"
   // law: a rejected capture reports its reasoning rather than a bare error),
@@ -327,7 +351,7 @@ function connectInit() {
     ritualFetch('compose', '/api/report/compose', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ description: note }),
+      body: JSON.stringify({ description: note, language: (ghIssueLanguage && ghIssueLanguage.value) || undefined }),
     })
       .then(function (r) { return r.json(); })
       .then(function (j) {
