@@ -1630,7 +1630,9 @@ function cardActions(c) {
 // never applied automatically) — this disclosure lets the operator read the
 // pending text before ratifying (replaces the live SOUL) or dismissing
 // (discards it, live SOUL untouched) it. <details> keeps the text out of the
-// way until opened, with zero focus-trap/modal complexity.
+// way until opened, with zero focus-trap/modal complexity. Epic 0025: ratify
+// and dismiss lead with the vendored check and x icons where their labels
+// once baked in ✓/✗; setSweptText() keeps each icon across a locale switch.
 function soulProposalPanel(projectId, proposedText) {
   var details = el('details', 'soul-proposal');
   var summaryEl = el('summary', 'soul-proposal-summary');
@@ -1641,7 +1643,9 @@ function soulProposalPanel(projectId, proposedText) {
   details.appendChild(el('pre', 'soul-proposal-text', proposedText));
   var row = el('div', 'soul-proposal-row');
   var ratifyTip = "Replace this project's live SOUL prompt with the proposed text above — undoable afterward with un-ratify";
-  var ratifyBtn = el('button', 'soul-ratify-btn', '✓ ratify');
+  var ratifyBtn = el('button', 'soul-ratify-btn');
+  ratifyBtn.appendChild(iconEl('check'));
+  ratifyBtn.appendChild(document.createTextNode(tr('soulRatify')));
   ratifyBtn.setAttribute('type', 'button');
   ratifyBtn.setAttribute('data-i18n', 'soulRatify');
   ratifyBtn.setAttribute('data-soul-ratify', projectId);
@@ -1649,7 +1653,9 @@ function soulProposalPanel(projectId, proposedText) {
   ratifyBtn.setAttribute('aria-label', ratifyTip);
   row.appendChild(ratifyBtn);
   var dismissTip = 'Discard this proposed SOUL amendment — the live SOUL prompt is unchanged';
-  var dismissBtn = el('button', 'soul-dismiss-btn', '✗ dismiss');
+  var dismissBtn = el('button', 'soul-dismiss-btn');
+  dismissBtn.appendChild(iconEl('x'));
+  dismissBtn.appendChild(document.createTextNode(tr('soulDismiss')));
   dismissBtn.setAttribute('type', 'button');
   dismissBtn.setAttribute('data-i18n', 'soulDismiss');
   dismissBtn.setAttribute('data-soul-dismiss', projectId);
@@ -1699,7 +1705,9 @@ function fleetWisdomPanel(proposedText, wisdomKind) {
   details.appendChild(el('pre', 'soul-proposal-text fleet-wisdom-text', proposedText));
   var row = el('div', 'soul-proposal-row');
   var ratifyTip = "Apply this amendment as the live fleet-wide wisdom — every project's next firing carries it";
-  var ratifyBtn = el('button', 'soul-ratify-btn', '✓ ratify');
+  var ratifyBtn = el('button', 'soul-ratify-btn');
+  ratifyBtn.appendChild(iconEl('check'));
+  ratifyBtn.appendChild(document.createTextNode(tr('soulRatify')));
   ratifyBtn.setAttribute('type', 'button');
   ratifyBtn.setAttribute('data-i18n', 'soulRatify');
   ratifyBtn.setAttribute('data-fleet-wisdom-ratify', '');
@@ -1707,7 +1715,9 @@ function fleetWisdomPanel(proposedText, wisdomKind) {
   ratifyBtn.setAttribute('aria-label', ratifyTip);
   row.appendChild(ratifyBtn);
   var dismissTip = 'Discard this proposed fleet wisdom — the live shared wisdom is unchanged';
-  var dismissBtn = el('button', 'soul-dismiss-btn', '✗ dismiss');
+  var dismissBtn = el('button', 'soul-dismiss-btn');
+  dismissBtn.appendChild(iconEl('x'));
+  dismissBtn.appendChild(document.createTextNode(tr('soulDismiss')));
   dismissBtn.setAttribute('type', 'button');
   dismissBtn.setAttribute('data-i18n', 'soulDismiss');
   dismissBtn.setAttribute('data-fleet-wisdom-dismiss', '');
@@ -3744,7 +3754,7 @@ document.addEventListener('click', function (e) {
     .then(function () { refresh(); })
     .catch(function () { b.disabled = false; });
 });
-// Apply a pending SOUL proposal (✓ ratify) — SOUL evolution loop, B5 closure.
+// Apply a pending SOUL proposal (ratify) — SOUL evolution loop, B5 closure.
 // Confirmed: this overwrites the project's live SOUL prompt (undoable
 // afterward with un-ratify, below — board web-mswqemor-ab3jsu).
 document.addEventListener('click', function (e) {
@@ -3777,7 +3787,7 @@ document.addEventListener('click', function (e) {
     .then(function () { refresh(); })
     .catch(function () { b.disabled = false; });
 });
-// Discard a pending SOUL proposal (✗ dismiss) — SOUL evolution loop, B5
+// Discard a pending SOUL proposal (dismiss) — SOUL evolution loop, B5
 // closure. No confirm: the live SOUL is untouched, only the proposal is lost.
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-soul-dismiss]');
@@ -3791,7 +3801,7 @@ document.addEventListener('click', function (e) {
     .then(function () { refresh(); })
     .catch(function () { b.disabled = false; });
 });
-// Apply the fleet-wide pending wisdom amendment (✓ ratify — board
+// Apply the fleet-wide pending wisdom amendment (ratify — board
 // web-msnt26xe-pc4pzp): the fleet-scoped counterpart to soul-ratify above,
 // minus the {id} body — the server route acts on the fleet's single
 // pending proposal. Confirmed: this replaces the live shared wisdom text.
@@ -3804,7 +3814,7 @@ document.addEventListener('click', function (e) {
     .then(function () { refresh(); })
     .catch(function () { b.disabled = false; });
 });
-// Discard the fleet-wide pending wisdom amendment (✗ dismiss) — no confirm:
+// Discard the fleet-wide pending wisdom amendment (dismiss) — no confirm:
 // the live shared wisdom is untouched, only the proposal is lost.
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-fleet-wisdom-dismiss]');

@@ -1581,6 +1581,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .soul-dismiss-btn:not(:disabled):hover, .soul-dismiss-btn:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .soul-ratify-btn:not(:disabled):active, .soul-dismiss-btn:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .soul-ratify-btn:disabled, .soul-dismiss-btn:disabled { opacity: 0.6; cursor: default; }
+.soul-ratify-btn > .icon, .soul-dismiss-btn > .icon { margin-inline-end: 0.35em; }
 .soul-unratify-row { width: 100%; display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; margin-bottom: var(--space-2); }
 .soul-unratify-btn { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 2px var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .soul-unratify-btn:not(:disabled):hover, .soul-unratify-btn:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
