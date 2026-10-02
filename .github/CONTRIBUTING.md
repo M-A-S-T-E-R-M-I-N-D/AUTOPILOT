@@ -65,10 +65,13 @@ pnpm run verify   # typecheck + lint + format + test+coverage + build + CI valid
 1. **CI runs** (the same `verify` you ran, on three OSes, plus commitlint on
    the PR title and a REUSE license check).
 2. **The KEEPER triages it** — an automated review ritual that reads
-   gh-reported facts (CI state, diff scope, mergeability) and posts one of:
-   **merge** (small, green, in-scope), **request-changes** (with the specific
-   reason), or **queue-for-human** (anything security-sensitive,
-   dependency-touching, or judgment-shaped — a human decides those, always).
+   gh-reported facts (CI state, diff scope, mergeability) and reaches one of
+   three decisions: **merge** (small, green, in-scope: an approval, then a
+   squash-merge), **request-changes** (a review naming the specific reason),
+   or **queue-for-human** (anything security-sensitive, dependency-touching,
+   or judgment-shaped — a human decides those, always). A
+   **queue-for-human** decision posts nothing on your PR: it routes the PR to
+   the maintainer, who answers you in their own words.
    The full decision policy lives in [`docs/RUNBOOK.md`](../docs/RUNBOOK.md) §8
    and its source of truth is `apps/dashboard/src/flight/pr-review.ts`.
 3. **The human maintainer** approves anything the KEEPER queued, and is the

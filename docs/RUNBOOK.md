@@ -496,11 +496,13 @@ re-fetches the PR fresh and RE-DERIVES the decision at execute time — a client
 is never trusted. The panel also pins the execute to the decision KIND you actually confirmed:
 if the fresh re-derive reaches a different verdict (the PR changed since the preview), nothing
 runs — the panel shows the fresh verdict and asks you to review and apply again, so a confirm
-that promised a comment can never turn into a merge. Re-runs are idempotent: a PR that stays
-queued or held across passes never collects a duplicate copy of the identical comment/review —
-the execute probes for a standing one first and reports an honest no-op. Every applied decision
-carries its `reasoning` string into the PR comment/review, so the audit trail lives on GitHub
-itself. When the PR you confirmed is missing from that fresh execute-time fetch, the ritual
+that promised a review, or nothing at all, can never turn into a merge. Re-runs are idempotent:
+a PR bounced again for the same reason never collects a duplicate copy of the identical review —
+the execute probes for a standing one first and reports an honest no-op. A merge or
+request-changes carries its `reasoning` string into the PR review, so that audit trail lives on
+GitHub itself. A queue-for-human posts nothing on the PR (`planPrReviewCommands` plans no `gh`
+call for it): queueing is routing to you, its reasoning lives in the panel, and if the
+contributor needs telling, you tell them in your own words. When the PR you confirmed is missing from that fresh execute-time fetch, the ritual
 does not guess why: a list miss is not proof the PR is gone (the fetch returns empty on a gh
 outage too, drafts are deliberately excluded, and a PR past the 100-newest fetch window is open
 but unlisted), so it probes `gh pr view --json state,isDraft` and only a CONFIRMED
@@ -516,12 +518,13 @@ merge exit does not prove the merge was refused; a CONFIRMED `MERGED` keeps the 
 approval), then dismisses ONLY the ritual's own dangling approval with a message naming the
 possible causes. Every NON-merge execute also sweeps the PR's reviews first and dismisses any
 stale policy-green approval of the ritual's own that a crashed earlier run left standing —
-otherwise it would keep satisfying branch protection while the fresh pass posts only a comment.
+otherwise it would keep satisfying branch protection while the fresh pass posts only a review,
+or nothing at all.
 Both remediations touch nothing but the ritual's own reviews and fail soft.
 
 **Operator lever** (env, no source edit): `AUTOPILOT_PR_AUTOMERGE=off` disables merge planning
-entirely — a policy-green PR queues for your eyes (with its reasoning posted as a comment)
-instead of merging; unset or any other value keeps the default. The lever only narrows: no
+entirely — a policy-green PR queues for your eyes (nothing is posted on it; the reasoning shows
+in the panel) instead of merging; unset or any other value keeps the default. The lever only narrows: no
 value widens what may auto-merge past policy-green, and the security-hard rule applies
 identically in every mode.
 
