@@ -228,6 +228,24 @@ describe('parseReportComposeTasksOutput', () => {
       ),
     ).toBeNull();
   });
+
+  it('measures the title and body bounds after trimming — padding never counts', () => {
+    // Each task is stored trimmed, and the dashboard form and the MCP
+    // tasks_create both trim BEFORE the cap — so an exactly-at-cap field with a
+    // stray space or newline must not fail the whole split.
+    const task = {
+      title: ` ${'t'.repeat(200)}\n`,
+      body: `${'b'.repeat(4000)} `,
+      severity: 'low',
+      dimension: 'ux',
+    };
+    const parsed = parseReportComposeTasksOutput(
+      `REPORT_COMPOSE_TASKS:${JSON.stringify({ tasks: [task] })}`,
+    );
+    expect(parsed).toEqual([
+      { title: 't'.repeat(200), body: 'b'.repeat(4000), severity: 'low', dimension: 'ux' },
+    ]);
+  });
 });
 
 describe('composeReportTasks', () => {

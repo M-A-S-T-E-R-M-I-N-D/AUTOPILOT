@@ -182,6 +182,28 @@ describe('parseReportComposeOutput', () => {
     ).toBeNull();
   });
 
+  it('measures every length bound after trimming, as it already does for labels — padding never counts', () => {
+    // The parser stores each field trimmed, and the dashboard form and the MCP
+    // tasks_create both trim BEFORE the cap — so an exactly-at-cap field with a
+    // stray space or newline must not fail the whole parse.
+    const payload = {
+      title: ` ${'t'.repeat(200)}\n`,
+      body: `${'b'.repeat(4000)} `,
+      labels: ['bug'],
+      action: 'issue',
+      language: ` ${'l'.repeat(40)} `,
+      severity: 'low',
+      severityReasoning: `${'r'.repeat(200)}\n`,
+    };
+    const parsed = parseReportComposeOutput(`REPORT_COMPOSE:${JSON.stringify(payload)}`);
+    expect(parsed).toMatchObject({
+      title: 't'.repeat(200),
+      body: 'b'.repeat(4000),
+      language: 'l'.repeat(40),
+      severityReasoning: 'r'.repeat(200),
+    });
+  });
+
   it('returns null when severity is missing', () => {
     expect(
       parseReportComposeOutput(
