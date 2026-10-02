@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
+  COMPOSE_LEAK_RULES,
   buildReportComposePrompt,
   parseReportComposeOutput,
   composeReport,
@@ -836,5 +840,72 @@ describe('hasComposeLeak', () => {
     ['a bare "sk-" mention too short to match', 'the sk- prefix marks a secret key'],
   ])('does not flag %s', (_label, text) => {
     expect(hasComposeLeak(text)).toBe(false);
+  });
+});
+
+describe('COMPOSE_LEAK_RULES', () => {
+  // The composer copies its leak rules by hand from the two CI scanners, which
+  // src cannot import (they sit outside this app's rootDir). Only a comment
+  // held the copy to its source, and onboarding's secret-guard.ts, the other
+  // hand copy of secret-scan.mjs, once fell three rules behind it. These read
+  // each scanner's RULES table as text, so a rule added there fails here until
+  // it is copied, or named below with the reason it stays out.
+  const REPO_ROOT = fileURLToPath(new URL('../../../..', import.meta.url));
+  const SCANNERS = [
+    'scripts/ci/secret-scan.mjs',
+    'scripts/ci/validate-no-personal-paths.mjs',
+  ] as const;
+  /** Scanner rules the composer leaves out on purpose, by id. */
+  const LEFT_OUT: Readonly<Record<string, string>> = {
+    'windows-drive-path':
+      'a report may name a config file under a drive root; only a username-bearing home leaks',
+    'unreleased-product-name': 'a naming ban on tracked files, not a secret or personal-path shape',
+    'dead-identity': 'a tripwire for retired attribution addresses in tracked files',
+  };
+
+  interface ScannerRule {
+    readonly id: string;
+    /** Null when the rule is not a regex literal (built with `new RegExp`). */
+    readonly re: RegExp | null;
+  }
+
+  function scannerRules(file: string): ScannerRule[] {
+    const text = readFileSync(join(REPO_ROOT, file), 'utf8');
+    const table = /\nconst RULES = \[\n([\s\S]*?)\n\];\n/.exec(text)?.[1];
+    if (table === undefined) throw new Error(`${file} has no RULES table`);
+    return table
+      .split(/\bid: '/)
+      .slice(1)
+      .map((entry) => {
+        // A regex literal: character classes may hold a bare slash.
+        const literal = /\bre:\s*\/((?:\[(?:\\.|[^\]\\])*\]|\\.|[^/\\\n[])+)\/([a-z]*)/.exec(entry);
+        return {
+          id: entry.slice(0, entry.indexOf("'")),
+          re: literal ? new RegExp(literal[1] ?? '', literal[2]) : null,
+        };
+      });
+  }
+
+  const key = (re: RegExp): string => `/${re.source}/${re.flags}`;
+  const copied = new Set(COMPOSE_LEAK_RULES.map(key));
+
+  it.each(SCANNERS)('carries every rule %s enforces, or names why not', (file) => {
+    const missing = scannerRules(file)
+      .filter((rule) => !(rule.id in LEFT_OUT))
+      .filter((rule) => rule.re === null || !copied.has(key(rule.re)))
+      .map((rule) => rule.id);
+    expect(missing).toEqual([]);
+  });
+
+  it('carries no rule the scanners do not enforce', () => {
+    const scanned = new Set(
+      SCANNERS.flatMap(scannerRules).flatMap((rule) => (rule.re ? [key(rule.re)] : [])),
+    );
+    expect(COMPOSE_LEAK_RULES.map(key).filter((rule) => !scanned.has(rule))).toEqual([]);
+  });
+
+  it('names only rules the scanners still have', () => {
+    const ids = new Set(SCANNERS.flatMap(scannerRules).map((rule) => rule.id));
+    expect(Object.keys(LEFT_OUT).filter((id) => !ids.has(id))).toEqual([]);
   });
 });
