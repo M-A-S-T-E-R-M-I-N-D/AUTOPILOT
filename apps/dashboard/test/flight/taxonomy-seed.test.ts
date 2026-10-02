@@ -1221,3 +1221,88 @@ describe("HOUSE_TAXONOMY_LABELS × KEEPER triage's declined issues (regression, 
     expect(triage([declined?.name ?? ''], 'It broke.')).toBe('skip');
   });
 });
+
+// Same law, the seeder against the doc it applies. docs/GOVERNANCE.md calls
+// itself the taxonomy's source of truth, and taxonomy-seed.ts says it only
+// transcribes it. Every flow pinned above reads one label off the constant,
+// and the doc is where a maintainer looks up the scheme they are steering
+// with (epic law 2). The pins above checked the doc's label count and two of
+// its names, so a label renamed, swapped or dropped on one side kept every
+// test green while the doc and the repo the seeder stamps disagreed.
+const GOVERNANCE = readFileSync(join(process.cwd(), 'docs/GOVERNANCE.md'), 'utf8').replace(
+  /\r\n/g,
+  '\n',
+);
+
+/** The `| **<bold>** | <cell> |` rows of the GOVERNANCE.md section headed
+ *  `## <heading>`, in doc order. */
+function governanceTableRows(heading: string): { readonly key: string; readonly cell: string }[] {
+  const section = GOVERNANCE.split(/^## /m).find((part) => part.startsWith(`${heading}\n`)) ?? '';
+  return [...section.matchAll(/^\|\s*\*\*(.+?)\*\*\s*\|\s*(.+?)\s*\|$/gm)].map((row) => ({
+    key: row[1] ?? '',
+    cell: row[2] ?? '',
+  }));
+}
+
+/** A label row's cell leads with its labels as a comma-separated run of code
+ *  spans; anything after the run (an em-dash gloss, a parenthesis) is prose,
+ *  and the code spans inside it are not labels. */
+function leadingCodeSpans(cell: string): string[] {
+  const run = /^`[^`]+`(?:, `[^`]+`)*/.exec(cell)?.[0] ?? '';
+  return [...run.matchAll(/`([^`]+)`/g)].map((span) => span[1] ?? '');
+}
+
+describe('docs/GOVERNANCE.md × the taxonomy seeder (regression, epic 0019 additive-only law)', () => {
+  const labelRows = governanceTableRows('The label scheme').map(({ key, cell }) => ({
+    group: key,
+    labels: leadingCodeSpans(cell),
+  }));
+  const milestoneRows = governanceTableRows('Starter milestones');
+
+  it('reads both tables at all, so the pins below are not vacuous', () => {
+    expect(labelRows.map((row) => row.group)).toEqual([
+      'priority',
+      'area',
+      'status',
+      'epic',
+      'community',
+    ]);
+    expect(labelRows.every((row) => row.labels.length > 0)).toBe(true);
+    expect(milestoneRows.length).toBeGreaterThan(0);
+  });
+
+  it('names exactly the labels the seeder stamps, in the order it stamps them', () => {
+    expect(labelRows.flatMap((row) => row.labels)).toEqual(
+      HOUSE_TAXONOMY_LABELS.map((label) => label.name),
+    );
+  });
+
+  it('files each prefixed label under the group its prefix names', () => {
+    for (const { group, labels } of labelRows) {
+      const prefixed = labels.filter((label) => label.includes(': '));
+      const expected = ['priority', 'area', 'status'].includes(group) ? labels : [];
+      expect(prefixed, group).toEqual(expected);
+      expect(
+        prefixed.filter((label) => !label.startsWith(`${group}: `)),
+        group,
+      ).toEqual([]);
+    }
+  });
+
+  it('lists exactly the starter milestones the seeder creates, each with the description it writes', () => {
+    expect(milestoneRows.map(({ key, cell }) => ({ title: key, description: cell }))).toEqual(
+      HOUSE_STARTER_MILESTONES.map(({ title, description }) => ({ title, description })),
+    );
+  });
+
+  it('stamps none of the labels the doc leaves to another source', () => {
+    // The doc keeps GitHub's defaults and the pool set out of the seeder, so
+    // labels.yml stays the one writer of a pool label's colour and description.
+    const outOfScope = new Set([...GITHUB_DEFAULT_LABELS, ...POOL_LABEL_NAMES]);
+    expect(GOVERNANCE).toContain('.github/labels.json');
+    expect(HOUSE_TAXONOMY_LABELS.filter((label) => outOfScope.has(label.name))).toEqual([]);
+    expect(
+      HOUSE_TAXONOMY_LABELS.filter((label) => label.name.startsWith(POOL_LABEL_PREFIX)),
+    ).toEqual([]);
+  });
+});
