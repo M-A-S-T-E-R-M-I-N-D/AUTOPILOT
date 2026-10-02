@@ -93,7 +93,14 @@ function phaseRail(acts, pid) {
     var phaseDesc = el('span', 'sr-only', phaseTip);
     phaseDesc.id = phaseDescId;
     rail.appendChild(phaseDesc);
-    if (j < phases.length - 1) rail.appendChild(el('span', 'phase-arrow', '›'));
+    // Epic 0025: the vendored chevron-right, decorative, in place of a lone ›
+    // that sat in the accessibility tree between the buttons; CSS mirrors it.
+    if (j < phases.length - 1) {
+      var arrow = el('span', 'phase-arrow');
+      arrow.appendChild(iconEl('chevron-right'));
+      arrow.setAttribute('aria-hidden', 'true');
+      rail.appendChild(arrow);
+    }
   }
   return rail;
 }

@@ -222,7 +222,14 @@ propagation, and the filled style does not match the nav.
    `docs/screens/` from the populated fixture at v0.56.0 (`lock-on.png` came
    out byte-identical), and `compose-evolution.mjs` re-ended the strip on
    the new `fleet-terminal.png`. Slice 4's "docs and screenshots refreshed"
-   is done.
+   is done. **Phase rail separators 2026-10-02:** the replay chevrons slice
+   left the activity phase rail's lone `›` free, but it was the same kind of
+   whole-face glyph the lone arrows slice converted, and its span was not
+   `aria-hidden`, so it sat as text between the ORIENT/DO/GATE/COMMIT
+   buttons. Each separator draws the existing `chevron-right` now,
+   decorative and mirrored under `dir="rtl"` like the plan chain's arrows.
+   The lone-face census matches `›` as well as → and pins both at zero; the
+   "Settings › HUD bar › Shown" breadcrumb stays free.
 
 ## Related
 
