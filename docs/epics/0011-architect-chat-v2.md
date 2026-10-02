@@ -15,7 +15,9 @@ consumer (`packages/mcp/src/control.ts` — `tasks_list`, `tasks_set_status`,
 `tasks_create`, `tasks_reorder`, `tasks_delete`, `project_reset`; all
 unit-tested in `packages/mcp/test/control.test.ts`, but, per
 `docs/THREAT-MODEL.md` §2, **dormant** — no production entry point wires
-`createControlServer`/`registerControlTools` into anything live today). v2 is
+`createControlServer`/`registerControlTools` into anything live; that MCP
+transport is still dormant, while slice 1 below made the same handlers live
+in-process). v2 is
 the UI half: a persona switch in the dashboard's own Ask panel. Research
 basis: `docs/RESEARCH-LIBRARY.md` "Copilot / side-chat UX" (2026-08-08) —
 *"GENIUS (read, context-aware, grounded in map+search+LIVE STATE+CHANGELOG) +
@@ -134,6 +136,18 @@ reads the linked file, not the title, for scope).
    to the shared `operatorActionLog`. Covered by
    `test/ask/architect-proposal.test.ts` and
    `test/web/architect-action-card.test.ts`.
+   **Arg contract (2026-10-02, `2e1d1b4f`):** the addendum is the model's
+   only description of each tool's args, and nothing between the model and
+   the executor fills one in — the action card POSTs the proposal's `args`
+   as-is. `tasksDelete` became project-scoped (a task from another project
+   is refused, never deleted), and `control-execute.ts`'s `tasks_delete`
+   case refuses any call without both a `taskId` and a `projectId`, so the
+   addendum now documents `tasks_delete: {"taskId","projectId"}`. Before
+   that, every delete the model proposed by the book failed after the
+   operator's confirm click. `architect-proposal.test.ts` now builds each
+   tool's proposal from the addendum's documented required args and runs it
+   through a real `createControlExecuteApi`, so any later drift between the
+   prompt and the executor's validation goes red.
 4. `fly_start`/`fly_stop` (deferred — see Out of scope): once slices 1-3
    prove the in-process pattern, revisit whether `FlightRunnerRegistry`
    gets injected as a second control dependency or gets its own
@@ -146,8 +160,9 @@ reads the linked file, not the title, for scope).
 - `docs/RESEARCH-LIBRARY.md` "The 7→10 ramp — scale evaluation + the
   slice-relay duplication class" (2026-08-20) — the incident this spec
   exists to prevent a repeat of.
-- `docs/THREAT-MODEL.md` §2 ("MCP control server is dormant") and T9 — the
-  security review trigger slice 1 resolves.
+- `docs/THREAT-MODEL.md` §2 ("MCP control server's transport is still
+  dormant; its handlers are now live in-process") and T9 — the security
+  review trigger slice 1 resolves.
 - `packages/mcp/src/control.ts` — the existing, tested, dormant tool
   handlers this epic makes reachable.
 - `apps/dashboard/src/flight/control-execute.ts` — slice 1 implementation:
