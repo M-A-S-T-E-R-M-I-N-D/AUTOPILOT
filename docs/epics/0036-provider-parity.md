@@ -110,7 +110,16 @@ Only `item.completed` counts, because the started item's query is empty until th
 `query`/`queries`, since the item's `query` is only a display detail that keeps the first of several
 and elides the rest as ` ...` (`core/src/web_search.rs`, `web_search_action_detail`). A page opened
 or searched within, and a CLI that sends no action, are audited by that detail, the URL or pattern
-the tool was sent. The Copilot CLI adapter remains unstarted and, per the
+the tool was sent. Since 2026-10-02 a Gemini run also feeds the live activity timeline: given
+`onActivity`, `GeminiCliModel` reports each `tool_use` line as it lands through
+`geminiActivityReader`, as the `Activity` `StreamingClaudeCliModel` hands the activity map. The
+target is read off the call's `parameters` by `stream.ts`'s own field rules
+(`activityFromToolCall`), so `run_shell_command`'s `command`, `read_file`'s `file_path` and
+`grep_search`'s `pattern` render as a Claude Bash, Read and Grep step do. The reasoning is the
+assistant text streamed since the last `tool_result`: `nonInteractiveCli.ts` emits every call of
+one model response before any of their results, so calls made together share it as a Claude
+message's do. The model is the `init` event's (`config.getModel()`); tokens stay `null`, since no
+event before `result` carries usage. The Copilot CLI adapter remains unstarted and, per the
 2026-09-27 re-check below, is now explicitly blocked on capturing a real `--output-format=json`
 sample from the closed-source binary — not just unstarted for lack of a turn to spend on it.
 

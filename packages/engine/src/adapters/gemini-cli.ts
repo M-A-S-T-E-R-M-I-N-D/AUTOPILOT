@@ -23,8 +23,10 @@
 import { execFile, type ExecFileOptions } from 'node:child_process';
 import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
 import {
+  activityFromToolCall,
   guardDenialFromText,
   WEB_SEARCH_AUDIT_MAX_CHARS,
+  type Activity,
   type GuardDenialDetail,
   type WebSearchAudit,
 } from '../stream.js';
@@ -114,6 +116,43 @@ export function geminiWebSearchFromEvent(event: Record<string, unknown>): WebSea
     queryLength: query.length,
     allowedDomains: [],
     blockedDomains: [],
+  };
+}
+
+/**
+ * Reads one run's stream-json events, in wire order, into the live activity
+ * timeline `stream.ts`'s `activitiesFromEvent` builds off a Claude stream. Each
+ * `tool_use` is a step: `nonInteractiveCli.ts` emits it with the call's name and
+ * parameters before the tool runs, and every call of one model response before
+ * any of their `tool_result`s. Its reasoning is the assistant text streamed
+ * since the last `tool_result`, the response the call came in, so calls made
+ * together share it as a Claude message's do. Its model is the `init` event's
+ * (`config.getModel()`); its tokens are `null`, since no event before `result`
+ * carries usage. It keeps state, so each run gets its own reader.
+ */
+export function geminiActivityReader(): (event: Record<string, unknown>) => Activity | null {
+  let model: string | null = null;
+  let responseText = '';
+  return (event) => {
+    const type = event['type'];
+    if (type === 'init') {
+      const name = strOrNull(event['model']);
+      model = name === '' ? null : name;
+    } else if (type === 'message' && event['role'] === 'assistant') {
+      responseText += strOrNull(event['content']) ?? '';
+    } else if (type === 'tool_result') {
+      responseText = '';
+    } else if (type === 'tool_use') {
+      const name = strOrNull(event['tool_name']);
+      if (name === null) return null;
+      const input = recordOrNull(event['parameters']) ?? {};
+      return activityFromToolCall(name, input, responseText, {
+        model,
+        tokensIn: null,
+        tokensOut: null,
+      });
+    }
+    return null;
   };
 }
 
@@ -279,6 +318,10 @@ export interface GeminiCliOptions {
    *  `StreamingClaudeCliOptions.onWebSearch`'s counterpart (THREAT-MODEL T6 —
    *  the flight persists it as a `web-search` audit row). */
   readonly onWebSearch?: (search: WebSearchAudit) => void;
+  /** Called for each tool call the agent makes, as its `tool_use` line
+   *  arrives ({@link geminiActivityReader}): `StreamingClaudeCliOptions.onActivity`'s
+   *  counterpart, the live activity timeline. */
+  readonly onActivity?: (activity: Activity) => void;
   /** ORPHAN SWEEP crash-path follow-up (board ap-mt2ukjg5-2), containment
    *  parity with `ClaudeCliModel` before this adapter is wired into routing
    *  (epic 0036): persists the child's pid for the duration of the
@@ -323,7 +366,9 @@ export interface GeminiCliOptions {
  * keeps the `init` session id, so it stays resumable. Given
  * {@link GeminiCliOptions.onWebSearch}, it reads each stdout line as it lands
  * and reports every `google_web_search` call there, the audit
- * `StreamingClaudeCliModel` keeps for WebSearch (THREAT-MODEL T6).
+ * `StreamingClaudeCliModel` keeps for WebSearch (THREAT-MODEL T6). Given
+ * {@link GeminiCliOptions.onActivity}, it reports every tool call there the same
+ * way, the live activity timeline `StreamingClaudeCliModel` feeds.
  * It shares the Claude driver's CLI-level resume fallback: a session id the CLI
  * rejects ({@link isGeminiResumeFailure}) is retried once, cold, as `resumed:
  * false`. Otherwise a resume is `resumed: true` only when the `init` event's
@@ -427,13 +472,21 @@ export class GeminiCliModel implements ModelPort {
       let idleDeath = false;
       // THREAT-MODEL T6: a search's query has left by the time the run ends,
       // so each is audited as its line lands, not read off the settled stdout.
+      // The activity timeline is live for the same reason.
       const onWebSearch = this.opts.onWebSearch;
+      const onActivity = this.opts.onActivity;
+      const readActivity = geminiActivityReader();
       let unreadLine = '';
-      const auditWebSearches = (text: string): void => {
-        if (onWebSearch === undefined) return;
+      const readLines = (text: string): void => {
         for (const event of streamEvents(text)) {
-          const search = geminiWebSearchFromEvent(event);
-          if (search !== null) onWebSearch(search);
+          if (onActivity !== undefined) {
+            const activity = readActivity(event);
+            if (activity !== null) onActivity(activity);
+          }
+          if (onWebSearch !== undefined) {
+            const search = geminiWebSearchFromEvent(event);
+            if (search !== null) onWebSearch(search);
+          }
         }
       };
       const child = execFile(
@@ -483,9 +536,9 @@ export class GeminiCliModel implements ModelPort {
             // clock does not. No turn count rides with it (ModelResponse.observed).
             observed: { elapsedMs },
           });
-          // A last line with no newline is audited too. After resolve, so a
+          // A last line with no newline is read too. After resolve, so a
           // sink that throws can never leave the run unsettled.
-          auditWebSearches(unreadLine);
+          readLines(unreadLine);
         },
       );
       const armIdle = (): void => {
@@ -506,7 +559,7 @@ export class GeminiCliModel implements ModelPort {
       };
       armIdle();
       child.stdout?.on('data', armIdle);
-      if (onWebSearch !== undefined) {
+      if (onWebSearch !== undefined || onActivity !== undefined) {
         // execFile set the stream's encoding, so a chunk is a string. Only
         // the chunk is scanned, so a long tool output line is never rescanned.
         child.stdout?.on('data', (chunk: string) => {
@@ -517,7 +570,7 @@ export class GeminiCliModel implements ModelPort {
           }
           const complete = unreadLine + chunk.slice(0, end);
           unreadLine = chunk.slice(end + 1);
-          auditWebSearches(complete);
+          readLines(complete);
         });
       }
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
