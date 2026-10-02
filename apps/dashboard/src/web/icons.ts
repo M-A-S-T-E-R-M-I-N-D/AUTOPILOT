@@ -556,6 +556,13 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
   // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the task row's
   // approve and done buttons drop their baked-in ✓ (reject draws the x above).
   check: [['path', { d: 'M20 6 9 17l-5-5' }]],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the landing branch
+  // line's merge arrow and the plan chain's step separators drop their lone →
+  // faces, which never mirrored under dir=rtl; CSS mirrors this one.
+  'arrow-right': [
+    ['path', { d: 'M5 12h14' }],
+    ['path', { d: 'm12 5 7 7-7 7' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

@@ -207,8 +207,16 @@ propagation, and the filled style does not match the nav.
    a plain `circle` for a state the job never named). The icon is the step's
    only mark, so it names its state through the new `ritualStepPass`,
    `ritualStepFail` and `ritualStepRunning` STRINGS, swept by
-   `[data-i18n-aria]`. The census pins CSS-painted ✓/✗ at zero. The
-   screenshots refresh (`docs/screens/`) is still open.
+   `[data-i18n-aria]`. The census pins CSS-painted ✓/✗ at zero. **Lone
+   arrows 2026-10-02:** → stays free inside a sentence ("Execute landing →
+   main", the release preview's version pair), but the landing branch line's
+   merge arrow and the plan chain's step separators painted a lone → as their
+   whole face, and under `dir="rtl"`, where those rows run right to left, it
+   pointed back at the branch and the previous step. Both draw a newly
+   vendored `arrow-right`, mirrored like the back link. The landing arrow is
+   the line's only icon-alone mark, so it takes `role="img"`: axe flags an
+   `aria-label` on a bare span once no text is left. The census pins a lone →
+   face at zero. The screenshots refresh (`docs/screens/`) is still open.
 
 ## Related
 

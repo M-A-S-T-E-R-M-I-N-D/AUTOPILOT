@@ -394,7 +394,7 @@ function planEditorSection(pid) {
     chain.setAttribute('aria-labelledby', 'plan-editor-heading');
     var selected = null;
     steps.forEach(function (s, i) {
-      if (i > 0) { var arrow = el('span', 'plan-arrow', '→'); arrow.setAttribute('aria-hidden', 'true'); chain.appendChild(arrow); }
+      if (i > 0) { var arrow = el('span', 'plan-arrow'); arrow.appendChild(iconEl('arrow-right')); arrow.setAttribute('aria-hidden', 'true'); chain.appendChild(arrow); }
       var isSel = s.kind === state.selected;
       if (isSel) selected = s;
       var outcome = state.gate && s.enabled ? planStepOutcome(s, state.gate.checks, live[i]) : null;

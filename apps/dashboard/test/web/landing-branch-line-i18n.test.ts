@@ -25,6 +25,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { STRINGS, type StringKey } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
+import { layoutCss } from '../../src/web/layout-css.js';
 
 const PROJECT = {
   id: 'p1',
@@ -167,7 +168,12 @@ describe('LANDING panel branch line i18n (board web-msnsndki-dz3vn1)', () => {
     expect(branch.getAttribute('data-i18n-aria-template')).toBe('landingBranchAria');
     expect(branch.getAttribute('data-i18n-name')).toBe(BRANCH);
 
-    expect(arrow.textContent).toBe('→');
+    // Epic 0025: the arrow's face is the vendored arrow-right stroke, not a
+    // → glyph; with no text left, role=img lets its aria-label name it (a bare
+    // span's aria-label is prohibited, and axe says so).
+    expect(arrow.textContent).toBe('');
+    expect(arrow.firstElementChild?.getAttribute('class')).toBe('icon icon-arrow-right');
+    expect(arrow.getAttribute('role')).toBe('img');
     expect(arrow.getAttribute('data-tip')).toBe('Merge direction: branch into base');
     expect(arrow.getAttribute('data-i18n-tip')).toBe('landingBranchArrowTip');
     expect(arrow.getAttribute('aria-label')).toBe('merges into');
@@ -192,6 +198,7 @@ describe('LANDING panel branch line i18n (board web-msnsndki-dz3vn1)', () => {
     expect(after.branch).toBe(before.branch);
     expect(after.arrow).toBe(before.arrow);
     expect(after.base).toBe(before.base);
+    expect(after.arrow.querySelector('svg.icon-arrow-right')).not.toBeNull();
     expectHebrew();
   });
 
@@ -216,5 +223,13 @@ describe('LANDING panel branch line i18n (board web-msnsndki-dz3vn1)', () => {
     expect(arrow.getAttribute('aria-label')).toBe('merges into');
     expect(base.getAttribute('data-tip')).toBe('Branch this would merge into');
     expect(base.getAttribute('aria-label')).toBe('base branch: ' + BASE);
+  });
+});
+
+describe('the branch line and plan chain arrows (epic 0025)', () => {
+  it('mirrors both arrow-right icons under dir=rtl, where the base and the next step sit to the left', () => {
+    expect(layoutCss()).toContain(
+      "[dir='rtl'] .landing-branch-arrow > .icon, [dir='rtl'] .plan-arrow > .icon { transform: scaleX(-1); }",
+    );
   });
 });
