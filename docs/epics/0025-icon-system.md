@@ -229,7 +229,16 @@ propagation, and the filled style does not match the nav.
    buttons. Each separator draws the existing `chevron-right` now,
    decorative and mirrored under `dir="rtl"` like the plan chain's arrows.
    The lone-face census matches `›` as well as → and pins both at zero; the
-   "Settings › HUD bar › Shown" breadcrumb stays free.
+   "Settings › HUD bar › Shown" breadcrumb stays free. **Close buttons
+   2026-10-02 (law 1):** the Ask sheet's and the terminal HUD's close
+   buttons each printed a hand-copied x as inline `<svg>` markup, beside the
+   snackbar's vendored one. Both print `iconSvg('x')` now, sized by CSS at
+   the 20px and 18px their `width`/`height` attributes gave them
+   (`1.25rem`, `1.125rem`). `apps/dashboard/test/web/icons.test.ts` gained a
+   shrink-only list of the web/ files that still print their own 24-unit
+   icon markup: `shell-html.ts` (the subject rail's Feather-derived table
+   and the focus toggle) and `shell.ts` (the lucky button's filled clover
+   and the Ask button's Feather message-circle).
 
 ## Related
 
