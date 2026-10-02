@@ -832,7 +832,10 @@ export function planIssueTriageCommands(
       {
         command: 'gh',
         args: ['issue', 'comment', issueRef, '--body', needsFormatReply(decision)],
-        details: `replying once on #${issue.number} with the template and its missing sections`,
+        // "as a comment on #N" is the phrase the KEEPER panel's
+        // issueTriageCommentLinks finds a comment call by — `gh issue edit`
+        // prints a URL too, so the details text is its only tell.
+        details: `replying once with the template and its missing sections as a comment on #${issue.number}`,
       },
     ];
   }

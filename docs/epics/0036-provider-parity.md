@@ -13,7 +13,9 @@ landed whole on 2026-09-27: `packages/engine/src/adapters/codex-cli.ts`'s `parse
 reads `codex exec --json` stdout into a `ModelResponse` (fixture-tested, `costUsd` always `null`),
 and `CodexCliModel` spawns it (`exec --json --model <model> --sandbox workspace-write [resume
 <id>] <prompt>`, verified against openai/codex's own docs and `codex-rs/exec/src/cli.rs`).
-Not yet flown on a real lane — no routing/config wiring. Since 2026-09-29 it carries
+Since 2026-10-02 a lane can fly on it: `AUTOPILOT_ENGINE=codex` with `AUTOPILOT_ENGINE_MODEL`
+naming the model (`apps/dashboard/src/flight/firing-engine.ts`, routing below); a Gemini lane flies
+the same way under `AUTOPILOT_ENGINE=gemini`. Since 2026-09-29 it carries
 `StreamingClaudeCliModel`'s idle cap: `codex exec --json` prints each event as a line the moment it
 happens (`codex-rs/exec/src/event_processor_with_jsonl_output.rs`, `emit`), so every stdout chunk
 re-arms an `idleTimeoutMs` timer (default `DEFAULT_CLI_IDLE_TIMEOUT_MS`, 20 min), and a child silent
@@ -42,7 +44,8 @@ so the run would fail "Not enough arguments following: prompt"); and headless mo
 into a denial (`packages/core/src/policy/policy-engine.ts`), so only `yolo` (unsandboxed) lets the
 agent edit files and run the gate. Folder trust is on by default and headless mode exits
 (`FatalUntrustedWorkspaceError`) in an untrusted folder; `--skip-trust` is opt-in, because trusting
-a folder also loads its `.gemini/settings.json` and MCP servers. It shares Codex's routing gap.
+a folder also loads its `.gemini/settings.json` and MCP servers. Since 2026-10-02 a lane can fly
+on it under `AUTOPILOT_ENGINE=gemini`, with the launcher writing its guard settings file (routing below).
 Since 2026-10-01 it carries Codex's idle cap too. `--output-format json` writes its one object only
 when the run ends, so there was no stdout to watch until then; `GeminiCliModel` now runs
 `--output-format stream-json`, which prints `init` before the first model request and each event as
@@ -284,8 +287,35 @@ OS temp directory, outside the target, and appends its path to the guard command
 argument. `guard-hook.js` appends every deny it prints there, one decision per line, and after the
 run settles `codexGuardDenialsFromLog` reads it into `guardDenials`/`guardDenialDetails`, by
 `guardDenialFromText` as Gemini's are, and the log is removed. Still open: `exec_command`'s `workdir`
-never reaches the hook, so a command is judged without it; and nothing wires the guard into a lane
-yet, since no lane routes to Codex.
+never reaches the hook, so a command is judged without it.
+
+**Routing, since 2026-10-02:** a flight launched with `AUTOPILOT_ENGINE=codex` flies every firing on
+`CodexCliModel`, on the model `AUTOPILOT_ENGINE_MODEL` names
+(`apps/dashboard/src/flight/firing-engine.ts`). The model has its own variable because every other
+model lever (`AUTOPILOT_MODEL`, the routing tiers, the SOUL pin) names a Claude model, and the
+flight's other Claude calls, the commit reviewer and the merge-escalation agent, keep using them. A
+codex lane puts its model in every model slot of its firing config, the quota fallback and
+resilience's pair included, skips per-task model routing, and runs `guardHookCommand`, the command
+the Claude settings file runs, as its guard hook. Its gate-reverted firings demote it after two in a
+row. An unknown engine, a missing model or a Claude model refuses the flight instead of flying Claude
+unasked.
+
+Since 2026-10-02 `AUTOPILOT_ENGINE=gemini` routes a lane to `GeminiCliModel` the same way, with the
+same model slots, routing skip and demotion. Its guard is the `BeforeTool` hook
+`buildGeminiFlightSettings` builds: `fly.ts` writes it to a per-instance
+`flight-guard-<project>[--<instance>].gemini-settings.json` (`geminiGuardSettingsFileName`, whose
+suffix no Claude `--settings` name can share), reads it back through `verifyGuardSettings` as it
+does the Claude file, and refuses the flight if it does not match. The lane passes `trustWorkspace`
+(`--skip-trust`). gemini-cli registers the merged settings' hooks only in a trusted folder
+(`packages/core/src/hooks/hookRegistry.ts`, "Project hooks disabled because the folder is not
+trusted"), and `--skip-trust` sets `GEMINI_CLI_TRUST_WORKSPACE=true` (`packages/cli/src/config/config.ts`),
+which `checkPathTrust` (`packages/core/src/utils/trust.ts`) takes as trusted before any
+`trustedFolders.json` rule, read 2026-10-02. Without it every firing would exit
+`FatalUntrustedWorkspaceError`; `claude -p` likewise runs with no trust prompt. An operator env with
+`GEMINI_RESTRICTED_MODE=true` or `GEMINI_CLI_TRUST_WORKSPACE=false` wins over the flag, and the run
+then exits rather than flying without its hook. The price is the one `trustWorkspace` names: the
+target's own `.gemini/settings.json`, `.env` and MCP servers load, though system settings merge last,
+so they cannot switch the guard off.
 
 **4. Google Gemini CLI** — headless mode triggers on a non-TTY or `-p`/`--prompt`; `--output-format
 json` returns one JSON object with response + usage statistics, or JSONL for a stream
@@ -350,8 +380,8 @@ only for the dashboard's single-turn triage substep (`apps/dashboard/src/fly.ts`
 names why: no tool use, no agent loop). Promoting it to a real mechanical-work lane (docs,
 formatting, test scaffolds) is a scheduling/routing change in the loop, not a `ModelPort` change —
 `OllamaModel` itself needs no new capability, but the lane needs the "demotes a lane that fails
-twice" quality gate the roadmap names. Since 2026-10-02 the loop has it as an option no lane passes
-yet (`demoteAfterGateFailures`, see the acceptance criteria below).
+twice" quality gate the roadmap names. Since 2026-10-02 the loop has it
+(`demoteAfterGateFailures`, see the acceptance criteria below), and a codex or gemini lane passes it.
 
 **7. A parity matrix in the docs** — the table below. Kept here rather than in a separate file per
 the epic-spec convention (`docs/epics/README.md`): one committed spec per epic, not a spec plus a
@@ -363,8 +393,8 @@ disconnected reference doc that can drift out of sync with it.
 | Ollama (`OllamaModel`) | No | No — single-turn only | Real `$0` (local compute) | **Shipped**, triage-only lane |
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`) |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`) |
-| OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it; since 2026-10-02 it runs the containment guard as its `PreToolUse` hook on every shell call and `apply_patch` (`codexGuardArgs`, `codex-guard.ts`, finding 3), and reports the calls it denied from a per-run deny log (`codexGuardDenialsFromLog`) |
-| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed); a stale id retries cold | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); not yet wired into routing/config, so no lane flies on it |
+| OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Routed** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); since 2026-10-02 a lane flies on it under `AUTOPILOT_ENGINE=codex` + `AUTOPILOT_ENGINE_MODEL` (`flight/firing-engine.ts`), demoted after two reverted firings in a row; since 2026-10-02 it runs the containment guard as its `PreToolUse` hook on every shell call and `apply_patch` (`codexGuardArgs`, `codex-guard.ts`, finding 3), and reports the calls it denied from a per-run deny log (`codexGuardDenialsFromLog`) |
+| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed); a stale id retries cold | Yes — full loop | **None** — token counts only, no price | **Routed** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); since 2026-10-02 a lane flies on it under `AUTOPILOT_ENGINE=gemini` + `AUTOPILOT_ENGINE_MODEL` (`flight/firing-engine.ts`), its `BeforeTool` guard written and verified per instance (`geminiGuardSettingsFileName`), the worktree trusted per session, demoted after two reverted firings in a row |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | `--output-format=json` exists but its wire schema is undocumented and unverifiable (closed-source binary) | **Blocked** — needs a real captured output sample before an adapter can be fixture-tested |
 
 ## Acceptance criteria
@@ -388,8 +418,9 @@ disconnected reference doc that can drift out of sync with it.
   `'reverted'` gate counts. A gate crash (`'unverifiable'`) is no proof the work was bad, and a
   firing with no commit gave the gate nothing to judge, so either starts the count over. The
   flight log says `DEMOTED: …`, and the done line names the requested count it fell short of.
-  The option is off by default, and no lane flies a non-Claude engine yet. The routing slice that
-  first does should pass `demoteAfterGateFailures: 2` for such a lane.
+  The option is off by default. **Switched on 2026-10-02 for a codex or gemini lane:** `fly.ts` passes
+  `demoteAfterGateFailures: 2` (`NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES`) whenever
+  `AUTOPILOT_ENGINE` routes the lane off Claude.
 - The parity matrix table above is kept current as each row's Status changes — updated in the SAME
   commit that ships the adapter, not a follow-up.
 

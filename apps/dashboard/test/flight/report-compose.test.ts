@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   COMPOSE_LEAK_RULES,
+  REPORT_LANGUAGES,
   buildLanguageCheckPrompt,
   buildReportComposePrompt,
   parseLanguageCheck,
@@ -18,6 +19,7 @@ import {
   primaryScriptOf,
   type ReportComposeDeps,
 } from '../../src/flight/report-compose.js';
+import { issueTemplateGaps, type IssueTemplateKind } from '../../src/flight/issue-triage.js';
 
 /** Doctrine rule 3's model half: a composition is read back by a fresh model
  *  before it is accepted — all but an English one in a chosen English. This
@@ -124,6 +126,93 @@ describe('buildReportComposePrompt', () => {
       expect(prompt).toContain('"severityReasoning" (in the note\'s language) explaining why');
     });
   });
+});
+
+/**
+ * EPIC 0019 ADDITIVE-ONLY LAW (board web-mtsylqbd-q2rg8k), the TEMPLATES flow.
+ * The prompt spells each issue form's sections by hand, and the report it
+ * composes is filed upstream, where `issue-triage.ts`'s protocol gate holds it
+ * to its form (issue-triage-protocol.test.ts pins the gate to the forms on
+ * disk). Nothing tied this prompt to either: a required field added to a form
+ * reaches the gate, the composer keeps asking for the old list, and every
+ * report it writes of that kind is labelled `status: needs-format`, with every
+ * test above still green. These read the gate's own list instead.
+ */
+describe('buildReportComposePrompt × the issue-protocol gate (regression, epic 0019 additive-only law)', () => {
+  const KINDS = [
+    { kind: 'bug', intro: 'for a bug: ', formLabel: 'bug' },
+    { kind: 'feature', intro: 'for a feature or idea: ', formLabel: 'enhancement' },
+  ] as const;
+
+  const NOTE = {
+    description: 'the launch button stays disabled',
+    contextJson: undefined,
+    moduleSources: [],
+  };
+  const NOTE_PROMPT = buildReportComposePrompt(NOTE);
+  // Every language line the prompt can carry; the section list must not depend on it.
+  const PROMPTS: readonly [variant: string, prompt: string][] = [
+    ["the note's language", NOTE_PROMPT],
+    ['the English fallback', buildReportComposePrompt({ ...NOTE, englishFallback: true })],
+    ...REPORT_LANGUAGES.map((language): [string, string] => [
+      `a chosen "${language}"`,
+      buildReportComposePrompt({ ...NOTE, language }),
+    ]),
+  ];
+
+  /** The gate's verdict on an untitled report: its kind comes from `labels`,
+   *  or with none, from the body's headings. */
+  const gapsOf = (
+    body: string,
+    labels: readonly string[] = [],
+  ): ReturnType<typeof issueTemplateGaps> =>
+    issueTemplateGaps({ number: 1, title: 'Untitled', body, labels });
+
+  /** The sections the gate holds a report of `kind` to, as its reply names them. */
+  function gateSections(kind: IssueTemplateKind, label: string): readonly string[] {
+    const gaps = gapsOf('', [label]);
+    // Guards the reader: an empty body misses every section of the kind asked for.
+    if (gaps?.kind !== kind) {
+      throw new Error(`the gate did not read a "${label}" report as ${kind}`);
+    }
+    return gaps.missing;
+  }
+
+  /** The `### ` headings the prompt asks a report of one kind to carry, in order. */
+  function promptHeadings(prompt: string, intro: string): string[] {
+    const flat = prompt.replace(/\s+/g, ' ');
+    const start = flat.indexOf(intro);
+    if (start < 0) throw new Error(`the prompt has no "${intro.trim()}" list`);
+    const list = /^(?:"### [^"]+"(?:, )?)+/.exec(flat.slice(start + intro.length))?.[0] ?? '';
+    return [...list.matchAll(/"### ([^"]+)"/g)].map((match) => match[1] ?? '');
+  }
+
+  const sectionsBody = (headings: readonly string[]): string =>
+    headings.map((heading) => `### ${heading}\nWritten by the composer.`).join('\n\n');
+
+  it.each(KINDS)(
+    'asks a $kind report for exactly the sections the gate holds it to, in order',
+    ({ kind, intro, formLabel }) => {
+      const sections = gateSections(kind, formLabel);
+      for (const [variant, prompt] of PROMPTS) {
+        expect(promptHeadings(prompt, intro), variant).toEqual(sections);
+      }
+    },
+  );
+
+  it.each(KINDS)(
+    'a body under the $kind headings it asks for passes the gate, read as a $kind',
+    ({ kind, intro }) => {
+      const headings = promptHeadings(NOTE_PROMPT, intro);
+      expect(gapsOf(sectionsBody(headings))).toBeNull();
+      // With no label to go by, the headings alone pick the kind: drop the
+      // last one and the gate asks for that section of that form.
+      expect(gapsOf(sectionsBody(headings.slice(0, -1)))).toEqual({
+        kind,
+        missing: headings.slice(-1),
+      });
+    },
+  );
 });
 
 describe('parseReportComposeOutput', () => {

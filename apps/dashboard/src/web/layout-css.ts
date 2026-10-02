@@ -398,14 +398,14 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 /* 🍀 I'm-feeling-lucky: a square icon sibling in #fly-go's MX shape-morph
    family, voiced in --color-success (the clover's own semantic green — ≥4.5:1
    on every theme's surfaces per the contrast matrix) instead of the CTA
-   accent, so it reads "advisory roll" next to the "spend" button. The SVG
-   inherits currentColor, so both themes (and terminal) restyle it for free;
-   hover/focus fill with success + accent-text (≥4.5:1 on the success fill in
-   all three themes) and spin the four-fold-symmetric clover a quarter turn —
-   it lands exactly on itself, luck spun. The global reduced-motion block
-   collapses the spin to static. */
+   accent, so it reads "advisory roll" next to the "spend" button. The
+   vendored clover strokes in currentColor, so both themes (and terminal)
+   restyle it for free; hover/focus fill with success + accent-text (≥4.5:1
+   on the success fill in all three themes) and spin the clover a quarter
+   turn — its four leaves land on themselves, luck spun. The global
+   reduced-motion block collapses the spin to static. */
 #fly-lucky { display: inline-flex; align-items: center; justify-content: center; font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-2); border-radius: var(--shape-extra-small); border: 1px solid var(--color-success); background: transparent; color: var(--color-success); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard), background var(--duration-short2) var(--easing-standard), color var(--duration-short2) var(--easing-standard); }
-#fly-lucky svg { width: 1.35em; height: 1.35em; transition: transform var(--duration-short2) var(--easing-standard); }
+#fly-lucky svg { inline-size: 1.35em; block-size: 1.35em; transition: transform var(--duration-short2) var(--easing-standard); }
 #fly-lucky:disabled { cursor: default; opacity: 0.6; }
 #fly-lucky:not(:disabled):hover, #fly-lucky:not(:disabled):focus-visible { background: var(--color-success); color: var(--color-accent-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 #fly-lucky:not(:disabled):hover svg, #fly-lucky:not(:disabled):focus-visible svg { transform: rotate(90deg); }

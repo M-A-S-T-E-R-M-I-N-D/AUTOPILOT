@@ -36,12 +36,11 @@ describe('handleRoute', () => {
   it('serves the 🍀 lucky button as a theme-aware currentColor SVG, never a raw emoji glyph (emoji ignore the token palette in every theme)', () => {
     const r = handleRoute('/');
     expect(r.body).toContain('id="fly-lucky"');
-    // The clover is an inline SVG inheriting currentColor — both themes (and
-    // terminal) restyle it via the button's own token-driven color.
+    // The clover is the vendored stroke icon inheriting currentColor — both
+    // themes (and terminal) restyle it via the button's own token-driven color.
     const btn = r.body.slice(r.body.indexOf('id="fly-lucky"'), r.body.indexOf('id="fly-go"'));
-    expect(btn).toContain(
-      '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor">',
-    );
+    expect(btn).toContain('<svg class="icon icon-clover"');
+    expect(btn).toContain('stroke="currentColor"');
     expect(btn).not.toContain('🍀');
   });
 

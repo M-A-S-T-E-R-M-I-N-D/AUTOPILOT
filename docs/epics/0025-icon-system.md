@@ -250,7 +250,23 @@ propagation, and the filled style does not match the nav.
    button prints `iconSvg('maximize')` beside its `[data-i18n]` label, still
    sized by the rail's `.subject-link svg` rule like the links beside it.
    `shell-html.ts` is down to its three link builders' Feather-derived
-   table.
+   table. **Subject rail and project tabs 2026-10-02 (law 1):** the rail's
+   links, a project page's global links and its tab row print
+   `iconSvg(name)` now, the Lucide counterpart of each Feather shape:
+   `layout-grid` (Fleet, Overview), `send` (Fly), `square-kanban` (Board),
+   `git-branch` (Plan), `chart-scatter` (Benchmark) and
+   `chart-no-axes-column` (Data) are newly vendored, and Keeper, Community
+   and Docs reuse `inbox`, `users` and `book-open`. The `.subject-link svg`
+   and `.project-tab svg` rules still size them. The hand-inlined list is
+   down to the lucky button's filled clover in `shell.ts`. **Lucky clover
+   2026-10-02 (law 1):** the fly bar's lucky button printed a filled,
+   hand-drawn four-leaf clover; it prints a newly vendored Lucide `clover`
+   now, stroked in the button's success colour like every other icon. The
+   `#fly-lucky svg` rule still sizes it at `1.35em` (as logical sizes now, like
+   the Ask button's rule) and still spins it a quarter turn on
+   hover and focus; its aria-label stays its only name. The hand-inlined
+   list is gone and `apps/dashboard/test/web/icons.test.ts` pins zero: every
+   24-unit icon in `src/web/` comes from `icons.ts`.
 
 ## Related
 

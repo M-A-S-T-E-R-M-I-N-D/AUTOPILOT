@@ -9,6 +9,7 @@ import {
   engineLockFileName,
   flightLogFileName,
   guardSettingsFileName,
+  geminiGuardSettingsFileName,
   askEscalationGuardSettingsFileName,
   deriveFlyProjectId,
   readFlightOwnerPid,
@@ -120,6 +121,38 @@ describe('guardSettingsFileName', () => {
       expect(name).not.toContain('..');
       expect(name).not.toContain(String.fromCharCode(47));
     });
+  });
+});
+
+describe('geminiGuardSettingsFileName', () => {
+  it("keys a gemini lane's guard-settings file on the project id", () => {
+    expect(geminiGuardSettingsFileName('fly-my-app')).toBe(
+      'flight-guard-fly-my-app.gemini-settings.json',
+    );
+  });
+
+  it("never shares a path with any flight's Claude --settings file", () => {
+    for (const [a, b] of [
+      ['fly-my-app', 'fly-my-app'],
+      ['gemini-fly-a', 'fly-a'],
+      ['fly-a', 'fly-a.gemini'],
+    ] as const) {
+      expect(geminiGuardSettingsFileName(b)).not.toBe(guardSettingsFileName(a));
+      expect(geminiGuardSettingsFileName(a)).not.toBe(guardSettingsFileName(b));
+    }
+  });
+
+  it('derives a DIFFERENT name for two instances of the SAME project', () => {
+    const a = geminiGuardSettingsFileName('fly-widget', 'fleet-2');
+    expect(a).not.toBe(geminiGuardSettingsFileName('fly-widget', 'fleet-3'));
+    expect(a).not.toBe(geminiGuardSettingsFileName('fly-widget'));
+  });
+
+  it('sanitizes a path-traversal instance id', () => {
+    const traversal = ['..', '..', 'etc', 'passwd'].join(String.fromCharCode(47));
+    const name = geminiGuardSettingsFileName('fly-widget', traversal);
+    expect(name).not.toContain('..');
+    expect(name).not.toContain(String.fromCharCode(47));
   });
 });
 

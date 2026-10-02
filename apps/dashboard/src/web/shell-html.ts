@@ -68,9 +68,9 @@ export function escapeAttr(value: string): string {
     .replace(/>/g, '&gt;');
 }
 
-/** One subject-nav link: an inline icon (24-unit stroke paths, Feather-
- *  derived, MIT) beside a translatable label. The label sits in its own
- *  span so `translateDom`'s textContent swap never wipes the icon. */
+/** One subject-nav link: a vendored icon (`iconSvg`, epic 0025) beside a
+ *  translatable label. The label sits in its own span so `translateDom`'s
+ *  textContent swap never wipes the icon. */
 function subjectLink(
   name: string,
   href: string,
@@ -86,9 +86,9 @@ function subjectLink(
     name +
     '"' +
     (current ? ' aria-current="page"' : '') +
-    '><svg viewBox="0 0 24 24" aria-hidden="true">' +
-    icon +
-    '</svg><span data-i18n="' +
+    '>' +
+    iconSvg(icon) +
+    '<span data-i18n="' +
     key +
     '">' +
     label +
@@ -116,9 +116,9 @@ function globalLink(
     name +
     '"' +
     (here ? ' aria-current="true"' : '') +
-    '><svg viewBox="0 0 24 24" aria-hidden="true">' +
-    icon +
-    '</svg><span data-i18n="' +
+    '>' +
+    iconSvg(icon) +
+    '<span data-i18n="' +
     key +
     '">' +
     label +
@@ -139,9 +139,9 @@ function projectTab(
     name +
     '"' +
     (current ? ' aria-current="page"' : '') +
-    '><svg viewBox="0 0 24 24" aria-hidden="true">' +
-    icon +
-    '</svg><span data-i18n="' +
+    '>' +
+    iconSvg(icon) +
+    '<span data-i18n="' +
     key +
     '">' +
     label +
@@ -149,21 +149,18 @@ function projectTab(
   );
 }
 
+/** Each place's vendored icon (epic 0025 law 1): the Lucide counterparts of
+ *  the Feather-derived shapes the rail used to print by hand. */
 const SUBJECT_ICON = {
-  fleet:
-    '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
-  fly: '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>',
-  keeper:
-    '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
-  community:
-    '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-  board:
-    '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>',
-  plan: '<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
-  docs: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
-  benchmark:
-    '<path d="M3 3v18h18"/><circle cx="8" cy="14" r="1.5"/><circle cx="12" cy="9" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="19" cy="6" r="1.5"/>',
-  data: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  fleet: 'layout-grid',
+  fly: 'send',
+  keeper: 'inbox',
+  community: 'users',
+  board: 'square-kanban',
+  plan: 'git-branch',
+  docs: 'book-open',
+  benchmark: 'chart-scatter',
+  data: 'chart-no-axes-column',
 } as const;
 
 /**

@@ -1759,6 +1759,13 @@ describe('touchesSecuritySensitivePath', () => {
     expect(touchesSecuritySensitivePath(['packages/engine/src/adapters/npm-shim.ts'])).toBe(true);
   });
 
+  it('flags the engine choice that decides which agent CLI a lane flies on, even without a security-keyword path', () => {
+    expect(touchesSecuritySensitivePath(['apps/dashboard/src/flight/firing-engine.ts'])).toBe(true);
+    expect(touchesSecuritySensitivePath(['apps/dashboard/test/flight/firing-engine.test.ts'])).toBe(
+      false,
+    );
+  });
+
   it('keeps pace with new engine/src/adapters files automatically: every adapter is either flagged or explicitly allow-listed as benign, so a future adapter can never silently slip past this ritual the way fs-control.ts and instance-lock.ts just did', () => {
     const adapterFiles = readdirSync(ENGINE_ADAPTERS_DIR).filter((name) => name.endsWith('.ts'));
     expect(adapterFiles.length).toBeGreaterThan(0);
@@ -7408,5 +7415,57 @@ describe("the PR template's verification boundary × what the ritual reads (regr
     expect(flat(boundary)).toContain('CONTRIBUTING.md "What happens after you open a PR"');
     expect(promise).toMatch(/\*\*draft\*\* PR never enters the KEEPER's sweep/);
     expect(promise).toMatch(/KEEPER never reads your description/);
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the CI half of what
+// a contributor is told happens to their PR: the gate the KEEPER then reads.
+// CONTRIBUTING.md's step 1 said CI runs "commitlint on the PR title", but
+// commitlint.yml lints the PR's commit range (--from base.sha --to head.sha)
+// and no workflow reads `pull_request.title`. Step 6 of "Development workflow"
+// says that title becomes the squash subject, so a contributor who trusted the
+// promise left unchecked the one line they were told reaches main.
+describe("CONTRIBUTING.md's CI step × the workflows a PR runs (regression, epic 0019 additive-only law)", () => {
+  /** `text` with every whitespace run as one space, so a pin never depends on where prose wraps. */
+  const flat = (text: string): string => text.replace(/\s+/g, ' ');
+  const contributing = read('.github/CONTRIBUTING.md');
+  const promise = flat(sectionFrom(contributing, 'What happens after you open a PR\n'));
+  const ciStep = /1\. \*\*CI runs\*\*.*?(?= 2\. \*\*)/.exec(promise)?.[0] ?? '';
+  const workflows = readdirSync(repoPath('.github/workflows'))
+    .filter((file) => /\.ya?ml$/.test(file))
+    .map((file) => [file, read(`.github/workflows/${file}`)] as const);
+  const ci = read('.github/workflows/ci.yml');
+  const commitlint = read('.github/workflows/commitlint.yml');
+
+  it('names commitlint over the commits it lints, never a PR title no workflow reads', () => {
+    expect(ciStep).not.toBe('');
+    expect(commitlint).toMatch(/^on: pull_request$/m);
+    expect(flat(commitlint)).toContain(
+      'pnpm commitlint --from ${{ github.event.pull_request.base.sha }} ' +
+        '--to ${{ github.event.pull_request.head.sha }}',
+    );
+    expect(workflows.length).toBeGreaterThan(1);
+    for (const [file, text] of workflows) expect(text, file).not.toMatch(/pull_request\.title/);
+    expect(ciStep).not.toMatch(/commitlint on the PR title/);
+    expect(ciStep).toContain('commitlint on every commit in the PR');
+  });
+
+  it('says outright that no check reads the title step 6 tells them becomes the squash subject', () => {
+    expect(flat(sectionFrom(contributing, 'Development workflow\n'))).toMatch(
+      /TITLE of the PR must itself be a valid Conventional Commit \(it becomes the squash subject\)/,
+    );
+    expect(ciStep).toContain('No check reads the PR title');
+  });
+
+  it('names the OS count and the license check the ci workflow runs', () => {
+    const oses = /^\s+os: \[([^\]]+)\]$/m.exec(ci)?.[1]?.split(',') ?? [];
+    expect(oses.map((os) => os.trim())).toEqual([
+      'ubuntu-latest',
+      'windows-latest',
+      'macos-latest',
+    ]);
+    expect(ciStep).toContain('on three OSes');
+    expect(ci).toMatch(/^\s+run: reuse lint$/m);
+    expect(ciStep).toContain('a REUSE license check');
   });
 });

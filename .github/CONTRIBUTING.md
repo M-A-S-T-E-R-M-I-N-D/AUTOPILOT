@@ -63,7 +63,9 @@ pnpm run verify   # typecheck + lint + format + test+coverage + build + CI valid
 ## What happens after you open a PR
 
 1. **CI runs** (the same `verify` you ran, on three OSes, plus commitlint on
-   the PR title and a REUSE license check).
+   every commit in the PR and a REUSE license check). No check reads the PR
+   title, so keeping it a valid Conventional Commit (step 6 of
+   [Development workflow](#development-workflow)) is up to you.
 2. **The KEEPER triages it** — an automated review ritual that reads
    gh-reported facts (CI state, diff scope, mergeability) and reaches one of
    three decisions: **merge** (small, green, in-scope: an approval, then a

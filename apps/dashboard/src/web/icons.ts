@@ -571,6 +571,60 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M3 16v3a2 2 0 0 0 2 2h3' }],
     ['path', { d: 'M16 21h3a2 2 0 0 0 2-2v-3' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9, law 1): the subject
+  // rail's links and the project tabs drop their hand-copied Feather table.
+  // Keeper, Community and Docs reuse inbox, users and book-open above.
+  'layout-grid': [
+    ['rect', { width: '7', height: '7', x: '3', y: '3', rx: '1' }],
+    ['rect', { width: '7', height: '7', x: '14', y: '3', rx: '1' }],
+    ['rect', { width: '7', height: '7', x: '14', y: '14', rx: '1' }],
+    ['rect', { width: '7', height: '7', x: '3', y: '14', rx: '1' }],
+  ],
+  send: [
+    [
+      'path',
+      {
+        d: 'M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z',
+      },
+    ],
+    ['path', { d: 'm21.854 2.147-10.94 10.939' }],
+  ],
+  'chart-scatter': [
+    ['circle', { cx: '7.5', cy: '7.5', r: '.5', fill: 'currentColor' }],
+    ['circle', { cx: '18.5', cy: '5.5', r: '.5', fill: 'currentColor' }],
+    ['circle', { cx: '11.5', cy: '11.5', r: '.5', fill: 'currentColor' }],
+    ['circle', { cx: '7.5', cy: '16.5', r: '.5', fill: 'currentColor' }],
+    ['circle', { cx: '17.5', cy: '14.5', r: '.5', fill: 'currentColor' }],
+    ['path', { d: 'M3 3v16a2 2 0 0 0 2 2h16' }],
+  ],
+  'square-kanban': [
+    ['rect', { width: '18', height: '18', x: '3', y: '3', rx: '2' }],
+    ['path', { d: 'M8 7v7' }],
+    ['path', { d: 'M12 7v4' }],
+    ['path', { d: 'M16 7v9' }],
+  ],
+  'git-branch': [
+    ['path', { d: 'M15 6a9 9 0 0 0-9 9V3' }],
+    ['circle', { cx: '18', cy: '6', r: '3' }],
+    ['circle', { cx: '6', cy: '18', r: '3' }],
+  ],
+  'chart-no-axes-column': [
+    ['path', { d: 'M5 21v-6' }],
+    ['path', { d: 'M12 21V3' }],
+    ['path', { d: 'M19 21V9' }],
+  ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9, law 1): the fly bar's
+  // lucky button drops its filled, hand-drawn clover for Lucide's stroke one.
+  clover: [
+    ['path', { d: 'M16.17 7.83 2 22' }],
+    [
+      'path',
+      {
+        d: 'M4.02 12a2.827 2.827 0 1 1 3.81-4.17A2.827 2.827 0 1 1 12 4.02a2.827 2.827 0 1 1 4.17 3.81A2.827 2.827 0 1 1 19.98 12a2.827 2.827 0 1 1-3.81 4.17A2.827 2.827 0 1 1 12 19.98a2.827 2.827 0 1 1-4.17-3.81A1 1 0 1 1 4 12',
+      },
+    ],
+    ['path', { d: 'm7.83 7.83 8.34 8.34' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

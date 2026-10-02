@@ -10,6 +10,8 @@ export * from './store.js';
 export * from './fs-control.js';
 export * from './claude-cli.js';
 export * from './ollama.js';
+export * from './codex-cli.js';
+export * from './gemini-cli.js';
 export * from './gate.js';
 export * from './dynamic-gate.js';
 export * from './remediating-gate.js';

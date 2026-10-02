@@ -194,11 +194,79 @@ describe('server-printed chrome draws vendored icons (law 1)', () => {
     );
   });
 
-  // Shrink-only: the subject rail's Feather-derived table (three link
-  // builders) and the lucky button's filled clover still print their own
-  // markup.
-  it('hand-inlines no 24-unit icon outside the vendored set beyond the known sites', () => {
-    expect(handInlinedIconSites()).toEqual(['shell-html.ts: 3', 'shell.ts: 1']);
+  // The rail's three link builders printed a hand-copied Feather table; each
+  // place draws its vendored Lucide shape now, still sized by the rail's
+  // `.subject-link svg` and the tab row's `.project-tab svg` rules.
+  it('every rail link and project tab prints its vendored icon beside its label', () => {
+    const RAIL: Record<string, string> = {
+      fleet: 'layout-grid',
+      fly: 'send',
+      keeper: 'inbox',
+      community: 'users',
+      benchmark: 'chart-scatter',
+    };
+    const TABS: Record<string, string> = {
+      fleet: 'layout-grid',
+      board: 'square-kanban',
+      keeper: 'inbox',
+      plan: 'git-branch',
+      docs: 'book-open',
+      data: 'chart-no-axes-column',
+    };
+    const fleetPage = new DOMParser().parseFromString(renderShell(), 'text/html');
+    const projectPage = new DOMParser().parseFromString(renderShell('alpha'), 'text/html');
+    const cases: [Element[], Record<string, string>, string][] = [
+      [
+        [...fleetPage.querySelectorAll('#subject-nav a[data-subject-link]')],
+        RAIL,
+        'data-subject-link',
+      ],
+      [
+        [...projectPage.querySelectorAll('#subject-nav a[data-global-link]')],
+        RAIL,
+        'data-global-link',
+      ],
+      [[...projectPage.querySelectorAll('#project-tabs a')], TABS, 'data-subject-link'],
+    ];
+    for (const [links, icons, attr] of cases) {
+      expect(links.map((a) => a.getAttribute(attr))).toEqual(Object.keys(icons));
+      for (const link of links) {
+        const name = icons[link.getAttribute(attr)!]!;
+        expect(ICON_NAMES, name).toContain(name);
+        expect(link.children, name).toHaveLength(2);
+        const icon = link.firstElementChild!;
+        expect(icon.matches(`svg.icon.icon-${name}`), name).toBe(true);
+        expect(icon.getAttribute('aria-hidden')).toBe('true');
+        expect(icon.hasAttribute('width'), name).toBe(false);
+        expect(link.lastElementChild!.matches('span[data-i18n]'), name).toBe(true);
+      }
+    }
+    const css = layoutCss();
+    expect(css).toContain('.subject-link svg { inline-size: 1.375rem; block-size: 1.375rem;');
+    expect(css).toContain('.project-tab svg { inline-size: 1.125rem; block-size: 1.125rem;');
+  });
+
+  // The lucky button printed a filled, hand-drawn clover; it draws Lucide's
+  // stroke clover now, still sized and spun by the `#fly-lucky svg` rules.
+  it('the lucky button prints the vendored clover and keeps its name', () => {
+    const page = new DOMParser().parseFromString(renderShell(), 'text/html');
+    const button = page.getElementById('fly-lucky') as HTMLButtonElement;
+    expect(button).not.toBeNull();
+    expect(button.children).toHaveLength(1);
+    const icon = button.querySelector('svg.icon.icon-clover');
+    expect(icon).not.toBeNull();
+    expect(icon!.getAttribute('aria-hidden')).toBe('true');
+    expect(icon!.getAttribute('fill')).toBe('none');
+    expect(icon!.hasAttribute('width')).toBe(false);
+    expect(button.textContent).toBe('');
+    expect(button.getAttribute('aria-label')).toBe(STRINGS.en.flyLuckyAria);
+    expect(button.getAttribute('data-i18n-aria')).toBe('flyLuckyAria');
+    expect(layoutCss()).toContain('#fly-lucky svg { inline-size: 1.35em; block-size: 1.35em;');
+  });
+
+  // Every web/ file draws its icons through the vendored set now.
+  it('hand-inlines no 24-unit icon outside the vendored set', () => {
+    expect(handInlinedIconSites()).toEqual([]);
   });
 });
 
