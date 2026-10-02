@@ -315,19 +315,21 @@ function tomlBasicString(text: string): string {
 
 /**
  * The argv that runs `command` as `codex exec`'s PreToolUse hook on every shell
- * call: the containment guard, as `ClaudeCliModel` gets it from `--settings`
- * and `GeminiCliModel` from its system settings file. Read from openai/codex
- * on 2026-10-02:
+ * call and file patch: the containment guard, as `ClaudeCliModel` gets it from
+ * `--settings` and `GeminiCliModel` from its system settings file. Read from
+ * openai/codex on 2026-10-02:
  * - `-c key=value` parses the value as TOML onto a session-flags config layer,
  *   and is `global`, so it parses after `exec` (`utils/cli/src/config_override.rs`).
  *   Hooks load from that layer as from any other (`hooks/src/engine/discovery.rs`).
  * - A matcher group's `hooks` take `type`, `command` and `timeout`, in seconds as
- *   Claude's are (`config/src/hook_config.rs`). A matcher of bare names is an
- *   exact match (`hooks/src/engine/matcher.rs`).
+ *   Claude's are (`config/src/hook_config.rs`). A matcher of bare names and `|`
+ *   is an exact match on any of them (`hooks/src/engine/matcher.rs`).
  * - Every shell call, plain or unified `exec_command`, reaches the hook as `Bash`
  *   with `tool_input.command` (`core/src/tools/hook_names.rs`), the Claude payload
  *   `guard-hook.js` already judges, and a Claude deny is a Codex deny
- *   (`hooks/src/events/pre_tool_use.rs`).
+ *   (`hooks/src/events/pre_tool_use.rs`). A file edit reaches it as `apply_patch`
+ *   with the patch as `tool_input.command`, which `codex-guard.ts` reads as a
+ *   Claude `Write` or `Edit` of each file the patch names.
  * - A hook from no managed layer runs only once its hash is trusted, or under
  *   `--dangerously-bypass-hook-trust` (`utils/cli/src/shared_options.rs`), which
  *   `exec` takes after the subcommand (`exec/src/cli.rs`, `mark_exec_global_args`).
@@ -338,7 +340,7 @@ export function codexGuardArgs(command: string): string[] {
   const hook = `{type="command",command=${tomlBasicString(command)},timeout=${GUARD_TIMEOUT_S}}`;
   return [
     '-c',
-    `hooks.PreToolUse=[{matcher="Bash",hooks=[${hook}]}]`,
+    `hooks.PreToolUse=[{matcher="Bash|apply_patch",hooks=[${hook}]}]`,
     '--dangerously-bypass-hook-trust',
   ];
 }
@@ -375,7 +377,7 @@ export interface CodexCliOptions {
   /**
    * The containment guard, Codex's counterpart of `GeminiCliOptions.guardSettingsPath`:
    * the command line `guard.ts`'s `guardHookCommand(targetRoot, guardScriptPath)`
-   * builds, run as the child's PreToolUse hook on every shell call
+   * builds, run as the child's PreToolUse hook on every shell call and file patch
    * ({@link codexGuardArgs}). Empty or absent, the child runs with no guard hook.
    * A run that would have to carry it through cmd.exe is refused, never flown
    * without it.
@@ -433,8 +435,8 @@ export interface CodexCliOptions {
  * Given {@link CodexCliOptions.onActivity}, it reports every tool call there the
  * same way, as the live activity timeline's steps. Given
  * {@link CodexCliOptions.guardHookCommand}, the child runs the containment guard
- * as its PreToolUse hook on every shell call ({@link codexGuardArgs}); the calls
- * that hook denies are not yet read back as guard denials. It skips the rest of the
+ * as its PreToolUse hook on every shell call and file patch ({@link codexGuardArgs});
+ * the calls that hook denies are not yet read back as guard denials. It skips the rest of the
  * streaming hardening (partial usage on a kill), which the Claude driver gained
  * after real incidents this adapter has no flight history to have hit yet. It
  * shares the Claude driver's CLI-level resume fallback: a session id the CLI rejects

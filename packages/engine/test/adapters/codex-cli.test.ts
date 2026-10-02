@@ -599,10 +599,10 @@ describe('codexActivityReader — the live activity timeline (StreamingClaudeCli
 });
 
 describe('codexGuardArgs — the containment guard as a session-layer PreToolUse hook (GeminiCliModel parity)', () => {
-  it('is one -c override naming a Bash command hook, timed in seconds as Claude times it, plus the flag that runs it without persisted hook trust', () => {
+  it('is one -c override naming a command hook on Bash and apply_patch, timed in seconds as Claude times it, plus the flag that runs it without persisted hook trust', () => {
     expect(codexGuardArgs(GUARD_COMMAND)).toEqual([
       '-c',
-      'hooks.PreToolUse=[{matcher="Bash",hooks=[{type="command",' +
+      'hooks.PreToolUse=[{matcher="Bash|apply_patch",hooks=[{type="command",' +
         'command="node \\"/opt/autopilot/engine/dist/guard-hook.js\\" \\"/work/sbx\\"",' +
         `timeout=${GUARD_TIMEOUT_S}}]}]`,
       '--dangerously-bypass-hook-trust',
