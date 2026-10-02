@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
 const PROJECT = {
@@ -118,11 +119,18 @@ describe('the DETECTED BACKLOG panel', () => {
     const confirmBtn = item?.querySelector('[data-task-done]');
     expect(confirmBtn).not.toBeNull();
     expect(confirmBtn?.getAttribute('data-task-done')).toBe('t1');
+    // Epic 0025: the vendored check icon leads, decorative, where the label
+    // once baked in ✓ — the content-computed name is the words alone.
+    const confirmIcon = confirmBtn?.firstElementChild;
+    expect(confirmIcon?.getAttribute('class')).toBe('icon icon-check');
+    expect(confirmIcon?.getAttribute('aria-hidden')).toBe('true');
+    expect(confirmBtn?.querySelectorAll('svg')).toHaveLength(1);
+    expect(confirmBtn?.textContent).toBe('confirm done');
     expect(confirmBtn?.getAttribute('data-tip')).toBe(
       'Mark "add widget parser support" done — this commit appears to have shipped it',
     );
     // D1 ATTRIBUTE PAYLOAD (epic 0015, web-mtd1wmqc-v7h6cq): the button
-    // already names itself from its "✓ confirm done" content, so the tip
+    // already names itself from its "confirm done" content, so the tip
     // rides aria-describedby into a visually-hidden SIBLING span instead of
     // an aria-label duplicating data-tip verbatim (same fix as 7ae0105d for
     // the phase-rail segment buttons).
@@ -282,5 +290,12 @@ describe('the DETECTED BACKLOG panel', () => {
         'Detected backlog unavailable',
       );
     });
+  });
+
+  it('bakes no ✓ into the confirm-done label in either locale (epic 0025)', () => {
+    for (const table of Object.values(STRINGS)) {
+      expect(table.backlogConfirmDone).not.toMatch(/[✓✗]/u);
+      expect(table.backlogConfirmDone).toBe(table.backlogConfirmDone.trim());
+    }
   });
 });

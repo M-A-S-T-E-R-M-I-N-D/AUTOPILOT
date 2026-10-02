@@ -70,8 +70,9 @@ function numOrNull(v: unknown): number | null {
  * an evaluation over 193 firings, 2026-09-24). Cost was always right: it
  * comes from the envelope's own total, not from any one entry.
  * Also lifts `session_id` (docs/epics/0009-warm-sessions.md) — the CLI already
- * returns it in every envelope; nothing resumes it yet, but the fact is no
- * longer thrown away before a future firing can persist and reuse it.
+ * returns it in every envelope, and it is passed forward to the next firing for
+ * session resumption via the `--resume` flag, avoiding a cold spawn's context
+ * reprocessing cost.
  */
 export function parseModelEnvelope(stdout: string): ModelEnvelope | null {
   const trimmed = stdout.trim();

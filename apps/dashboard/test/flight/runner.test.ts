@@ -598,6 +598,62 @@ describe('FlightRunner', () => {
     expect(seen).toEqual([undefined, undefined, undefined]);
   });
 
+  // The fly-bar toggle's server-side half (epic 0016 "The GitHub Social
+  // Flight", slice 3/6, board web-mtpzzx7v-72q2dv): a per-flight
+  // AUTOPILOT_SOCIAL_FLIGHT override runs through the same fail-closed parse
+  // (parseSocialFlightToggle) the raw env var itself gets in
+  // flight/social-flight-pass.ts, so a malformed/unrecognized value can never
+  // reach the child as anything but 'off'.
+  describe('socialFlight override (epic 0016 slice 3/6 fly-bar toggle)', () => {
+    it('parses a given override and forwards it as the 8th spawnFlight arg', () => {
+      const seen: unknown[] = [];
+      const { deps } = makeDeps();
+      const spy: FlightRunnerDeps = {
+        ...deps,
+        spawnFlight: (...args) => {
+          seen.push(args[7]);
+          return fakeChild();
+        },
+      };
+      const runner = new FlightRunner(spy);
+      runner.start({ folder: '/work/a', socialFlight: 'full' });
+
+      expect(seen).toEqual(['full']);
+    });
+
+    it('fails closed to "off" on an unrecognized override, never a confident guess', () => {
+      const seen: unknown[] = [];
+      const { deps } = makeDeps();
+      const spy: FlightRunnerDeps = {
+        ...deps,
+        spawnFlight: (...args) => {
+          seen.push(args[7]);
+          return fakeChild();
+        },
+      };
+      const runner = new FlightRunner(spy);
+      runner.start({ folder: '/work/a', socialFlight: 'not-a-real-value' });
+
+      expect(seen).toEqual(['off']);
+    });
+
+    it('forwards undefined (never a default value) when the operator never touched the toggle', () => {
+      const seen: unknown[] = [];
+      const { deps } = makeDeps();
+      const spy: FlightRunnerDeps = {
+        ...deps,
+        spawnFlight: (...args) => {
+          seen.push(args[7]);
+          return fakeChild();
+        },
+      };
+      const runner = new FlightRunner(spy);
+      runner.start({ folder: '/work/a' });
+
+      expect(seen).toEqual([undefined]);
+    });
+  });
+
   it('resuming a paused flight is just start() again — no separate resume() exists', () => {
     const { deps, spawns, child } = makeDeps({ isPaused: () => true });
     const runner = new FlightRunner(deps);

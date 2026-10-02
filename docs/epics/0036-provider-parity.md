@@ -96,7 +96,21 @@ BeforeTool deny into an error whose `message` is the hook's own reason, and `non
 emits that call as a `tool_result` with `status: 'error'` and `error.message`. That reason is the
 Claude guard's deny text, so `stream.ts`'s `guardDenialFromText` reads both wires. Only the error
 is trusted: a tool that succeeded can print the same words in `output`. Codex runs no guard hook,
-so it reports none. The Copilot CLI adapter remains unstarted and, per the
+so it reports none. Since 2026-10-02 a Gemini run also feeds THREAT-MODEL T6's web-search audit:
+given `onWebSearch`, `GeminiCliModel` reads each stdout line as it lands and reports every
+`google_web_search` `tool_use` (`nonInteractiveCli.ts` emits it before the tool runs) through
+`geminiWebSearchFromEvent` as the `WebSearchAudit` `StreamingClaudeCliModel` hands the flight's
+`web-search` rows: the query whole up to `WEB_SEARCH_AUDIT_MAX_CHARS`, no domain filter
+(`WebSearchToolParams` in `tools/web-search.ts` takes `query` alone). A last line with no newline is
+read at settle, after the response resolves, so a sink that throws cannot leave the run unsettled.
+Since 2026-10-02 a Codex run feeds the same audit: given `onWebSearch`, `CodexCliModel` reads each
+stdout line the same way and reports every `web_search` item through `codexWebSearchesFromEvent`.
+Only `item.completed` counts, because the started item's query is empty until the search has run
+(`ext/web-search/src/tool.rs`). A `search` action is audited once per query in its own
+`query`/`queries`, since the item's `query` is only a display detail that keeps the first of several
+and elides the rest as ` ...` (`core/src/web_search.rs`, `web_search_action_detail`). A page opened
+or searched within, and a CLI that sends no action, are audited by that detail, the URL or pattern
+the tool was sent. The Copilot CLI adapter remains unstarted and, per the
 2026-09-27 re-check below, is now explicitly blocked on capturing a real `--output-format=json`
 sample from the closed-source binary — not just unstarted for lack of a turn to spend on it.
 

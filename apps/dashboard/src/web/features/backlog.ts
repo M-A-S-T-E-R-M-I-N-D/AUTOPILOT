@@ -31,8 +31,8 @@
  * has already run once), every feature module's functions — this one
  * included — are already defined in the same shared top-level scope, the
  * same way `round-panel.ts`'s `roundSection` call site already relies on.
- * `el`/`tipChip`, called by name inside this module, hoist the same way from
- * `fleetJs()`'s own top-level declarations.
+ * `el`/`tipChip`/`iconEl`/`tr`, called by name inside this module, hoist the
+ * same way from the bundle's own top-level declarations.
  */
 import { backlogMatchText } from '../../shared/backlog-match.js';
 import { backlogCandidateMeta } from '../backlog-panel.js';
@@ -50,7 +50,7 @@ export function backlogJs(): string {
 // panel IS that surface: fetched on demand (GET /api/backlog), same
 // not-worth-polling-every-tick reasoning as the LANDING/ROUND panels above.
 // Proposal-only, same as the console line it replaces: confirming a candidate
-// reuses the task board's own "✓ done" action (data-task-done) — nothing here
+// reuses the task board's own "done" action (data-task-done) — nothing here
 // marks anything done without an explicit operator click. A matchedVia:
 // 'path' candidate (web-mssrob7o-yhkgbt: 27 false confirm-done proposals in
 // one screen, all path-matched to generic mutation/docs commits) gets NO
@@ -102,13 +102,18 @@ function renderBacklogBody(body, candidates) {
     // (same split 189137e0 gave the task-row chips).
     li.appendChild(tipChip(meta.matchText, meta.tip, meta.ariaLabel, 'backlog-match'));
     if (meta.confirmTip) {
-      var confirmBtn = el('button', 'task-done-btn', '✓ confirm done');
+      // Epic 0025: the vendored check icon leads, decorative, where the label
+      // once baked in ✓ — the task board's own done button's shape, sized by
+      // the same .task-done-btn rule; setSweptText() keeps it on a sweep.
+      var confirmBtn = el('button', 'task-done-btn');
+      confirmBtn.appendChild(iconEl('check'));
+      confirmBtn.appendChild(document.createTextNode(tr('backlogConfirmDone')));
       confirmBtn.setAttribute('data-i18n', 'backlogConfirmDone');
       confirmBtn.setAttribute('type', 'button');
       confirmBtn.setAttribute('data-task-done', cand.taskId);
       confirmBtn.setAttribute('data-tip', meta.confirmTip);
       // D1 ATTRIBUTE PAYLOAD (epic 0015): the button names itself from its
-      // own "✓ confirm done" content, so the tip rides aria-describedby into
+      // own "confirm done" content, so the tip rides aria-describedby into
       // a visually-hidden span instead of an aria-label duplicating data-tip
       // verbatim (same fix as 7ae0105d for the phase-rail segment buttons).
       // The desc is a SIBLING of the button, not a child — nested, its text

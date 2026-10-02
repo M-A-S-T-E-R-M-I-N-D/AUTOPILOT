@@ -1110,7 +1110,7 @@ describe('project page (single-project full-width variant, axe-core, WCAG A/AA)'
     }) as unknown as typeof fetch;
 
     // Execute the real client bundle; backlogSection() fetches /api/backlog on
-    // demand and renders the "✓ confirm done" action for a subject match, plus
+    // demand and renders the "confirm done" action for a subject match, plus
     // the annotation-only chip (no button) for a weaker path match.
     new Function(clientJs())();
     await vi.waitFor(() => {

@@ -25,6 +25,7 @@
 
 import { execFile, type ExecFileOptions } from 'node:child_process';
 import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
+import { WEB_SEARCH_AUDIT_MAX_CHARS, type WebSearchAudit } from '../stream.js';
 import {
   reapCliDescendants,
   cliDeathText,
@@ -151,6 +152,50 @@ export function parseCodexExecOutput(
 }
 
 /**
+ * The queries one web search ran. A `search` action's own `query` and
+ * `queries` come first: the item's `query` is only Codex's display detail
+ * (core/src/web_search.rs `web_search_action_detail`), which keeps the first
+ * of several queries and elides the rest as " ...". Any other action (a page
+ * opened, or searched within) and a CLI that sends no action fall back to
+ * that detail, the URL or pattern the tool was sent.
+ */
+function webSearchQueries(item: Record<string, unknown>): readonly string[] {
+  const action = recordOrEmpty(item['action']);
+  if (action['type'] === 'search') {
+    const listed = Array.isArray(action['queries']) ? action['queries'] : [];
+    const queries = [action['query'], ...listed].filter(
+      (q): q is string => typeof q === 'string' && q.length > 0,
+    );
+    if (queries.length > 0) return [...new Set(queries)];
+  }
+  const detail = strOrNull(item['query']);
+  return detail === null || detail.length === 0 ? [] : [detail];
+}
+
+/**
+ * The web searches one `codex exec --json` event reports, as the audit keeps
+ * them (THREAT-MODEL T6): the records `stream.ts`'s `webSearchesFromEvent`
+ * lifts off a Claude stream, one per query. Only `item.completed` counts:
+ * the started item carries an empty query, since the query is known only once
+ * the search ran (ext/web-search/src/tool.rs), so a search is audited once.
+ * No action carries a domain filter (`WebSearchAction`,
+ * codex-rs/protocol/src/models.rs), so both filter lists are empty.
+ */
+export function codexWebSearchesFromEvent(
+  event: Record<string, unknown>,
+): readonly WebSearchAudit[] {
+  if (event['type'] !== 'item.completed') return [];
+  const item = recordOrEmpty(event['item']);
+  if (item['type'] !== 'web_search') return [];
+  return webSearchQueries(item).map((query) => ({
+    query: query.slice(0, WEB_SEARCH_AUDIT_MAX_CHARS),
+    queryLength: query.length,
+    allowedDomains: [],
+    blockedDomains: [],
+  }));
+}
+
+/**
  * True when `codex exec resume <id>` failed at the resume ITSELF — the CLI-level
  * fallback `ClaudeCliModel` already has (docs/epics/0009-warm-sessions.md).
  * `codex-rs/exec/src/lib.rs` takes a UUID as given and asks for that thread; an
@@ -200,6 +245,11 @@ export interface CodexCliOptions {
    * one capability the parity matrix above credits this adapter with.
    */
   readonly sandbox?: 'read-only' | 'workspace-write' | 'danger-full-access';
+  /** Called for each query a web search ran ({@link codexWebSearchesFromEvent}),
+   *  as its `item.completed` line arrives: `GeminiCliOptions.onWebSearch`'s
+   *  counterpart (THREAT-MODEL T6 — the flight persists it as a `web-search`
+   *  audit row). */
+  readonly onWebSearch?: (search: WebSearchAudit) => void;
   /** ORPHAN SWEEP crash-path follow-up (board ap-mt2ukjg5-2), containment
    *  parity with `ClaudeCliModel`/`GeminiCliModel` before this adapter is
    *  wired into routing (epic 0036): persists the child's pid for the
@@ -235,7 +285,10 @@ export interface CodexCliOptions {
  * web-msu3sv1w-hfj87n). It carries `StreamingClaudeCliModel`'s idle cap
  * ({@link CodexCliOptions.idleTimeoutMs}): a child silent on stdout for that
  * long is killed and comes back `timedOut`, so a hung run no longer holds its
- * lane for the whole wall clock. It skips the rest of the streaming hardening
+ * lane for the whole wall clock. Given {@link CodexCliOptions.onWebSearch}, it
+ * reads each stdout line as it lands and reports every query a web search ran,
+ * the audit `StreamingClaudeCliModel` keeps for WebSearch (THREAT-MODEL T6).
+ * It skips the rest of the streaming hardening
  * (live activity, partial usage on a kill), which the Claude driver gained
  * after real incidents this adapter has no flight history to have hit yet. It
  * shares the Claude driver's CLI-level resume fallback: a session id the CLI rejects
@@ -339,6 +392,16 @@ export class CodexCliModel implements ModelPort {
       // each event with `println!` as it happens).
       let idleTimer: NodeJS.Timeout | undefined;
       let idleDeath = false;
+      // THREAT-MODEL T6: a search's query has left by the time the run ends,
+      // so each is audited as its line lands, not read off the settled stdout.
+      const onWebSearch = this.opts.onWebSearch;
+      let unreadLine = '';
+      const auditWebSearches = (text: string): void => {
+        if (onWebSearch === undefined) return;
+        for (const event of jsonObjectLines(text)) {
+          for (const search of codexWebSearchesFromEvent(event)) onWebSearch(search);
+        }
+      };
       const child = execFile(
         invocation.bin,
         invocation.args,
@@ -386,6 +449,9 @@ export class CodexCliModel implements ModelPort {
             // one; no turn count rides with it (ModelResponse.observed).
             observed: { elapsedMs },
           });
+          // A last line with no newline is audited too. After resolve, so a
+          // sink that throws can never leave the run unsettled.
+          auditWebSearches(unreadLine);
         },
       );
       const armIdle = (): void => {
@@ -406,6 +472,20 @@ export class CodexCliModel implements ModelPort {
       };
       armIdle();
       child.stdout?.on('data', armIdle);
+      if (onWebSearch !== undefined) {
+        // execFile set the stream's encoding, so a chunk is a string. Only
+        // the chunk is scanned, so a long command output line is never rescanned.
+        child.stdout?.on('data', (chunk: string) => {
+          const end = chunk.lastIndexOf('\n');
+          if (end < 0) {
+            unreadLine += chunk;
+            return;
+          }
+          const complete = unreadLine + chunk.slice(0, end);
+          unreadLine = chunk.slice(end + 1);
+          auditWebSearches(complete);
+        });
+      }
       if (child.pid !== undefined) this.opts.pidRegistry?.track(child.pid);
       // Same EPIPE guard as GeminiCliModel: a CLI that exits before reading
       // its stdin breaks the pipe, and the callback above already reports it.

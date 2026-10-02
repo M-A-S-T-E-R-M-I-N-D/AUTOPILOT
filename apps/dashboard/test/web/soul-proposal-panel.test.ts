@@ -98,6 +98,16 @@ function boot(state: unknown): void {
   new Function(clientJs())();
 }
 
+/** The button's first child is the vendored `name` icon, decorative, and the
+ *  only SVG inside it — the label text follows as its own node. */
+function expectLeadingIcon(btn: Element | null, name: string): void {
+  const icon = btn?.firstElementChild;
+  expect(icon?.tagName.toLowerCase()).toBe('svg');
+  expect(icon?.classList.contains('icon-' + name)).toBe(true);
+  expect(icon?.getAttribute('aria-hidden')).toBe('true');
+  expect(btn?.querySelectorAll('svg')).toHaveLength(1);
+}
+
 describe('SOUL-proposal panel on the fleet card', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => {
@@ -813,6 +823,23 @@ describe('Fleet card i18n — Remove button + SOUL editor entry (board web-msnsn
     expect(document.querySelector('[data-soul-ratify]')?.getAttribute('data-tip')).toBe(
       "Replace this project's live SOUL prompt with the proposed text above — undoable afterward with un-ratify",
     );
+    // Epic 0025: ratify and dismiss lead with the vendored check and x icons
+    // where their labels once baked in ✓/✗.
+    const ratify = document.querySelector('[data-soul-ratify]');
+    expectLeadingIcon(ratify, 'check');
+    expect(ratify?.textContent).toBe('ratify');
+    const dismiss = document.querySelector('[data-soul-dismiss]');
+    expectLeadingIcon(dismiss, 'x');
+    expect(dismiss?.textContent).toBe('dismiss');
+  });
+
+  it('bakes no ✓/✗ into the ratify/dismiss labels in either locale (epic 0025)', () => {
+    for (const table of Object.values(STRINGS)) {
+      for (const key of ['soulRatify', 'soulDismiss'] as const) {
+        expect(table[key]).not.toMatch(/[✓✗]/u);
+        expect(table[key]).toBe(table[key].trim());
+      }
+    }
   });
 
   it('switching to Hebrew via the language switcher translates the card immediately', async () => {
@@ -847,8 +874,11 @@ describe('Fleet card i18n — Remove button + SOUL editor entry (board web-msnsn
     expect(document.querySelector('[data-soul-unratify]')?.textContent).toBe(
       STRINGS.he.soulUnratify,
     );
-    // setSweptText() keeps the leading undo-2 icon across the sweep.
+    // setSweptText() keeps the leading undo-2 icon across the sweep, and the
+    // ratify/dismiss pair's check and x the same way.
     expect(document.querySelector('[data-soul-unratify] > svg.icon-undo-2')).not.toBeNull();
+    expectLeadingIcon(document.querySelector('[data-soul-ratify]'), 'check');
+    expectLeadingIcon(document.querySelector('[data-soul-dismiss]'), 'x');
   });
 
   it('a card actions section rebuilt by a live refresh after a locale switch still renders in the active locale', async () => {

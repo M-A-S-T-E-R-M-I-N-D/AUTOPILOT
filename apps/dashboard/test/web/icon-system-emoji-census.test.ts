@@ -113,8 +113,11 @@ const EDGE_GUILLEMET_VALUE_PATTERN = /^‹(?=\s)|(?<=\s)›$/gu;
  *  a button whose face leads with one paints it as an icon, beside siblings
  *  that draw theirs — the task row's "✓ done" sat next to the trash-2 delete
  *  and the arrow-up/arrow-down reorder buttons. The task row's approve,
- *  reject and done buttons took the vendored check and x icons (2026-10-02);
- *  this is a shrink-only list of the button faces that still lead with one. */
+ *  reject and done buttons took the vendored check and x icons (2026-10-02).
+ *  The census began as a shrink-only list of the button faces that still led
+ *  with one: the SOUL cards' ratify/dismiss pair (drawn twice) and the
+ *  backlog's confirm-done took the same check and x (2026-10-02), so it pins
+ *  zero. */
 const BUTTON_FACE_MARK_PATTERN = /el\('button', '[^']*', '([✓✗])\s/gu;
 
 /** Every `el('button', cls, '✓ …')` face in `files`, as `file: glyph` with
@@ -203,16 +206,8 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
     expect(offenders, offenders.join('\n')).toEqual([]);
   });
 
-  it('leads no more button faces with a ✓/✗ glyph than the shrink-only list', () => {
-    // The SOUL cards' ratify/dismiss pair (drawn twice) and the backlog's
-    // confirm-done button are what is left.
-    expect(buttonFaceMarks(files)).toEqual([
-      'features/backlog.ts: ✓',
-      'shell.ts: ✓',
-      'shell.ts: ✓',
-      'shell.ts: ✗',
-      'shell.ts: ✗',
-    ]);
+  it('leads no button face with a ✓/✗ glyph in any web/ source file outside comments', () => {
+    expect(buttonFaceMarks(files)).toEqual([]);
   });
 
   it('matches a ✓/✗ button face but leaves a result line alone', () => {

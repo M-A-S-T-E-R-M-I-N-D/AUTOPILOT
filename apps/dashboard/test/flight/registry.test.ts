@@ -605,6 +605,25 @@ describe('FlightRunnerRegistry concurrency cap (PARALLEL FLIGHTS 5/6, shared-quo
     expect(calls[1]?.[6]).toBe(true); // b started while a was already running
   });
 
+  it('forwards a given socialFlight override alongside its own computed siblingsFlying (epic 0016 slice 3/6)', () => {
+    const calls: unknown[][] = [];
+    const { deps } = makeDeps({
+      spawnFlight: (...args) => {
+        calls.push(args);
+        return fakeChild();
+      },
+    });
+    const registry = new FlightRunnerRegistry(deps);
+
+    registry.start({ folder: '/work/a', socialFlight: 'start' });
+    registry.start({ folder: '/work/b' });
+
+    expect(calls[0]?.[7]).toBe('start'); // a's own override rides through
+    expect(calls[0]?.[6]).toBe(false); // a started alone — siblingsFlying still computed correctly
+    expect(calls[1]?.[7]).toBeUndefined(); // b never touched the toggle
+    expect(calls[1]?.[6]).toBe(true); // b started while a was already running
+  });
+
   it('does not signal siblings-flying for the first flight after the only other one exits', () => {
     const calls: unknown[][] = [];
     const { deps, childFor } = makeDeps({
