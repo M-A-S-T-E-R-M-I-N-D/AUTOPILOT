@@ -308,14 +308,22 @@ function firstWord(subject: string): string | null {
   return m ? (m[1] ?? null) : null;
 }
 
+// The board's task-id shapes (packages/store's VERDICT_TASK_ID_RE) that cannot
+// pass for prose: a machine prefix plus at least two hyphen segments, or
+// github-<issue number>. `inbox-` is left out — its ids are free slugs, and
+// a `fix(inbox-triage):` scope would read as one.
+const BOARD_TASK_ID_RE =
+  /\b((?:web|ap|docfresh|mutred|codescan)-[a-z0-9]+(?:-[a-z0-9]+)+|github-\d+)\b/;
+
 function ticketId(subject: string): string | null {
   const jira = /([A-Z]{2,}-\d+)/.exec(subject);
   if (jira?.[1] !== undefined) return jira[1];
-  // Board task ids (web-<time36>-<nonce36>, the taskIdSource shape) — a firing
-  // that omits METRICS but names its task in the commit subject must still
-  // attribute; the JIRA-only shape left such ships item='inferred' and their
-  // board tasks open forever (2026-08-22 live gap, web-msnsndlk-exw3t9).
-  const board = /\b(web-[a-z0-9]+-[a-z0-9]+)\b/.exec(subject);
+  // Board task ids — a firing that omits METRICS but names its task in the
+  // commit subject must still attribute; the JIRA-only shape left such ships
+  // item='inferred' and their board tasks open forever (2026-08-22 live gap,
+  // web-msnsndlk-exw3t9), and so did a web-only shape for every ap- id the
+  // engine files itself.
+  const board = BOARD_TASK_ID_RE.exec(subject);
   return board?.[1] ?? null;
 }
 

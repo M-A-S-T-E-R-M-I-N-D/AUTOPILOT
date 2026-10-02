@@ -381,6 +381,43 @@ describe('resolveIteration', () => {
     });
   });
 
+  it.each([
+    // The board mints more than web- ids: every engine-filed task is
+    // ap-<ts36>-<n|kind> (62 of them name themselves in subjects in history,
+    // e.g. "feat(versions): reland ... (ap-mui2h3s1-1 slice 4)"), and a
+    // mirrored GitHub issue is github-<number>.
+    ['feat(versions): reland the Versions panel (ap-mui2h3s1-1 slice 4)', 'ap-mui2h3s1-1'],
+    ['docs(debriefs): process ap-muk395cb-strand — fleet-5 fixes landed', 'ap-muk395cb-strand'],
+    ['fix(ci): clear ap-muhfpue7-ne4oua-convred', 'ap-muhfpue7-ne4oua-convred'],
+    ['feat(engine): codex lanes fly (github-21)', 'github-21'],
+    [
+      'fix(docs): freshen docfresh-docs-epics-0007-md-1790935491000',
+      'docfresh-docs-epics-0007-md-1790935491000',
+    ],
+  ])('derives the board id from %j', (subject, item) => {
+    const r = resolveIteration(missingParsed, {
+      envelopeOk: true,
+      headAdvanced: true,
+      commit: { subject, shortSha: 'beef43' },
+    });
+    expect(r).toMatchObject({ item, outcome: 'shipped', iterMetrics: 'inferred' });
+  });
+
+  it.each([
+    // Module names and prose that share a board prefix are not task ids:
+    // inbox- ids are free slugs, so "inbox-triage" would read as one.
+    'fix(inbox-triage): a markdown note drops its leading # marker',
+    'docs: github-flavored tables in the README',
+    'chore: snap-shot-2 refresh',
+  ])('keeps "inferred" for a subject with no board id: %j', (subject) => {
+    const r = resolveIteration(missingParsed, {
+      envelopeOk: true,
+      headAdvanced: true,
+      commit: { subject, shortSha: 'beef44' },
+    });
+    expect(r.item).toBe('inferred');
+  });
+
   it('prefers the JIRA-style ticket when a subject carries both shapes', () => {
     const r = resolveIteration(missingParsed, {
       envelopeOk: true,
