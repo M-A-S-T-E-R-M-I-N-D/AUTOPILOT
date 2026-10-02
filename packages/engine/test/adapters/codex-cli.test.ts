@@ -24,8 +24,13 @@ import {
   type Activity,
   type WebSearchAudit,
 } from '../../src/stream.js';
+import { resolveNpmShim } from '../../src/adapters/npm-shim.js';
 
 vi.mock('node:child_process', () => ({ execFile: vi.fn(), spawn: vi.fn() }));
+// Without this the real resolver would walk this machine's PATH, and a codex
+// installed here would change which Windows launch every test sees.
+vi.mock('../../src/adapters/npm-shim.js', () => ({ resolveNpmShim: vi.fn() }));
+const resolveNpmShimMock = vi.mocked(resolveNpmShim);
 
 // execFile is heavily overloaded (options shape picks the callback signature);
 // fighting that overload set from a test double buys nothing, so the mock is
@@ -597,6 +602,8 @@ describe('CodexCliModel', () => {
     // same as claude-cli.test.ts's ClaudeCliModel suite.
     spawnMock.mockReset();
     spawnMock.mockReturnValue({ on: vi.fn() } as never);
+    resolveNpmShimMock.mockReset();
+    resolveNpmShimMock.mockReturnValue(null);
     stdinEnd = vi.fn();
   });
 
@@ -776,7 +783,90 @@ describe('CodexCliModel', () => {
   });
 
   describe('on Windows, where npm installs codex as a codex.cmd shim', () => {
-    it('spawns a bare "codex" through cmd.exe /c: execFile cannot launch a .cmd shim itself (ENOENT), and cmd.exe finds it by PATHEXT', async () => {
+    // Under this repo's placeholder home (validate-no-personal-paths.mjs).
+    const NPM = 'C:\\Users\\operator\\AppData\\Roaming\\npm';
+    const NODE_LAUNCH = {
+      bin: 'C:\\Users\\operator\\nodejs\\node.exe',
+      args: [`${NPM}\\node_modules\\@openai\\codex\\bin\\codex.js`],
+    };
+
+    it("launches the shim's node entry directly, no cmd.exe: node, the entry, then codex's own args", async () => {
+      mockExecFileResult(null, '');
+      resolveNpmShimMock.mockReturnValue(NODE_LAUNCH);
+      const env = { PATH: NPM };
+
+      await new CodexCliModel({ repo: '/work/sbx', platform: 'win32', env }).invoke(
+        'gpt-5-codex',
+        'do it',
+      );
+
+      expect(resolveNpmShimMock).toHaveBeenCalledWith('codex', env);
+      const [binary, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(binary).toBe(NODE_LAUNCH.bin);
+      expect(args.slice(0, 3)).toEqual([NODE_LAUNCH.args[0], 'exec', '--json']);
+      expect(args[args.indexOf('--model') + 1]).toBe('gpt-5-codex');
+    });
+
+    it('keeps a short prompt on argv there, cmd.exe syntax and all, since no shell parses it', async () => {
+      mockExecFileResult(null, '');
+      resolveNpmShimMock.mockReturnValue(NODE_LAUNCH);
+      const hostile = 'fix "the" build & echo %PATH% | more';
+
+      await new CodexCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gpt-5-codex',
+        hostile,
+      );
+
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args[args.length - 1]).toBe(hostile);
+      expect(stdinEnd).toHaveBeenCalledWith();
+    });
+
+    it('passes a model name and resume id the cmd.exe route would refuse', async () => {
+      mockExecFileResult(null, '');
+      resolveNpmShimMock.mockReturnValue(NODE_LAUNCH);
+
+      await new CodexCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gpt-5 (high)',
+        'continue',
+        'nightly run',
+      );
+
+      expect(execFileMock.mock.calls).toHaveLength(1);
+      const [, args] = execFileMock.mock.calls[0] as [string, string[]];
+      expect(args[args.indexOf('--model') + 1]).toBe('gpt-5 (high)');
+      expect(args.slice(-3)).toEqual(['resume', 'nightly run', 'continue']);
+    });
+
+    it('runs node attached, as the cmd.exe route does: a detached node has no console, so Windows would open one for the native codex the entry spawns', async () => {
+      mockExecFileResult(null, '');
+      resolveNpmShimMock.mockReturnValue(NODE_LAUNCH);
+
+      await new CodexCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(
+        'gpt-5-codex',
+        'do it',
+      );
+
+      const [, , options] = execFileMock.mock.calls[0] as [
+        string,
+        string[],
+        Record<string, unknown>,
+      ];
+      expect(options).toMatchObject({ detached: false, windowsHide: true });
+    });
+
+    it('never looks for a shim off Windows', async () => {
+      mockExecFileResult(null, '');
+
+      await new CodexCliModel({ repo: '/work/sbx', platform: 'linux' }).invoke(
+        'gpt-5-codex',
+        'do it',
+      );
+
+      expect(resolveNpmShimMock).not.toHaveBeenCalled();
+    });
+
+    it("falls back to cmd.exe /c for a shim it cannot read as npm's: execFile cannot launch a .cmd itself (ENOENT), and cmd.exe finds it by PATHEXT", async () => {
       mockExecFileResult(null, '');
 
       await new CodexCliModel({ repo: '/work/sbx', platform: 'win32' }).invoke(

@@ -1755,6 +1755,10 @@ describe('touchesSecuritySensitivePath', () => {
     );
   });
 
+  it('flags the npm-shim resolver that decides which program a Windows Codex lane launches in place of cmd.exe, even without a security-keyword path', () => {
+    expect(touchesSecuritySensitivePath(['packages/engine/src/adapters/npm-shim.ts'])).toBe(true);
+  });
+
   it('keeps pace with new engine/src/adapters files automatically: every adapter is either flagged or explicitly allow-listed as benign, so a future adapter can never silently slip past this ritual the way fs-control.ts and instance-lock.ts just did', () => {
     const adapterFiles = readdirSync(ENGINE_ADAPTERS_DIR).filter((name) => name.endsWith('.ts'));
     expect(adapterFiles.length).toBeGreaterThan(0);
