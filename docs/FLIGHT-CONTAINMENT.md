@@ -99,6 +99,12 @@ for flying untrusted targets, or on a shared machine, or unattended.
    settings. The hook reads each Gemini tool call (`run_shell_command`, the file tools,
    `web_fetch`) as the Claude call it amounts to, runs every check above, and answers in
    Gemini's own `{"decision":"deny"}` shape. Not yet flown: no lane routes to Gemini.
+   The Codex CLI adapter runs it too, as its `PreToolUse` hook on every shell call:
+   `CodexCliModel`'s `guardHookCommand` rides argv as a `-c hooks.PreToolUse=…` session
+   override (`codexGuardArgs`), and Codex hands the hook the Claude `Bash` payload, so no
+   translation is needed. A Windows run that could only reach Codex through cmd.exe is
+   refused rather than flown unguarded. File edits (`apply_patch`) are left to Codex's own
+   `workspace-write` sandbox for now. Not yet flown: no lane routes to Codex.
    _Honest scope:_ a textual guard — it blocks the observed escape class (absolute-path
    `cd` / `git -C` / reads outside) and the named destructive-git shapes, but cannot
    statically resolve every relative-path dance or git invocation; the detection audit
