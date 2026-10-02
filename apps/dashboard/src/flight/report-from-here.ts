@@ -355,10 +355,12 @@ export interface ReportCommandResult {
 /**
  * Runs a {@link ReportIssuePlan}'s `gh` commands in order through the
  * injectable `exec` — the write-side counterpart to {@link planUpstream},
- * same `CliExec` shape and same "run every command, report every result"
- * stance `issue-triage.ts`'s `executeIssueTriageCommands` takes: a filed
- * issue that fails to attach its pool label is still worth knowing about,
- * so this never aborts partway through.
+ * same `CliExec` shape, with a "run every command, report every result"
+ * stance: a filed issue that fails to attach its pool label is still worth
+ * knowing about, so this never aborts partway through. (`issue-triage.ts`'s
+ * `executeIssueTriageCommands` once shared that stance; it now withholds a
+ * reply after its marker label edit fails, a dependency no report command
+ * has.)
  */
 export async function executeReportCommands(
   commands: readonly ReportCommand[],

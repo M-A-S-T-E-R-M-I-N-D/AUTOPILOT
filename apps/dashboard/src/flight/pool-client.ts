@@ -443,9 +443,10 @@ export interface PoolClaimCommandResult {
 /**
  * Runs a claim plan's {@link PoolClaimCommand}s in order through the
  * injectable `exec`. Always runs every command and reports every result,
- * even after an earlier one fails — the same "never abort partway through"
- * convention `issue-triage.ts`'s `executeIssueTriageCommands` uses, so a
- * failed assign doesn't hide whether the trailing comment also failed.
+ * even after an earlier one fails — a "never abort partway through"
+ * convention (one `issue-triage.ts`'s `executeIssueTriageCommands` gave up
+ * for its marker-then-reply plans; a claim's assign carries no such marker),
+ * so a failed assign doesn't hide whether the trailing comment also failed.
  */
 export async function executeClaimPoolIssueCommands(
   commands: readonly PoolClaimCommand[],

@@ -191,6 +191,31 @@ describe('issueTriageExecuteResult', () => {
     expect(result.className).toBe('issue-triage-result issue-triage-result-fail');
   });
 
+  // Board ap-mur9xjwq-0: `executeIssueTriageCommands` withholds a plan's
+  // reply once its marker label edit fails. A withheld command never ran, so
+  // it is neither a success nor a "gh command failed" — the panel counts it
+  // apart and says why, instead of inflating the failure count.
+  it('counts a withheld reply apart from the failed marker edit that withheld it', () => {
+    const result = issueTriageExecuteResult({
+      commandResults: [
+        { command: { details: 'labeling #11 "status: needs-format"' }, code: 1 },
+        {
+          command: { details: 'replying once with the template as a comment on #11' },
+          code: -1,
+          stdout: '',
+          withheld: true,
+        },
+        { command: { details: 'labeling #12 "pool: accessibility"' }, code: 0 },
+      ],
+      tasksCreated: 0,
+    });
+    expect(result.text).toBe(
+      '✗ 1 of 3 gh command(s) failed — first: labeling #11 "status: needs-format" (exit 1). ' +
+        '1 withheld: a reply never posts after its marker edit fails.',
+    );
+    expect(result.className).toBe('issue-triage-result issue-triage-result-fail');
+  });
+
   it('falls back to the error field when there are no command results', () => {
     expect(issueTriageExecuteResult({ error: 'unknown project' }).text).toBe('✗ unknown project');
   });
@@ -244,6 +269,19 @@ describe('issueTriageCommentLinks (epic 0020 "the legible surface" slice 3, boar
         command: { details: "posting KEEPER's triage reasoning as a comment on #1" },
         code: 1,
         stdout: '',
+      },
+    ]);
+    expect(links).toEqual([]);
+  });
+
+  it('never synthesizes a link for a withheld comment — nothing was posted', () => {
+    const links = issueTriageCommentLinks([
+      { command: { details: 'labeling #1 "pool: accessibility"' }, code: 1, stdout: '' },
+      {
+        command: { details: "posting KEEPER's triage reasoning as a comment on #1" },
+        code: -1,
+        stdout: '',
+        withheld: true,
       },
     ]);
     expect(links).toEqual([]);

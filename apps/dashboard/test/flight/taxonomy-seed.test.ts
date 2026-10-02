@@ -464,10 +464,12 @@ describe('HOUSE_TAXONOMY_LABELS × KEEPER dossier routing (regression, epic 0019
   // The dossier ritual's idempotency marker: planContributorDossierCommands
   // runs `gh issue edit --add-label dossier-posted` before the comment, and
   // issue-triage.ts skips an application that already carries it. `gh` fails
-  // that edit on an unseeded name, and executeIssueTriageCommands still runs
-  // the comment after it — so the marker never landed, and every later KEEPER
-  // pass re-decided 'dossier' and re-posted, with only the anti-flood guard
-  // standing between the applicant's issue and a repeat dossier.
+  // that edit on an unseeded name, and executeIssueTriageCommands used to run
+  // the comment after it anyway — so the marker never landed, and every later
+  // KEEPER pass re-decided 'dossier' and re-posted, with only the anti-flood
+  // guard standing between the applicant's issue and a repeat dossier. (It
+  // now withholds the reply after a failed marker edit, board ap-mur9xjwq-0 —
+  // which turns that repeat into a silent miss, so the seed still matters.)
   it('seeds the label the dossier ritual marks a posted dossier with', () => {
     expect(HOUSE_TAXONOMY_LABELS.map((label) => label.name)).toContain(DOSSIER_POSTED_LABEL);
   });

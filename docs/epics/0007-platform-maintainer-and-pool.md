@@ -971,7 +971,8 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    comment` argv (same plan-then-apply shape as `issue-triage.ts`'s
    `planIssueTriageCommands`), `executeClaimPoolIssueCommands` runs a plan's
    commands through the injectable `exec` in order without aborting after a
-   failed step (same convention `executeIssueTriageCommands` uses), and
+   failed step (the convention `executeIssueTriageCommands` used at the time;
+   it has since gated a plan's reply on its marker edit, ap-mur9xjwq-0), and
    `claimPoolIssue` composes the whole pass — fetches the open pool and the
    caller's own gh identity (`pr-review.ts`'s `fetchViewerLogin`, exported
    for this reuse) in parallel, since a co-pilot claims for themselves,
