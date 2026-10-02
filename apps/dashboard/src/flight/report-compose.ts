@@ -379,9 +379,11 @@ export function parseReportComposeOutput(text: string): ReportComposeOutput | nu
  * broader `windows-drive-path` rule is deliberately left out here (unlike
  * the CI gate): a composed report legitimately discussing "a config file
  * under C:\" is expected dashboard-operator prose, not a leak, so only the
- * narrower username-bearing home-directory shapes are checked.
+ * narrower username-bearing home-directory shapes are checked. Exported only
+ * so `report-compose.test.ts` can hold this copy to those two files: the
+ * "by hand" above is enforced there, rule for rule.
  */
-const COMPOSE_LEAK_RULES: readonly RegExp[] = [
+export const COMPOSE_LEAK_RULES: readonly RegExp[] = [
   /-----BEGIN(?: [A-Z0-9]+)* PRIVATE KEY(?: BLOCK)?-----/,
   /\bAKIA[0-9A-Z]{16}\b/,
   /\bgh[posru]_[A-Za-z0-9]{36,}\b/,
