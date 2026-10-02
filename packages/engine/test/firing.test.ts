@@ -589,6 +589,64 @@ describe('runFiring', () => {
     expect(store.records).toHaveLength(1); // the loop's outer while(...) never sees a rejection
   });
 
+  // Doctrine row 87 generalized: the picked_rank fix closed one value, but any
+  // throw from the store (a datatype the STRICT table refuses, a constraint)
+  // still unwound the lane after the model had been paid for.
+  it('a store that throws while saving the record never kills the firing — the reason rides out on the outcome', async () => {
+    const model = new FakeModel([shippedResponse('AP-4', 'jkl')]);
+    const vcs = new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: 'feat: AP-4', shortSha: 'jkl' },
+      existing: new Set(['jkl']),
+    });
+    const store: StorePort = {
+      recordFiring: () => {
+        throw new Error('cannot store REAL value in INTEGER column metrics.duration_ms');
+      },
+    };
+
+    const out = await runFiring(
+      { model, vcs, gate: new FakeGate(true), store, clock: CLOCK },
+      DEFAULT_ENGINE_CONFIG,
+      { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+    );
+
+    expect(out.gateResult).toBe('passed');
+    expect(out.record.shipped).toBe(true);
+    expect(vcs.revertCalls).toBe(0); // a lost record is not proof the work is bad
+    expect(out.recordError).toBe('cannot store REAL value in INTEGER column metrics.duration_ms');
+  });
+
+  it('an async store that rejects is caught the same way; a saved record carries no recordError', async () => {
+    const rejecting: StorePort = {
+      recordFiring: () => Promise.reject(new Error('SQLITE_FULL: database or disk is full')),
+    };
+    const failed = await runFiring(
+      {
+        model: new FakeModel([response()]),
+        vcs: new FakeVcs({ heads: ['h0'] }),
+        gate: new FakeGate(true),
+        store: rejecting,
+        clock: CLOCK,
+      },
+      DEFAULT_ENGINE_CONFIG,
+      { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+    );
+    expect(failed.recordError).toBe('SQLITE_FULL: database or disk is full');
+
+    const saved = await runFiring(
+      deps(
+        new FakeModel([response()]),
+        new FakeVcs({ heads: ['h0'] }),
+        new FakeGate(true),
+        new FakeStore(),
+      ),
+      DEFAULT_ENGINE_CONFIG,
+      { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+    );
+    expect(saved).not.toHaveProperty('recordError');
+  });
+
   it('sets leftovers aside in a named stash and gates the commit on its own (2026-09-25)', async () => {
     const model = new FakeModel([shippedResponse('AP-5', 'mno')]);
     const vcs = new FakeVcs({

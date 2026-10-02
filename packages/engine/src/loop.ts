@@ -238,6 +238,13 @@ export async function runLoop(
         `guard denied ${outcome.guardDenials} tool call(s) this firing (containment / read-hygiene)`,
       );
     }
+    // A record the store refused is the one trace of this firing that would
+    // otherwise vanish — runFiring reports it rather than throwing.
+    if (outcome.recordError !== undefined) {
+      deps.log(
+        `firing ${outcome.record.firing} record NOT saved — the flight goes on without it: ${outcome.recordError}`,
+      );
+    }
     // Commit-time review (docs/BACKLOG-999.md C5): non-blocking, so the log
     // line is where a finding gets seen at all during the flight.
     if (outcome.record.review) {

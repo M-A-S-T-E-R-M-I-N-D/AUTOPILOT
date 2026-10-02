@@ -235,6 +235,22 @@ describe('runLoop', () => {
     expect(h.log.filter((m) => m.includes('ended without a result envelope'))).toHaveLength(2);
   });
 
+  it('logs a firing whose record the store could not save, and nothing for one it saved', async () => {
+    const h = harness([
+      outcome({
+        record: { ...RECORD, firing: 142 },
+        recordError: 'CHECK constraint failed: picked_rank >= 1',
+      }),
+      outcome({ record: { ...RECORD, firing: 143 } }),
+    ]);
+    const summary = await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 2 });
+    expect(summary).toEqual({ firings: 2, stoppedBy: 'max-iterations' });
+    expect(h.log).toContain(
+      'firing 142 record NOT saved — the flight goes on without it: CHECK constraint failed: picked_rank >= 1',
+    );
+    expect(h.log.filter((m) => m.includes('record NOT saved'))).toHaveLength(1);
+  });
+
   it('logs the commit-time review (C5) of a firing that carried one, and nothing for one that did not', async () => {
     const h = harness([
       outcome({
