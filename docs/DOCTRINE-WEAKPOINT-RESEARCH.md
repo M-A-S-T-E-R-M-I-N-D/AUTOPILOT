@@ -67,9 +67,9 @@ round per milestone, findings → board.
 Shipped (board web-mt1qat5h-nxzgjs): `flight/near-miss.ts` tallies one
 flight's weak signals into a debrief line; `fly.ts`'s post-flight sweep
 persists it and flags a class that has stayed nonzero across 3+ consecutive
-flights; `read/anomalies.ts` + shell.ts's "recurring near-miss" chip (the
-`bandage` icon) surface the verdict on the dashboard — rule 1 below is now
-live machinery, not just a stated intent.
+flights; `read/anomalies.ts` + shell.ts's `🩹 recurring near-miss` chip
+surface the verdict on the dashboard — rule 1 below is now live machinery,
+not just a stated intent.
 
 Accidents and near-misses share causes; the telemetry already records the
 weak signals — guard denials (15 lifetime firings bounced off containment),
@@ -132,7 +132,7 @@ three gaps worth closing:
 | Failure taxonomy with root-cause tracing | the loss-stack taxonomy (EVALUATION-2026-08-20-sota) | ALIGNED |
 | **Libraries must EVOLVE, not grow** (regression-gated edits; removal is first-class) | SOUL and lesson banks only ever grow | **GAP → SOUL/lesson-prune ritual** |
 | **Conflicting-heuristic resolution** at retrieval time | nothing detects contradictory lessons | **GAP → covered by the prune ritual** |
-| Learning WHAT-to-learn from failures vs successes differs by task type | near-miss ritual (Lens 4) ships: `flight/near-miss.ts` aggregates a per-flight debrief, `fly.ts`'s post-flight sweep persists it and flags a 3+-flight recurring class, `read/anomalies.ts` + shell.ts's "recurring near-miss" chip (the `bandage` icon) surface it | SHIPPED (board web-mt1qat5h-nxzgjs) |
+| Learning WHAT-to-learn from failures vs successes differs by task type | near-miss ritual (Lens 4) ships: `flight/near-miss.ts` aggregates a per-flight debrief, `fly.ts`'s post-flight sweep persists it and flags a 3+-flight recurring class, `read/anomalies.ts` + shell.ts's `🩹 recurring near-miss` chip surface it | SHIPPED (board web-mt1qat5h-nxzgjs) |
 
 ### The pilot's own method audit (the part that must stay honest)
 

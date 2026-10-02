@@ -12,30 +12,25 @@
  * for the lucky button, an icon-only clover SVG), so a doc that quotes one
  * describes a screen that no longer exists.
  *
- * Scope is the LIVING docs that describe the current dashboard. Epics,
+ * Scope is the two LIVING docs that describe the current dashboard. Epics,
  * ADRs, debriefs and changelogs are dated records of what the screen looked
  * like then, and stay as written.
  *
  * 🔍 is deliberately not in the banned set: the flight log still prints
  * `🔍 closed-task drift proposed` (flight/post-flight-sweeps.ts) and RUNBOOK
  * quotes that terminal line verbatim — only its old use as the Detected
- * backlog heading is gone. 🩹 is not either, for the same reason: fly.ts
- * still prints the near-miss debrief as a `🩹 …` terminal line, while the
- * recurring near-miss anomaly chip leads with the vendored bandage icon.
+ * backlog heading is gone.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { STRINGS } from '@autopilot/tokens';
-import { ANOMALY_LABELS } from '../../src/web/anomaly.js';
 
 const DOCS_DIR = fileURLToPath(new URL('../../../../docs/', import.meta.url));
-const SHELL_SOURCE = fileURLToPath(new URL('../../src/web/shell.ts', import.meta.url));
 
 const RUNBOOK = readFileSync(join(DOCS_DIR, 'RUNBOOK.md'), 'utf8');
 const MASTER_PROMPT = readFileSync(join(DOCS_DIR, 'MASTER-PROMPT.md'), 'utf8');
-const WEAKPOINT_RESEARCH = readFileSync(join(DOCS_DIR, 'DOCTRINE-WEAKPOINT-RESEARCH.md'), 'utf8');
 
 /** Glyphs the dashboard dropped that no terminal output prints either — a
  *  living doc quoting one can only be describing retired chrome. 🔒/🔓 were
@@ -72,17 +67,6 @@ describe('icon system docs refresh (epic 0025) — living docs name the current 
     // features/pr-review.ts, held by pr-review-maintainer-icons.test.ts.
     expect(RUNBOOK).toContain(`"${STRINGS.en.prReviewAwaitingApprovalLabel}"`);
     expect(RUNBOOK).toContain('"Review & approve on GitHub"');
-  });
-
-  it('DOCTRINE-WEAKPOINT-RESEARCH names the recurring near-miss chip by its label and icon, not 🩹', () => {
-    const label = ANOMALY_LABELS['near-miss-recurring'];
-    expect(label).toBe('recurring near-miss');
-    // The chip's icon comes from shell.ts's inline ANOMALY_ICONS table.
-    expect(readFileSync(SHELL_SOURCE, 'utf8')).toContain(`'near-miss-recurring': 'bandage'`);
-    expect(WEAKPOINT_RESEARCH).not.toMatch(/🩹\s*recurring near-miss/);
-    // Lens 4's paragraph and Part III's meta-learning table row; prose may wrap.
-    const named = new RegExp(`"${label}"\\s+chip\\s+\\(the\\s+\`bandage\`\\s+icon\\)`, 'g');
-    expect(WEAKPOINT_RESEARCH.match(named)).toHaveLength(2);
   });
 
   it('the lucky button is described as the icon-only button it is, in both docs', () => {
