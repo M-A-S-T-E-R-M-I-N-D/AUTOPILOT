@@ -96,6 +96,19 @@ item (1)'s re-read should draw on records made after `453ead5a`, or treat a one-
 says otherwise as suspect. `buildClaudeArgs`, the `--resume` placement and `isResumeFailure`'s cold
 retry are untouched.
 
+**2026-10-02 death-reason reporting (unrelated to resume itself):** `41bb7fcd` (epic 0036 provider
+parity) lifted `cliDeathText` out of `StreamingClaudeCliModel`'s death path into a shared helper in
+`claude-cli.ts`, so a Codex or Gemini firing that dies with no envelope also reports a stderr tail or
+cap-death note instead of its raw event stream. It touches the same file this epic's `--resume`
+threading lives in, but only changes what a dead firing records as its failure reason — nothing about
+`buildClaudeArgs`, the `--resume` placement, `isResumeFailure`'s cold retry, or the cost/turn
+measurement, and it fires identically on a resumed or a cold invocation.
+
+**2026-10-02 docstring sync (unrelated to resume itself):** `d2b6ece5` corrected `parseModelEnvelope`'s
+doc comment, which still read "nothing resumes [session_id] yet" after slice one had already wired the
+`--resume` threading this doc describes above. No functional change; the comment now matches the
+behavior this doc has tracked since 2026-08-16.
+
 Original problem statement (historical, pre-2026-08-16): every firing spawned a
 brand-new `claude` process (`ClaudeCliModel`/`StreamingClaudeCliModel`
 in `packages/engine/src/adapters/claude-cli.ts`, via `buildClaudeArgs`) with no continuity from the

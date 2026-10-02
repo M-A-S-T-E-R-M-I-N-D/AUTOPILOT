@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 # SPDX-License-Identifier: Apache-2.0
 #
-# The other half of the shared-work claim protocol (docs/ROADMAP.md "How
-# work gets shared", claim.yml's own /claim reply): "14 quiet days auto-
-# release it" is a promise made to every human who claims a task, but
-# nothing enforced it — a claim with no activity just sat assigned forever.
+# The other half of the shared-work claim protocol (.github/CONTRIBUTING.md
+# "Claiming work — the shared-task protocol", claim.yml's own /claim reply):
+# "14 quiet days auto-release it" is a promise made to every human who
+# claims a task, but nothing enforced it — a claim with no activity just sat assigned forever.
 # This scheduled sweep is that enforcement: any open `claimed` issue whose
 # assignee has posted no comment and pushed no commit/PR referencing it for
 # 14 days is released, unlabeled, and given a kind auto-release note.
@@ -78,7 +78,7 @@ jobs:
               echo "issue #$NUM: @$ASSIGNEE quiet for $QUIET_FOR day(s) — auto-releasing"
               gh api -X DELETE "repos/$REPO/issues/$NUM/assignees" -f "assignees[]=$ASSIGNEE" > /dev/null
               gh issue edit "$NUM" --repo "$REPO" --remove-label claimed 2>/dev/null || true
-              gh issue comment "$NUM" --repo "$REPO" --body "$QUIET_FOR quiet days with no comment or commit from @$ASSIGNEE — auto-released per the claim protocol (docs/ROADMAP.md) so it doesn't sit silently stuck. No hard feelings: \`/claim\` it again any time you're ready, or leave it for the next claimer. 🤝"
+              gh issue comment "$NUM" --repo "$REPO" --body "$QUIET_FOR quiet days with no comment or commit from @$ASSIGNEE — auto-released per the claim protocol (.github/CONTRIBUTING.md) so it doesn't sit silently stuck. No hard feelings: \`/claim\` it again any time you're ready, or leave it for the next claimer. 🤝"
             else
               echo "issue #$NUM: @$ASSIGNEE active $QUIET_FOR day(s) ago — leaving claimed"
             fi

@@ -95,8 +95,9 @@ the way `StreamingClaudeCliModel`'s does, so the firing's guard-denial events an
 BeforeTool deny into an error whose `message` is the hook's own reason, and `nonInteractiveCli.ts`
 emits that call as a `tool_result` with `status: 'error'` and `error.message`. That reason is the
 Claude guard's deny text, so `stream.ts`'s `guardDenialFromText` reads both wires. Only the error
-is trusted: a tool that succeeded can print the same words in `output`. Codex runs no guard hook,
-so it reports none. Since 2026-10-02 a Gemini run also feeds THREAT-MODEL T6's web-search audit:
+is trusted: a tool that succeeded can print the same words in `output`. A Codex lane runs no guard
+hook yet, so it reports none: the CLI has the hook now, and since 2026-10-02 the adapter has a
+route past cmd.exe to install it, but the hook itself is not wired yet (finding 3, below). Since 2026-10-02 a Gemini run also feeds THREAT-MODEL T6's web-search audit:
 given `onWebSearch`, `GeminiCliModel` reads each stdout line as it lands and reports every
 `google_web_search` `tool_use` (`nonInteractiveCli.ts` emits it before the tool runs) through
 `geminiWebSearchFromEvent` as the `WebSearchAudit` `StreamingClaudeCliModel` hands the flight's
@@ -211,7 +212,47 @@ no argument free of whitespace, so a model name or resume id holding cmd.exe syn
 `%`) is refused before the spawn; a refused resume id retries cold, like a stale one. The idle-cap
 kill closes our end of the pipes first, as `execFile`'s own timeout kill does, since the node
 shim behind cmd.exe outlives the kill and holds them open. `GeminiCliModel` had the same trap
-(npm's `gemini.cmd`) and took the same route the same day; see its section below.
+(npm's `gemini.cmd`) and took the same route the same day; see its section below. Since 2026-10-02
+cmd.exe is Codex's fallback, not its route: see the guard re-check below.
+
+**Containment guard, re-checked 2026-10-02 against openai/codex `main`:** the CLI now has the tool
+hook this epic said it lacked. Lifecycle hooks, `PreToolUse` among them, are a stable feature on by
+default (`codex-rs/features/src/lib.rs`, key `hooks`, `default_enabled: true`), and `codex exec`
+runs them too (`codex-rs/exec/src/lib.rs` hands its hook-trust flag to the session). The contract is
+nearly Claude's own. The hook reads JSON on stdin with `hook_event_name: "PreToolUse"`, `tool_name`
+and `tool_input` (`codex-rs/hooks/schema/generated/pre-tool-use.command.input.schema.json`). A shell
+call, plain or unified `exec_command`, is named `Bash` with `tool_input.command`, and a file edit is
+`apply_patch` with the whole patch as its `command` (`codex-rs/core/src/tools/hook_names.rs`, which
+also lets a matcher name it `Write` or `Edit`). A deny is Claude's own `hookSpecificOutput` with
+`permissionDecision: "deny"` and `permissionDecisionReason`, or exit 2 with the reason on stderr
+(`codex-rs/hooks/src/events/pre_tool_use.rs`, test `permission_decision_deny_blocks_processing`).
+A matcher of bare names and `|` is an exact match, anything else an unanchored regex
+(`codex-rs/hooks/src/engine/matcher.rs`). A command hook's `timeout` is in seconds, as Claude's is
+(`codex-rs/config/src/hook_config.rs`), and `commandWindows` overrides `command` on Windows. So
+`guard-hook.js` would judge a Codex `Bash` call as it stands; `apply_patch` needs its file paths read
+out of the patch first, the way `gemini-guard.ts` reads Gemini's tool calls.
+
+Hooks load from every config layer, the `-c` session-flags layer included
+(`codex-rs/hooks/src/engine/discovery.rs`), but a hook that is not managed runs only once its hash
+is trusted or under `--dangerously-bypass-hook-trust` (`codex-rs/utils/cli/src/shared_options.rs`).
+The flag would not run a target's own hooks in an untrusted worktree, since a repo's `.codex/` layer
+loads only for a trusted project. **Why it is not wired yet:** the hook would ride argv as an inline
+TOML value (`-c hooks.PreToolUse=[{matcher=…,hooks=[{type="command",command=…}]}]`), and on Windows
+every argument went through cmd.exe, where the adapter refuses anything outside `CMD_SAFE_ARG`:
+quotes, braces, `=` and spaces all are. The file routes do not fit either. `--profile <name>`
+layers `$CODEX_HOME/<name>.config.toml`, a file in the operator's own Codex home, and a
+`.codex/hooks.json` would sit in the target, inside the agent's reach. Since 2026-10-02 the adapter
+has a route past cmd.exe: `resolveNpmShim` (`packages/engine/src/adapters/npm-shim.ts`) finds
+`codex.cmd` along PATH as cmd.exe would, each folder in PATHEXT order, and reads the JS entry
+npm/cmd-shim's `writeShim_` (`lib/index.js`) wrote into it (`"%_prog%"  "%dp0%\<entry>" %*`).
+`CodexCliModel` then runs node on that entry, attached, so argv reaches the CLI as given:
+`@openai/codex`'s `bin/codex.js` spawns the native binary with `process.argv.slice(2)` and no shell.
+A shim it cannot read that way (node flags, no shebang, a `codex.exe` earlier on PATH) keeps the
+cmd.exe route. It walks absolute PATH folders only, where cmd.exe searches `.;%PATH%`
+(learn.microsoft.com, `NeedCurrentDirectoryForExePathW`), so a `codex.cmd` planted in the target is
+never what that launch runs. The hook itself is the next slice: until it rides that argv, a Codex
+lane has only its own `workspace-write` sandbox and reports no guard denials. How a hook-denied call
+looks on the `exec --json` stream has not been read yet.
 
 **4. Google Gemini CLI** — headless mode triggers on a non-TTY or `-p`/`--prompt`; `--output-format
 json` returns one JSON object with response + usage statistics, or JSONL for a stream
@@ -288,7 +329,7 @@ disconnected reference doc that can drift out of sync with it.
 | Ollama (`OllamaModel`) | No | No — single-turn only | Real `$0` (local compute) | **Shipped**, triage-only lane |
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`) |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`) |
-| OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it |
+| OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); not yet wired into routing/config, so no lane flies on it; no containment guard yet — the CLI's `PreToolUse` hook is verified, and since 2026-10-02 a Windows launch skips cmd.exe (`npm-shim.ts`), so its inline `-c` config can ride argv; the hook is not wired yet (finding 3) |
 | Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed); a stale id retries cold | Yes — full loop | **None** — token counts only, no price | **Adapter shipped** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); not yet wired into routing/config, so no lane flies on it |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | `--output-format=json` exists but its wire schema is undocumented and unverifiable (closed-source binary) | **Blocked** — needs a real captured output sample before an adapter can be fixture-tested |
 

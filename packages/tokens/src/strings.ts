@@ -593,15 +593,21 @@ const EN_STRINGS = {
   browse: 'Browse…',
   flyOptions: 'Options',
   flyOptionsAria:
-    'Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes',
+    'Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes, social pass',
   flyOptionsTip:
-    'Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes',
+    'Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes, social pass',
   byCount: 'by count',
   byTotal: 'by total $',
   firings: 'Firings',
   stopAtTotal: 'Stop at total $',
   perFiringBudget: '$ / firing',
   lanes: 'Lanes',
+  socialPass: 'Social pass',
+  socialPassDefault: 'default',
+  socialPassOff: 'off',
+  socialPassStart: 'at takeoff',
+  socialPassEnd: 'at landing',
+  socialPassFull: 'takeoff, between firings, landing',
   flyIt: 'Fire',
   flying: 'Flying…',
   queued: 'Queued…',
@@ -1789,6 +1795,8 @@ const EN_STRINGS = {
   flyTotalTip: 'Stops the flight once total spend across all firings reaches this amount.',
   flyLanesTip:
     'More than 1 splits the open board across that many parallel lanes with disjoint task scopes (the same hub-aware partitioner dashboard fleet uses) instead of flying a single lane.',
+  flySocialTip:
+    "When this flight runs the read-only GitHub social pass: at takeoff, at landing, or both plus between firings. Default follows the dashboard's AUTOPILOT_SOCIAL_FLIGHT; the pass skips itself when gh is not connected.",
   flyProgressTip:
     "Progress for the whole flight — elapsed time, spend or firing count against its target, and an ETA from this flight's own average firing duration",
   flightRunningTip: 'This flight is running now — Stop ends it, Pause suspends it until Resume.',
@@ -1826,6 +1834,8 @@ const EN_STRINGS = {
   luckyFitSourcePeople: 'Good first — by hand',
   lanesFixedFiringCount:
     'Lanes launch with a fixed firing count — switch off total-spend mode first.',
+  socialPassSingleLane:
+    'The social pass choice applies to a single-lane flight — set Lanes to 1 or the social pass to default.',
   fleetLaunched: 'Fleet launched.',
   fleetLaunchFailed: 'Fleet launch failed.',
   fleetLaunchDashboardDown: 'Fleet launch failed — is the dashboard still running?',
@@ -2415,14 +2425,22 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flyFolder: 'טוס על תיקייה',
     browse: 'עיון…',
     flyOptions: 'אפשרויות',
-    flyOptionsAria: 'הצגה או הסתרה של הגדרות השיגור: עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים',
-    flyOptionsTip: 'הצגה או הסתרה של הגדרות השיגור — עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים',
+    flyOptionsAria:
+      'הצגה או הסתרה של הגדרות השיגור: עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים, מעבר חברתי',
+    flyOptionsTip:
+      'הצגה או הסתרה של הגדרות השיגור — עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים, מעבר חברתי',
     byCount: 'לפי כמות',
     byTotal: 'לפי סכום כולל',
     firings: 'הפעלות',
     stopAtTotal: 'עצור בסכום כולל של $',
     perFiringBudget: '$ / הפעלה',
     lanes: 'נתיבים',
+    socialPass: 'מעבר חברתי',
+    socialPassDefault: 'ברירת מחדל',
+    socialPassOff: 'כבוי',
+    socialPassStart: 'בהמראה',
+    socialPassEnd: 'בנחיתה',
+    socialPassFull: 'המראה, בין הפעלות, נחיתה',
     flyIt: 'שגר!',
     flying: 'בטיסה…',
     queued: 'בתור…',
@@ -3257,6 +3275,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flyTotalTip: 'עוצר את הטיסה כשההוצאה הכוללת בכל ההפעלות מגיעה לסכום הזה.',
     flyLanesTip:
       'יותר מ-1 מפצל את הלוח הפתוח למספר הזה של נתיבים מקבילים עם תחומי משימות נפרדים (אותו מחלק המודע למרכז שבו משתמש "dashboard fleet"), במקום לטוס בנתיב בודד.',
+    flySocialTip:
+      'מתי הטיסה הזו מריצה את המעבר החברתי ב-GitHub (קריאה בלבד): בהמראה, בנחיתה, או בשתיהן וגם בין הפעלות. ברירת המחדל עוקבת אחרי AUTOPILOT_SOCIAL_FLIGHT של לוח הבקרה; המעבר מדלג על עצמו כש-gh אינו מחובר.',
     flyProgressTip:
       'התקדמות הטיסה כולה — זמן שחלף, הוצאה או מספר הפעלות מול היעד, והערכת סיום לפי משך ההפעלה הממוצע של הטיסה הזו',
     flightRunningTip: 'הטיסה הזו פעילה כעת — "עצור" מסיים אותה, "השהה" משהה אותה עד לחידוש.',
@@ -3293,6 +3313,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     luckyFitSourcePool: 'מאגר — הטייס שלכם יכול להטיס',
     luckyFitSourcePeople: 'צעד ראשון — ביד',
     lanesFixedFiringCount: 'נתיבים משוגרים עם מספר הפעלות קבוע — כבו קודם את מצב ההוצאה הכוללת.',
+    socialPassSingleLane:
+      'בחירת המעבר החברתי חלה על טיסה בנתיב בודד — הגדירו נתיבים ל-1 או את המעבר החברתי לברירת מחדל.',
     fleetLaunched: 'הצי שוגר.',
     fleetLaunchFailed: 'שיגור הצי נכשל.',
     fleetLaunchDashboardDown: 'שיגור הצי נכשל — האם לוח הבקרה עדיין פועל?',

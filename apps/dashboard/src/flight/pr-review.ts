@@ -1150,6 +1150,10 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // The Gemini CLI driver (epic 0036), flagged for the same reason as Codex:
   // its parse decides whether a run failed and holds `costUsd` at null.
   'engine/src/adapters/gemini-cli.ts',
+  // Decides which program a Windows Codex lane launches in place of cmd.exe
+  // (epic 0036). A PR that let it search the working directory, or trust a
+  // shim it cannot read, would run a file planted in the target.
+  'engine/src/adapters/npm-shim.ts',
   'engine/src/adapters/worktree.ts',
   // Rung 4's decision core (docs/EVALUATION-2026-09-03-sync-conflict-
   // taxonomy.md): drives an agent-resolved sync-back conflict through

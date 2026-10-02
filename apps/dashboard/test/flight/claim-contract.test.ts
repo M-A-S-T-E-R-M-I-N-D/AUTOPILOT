@@ -26,7 +26,12 @@ import {
   planClaimPoolIssue,
   claimAndQueuePoolIssueTask,
 } from '../../src/flight/pool-client.js';
-import { claimLedger, CLAIM_WINDOW_DAYS } from '../../src/flight/claim-ledger.js';
+import {
+  claimLedger,
+  CLAIM_WINDOW_DAYS,
+  CLAIM_COMMAND,
+  UNCLAIM_COMMAND,
+} from '../../src/flight/claim-ledger.js';
 import { markTaskDoneIfShipped } from '../../src/flight/firing-hooks.js';
 import {
   planMirrorPassReconcile,
@@ -406,5 +411,57 @@ describe('the quiet window', () => {
       expect(stated.length, decision).toBeGreaterThan(0);
       expect(new Set(stated), decision).toEqual(new Set([CLAIM_WINDOW_DAYS]));
     }
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), where the claim
+// protocol is written down. claim.yml and the reaper workflow both cite the
+// doc that spells the rules out, and the reaper's auto-release note sends
+// every released claimer there. They cited docs/ROADMAP.md "How work gets
+// shared", a section ed6f7cb1 cut when the roadmap was rewritten, so the note
+// pointed people at a page with no /claim on it. Nothing read the citation.
+describe('where the claim protocol is written down', () => {
+  const read = (path: string): string => readFileSync(join(process.cwd(), path), 'utf8');
+  const workflow = (name: string): string => read(join('.github/workflows', name));
+  /** The `<doc> "<heading>"` a workflow's header comment cites, read across its `#` line breaks. */
+  const citation = (name: string): { doc: string; heading: string } => {
+    const prose = workflow(name).replace(/\n#\s*/g, ' ');
+    const match = /\(([\w./-]+\.md) "([^"]+)"/.exec(prose);
+    if (match?.[1] === undefined || match[2] === undefined) {
+      throw new Error(`${name} cites no doc section for the claim protocol`);
+    }
+    return { doc: match[1], heading: match[2] };
+  };
+  /** The `## <heading>` section of `doc`, up to the next `## ` heading; '' when absent. */
+  const section = (doc: string, heading: string): string => {
+    const text = read(doc);
+    const start = text.indexOf(`\n## ${heading}\n`);
+    if (start < 0) return '';
+    const end = text.indexOf('\n## ', start + 1);
+    return text.slice(start, end < 0 ? undefined : end);
+  };
+
+  it.each(['claim.yml', 'stale-claim-reaper.yml'])(
+    '%s cites a section that spells out the claim, the hand-back and the quiet window',
+    (name) => {
+      const { doc, heading } = citation(name);
+      const rules = section(doc, heading);
+      expect(rules, `${doc} "${heading}"`).toContain(`\`${CLAIM_COMMAND}\``);
+      expect(rules, `${doc} "${heading}"`).toContain(`\`${UNCLAIM_COMMAND}\``);
+      expect(rules, `${doc} "${heading}"`).toContain(`${CLAIM_WINDOW_DAYS} quiet days`);
+    },
+  );
+
+  it('has both workflows cite the same section', () => {
+    expect(citation('stale-claim-reaper.yml')).toEqual(citation('claim.yml'));
+  });
+
+  it("sends the reaper's released claimer to the doc that section lives in", () => {
+    const reaper = workflow('stale-claim-reaper.yml');
+    const bodyStart = reaper.indexOf('--body "', reaper.indexOf('gh issue comment'));
+    const note = reaper.slice(bodyStart, reaper.indexOf('"\n', bodyStart));
+    expect(/per the claim protocol \(([^)]+)\)/.exec(note)?.[1]).toBe(
+      citation('stale-claim-reaper.yml').doc,
+    );
   });
 });

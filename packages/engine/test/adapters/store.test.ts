@@ -309,6 +309,35 @@ describe('SqliteFiringStore', () => {
     store.close();
   });
 
+  it('a record the metrics table refuses leaves no orphan firing event behind (all or nothing)', () => {
+    // runFiring now survives a failed save (doctrine row 87), so a refused
+    // metrics row no longer ends the lane — and the event row written just
+    // before it used to stay. On a firing_id collision that orphan joins the
+    // FIRST firing's metrics row a second time in every metrics⋈events reader
+    // (store read.ts, benchmark.ts, fleet-report-source.ts): its cost counted twice.
+    const store = openStore(':memory:');
+    migrate(store);
+    const pid = seedProject(store);
+    const sink = new SqliteFiringStore(store, pid);
+
+    sink.recordFiring(record({ firing: 30, costUsd: 4 }));
+    expect(() => sink.recordFiring(record({ firing: 30, costUsd: 4 }))).toThrow(/UNIQUE/);
+
+    const events = store.db
+      .prepare("SELECT COUNT(*) AS c FROM events WHERE firing_id = ? AND type = 'firing'")
+      .get(`${pid}:firing-30`) as { c: number };
+    expect(events.c).toBe(1);
+    const joined = store.db
+      .prepare(
+        `SELECT SUM(m.cost_usd) AS cost FROM metrics m
+           LEFT JOIN events e ON e.firing_id = m.firing_id AND e.type = 'firing'
+          WHERE m.project_id = ?`,
+      )
+      .get(pid) as { cost: number };
+    expect(joined.cost).toBe(4);
+    store.close();
+  });
+
   it('persists self-reported TDD-first compliance as a queryable 0/1/NULL flag', () => {
     const store = openStore(':memory:');
     migrate(store);

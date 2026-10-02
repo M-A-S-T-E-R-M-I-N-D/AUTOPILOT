@@ -1755,6 +1755,10 @@ describe('touchesSecuritySensitivePath', () => {
     );
   });
 
+  it('flags the npm-shim resolver that decides which program a Windows Codex lane launches in place of cmd.exe, even without a security-keyword path', () => {
+    expect(touchesSecuritySensitivePath(['packages/engine/src/adapters/npm-shim.ts'])).toBe(true);
+  });
+
   it('keeps pace with new engine/src/adapters files automatically: every adapter is either flagged or explicitly allow-listed as benign, so a future adapter can never silently slip past this ritual the way fs-control.ts and instance-lock.ts just did', () => {
     const adapterFiles = readdirSync(ENGINE_ADAPTERS_DIR).filter((name) => name.endsWith('.ts'));
     expect(adapterFiles.length).toBeGreaterThan(0);
@@ -6385,7 +6389,7 @@ describe('remediateDanglingApproval', () => {
  * simply no longer judges the PR merge-worthy (a new commit landed, gate
  * flipped red). Either way the approval stands over bytes the ritual would
  * no longer vouch for, and it must not keep satisfying branch protection
- * while THIS pass posts only a comment.
+ * while THIS pass posts only a request-changes review, or nothing at all.
  */
 describe('remediateStalePolicyGreenApprovals', () => {
   it('returns [] and lists nothing when the fresh decision IS a merge — a merge posts its own fresh approval, so no earlier one needs sweeping', async () => {
@@ -7240,5 +7244,104 @@ describe('summarizePrCheckRuns', () => {
     const [candidate] = await fetchOpenPrCandidates(exec);
 
     expect(candidate?.url).toBeUndefined();
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the KEEPER review
+// ritual as contributors are told about it. CONTRIBUTING.md's "What happens
+// after you open a PR" is the one place a contributor learns what the ritual
+// will do to their PR, and it cites RUNBOOK §8 and pr-review.ts for the rest.
+// It said the KEEPER "posts one of" merge, request-changes or queue-for-human,
+// and RUNBOOK §8 said a queued PR's reasoning is "posted as a comment", but
+// c85a7d5d made queue-for-human plan no gh call at all (internal routing: a
+// human speaks to the contributor). Nothing read the promise against the
+// commands, so a contributor whose PR was queued waited for a comment that
+// was never going to come.
+describe('the KEEPER promise in CONTRIBUTING.md × what the ritual plans (regression, epic 0019 additive-only law)', () => {
+  const repoPath = (rel: string): string =>
+    fileURLToPath(new URL(`../../../../${rel}`, import.meta.url));
+  const read = (rel: string): string => readFileSync(repoPath(rel), 'utf8');
+  /** The `## <heading>…` section of `text`, up to the next `## ` heading; '' when absent. */
+  const sectionFrom = (text: string, heading: string): string => {
+    const start = text.indexOf(`\n## ${heading}`);
+    if (start < 0) return '';
+    const end = text.indexOf('\n## ', start + 1);
+    return text.slice(start, end < 0 ? undefined : end);
+  };
+  const contributing = read('.github/CONTRIBUTING.md');
+  const promise = sectionFrom(contributing, 'What happens after you open a PR\n');
+  const citedSection = /\[`docs\/RUNBOOK\.md`\]\([^)]*\) §(\d+)/.exec(promise)?.[1];
+  const runbook = sectionFrom(read('docs/RUNBOOK.md'), `${citedSection ?? '?'}. `);
+  const sourceOfTruth = /source of truth is `([^`]+)`/.exec(promise)?.[1] ?? '';
+
+  const merged = candidate();
+  const bounced = candidate({ gateStatus: 'fail' });
+  const queued = candidate({ touchedPaths: ['package.json'] });
+
+  it('cites the RUNBOOK section that holds the decision policy, and a source of truth that exists', () => {
+    expect(promise).not.toBe('');
+    expect(runbook.split('\n', 2)[1]).toContain('KEEPER review ritual');
+    expect(sourceOfTruth).toBe('apps/dashboard/src/flight/pr-review.ts');
+    expect(existsSync(repoPath(sourceOfTruth))).toBe(true);
+    expect(runbook).toContain(`\`${sourceOfTruth}\``);
+  });
+
+  it('names exactly the decisions planPrReview reaches, in CONTRIBUTING and in the RUNBOOK table', () => {
+    const reached = [merged, bounced, queued].map((pr) => planPrReview(pr).decision);
+    expect(reached).toEqual(['merge', 'request-changes', 'queue-for-human']);
+    for (const decision of reached) expect(promise).toContain(`**${decision}**`);
+
+    const tableDecisions = runbook
+      .split('\n')
+      .filter((line) => line.startsWith('| ') && !line.startsWith('| Check'))
+      .map((row) => /^[\w-]+/.exec(row.split('|').at(-2)?.trim() ?? '')?.[0]);
+    expect(tableDecisions.length).toBeGreaterThan(0);
+    expect(new Set(tableDecisions)).toEqual(new Set(reached));
+  });
+
+  it('queues the dependency-touching and security-sensitive PRs it tells contributors a human decides', () => {
+    for (const path of [
+      'package.json',
+      'pnpm-lock.yaml',
+      '.github/workflows/ci.yml',
+      'apps/dashboard/src/flight/pr-review.ts',
+    ]) {
+      expect(planPrReview(candidate({ touchedPaths: [path] })).decision, path).toBe(
+        'queue-for-human',
+      );
+    }
+  });
+
+  it('says a merge is an approval then a squash-merge, and a request-changes names its reason', () => {
+    const [approve, merge] = planPrReviewCommands(merged, planPrReview(merged));
+    expect(approve?.args).toContain('--approve');
+    expect(merge?.args.slice(0, 3)).toEqual(['pr', 'merge', String(merged.number)]);
+    expect(merge?.args).toContain('--squash');
+    expect(contributing).toContain('squash-merged');
+
+    const decision = planPrReview(bounced);
+    const [review, ...rest] = planPrReviewCommands(bounced, decision);
+    expect(rest).toEqual([]);
+    expect(review?.args).toEqual([
+      'pr',
+      'review',
+      String(bounced.number),
+      '--request-changes',
+      '--body',
+      decision.reasoning,
+    ]);
+    expect(contributing).toContain('fix the named reason');
+  });
+
+  it('promises no post for a queued PR, in both docs, because the ritual plans no gh call for it', () => {
+    expect(planPrReviewCommands(queued, planPrReview(queued))).toEqual([]);
+    for (const [doc, text] of [
+      ['CONTRIBUTING.md', promise],
+      ['RUNBOOK §8', runbook],
+    ] as const) {
+      expect(text, doc).toMatch(/queue-for-human\**[^.]*\bposts nothing on\b/);
+      expect(text, doc).not.toMatch(/posted as a comment/);
+      expect(text, doc).not.toMatch(/\bposts one of\b/);
+    }
   });
 });

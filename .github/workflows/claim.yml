@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 # SPDX-License-Identifier: Apache-2.0
 #
-# The shared-work claim protocol (docs/ROADMAP.md "How work gets shared"):
-# commenting `/claim` on an open issue assigns YOU — one assignee ever, so
+# The shared-work claim protocol (.github/CONTRIBUTING.md "Claiming work —
+# the shared-task protocol"): commenting `/claim` on an open issue assigns YOU — one assignee ever, so
 # two people can never silently pick the same task; `/unclaim` hands it
 # back. Deliberately zero third-party actions: the runner's preinstalled
 # `gh` + the workflow GITHUB_TOKEN are the whole implementation.
