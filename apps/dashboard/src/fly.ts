@@ -73,6 +73,8 @@ import {
   describeBreach,
   buildFlightSettings,
   guardHookScriptPath,
+  guardHookCommand,
+  CodexCliModel,
   FileInstanceLock,
   FileGateSemaphore,
   RetryLoadedGate,
@@ -201,6 +203,12 @@ import { selfStudyInvocation, commitSelfStudyIfDirty } from './flight/self-study
 import { PRODUCT_VERSION } from './info.js';
 import { commitAttributionEnabled } from './flight/attribution.js';
 import { formatFlightDoneLine } from './flight/flight-summary.js';
+import {
+  NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES,
+  firingConfigForEngine,
+  firingEngineFromEnv,
+  firingEngineLine,
+} from './flight/firing-engine.js';
 import {
   deriveFlyProjectId,
   engineLockFileName,
@@ -1185,6 +1193,19 @@ async function main(): Promise<void> {
       return;
     }
     out(`Containment guard: PreToolUse path guard active (confined to ${flightRoot}).`);
+    // PROVIDER PARITY (epic 0036): AUTOPILOT_ENGINE picks the CLI this lane's
+    // firings fly on (flight/firing-engine.ts). A setting it cannot honour
+    // refuses the flight rather than flying Claude unasked.
+    const engineChoice = firingEngineFromEnv(process.env);
+    if (!engineChoice.ok) {
+      out(`⛔ ${engineChoice.reason}`);
+      process.exitCode = 1;
+      return;
+    }
+    const engineRoute = engineChoice.route;
+    const firingConfig = firingConfigForEngine(config, engineRoute);
+    const engineLine = firingEngineLine(engineRoute);
+    if (engineLine !== null) out(engineLine);
 
     const sink = new SqliteFiringStore(store, projectId, now, instanceId);
     // Adaptive cadence (v2.4 usage_advisor port, docs/BACKLOG-999.md): paces
@@ -1334,24 +1355,41 @@ async function main(): Promise<void> {
             modelName: reviewModel,
             diffText: (from, to) => vcs.diffText(from, to),
           });
+    // A codex lane (flight/firing-engine.ts) runs the guard command the Claude
+    // settings above run, as Codex's PreToolUse hook on every shell call and
+    // patch, with the same activity feed, web-search audit, pid registry and caps.
+    const codexModel =
+      engineRoute.engine === 'codex'
+        ? new CodexCliModel({
+            repo: flightRoot,
+            guardHookCommand: guardHookCommand(flightRoot, guardScriptPath),
+            onActivity: recordActivity,
+            onWebSearch: recordWebSearch,
+            pidRegistry,
+            ...(cliTimeoutMs !== undefined ? { timeoutMs: cliTimeoutMs } : {}),
+            ...(cliIdleTimeoutMs !== undefined ? { idleTimeoutMs: cliIdleTimeoutMs } : {}),
+          })
+        : null;
     const loop: LoopDeps = {
       firing: {
-        model: new StreamingClaudeCliModel({
-          repo: flightRoot,
-          config,
-          auth,
-          onActivity: recordActivity,
-          onWebSearch: recordWebSearch,
-          settingsPath: guardSettingsPath,
-          // ORPHAN SWEEP crash-path follow-up (ap-mt2ukjg5-2): persists this
-          // invocation's child pid so a future startup's sweepStale can
-          // still reap it if THIS flight process dies first.
-          pidRegistry,
-          // THIRD CAP (wall clock), launcher-tunable — see budget.ts's
-          // cliTimeoutMsFromEnv; omitted key keeps the driver's own default.
-          ...(cliTimeoutMs !== undefined ? { timeoutMs: cliTimeoutMs } : {}),
-          ...(cliIdleTimeoutMs !== undefined ? { idleTimeoutMs: cliIdleTimeoutMs } : {}),
-        }),
+        model:
+          codexModel ??
+          new StreamingClaudeCliModel({
+            repo: flightRoot,
+            config,
+            auth,
+            onActivity: recordActivity,
+            onWebSearch: recordWebSearch,
+            settingsPath: guardSettingsPath,
+            // ORPHAN SWEEP crash-path follow-up (ap-mt2ukjg5-2): persists this
+            // invocation's child pid so a future startup's sweepStale can
+            // still reap it if THIS flight process dies first.
+            pidRegistry,
+            // THIRD CAP (wall clock), launcher-tunable — see budget.ts's
+            // cliTimeoutMsFromEnv; omitted key keeps the driver's own default.
+            ...(cliTimeoutMs !== undefined ? { timeoutMs: cliTimeoutMs } : {}),
+            ...(cliIdleTimeoutMs !== undefined ? { idleTimeoutMs: cliIdleTimeoutMs } : {}),
+          }),
         vcs,
         gate: feedbackGate,
         store: sink,
@@ -1480,8 +1518,9 @@ async function main(): Promise<void> {
         // model, applied by the loop (packages/engine/src/loop.ts) for just
         // this firing instead of the flight-wide sonnet default. A single-
         // task-scoped metrics query, cheap against the local sqlite store.
+        // Off on a non-Claude lane: every tier resolves to a Claude model.
         let routedModel: string | undefined;
-        if (topAvailable) {
+        if (topAvailable && engineRoute.engine === 'claude') {
           const taskMetricsRows = store.db
             .prepare(
               'SELECT item, cost_usd AS costUsd, completion FROM metrics WHERE project_id = ? AND item = ? ORDER BY created_at',
@@ -1532,7 +1571,9 @@ async function main(): Promise<void> {
         }
         lastFiringEscalated =
           routedModel !== undefined && budgetMultiplierForModel(routedModel) > 1;
-        lastRequestedModel = routedModel ?? config.primaryModel;
+        // The lane's own model: a codex lane requesting `sonnet` here would
+        // read its own Codex model as a substitution and rest sonnet fleet-wide.
+        lastRequestedModel = routedModel ?? firingConfig.primaryModel;
         const fleet = await buildFleetDigest(
           store,
           projectId,
@@ -1963,7 +2004,14 @@ async function main(): Promise<void> {
     // other end-of-flight sweeps below.
     await runSocialFlightPass('start', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target });
 
-    const summary = await runLoop(loop, config, { maxIterations: firings });
+    // LANE DEMOTION (epic 0036): a non-Claude lane whose work the gate keeps
+    // reverting stops taking new work instead of spending every firing.
+    const summary = await runLoop(loop, firingConfig, {
+      maxIterations: firings,
+      ...(engineRoute.engine === 'claude'
+        ? {}
+        : { demoteAfterGateFailures: NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES }),
+    });
 
     // Reconciliation safety net: `onFiringComplete` (markTaskDoneIfShipped) already
     // closes the loop between firings, but this catches anything it couldn't —

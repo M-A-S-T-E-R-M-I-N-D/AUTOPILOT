@@ -1114,6 +1114,12 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // usage-pool-scan.ts may read (private-transcript scope) — a data-flow/
   // privacy surface, the same stance flight/otlp.ts above is flagged under.
   'flight/usage-pool-config.ts',
+  // Operator env deciding WHICH agent CLI a lane's firings run (epic 0036) and
+  // on what model. A PR that fell back to an unguarded engine, or let an
+  // unknown AUTOPILOT_ENGINE fly instead of refusing, would change what runs
+  // in the target with no security keyword in its path, the same
+  // decide-what-gets-spawned class as flight/self-study.ts above.
+  'flight/firing-engine.ts',
   // Epic 0019 "GitHub Steward" slice 1 (board web-mtrh1hjq-760dic): plans
   // AND executes the taxonomy-seed ritual's real `gh label create --force`
   // / `gh api .../milestones` writes against the operator's live repo — the
