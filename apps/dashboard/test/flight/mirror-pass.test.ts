@@ -45,14 +45,28 @@ import {
   type MirrorPassCommand,
   isAssignedTo,
 } from '../../src/flight/mirror-pass.js';
+import type { CreateTaskInput } from '@autopilot/store';
 import type { CliExec } from '../../src/connection/cli-probe.js';
-import { STALE_TASK_DAYS } from '../../src/web/task-queue.js';
+import { STALE_TASK_DAYS, taskProvenanceOf } from '../../src/web/task-queue.js';
+import { poolDeliveryIssueNumber } from '../../src/web/card-actions.js';
 import { claimLedger } from '../../src/flight/claim-ledger.js';
 import {
   issueTemplateGaps,
   planIssueTriage,
+  planIssueTriageTask,
   type IncomingIssue,
 } from '../../src/flight/issue-triage.js';
+import {
+  PRIORITY_LABEL_BAND,
+  planMirrorPassPriorityFollow,
+} from '../../src/flight/mirror-pass-priority.js';
+import {
+  planClaimPoolIssue,
+  planPoolIssueTask,
+  type PoolIssue,
+} from '../../src/flight/pool-client.js';
+import { planOwnedWorkReconcile } from '../../src/flight/owned-work-reconcile.js';
+import { planBoardIssueExport } from '../../src/flight/board-issue-export.js';
 
 describe('issueNumberFromTaskId', () => {
   it('parses the github-<n> task id convention', () => {
@@ -1670,4 +1684,134 @@ describe("EPIC 0019 additive-only law — the drift issues the mirror pass files
       expect(triage(issue)).toBe('accept');
     },
   );
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the CLAIM and
+// KEEPER flows meeting at one board id. Three flows queue a GitHub issue onto
+// the board: KEEPER triage's accept, the pool claim and the owned-work
+// reconcile. Each mints `issueTaskId`'s `github-<n>` with `source: 'github'`.
+// Four readers get the issue back from that id alone: the mirror pass
+// (close-on-done, landing note, priority follow), the board export (an
+// issue-born task is never filed twice), the Contribute-upstream form's
+// `Closes #` prefill and the row detail's issue link. The last two match the
+// id with their own inline regex, because they ship in the client bundle by
+// `.toString()`, and both also require the source. Each side was pinned only
+// by its own literal `github-42`. A scheme or source change that updated the
+// writer's test would have kept every reader's test green while the readers
+// stopped seeing every queued issue: no close, no priority follow, a second
+// export, no link.
+const MINTED_ISSUE = 4217;
+const MINTED_REPO = 'octocat/hello-world';
+const MINTED_URL = `https://github.com/${MINTED_REPO}/issues/${MINTED_ISSUE}`;
+const MINTED_TITLE = 'The fleet table loses focus';
+
+/** The board row KEEPER triage queues when it accepts #4217. The repo owner
+ *  filed it, so the template gate lets a bare body through. */
+function mintedByKeeperTriage(): CreateTaskInput | null {
+  const issue: IncomingIssue = {
+    number: MINTED_ISSUE,
+    title: MINTED_TITLE,
+    body: '',
+    author: 'octocat',
+  };
+  const decision = planIssueTriage(issue, [], [], undefined, undefined, 'octocat');
+  return planIssueTriageTask(issue, decision, 'p1', 100);
+}
+
+/** The board row a co-pilot's claim on an open, unheld pool issue queues. */
+function mintedByPoolClaim(): CreateTaskInput | null {
+  const issue: PoolIssue = {
+    number: MINTED_ISSUE,
+    title: MINTED_TITLE,
+    url: MINTED_URL,
+    labels: ['pool: ux'],
+    assignees: [],
+  };
+  return planPoolIssueTask(issue, planClaimPoolIssue(issue, 'octocat'), 'p1', 100);
+}
+
+/** The board row the owned-work reconcile queues for an issue newly assigned
+ *  to the operator. */
+function mintedByOwnedWork(): CreateTaskInput | null {
+  const assigned = [{ number: MINTED_ISSUE, title: MINTED_TITLE, url: MINTED_URL }];
+  return planOwnedWorkReconcile(assigned, [], 'octocat', 'p1', 100).upserts[0] ?? null;
+}
+
+describe.each([
+  ['KEEPER triage accept', mintedByKeeperTriage],
+  ['pool claim', mintedByPoolClaim],
+  ['owned-work reconcile', mintedByOwnedWork],
+])(
+  'the task the %s queues × every reader of its issue id (regression, epic 0019 additive-only law)',
+  (_flow, mint) => {
+    const minted = mint();
+    if (minted === null) throw new Error('expected the flow to queue a task for the issue');
+    const { id, source = 'dashboard' } = minted;
+
+    it('queues a task for the issue at all', () => {
+      expect(minted).toMatchObject({ projectId: 'p1', title: MINTED_TITLE });
+    });
+
+    it('is read back to its issue by the mirror pass', () => {
+      expect(issueNumberFromTaskId(id)).toBe(MINTED_ISSUE);
+    });
+
+    it("has its board priority follow the issue's priority label", () => {
+      const finding = planMirrorPassPriorityFollow(
+        { id, status: 'queued', landedSha: null, priority: null, priorityPinned: false },
+        { number: MINTED_ISSUE, state: 'open' },
+        ['priority: high'],
+      );
+      expect(finding).toMatchObject({
+        taskId: id,
+        issueNumber: MINTED_ISSUE,
+        priority: PRIORITY_LABEL_BAND['priority: high'],
+      });
+    });
+
+    it('is never filed to GitHub again by the board export, even when shared', () => {
+      const [decision] = planBoardIssueExport(
+        [{ id, title: minted.title, body: minted.body ?? null, status: 'queued', shareable: true }],
+        [],
+      );
+      expect(decision).toMatchObject({ action: 'skip', taskId: id });
+      expect(decision?.reasoning).toContain(`issue #${MINTED_ISSUE}`);
+    });
+
+    it("prefills the Contribute-upstream form's Closes # with its issue", () => {
+      expect(poolDeliveryIssueNumber([{ id, source, status: 'queued' }])).toBe(MINTED_ISSUE);
+    });
+
+    it("links its row detail to the issue in the project's repository", () => {
+      expect(taskProvenanceOf(source, id, MINTED_REPO)).toEqual({
+        key: 'taskFromGithubIssue',
+        issue: MINTED_ISSUE,
+        url: MINTED_URL,
+      });
+    });
+  },
+);
+
+describe('the github-<n> readers agree on which ids name an issue (regression, epic 0019 additive-only law)', () => {
+  // The two client-bundled readers cannot import issueNumberFromTaskId, so
+  // each keeps its own copy of the pattern. A copy that drifts would link or
+  // prefill an issue the mirror pass does not see, or the other way round.
+  it.each([
+    'github-7',
+    'github-007',
+    'github-',
+    'github-7a',
+    'github-7-retry',
+    'GITHUB-7',
+    ' github-7',
+    'xgithub-7',
+    'github--7',
+    'report-region-abc',
+  ])('%j', (id) => {
+    const mirror = issueNumberFromTaskId(id);
+    expect(poolDeliveryIssueNumber([{ id, source: 'github', status: 'queued' }]) ?? null).toBe(
+      mirror,
+    );
+    expect(taskProvenanceOf('github', id, MINTED_REPO).issue).toBe(mirror);
+  });
 });
