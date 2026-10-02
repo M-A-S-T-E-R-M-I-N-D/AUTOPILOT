@@ -67,6 +67,19 @@ function connectInit() {
   var ghIssueComposeBtn = document.getElementById('gh-issue-compose');
   var ghIssueComposeStatus = document.getElementById('gh-issue-compose-status');
 
+  // The report form opens at the bottom of a popover that now scrolls inside
+  // itself (layout-css.ts .connect-body, 2026-10-02): bring the opened
+  // section to the top of that scroll so the whole form is in reach, instead
+  // of leaving its lower half below the popover's fold.
+  var ghReport = ghIssueForm && ghIssueForm.closest ? ghIssueForm.closest('details.gh-report') : null;
+  if (ghReport) {
+    ghReport.addEventListener('toggle', function () {
+      if (ghReport.open && typeof ghReport.scrollIntoView === 'function') {
+        ghReport.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    });
+  }
+
   // App-wide interactivity audit v2 (web-msm66jlc-gm4oom): each button's
   // click has real consequences (opens a terminal, spends a billed claude
   // call, stores a credential, files a real upstream issue) — say so on
