@@ -244,6 +244,19 @@ describe('buildFiringPrompt', () => {
     expect(p).toContain(`Harness: ${HARNESS_NAME}`);
   });
 
+  it('names the CLI a non-Claude lane actually runs in the Harness trailer (epic 0036)', () => {
+    // A codex lane told to write `Harness: claude-cli` signs a false provenance.
+    const p = buildFiringPrompt({ soul: SOUL, firing: 1, retro: false, harness: 'codex-cli' });
+    expect(p).toContain('and `Harness: codex-cli`.');
+    expect(p).not.toContain(`Harness: ${HARNESS_NAME}`);
+  });
+
+  it('falls back to the Claude harness when the given harness is blank', () => {
+    const base = { soul: SOUL, firing: 1, retro: false };
+    expect(buildFiringPrompt({ ...base, harness: '  ' })).toBe(buildFiringPrompt(base));
+    expect(buildFiringPrompt({ ...base, harness: HARNESS_NAME })).toBe(buildFiringPrompt(base));
+  });
+
   it('states the research-first doctrine (official docs, battle-tested packages)', () => {
     const p = buildFiringPrompt({ soul: SOUL, firing: 1, retro: false });
     expect(p).toContain('## Research first');
