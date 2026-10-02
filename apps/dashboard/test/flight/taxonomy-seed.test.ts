@@ -42,6 +42,8 @@ import {
 import { HELP_WANTED_LABEL } from '../../src/flight/help-wanted-items.js';
 import { luckyFitLine, type FitOperator } from '../../src/flight/lucky-fit.js';
 import {
+  DECLINED_LABEL,
+  claimPoolIssue,
   fetchPoolIssues,
   planClaimPoolIssue,
   planPoolIssueTask,
@@ -1219,6 +1221,52 @@ describe("HOUSE_TAXONOMY_LABELS × KEEPER triage's declined issues (regression, 
   it('never asks a declined issue to fill in the template', () => {
     expect(triage([], 'It broke.')).toBe('needs-format');
     expect(triage([declined?.name ?? ''], 'It broke.')).toBe('skip');
+  });
+});
+
+// Same law, the pool claim × the seeded `declined` label. An issue KEEPER
+// accepted keeps its `pool: <dimension>` label, and the maintainer may decline
+// it after that. It stays open for its reporter to reply to, so the pool
+// client still lists it. Triage reads the label (above); the claim did not,
+// and offered the issue to every co-pilot as claimable, then posted a claim
+// and an assignee on an issue the maintainer had already answered no.
+describe("HOUSE_TAXONOMY_LABELS × the pool claim's declined issues (regression, epic 0019 additive-only law)", () => {
+  const declined = HOUSE_TAXONOMY_LABELS.find((label) => label.name === 'declined')?.name ?? '';
+  const pool = `${POOL_LABEL_PREFIX}ux`;
+  const issue = (labels: readonly string[]) => ({
+    number: 7,
+    title: 'The fleet table drops a column',
+    url: `https://github.com/${MAINTAINER.nameWithOwner}/issues/7`,
+    labels,
+    assignees: [],
+  });
+
+  it('reads the label the seeder stamps', () => {
+    expect(DECLINED_LABEL).toBe(declined);
+  });
+
+  it('never offers a declined pool issue to a claimant', () => {
+    expect(planClaimPoolIssue(issue([pool]), GUEST.login).decision).toBe('claim');
+
+    const decision = planClaimPoolIssue(issue([pool, declined]), GUEST.login);
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain(`"${declined}"`);
+    expect(planPoolIssueTask(issue([pool, declined]), decision, 'p1', 100)).toBeNull();
+  });
+
+  it('spends no gh write on a claim for one', async () => {
+    const listed = { ...issue([]), labels: [{ name: pool }, { name: declined }], comments: [] };
+    const exec = execFor({
+      'gh issue list': { code: 0, stdout: JSON.stringify([listed]) },
+      'gh api user': { code: 0, stdout: JSON.stringify({ login: GUEST.login }) },
+    });
+
+    const result = await claimPoolIssue(7, exec);
+
+    expect(result.decision.decision).toBe('skip');
+    expect(result.commandResults).toEqual([]);
+    const ran = vi.mocked(exec).mock.calls.map(([, args]) => args.slice(0, 2).join(' '));
+    expect(ran.sort()).toEqual(['api user', 'issue list']);
   });
 });
 
