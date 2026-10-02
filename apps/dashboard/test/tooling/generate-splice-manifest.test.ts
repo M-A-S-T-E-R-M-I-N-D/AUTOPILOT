@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it, expect, afterEach } from 'vitest';
 import ts from 'typescript';
 import prettier from 'prettier';
+import { LOCALE_LABELS } from '@autopilot/tokens';
 import {
   findSpliceManifest,
   buildSpliceManifest,
@@ -3524,10 +3525,11 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
   /** reportMenuJs's own reconstruction, from its real file under
    *  web/features/ — same splice-binding shape as its siblings, resolved
    *  against web/features/ (its four report-panel.js splices plus
-   *  report-capture.js's formatCapturedReportContext), plus its one
-   *  non-splice slot: REPORT_MENU_EDITABLE_SELECTOR, a same-file local
-   *  const spliced as `JSON.stringify(REPORT_MENU_EDITABLE_SELECTOR)`
-   *  rather than a relative-import binding. */
+   *  report-capture.js's formatCapturedReportContext), plus its two
+   *  non-splice slots: REPORT_MENU_EDITABLE_SELECTOR, a same-file local
+   *  const spliced as `JSON.stringify(REPORT_MENU_EDITABLE_SELECTOR)`, and
+   *  LOCALE_LABELS, an @autopilot/tokens package import spliced as
+   *  `JSON.stringify(LOCALE_LABELS)` — neither a relative-import binding. */
   async function reconstructReportMenuJs(): Promise<string> {
     const reportMenuSource = readFileSync(REPORT_MENU_TS, 'utf8');
     const spliceEntries = findSpliceManifest(reportMenuSource, REPORT_MENU_TS);
@@ -3546,6 +3548,9 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
   function resolveReportMenuSlot(exprText: string): string {
     if (exprText === 'JSON.stringify(REPORT_MENU_EDITABLE_SELECTOR)') {
       return JSON.stringify('input, textarea, select, [contenteditable="true"]');
+    }
+    if (exprText === 'JSON.stringify(LOCALE_LABELS)') {
+      return JSON.stringify(LOCALE_LABELS);
     }
     throw new Error(`reportMenuJs: no resolution for non-splice slot \`${exprText}\``);
   }
