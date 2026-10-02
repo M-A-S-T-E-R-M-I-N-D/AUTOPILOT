@@ -564,7 +564,7 @@ export function evaluationLabelDayCounts(db: Db, projectId: string): EvaluationL
 }
 
 /**
- * The four `gateResult: 'unverifiable'` cause buckets (verdict-quality, board
+ * The five `gateResult: 'unverifiable'` cause buckets (verdict-quality, board
  * web-mtq6zn6x-3khfkb: "~47.9% of the 96-attempt public sample gate results
  * were UNVERIFIABLE — classify each by cause"):
  *
@@ -653,13 +653,14 @@ export function unverifiableCauseBreakdown(db: Db, projectId: string): Unverifia
   let total = 0;
   for (const row of rows) {
     if (row.payload === null) continue;
-    let parsed: { gateResult?: unknown; gateChecks?: unknown; gateError?: unknown };
+    let parsed: { gateResult?: unknown; gateChecks?: unknown; gateError?: unknown } | null;
     try {
       parsed = JSON.parse(row.payload);
     } catch {
       continue; // skip a malformed firing payload, same convention as evaluationLabelSummary
     }
-    if (parsed.gateResult !== 'unverifiable') continue;
+    // A `'null'` payload parses cleanly to null; reading a field off it would throw.
+    if (parsed === null || parsed.gateResult !== 'unverifiable') continue;
     total += 1;
     byCause[classifyUnverifiableCause(parsed)] += 1;
   }
