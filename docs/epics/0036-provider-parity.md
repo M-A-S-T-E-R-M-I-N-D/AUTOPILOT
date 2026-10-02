@@ -88,7 +88,15 @@ stderr tail (`cliDeathText` in `claude-cli.ts`), or the cap that killed it when 
 stderr, because `firing.ts` records that text as the firing's death tail. Before, both adapters
 handed on the raw event stream there: a failed login, an untrusted folder or a bad config exits
 before the first event with its reason on stderr only, so such a firing recorded no reason at all,
-and a killed one stored every event it had printed as its reason. The Copilot CLI adapter remains unstarted and, per the
+and a killed one stored every event it had printed as its reason. Since 2026-10-02 a Gemini run
+also reports the tool calls the guard denied, as `ModelResponse.guardDenials`/`guardDenialDetails`
+the way `StreamingClaudeCliModel`'s does, so the firing's guard-denial events and the loop's
+"guard denied" alert see a Gemini lane too. gemini-cli's `coreToolHookTriggers.ts` turns a
+BeforeTool deny into an error whose `message` is the hook's own reason, and `nonInteractiveCli.ts`
+emits that call as a `tool_result` with `status: 'error'` and `error.message`. That reason is the
+Claude guard's deny text, so `stream.ts`'s `guardDenialFromText` reads both wires. Only the error
+is trusted: a tool that succeeded can print the same words in `output`. Codex runs no guard hook,
+so it reports none. The Copilot CLI adapter remains unstarted and, per the
 2026-09-27 re-check below, is now explicitly blocked on capturing a real `--output-format=json`
 sample from the closed-source binary — not just unstarted for lack of a turn to spend on it.
 
