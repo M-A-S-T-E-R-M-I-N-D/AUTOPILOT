@@ -196,6 +196,17 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    `test/flight/taxonomy-seed.test.ts` (the new block reads the label off
    `HOUSE_TAXONOMY_LABELS` and drives `planIssueTriage` both with and without
    it, verifying both accept and needs-format paths now skip when declined).
+   Refined 2026-10-02 (board ap-mupsoyua-0, epic 0019 law 2, the twin of the
+   `declined` skip above): an issue carrying `status: awaiting-human` or
+   `status: blocked` — labels the house taxonomy seeds for exactly this
+   purpose, "waiting on an operator/maintainer decision by design" and
+   "cannot proceed — blocker named in a comment" — was still run through
+   ordinary duplicate scoring, the template gate, and classification like
+   any other issue. `planIssueTriage` now skips any issue carrying either
+   `HOLD_LABELS` label the same way it already holds a declined one, until
+   the maintainer lifts it by hand. Covered by `test/flight/issue-triage.test.ts`
+   (one case per hold label, each asserting a skip whose reasoning names the
+   issue and the label).
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure
