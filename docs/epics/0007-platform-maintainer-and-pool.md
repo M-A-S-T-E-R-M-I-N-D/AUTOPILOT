@@ -1054,6 +1054,16 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    `test/flight/taxonomy-seed.test.ts` (the label is the one the seeder
    stamps; a declined pool issue skips; the composed claim runs only its two
    reads).
+   Refined 2026-10-03 (board web-mtsylqbd-q2rg8k, the twin of slice 3's hold
+   skip): the maintainer may also put an accepted pool issue on hold by hand,
+   with `status: awaiting-human` or `status: blocked`. Triage and the KEEPER
+   auto-merge hold on both; the claim did not, so it offered a held issue as
+   claimable and a claim posted a comment and an assignee on it.
+   `planClaimPoolIssue` now plans a skip for either label, reading triage's
+   own `HOLD_LABELS` export, right after the `declined` check. Covered by
+   `test/flight/taxonomy-seed.test.ts` (the labels are the ones the seeder
+   stamps; a held pool issue skips with no board task; the composed claim
+   runs only its two reads).
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable

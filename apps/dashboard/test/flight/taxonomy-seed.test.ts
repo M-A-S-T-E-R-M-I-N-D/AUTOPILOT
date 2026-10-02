@@ -23,6 +23,7 @@ import {
 } from '../../src/flight/contributor-dossier.js';
 import {
   AGENT_OK_LABEL,
+  HOLD_LABELS,
   MAX_ISSUE_LIST,
   NEEDS_FORMAT_LABEL,
   POOL_LABEL_PREFIX,
@@ -1258,6 +1259,55 @@ describe("HOUSE_TAXONOMY_LABELS × the pool claim's declined issues (regression,
 
   it('spends no gh write on a claim for one', async () => {
     const listed = { ...issue([]), labels: [{ name: pool }, { name: declined }], comments: [] };
+    const exec = execFor({
+      'gh issue list': { code: 0, stdout: JSON.stringify([listed]) },
+      'gh api user': { code: 0, stdout: JSON.stringify({ login: GUEST.login }) },
+    });
+
+    const result = await claimPoolIssue(7, exec);
+
+    expect(result.decision.decision).toBe('skip');
+    expect(result.commandResults).toEqual([]);
+    const ran = vi.mocked(exec).mock.calls.map(([, args]) => args.slice(0, 2).join(' '));
+    expect(ran.sort()).toEqual(['api user', 'issue list']);
+  });
+});
+
+// Same law, the pool claim × the seeded hold labels. The maintainer may put an
+// accepted pool issue on hold by hand: `status: awaiting-human` ("waiting on an
+// operator/maintainer decision by design") or `status: blocked` ("cannot
+// proceed — blocker named in a comment"). Triage holds both (issue-triage.ts
+// HOLD_LABELS) and so does the auto-merge (pr-review.ts HOLD_LABEL_MARKERS).
+// The claim read only `declined`, so it offered a held issue as claimable,
+// then posted a claim and an assignee on it and queued it for a flight.
+describe("HOUSE_TAXONOMY_LABELS × the pool claim's held issues (regression, epic 0019 additive-only law)", () => {
+  const seeded = (name: string) =>
+    HOUSE_TAXONOMY_LABELS.find((label) => label.name === name)?.name ?? '';
+  const holds = [seeded('status: awaiting-human'), seeded('status: blocked')];
+  const pool = `${POOL_LABEL_PREFIX}ux`;
+  const issue = (labels: readonly string[]) => ({
+    number: 7,
+    title: 'The fleet table drops a column',
+    url: `https://github.com/${MAINTAINER.nameWithOwner}/issues/7`,
+    labels,
+    assignees: [],
+  });
+
+  it('reads the labels the seeder stamps', () => {
+    expect(HOLD_LABELS).toEqual(holds);
+  });
+
+  it.each(holds)('never offers a pool issue held by "%s" to a claimant', (hold) => {
+    expect(planClaimPoolIssue(issue([pool]), GUEST.login).decision).toBe('claim');
+
+    const decision = planClaimPoolIssue(issue([pool, hold]), GUEST.login);
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain(`"${hold}"`);
+    expect(planPoolIssueTask(issue([pool, hold]), decision, 'p1', 100)).toBeNull();
+  });
+
+  it.each(holds)('spends no gh write on a claim for one held by "%s"', async (hold) => {
+    const listed = { ...issue([]), labels: [{ name: pool }, { name: hold }], comments: [] };
     const exec = execFor({
       'gh issue list': { code: 0, stdout: JSON.stringify([listed]) },
       'gh api user': { code: 0, stdout: JSON.stringify({ login: GUEST.login }) },
