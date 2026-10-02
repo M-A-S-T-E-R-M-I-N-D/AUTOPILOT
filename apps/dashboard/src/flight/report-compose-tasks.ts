@@ -139,20 +139,22 @@ function parseOneTask(raw: unknown): ReportComposeTaskItem | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
 
-  const title = record['title'];
-  if (typeof title !== 'string' || title.trim() === '' || title.length > TASK_TITLE_CHARS) {
-    return null;
-  }
-  const body = record['body'];
-  if (typeof body !== 'string' || body.trim() === '' || body.length > TASK_BODY_CHARS) {
-    return null;
-  }
+  // Measured AFTER trimming, as the task is stored and as the dashboard form
+  // and the MCP `tasks_create` measure their own caps — padding never counts.
+  const rawTitle = record['title'];
+  if (typeof rawTitle !== 'string') return null;
+  const title = rawTitle.trim();
+  if (title === '' || title.length > TASK_TITLE_CHARS) return null;
+  const rawBody = record['body'];
+  if (typeof rawBody !== 'string') return null;
+  const body = rawBody.trim();
+  if (body === '' || body.length > TASK_BODY_CHARS) return null;
   const severity = record['severity'];
   if (!isSeverity(severity)) return null;
   const dimension = record['dimension'];
   if (!isDimension(dimension)) return null;
 
-  return { title: title.trim(), body: body.trim(), severity, dimension };
+  return { title, body, severity, dimension };
 }
 
 /**

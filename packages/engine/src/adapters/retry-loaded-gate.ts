@@ -12,6 +12,14 @@
  * Load passes. The gate runs once more; if the second run judges the work,
  * that verdict stands, and only a second load crash leaves it unverified.
  * A red, a green, or any other crash is returned as it is, never retried.
+ *
+ * THE RETRY WAITS FOR THE LOAD TO PASS (2026-10-02): the second run used to
+ * start the instant the first crashed, on the same disk the siblings' gates
+ * were still thrashing — round 55's fleet-4 crashed both runs of one firing
+ * ("test workers never started", "Timeout terminating forks worker") and $6
+ * of verified-looking work was withheld as unverifiable. `pause` is told
+ * before each retry; the flight passes a stop-aware sleep, so the retry
+ * judges the work after the burst that killed the first run, not inside it.
  */
 
 import type { GatePort, GateResult } from '../ports.js';
@@ -34,6 +42,9 @@ export interface RetryLoadedGateOptions {
   readonly retries?: number;
   /** Told before each retry, for the flight log. */
   readonly onRetry?: (attempt: number) => void;
+  /** Awaited before each retry runs — the flight's chance to let the load
+   *  that crashed the first run pass. Nothing is waited for when absent. */
+  readonly pause?: (attempt: number) => Promise<void>;
 }
 
 export class RetryLoadedGate implements GatePort {
@@ -44,6 +55,7 @@ export class RetryLoadedGate implements GatePort {
     let result = await this.opts.inner.run();
     for (let attempt = 1; attempt <= retries && isLoadCrash(result); attempt += 1) {
       this.opts.onRetry?.(attempt);
+      await this.opts.pause?.(attempt);
       result = await this.opts.inner.run();
     }
     return result;

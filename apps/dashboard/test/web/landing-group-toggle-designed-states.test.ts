@@ -76,10 +76,12 @@ describe('landing group toggle designed states (COCKPIT 6/6)', () => {
   });
 
   it('mirrors its structural twin .flight-head state for state', () => {
-    // Both are full-width borderless group-row toggles with the same hover
-    // wash; if one idiom drifts the pair stops reading as ONE system.
+    // Both are full-width borderless group rows with the same hover wash; if
+    // one idiom drifts the pair stops reading as ONE system. The flight-log
+    // head is a container around its headline button (board ap-muq3t2m5-0),
+    // so its pressed state keys off that button's :active.
     const twinHover = ruleFor(css, '.flight-head:hover');
-    const twinActive = ruleFor(css, '.flight-head:active');
+    const twinActive = ruleFor(css, '.flight-head:has(.flight-item:active)');
     const hover = ruleFor(css, `${selector}:hover`);
     const active = ruleFor(css, `${selector}:active`);
     const body = (rule: string): string => rule.slice(rule.indexOf('{'));

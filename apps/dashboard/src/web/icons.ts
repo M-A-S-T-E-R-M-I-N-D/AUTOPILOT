@@ -549,6 +549,10 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['rect', { width: '14', height: '14', x: '8', y: '8', rx: '2', ry: '2' }],
     ['path', { d: 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): the Firing Replay's
+  // "‹ Prev" / "Next ›" buttons drop their guillemets for chevrons — this
+  // one and the chevron-right above, mirrored by CSS under dir=rtl.
+  'chevron-left': [['path', { d: 'm15 18-6-6 6-6' }]],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

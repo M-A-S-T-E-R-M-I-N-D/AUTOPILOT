@@ -126,3 +126,15 @@ sandbox (3) on a platform that has it. Keep flagging the posture in release note
 Do **not** place a sandbox flight target under the AUTOPILOT repo (or any repo you
 care about). Use a temp dir well outside the tree, so an escape has nothing valuable
 adjacent to reach.
+
+## Documentation reviews
+
+**2026-10-02 review (DOC-FRESHNESS flag against `guard.ts`, merge commit `a2d0725c`):**
+The flagged merge "chore: merge fix/mutants-2026-10-01 into autopilot/flight"
+refactored the IPv4-mapped IPv6 host checking in `guard.ts` for mutation testing
+clarity: a conditional on `mapped !== null && (test1 || test2)` became an early
+return on `mapped === null` followed by the tests, with a Stryker disable comment.
+This is a code-clarity change with no behavior change to what the guard blocks or
+allows, so no claims in this document changed. Re-checked: all described
+preventions (absolute paths, home refs, system temp, destructive git, process kill,
+etc.) remain enforced by the current code. All claims still accurate.

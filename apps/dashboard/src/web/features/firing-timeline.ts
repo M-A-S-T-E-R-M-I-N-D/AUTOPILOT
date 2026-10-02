@@ -173,7 +173,9 @@ function firingTraceSection(c) {
     // HTML's content model for <button> forbids any descendant with a
     // tabindex attribute, and every roving field below carries one. The
     // disclosure control is the headline <button> itself (aria-expanded, the
-    // click delegation's [data-firing-toggle]); the fields sit beside it.
+    // click delegation's [data-firing-toggle]); the fields sit beside it,
+    // and a click on any of them forwards to that button (firingRowToggleFor
+    // below) so the whole row still toggles, as it did when it WAS the button.
     // The open state rides .firing-open for the row's accent chrome.
     var row = el('div', 'firing-toggle' + (isOpen ? ' firing-open' : ''));
     var meta = firingTimelineRowMeta(g, f, traceTaskById, flightHeadlineOf, fmtAgo);
@@ -338,8 +340,14 @@ function firingTraceSection(c) {
         prevBtn.setAttribute('data-i18n-aria', 'replayPrevAria');
         prevBtn.setAttribute('data-tip', 'Step back to the previous action in this replay');
         prevBtn.setAttribute('data-i18n-tip', 'replayPrevTip');
-        prevBtn.textContent = '‹ Prev';
-        prevBtn.setAttribute('data-i18n', 'replayPrev');
+        // Epic 0025 (board web-mtywp7zq-55f3o9): the vendored chevron replaces
+        // the ‹ STRINGS used to bake into the text, so the words ride an inner
+        // [data-i18n] span (the back link's shape) and CSS mirrors the icon
+        // under dir=rtl, where "previous" points right.
+        prevBtn.appendChild(iconEl('chevron-left'));
+        var prevText = el('span', '', 'Prev');
+        prevText.setAttribute('data-i18n', 'replayPrev');
+        prevBtn.appendChild(prevText);
         navBar.appendChild(prevBtn);
         var navLabel = el('span', 'replay-nav-label', nav.label);
         navLabel.setAttribute('role', 'status');
@@ -366,8 +374,12 @@ function firingTraceSection(c) {
         nextBtn.setAttribute('data-i18n-aria', 'replayNextAria');
         nextBtn.setAttribute('data-tip', 'Advance to the next action in this replay');
         nextBtn.setAttribute('data-i18n-tip', 'replayNextTip');
-        nextBtn.textContent = 'Next ›';
-        nextBtn.setAttribute('data-i18n', 'replayNext');
+        // The chevron TRAILS here — setSweptText() keeps only a leading icon,
+        // so the inner span is what lets the sweep repaint the words alone.
+        var nextText = el('span', '', 'Next');
+        nextText.setAttribute('data-i18n', 'replayNext');
+        nextBtn.appendChild(nextText);
+        nextBtn.appendChild(iconEl('chevron-right'));
         navBar.appendChild(nextBtn);
         var exitBtn = document.createElement('button');
         exitBtn.type = 'button';
@@ -486,11 +498,27 @@ function firingTraceSection(c) {
   }
   return wrap;
 }
+// The row stopped being the <button> (board ap-mupzhat7-0) — its callsign,
+// verdict, event chips, count and timestamp now sit BESIDE the headline
+// button — but it still paints as ONE disclosure (the hover chrome spans the
+// whole row) and toggled wherever it was clicked while it was the button.
+// So a click on any non-interactive part of the row reaches the row's
+// headline toggle; a click on a real control inside the row (a link, a
+// button of its own) stays that control's.
+function firingRowToggleFor(target) {
+  if (!target || !target.closest) return null;
+  var row = target.closest('.firing-toggle');
+  if (!row) return null;
+  var control = target.closest('a,button,input,select,textarea');
+  if (control && row.contains(control)) return null;
+  return row.querySelector('[data-firing-toggle]');
+}
 // Per-firing trace drill-down (event-delegated): click a firing row to open
 // its own timeline of tool uses — same pure UI-state-only re-render as the
 // phase-toggle handler that stays inline in fleetJs().
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-firing-toggle]');
+  if (!b) b = firingRowToggleFor(e.target);
   if (!b) return;
   var pid = b.getAttribute('data-firing-pid');
   var fid = b.getAttribute('data-firing-toggle');

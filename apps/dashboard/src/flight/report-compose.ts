@@ -301,6 +301,16 @@ function isSeverity(value: unknown): value is Severity {
   return typeof value === 'string' && (SEVERITIES as readonly string[]).includes(value);
 }
 
+/** The trimmed string when it is non-blank and within `maxChars`, else null.
+ *  Measured AFTER trimming — the field is stored trimmed, the labels below are
+ *  already measured that way, and the dashboard form and the MCP
+ *  `tasks_create` both trim before their own caps: padding never counts. */
+function trimmedWithin(value: unknown, maxChars: number): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed === '' || trimmed.length > maxChars ? null : trimmed;
+}
+
 /**
  * Strictly parse the model's `REPORT_COMPOSE:` line into a validated
  * {@link ReportComposeOutput} — same "trust nothing, verify shape, reject to
@@ -323,24 +333,14 @@ export function parseReportComposeOutput(text: string): ReportComposeOutput | nu
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
 
-  const title = record['title'];
-  if (typeof title !== 'string' || title.trim() === '' || title.length > COMPOSE_TITLE_CHARS) {
-    return null;
-  }
-  const body = record['body'];
-  if (typeof body !== 'string' || body.trim() === '' || body.length > COMPOSE_BODY_CHARS) {
-    return null;
-  }
+  const title = trimmedWithin(record['title'], COMPOSE_TITLE_CHARS);
+  if (title === null) return null;
+  const body = trimmedWithin(record['body'], COMPOSE_BODY_CHARS);
+  if (body === null) return null;
   const action = record['action'];
   if (typeof action !== 'string' || !isReportAction(action)) return null;
-  const language = record['language'];
-  if (
-    typeof language !== 'string' ||
-    language.trim() === '' ||
-    language.length > COMPOSE_LANGUAGE_CHARS
-  ) {
-    return null;
-  }
+  const language = trimmedWithin(record['language'], COMPOSE_LANGUAGE_CHARS);
+  if (language === null) return null;
   const rawLabels = record['labels'];
   if (!Array.isArray(rawLabels)) return null;
   const labels: string[] = [];
@@ -355,24 +355,13 @@ export function parseReportComposeOutput(text: string): ReportComposeOutput | nu
 
   const severity = record['severity'];
   if (!isSeverity(severity)) return null;
-  const severityReasoning = record['severityReasoning'];
-  if (
-    typeof severityReasoning !== 'string' ||
-    severityReasoning.trim() === '' ||
-    severityReasoning.length > COMPOSE_SEVERITY_REASONING_CHARS
-  ) {
-    return null;
-  }
+  const severityReasoning = trimmedWithin(
+    record['severityReasoning'],
+    COMPOSE_SEVERITY_REASONING_CHARS,
+  );
+  if (severityReasoning === null) return null;
 
-  return {
-    title: title.trim(),
-    body: body.trim(),
-    labels,
-    action,
-    language: language.trim(),
-    severity,
-    severityReasoning: severityReasoning.trim(),
-  };
+  return { title, body, labels, action, language, severity, severityReasoning };
 }
 
 /**
@@ -390,9 +379,11 @@ export function parseReportComposeOutput(text: string): ReportComposeOutput | nu
  * broader `windows-drive-path` rule is deliberately left out here (unlike
  * the CI gate): a composed report legitimately discussing "a config file
  * under C:\" is expected dashboard-operator prose, not a leak, so only the
- * narrower username-bearing home-directory shapes are checked.
+ * narrower username-bearing home-directory shapes are checked. Exported only
+ * so `report-compose.test.ts` can hold this copy to those two files: the
+ * "by hand" above is enforced there, rule for rule.
  */
-const COMPOSE_LEAK_RULES: readonly RegExp[] = [
+export const COMPOSE_LEAK_RULES: readonly RegExp[] = [
   /-----BEGIN(?: [A-Z0-9]+)* PRIVATE KEY(?: BLOCK)?-----/,
   /\bAKIA[0-9A-Z]{16}\b/,
   /\bgh[posru]_[A-Za-z0-9]{36,}\b/,

@@ -171,6 +171,37 @@ describe('roving tabindex on the per-firing trace rows (D1 TAB-STOP ROVING)', ()
     }
   });
 
+  it('a click on any field of the row — not just the headline — toggles it (board ap-mupzhat7-0)', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+
+    // The row stopped being the <button>, but it still paints as ONE
+    // disclosure (its hover chrome spans the whole row) and toggled wherever
+    // it was clicked while it WAS the button — so a click on the timestamp,
+    // the count or a chip beside the headline reaches the headline's toggle
+    // instead of landing on an inert span.
+    const row = rows()[0] as Element;
+    const headline = row.querySelector('[data-firing-toggle]') as HTMLElement;
+    const fid = headline.getAttribute('data-firing-toggle') as string;
+    expect(fieldsOf(row).filter((f) => f !== headline).length).toBeGreaterThanOrEqual(3);
+    const toggleOf = (): Element | null => document.querySelector(`[data-firing-toggle="${fid}"]`);
+
+    (row.querySelector('.firing-ago') as HTMLElement).dispatchEvent(
+      new MouseEvent('click', { bubbles: true }),
+    );
+    await vi.advanceTimersByTimeAsync(1);
+    expect(toggleOf()?.getAttribute('aria-expanded')).toBe('true');
+
+    // The rows are rebuilt on toggle — click the count chip of the fresh row
+    // to close it again.
+    const reopened = toggleOf()?.closest('.firing-toggle') as Element;
+    (reopened.querySelector('.firing-count') as HTMLElement).dispatchEvent(
+      new MouseEvent('click', { bubbles: true }),
+    );
+    await vi.advanceTimersByTimeAsync(1);
+    expect(toggleOf()?.getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('walks the row with Left/Right and jumps the rim with Home/End', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);

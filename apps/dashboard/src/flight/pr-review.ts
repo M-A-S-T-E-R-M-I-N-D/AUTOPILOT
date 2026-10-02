@@ -1119,7 +1119,7 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // / `gh api .../milestones` writes against the operator's live repo — the
   // same decide-and-execute GitHub-write class flight/mirror-pass and
   // flight/contributor-dossier above are flagged for. Role-gated behind
-  // resolveSocialIdentity (the already-benign social-pass.ts) the same way
+  // resolveSocialIdentity (flight/social-pass.ts, flagged below) the same way
   // flight/pool-client-execute.ts is, but the actual write lives here, not
   // there. `.ts`-suffixed so `test/flight/taxonomy-seed.test.ts` stays
   // unflagged, same anchoring as flight/worktree.ts above.
@@ -1196,6 +1196,14 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // write on someone else's repo under our login, so widening what it can
   // claim is a permission change: security-hard review always.
   'flight/pool-client-execute.ts',
+  // The claim itself, which the `-execute` wiring above only calls:
+  // planClaimPoolIssue decides claim, contest or skip, and
+  // planClaimPoolIssueCommands builds the `gh issue comment` +
+  // `--add-assignee` (and the release's `--remove-assignee`) argv that
+  // executeClaimPoolIssueCommands runs on the canonical repo under our login.
+  // A PR that widened what it claims changed the same permission with no
+  // marker in its path. `.ts`-suffixed like the entry above.
+  'flight/pool-client.ts',
   // KEEPER DISCUSSIONS TRIAGE (epic 0007 S8): `discussions-triage.ts` now
   // POSTS replies (`addDiscussionComment`) and applies labels
   // (`addLabelsToLabelable`) via hand-rolled `gh api graphql` mutations
@@ -1506,6 +1514,18 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // `flight/*` entry above so a future `flight/taxonomy-seed-execute.ts`
   // stays covered too.
   'flight/taxonomy-seed',
+  // Epic 0016 slice 1's social pass. resolveSocialIdentity is the role check
+  // the taxonomy seeder, the mirror pass and the issue/discussions triage
+  // execute paths defer to (epic 0019 law 1: maintainer verbs only on a repo
+  // the viewer owns), planSocialProtocol
+  // holds the anti-spam caps (law 4), and executeSocialCommands runs the
+  // `gh issue create` / `gh issue comment` they admit. A PR that loosened the
+  // resolve would hand a guest identity maintainer writes in every ritual
+  // gated on it; one that loosened the caps would make the social flight a
+  // flooder. Neither carries a "guard"/"auth"/"security" keyword in its path.
+  // `.ts`-suffixed so the read-only social-flight-pass.ts weave-in and the
+  // pure social-flight-trigger.ts stay unflagged.
+  'flight/social-pass.ts',
   // The anti-flood guard and the one guarded exec every posting path
   // defaults to (operator's SPAM catch on PR #33, 2026-09-09). Together
   // they decide whether a real `gh` comment posts at all, and can EDIT an

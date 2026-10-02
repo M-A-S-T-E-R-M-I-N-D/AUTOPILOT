@@ -49,6 +49,17 @@ describe('flight-log replay-nav designed states (COCKPIT 4/6)', () => {
   });
 });
 
+describe('flight-log replay-nav chevrons (epic 0025)', () => {
+  it('spaces each chevron off its words on the side it sits', () => {
+    expect(css).toContain('.replay-nav-btn > .icon:first-child { margin-inline-end: 0.25em; }');
+    expect(css).toContain('.replay-nav-btn > .icon:last-child { margin-inline-start: 0.25em; }');
+  });
+
+  it('mirrors both chevrons under dir=rtl, where previous points right and next points left', () => {
+    expect(css).toContain("[dir='rtl'] .replay-nav-btn > .icon { transform: scaleX(-1); }");
+  });
+});
+
 describe('flight-log replay-exit designed states (COCKPIT 4/6)', () => {
   it('rests on the state-responsive shape token and transitions radius + shadow', () => {
     const rule = ruleFor(css, '.replay-nav-exit');
