@@ -154,6 +154,11 @@ import {
  */
 const FLIGHT_GATE_STEP_TIMEOUT_MS = 30 * 60_000;
 
+/** How long a gate that crashed from load waits before its one retry — long
+ *  enough for the sibling gates that crashed it to finish their test step
+ *  (2026-10-02: a retry that started at once crashed the same way). */
+const LOADED_GATE_RETRY_PAUSE_MS = 90_000;
+
 /** How long a flight-end full gate waits for the fleet's one full-gate slot
  *  before running anyway. Five lanes' full gates at ~8 minutes each queue
  *  for up to ~32 minutes behind one another; this leaves room over that. */
@@ -1224,7 +1229,12 @@ async function main(): Promise<void> {
         ...(gateSemaphore ? { semaphore: gateSemaphore } : {}),
       }),
       onRetry: () =>
-        out('  ↻ the gate crashed from load, not from the work — running it once more'),
+        out(
+          `  ↻ the gate crashed from load, not from the work — running it once more in ${LOADED_GATE_RETRY_PAUSE_MS / 1000}s`,
+        ),
+      // The retry waits for the burst that killed the first run to pass; a
+      // stop request ends the wait, not the verdict (2026-10-02).
+      pause: () => sleepUnlessStopped(LOADED_GATE_RETRY_PAUSE_MS, shouldStop),
     });
     const formatFix = deriveFormatFixCommand(result.gate.spec.format);
     const gate = formatFix

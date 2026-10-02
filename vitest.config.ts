@@ -54,6 +54,14 @@ export default defineConfig({
     // the test budget left the flakier half at the default. A generous
     // budget hides nothing: a hook that genuinely hangs still fails, later.
     hookTimeout: 120_000,
+    // And the same budget for tearing a worker DOWN. The gate's test:impacted
+    // crashed twice in one firing on 2026-10-01 with "[vitest-pool]: Timeout
+    // terminating forks worker" while five lanes' gates and a 29-check
+    // convergence run shared the one disk: the tests had passed, the worker
+    // just could not exit inside Vitest's 10s default, and the crash cost a
+    // $6 firing its verdict ("unverifiable", commit withheld). A worker that
+    // genuinely hangs on exit still fails — two minutes later.
+    teardownTimeout: 120_000,
     // Scrubs flight-runtime env vars so the gate behaves identically inside
     // and outside a fleet flight — see vitest.setup.ts for the field report.
     setupFiles: ['./vitest.setup.ts'],
