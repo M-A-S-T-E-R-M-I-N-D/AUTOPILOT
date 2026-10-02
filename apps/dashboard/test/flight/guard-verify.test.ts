@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect } from 'vitest';
-import { buildFlightSettings } from '@autopilot/engine';
+import { buildFlightSettings, buildGeminiFlightSettings } from '@autopilot/engine';
 import { verifyGuardSettings } from '../../src/flight/guard-verify.js';
 
 const TARGET_ROOT = '/repo/target';
@@ -61,6 +61,22 @@ describe('verifyGuardSettings', () => {
     );
     expect(result.ok).toBe(false);
     expect(result.reason).toContain('do not match what fly.ts intended to write');
+  });
+
+  it("checks a gemini lane's settings file the same way, refusing one guarding another worktree", () => {
+    const gemini = buildGeminiFlightSettings(TARGET_ROOT, SCRIPT_PATH);
+    const read = (settings: unknown) => () => `${JSON.stringify(settings, null, 2)}\n`;
+    expect(
+      verifyGuardSettings(SETTINGS_PATH, gemini, SCRIPT_PATH, read(gemini), () => true),
+    ).toEqual({ ok: true });
+    const foreign = buildGeminiFlightSettings('/repo/some-other-root', SCRIPT_PATH);
+    expect(
+      verifyGuardSettings(SETTINGS_PATH, gemini, SCRIPT_PATH, read(foreign), () => true).ok,
+    ).toBe(false);
+    // A Claude settings file at the Gemini path is no Gemini guard either.
+    expect(
+      verifyGuardSettings(SETTINGS_PATH, gemini, SCRIPT_PATH, read(expected), () => true).ok,
+    ).toBe(false);
   });
 
   it('fails when the guard-hook script the settings reference does not exist on disk', () => {

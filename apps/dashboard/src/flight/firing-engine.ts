@@ -3,28 +3,27 @@
 
 /**
  * WHICH CLI A LANE'S FIRINGS FLY ON (epic 0036, provider parity). Every lane
- * flew the Claude Code CLI: `CodexCliModel` was built, guarded and audited,
- * but nothing routed a firing to it. `AUTOPILOT_ENGINE=codex` now does, for
- * the flight it is set on, with `AUTOPILOT_ENGINE_MODEL` naming the model
- * Codex runs.
+ * flew the Claude Code CLI: `CodexCliModel` and `GeminiCliModel` were built,
+ * guarded and audited, but nothing routed a firing to them.
+ * `AUTOPILOT_ENGINE=codex` or `gemini` now does, for the flight it is set on,
+ * with `AUTOPILOT_ENGINE_MODEL` naming the model that CLI runs.
  *
  * The model has a variable of its own because every other model lever names
  * a Claude model: `AUTOPILOT_MODEL`, the routing tiers and the SOUL pin all
- * resolve to aliases the Codex CLI cannot run, and the flight's other Claude
+ * resolve to aliases neither CLI can run, and the flight's other Claude
  * calls (the commit reviewer, the merge-escalation agent) keep using them.
  * Unset, or `claude`, nothing changes. A setting this cannot honour refuses
  * the flight instead of flying Claude unasked.
- *
- * Gemini's adapter exists too, but its guard rides a settings file
- * (`buildGeminiFlightSettings`) the launcher does not write yet, so it is not
- * offered here.
  */
 
 import { resolveModelVendor, type EngineConfig } from '@autopilot/engine';
 
+/** The CLIs a lane can fly on besides Claude's. */
+export type NonClaudeEngine = 'codex' | 'gemini';
+
 /** Where a lane's firings go, once the env has been read. */
 export type FiringEngineRoute =
-  { readonly engine: 'claude' } | { readonly engine: 'codex'; readonly model: string };
+  { readonly engine: 'claude' } | { readonly engine: NonClaudeEngine; readonly model: string };
 
 export type FiringEngineChoice =
   | { readonly ok: true; readonly route: FiringEngineRoute }
@@ -35,36 +34,46 @@ export type FiringEngineChoice =
  *  (`runLoop`'s `demoteAfterGateFailures`). */
 export const NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES = 2;
 
+/** How each non-Claude engine is named in the flight log, and a model it runs. */
+const ENGINES: Readonly<Record<NonClaudeEngine, { cli: string; exampleModel: string }>> = {
+  codex: { cli: 'Codex', exampleModel: 'gpt-5-codex' },
+  gemini: { cli: 'Gemini', exampleModel: 'gemini-2.5-pro' },
+};
+
+function isNonClaudeEngine(engine: string): engine is NonClaudeEngine {
+  return Object.hasOwn(ENGINES, engine);
+}
+
 /** Reads `AUTOPILOT_ENGINE` and `AUTOPILOT_ENGINE_MODEL`. */
 export function firingEngineFromEnv(env: NodeJS.ProcessEnv): FiringEngineChoice {
   const engine = (env['AUTOPILOT_ENGINE'] ?? '').trim().toLowerCase();
   if (engine === '' || engine === 'claude') return { ok: true, route: { engine: 'claude' } };
-  if (engine !== 'codex') {
+  if (!isNonClaudeEngine(engine)) {
     return {
       ok: false,
-      reason: `AUTOPILOT_ENGINE=${engine} names no engine a lane can fly on (claude or codex).`,
+      reason: `AUTOPILOT_ENGINE=${engine} names no engine a lane can fly on (claude, codex or gemini).`,
     };
   }
+  const { cli, exampleModel } = ENGINES[engine];
   const model = (env['AUTOPILOT_ENGINE_MODEL'] ?? '').trim();
   if (model === '') {
     return {
       ok: false,
-      reason:
-        'AUTOPILOT_ENGINE=codex needs AUTOPILOT_ENGINE_MODEL to name the model Codex runs (e.g. gpt-5-codex).',
+      reason: `AUTOPILOT_ENGINE=${engine} needs AUTOPILOT_ENGINE_MODEL to name the model ${cli} runs (e.g. ${exampleModel}).`,
     };
   }
   if (resolveModelVendor(model).vendor.id === 'anthropic') {
     return {
       ok: false,
-      reason: `AUTOPILOT_ENGINE_MODEL=${model} names a Claude model, which the Codex CLI cannot run.`,
+      reason: `AUTOPILOT_ENGINE_MODEL=${model} names a Claude model, which the ${cli} CLI cannot run.`,
     };
   }
-  return { ok: true, route: { engine: 'codex', model } };
+  return { ok: true, route: { engine, model } };
 }
 
 /** The config a lane's firings run under: Claude's untouched, or every model
  *  slot (the primary, the quota fallback and resilience's pair) on the
- *  engine's model, so no firing hands Codex a Claude alias. */
+ *  engine's model, so no firing hands another CLI a Claude alias. */
 export function firingConfigForEngine(
   config: EngineConfig,
   route: FiringEngineRoute,
@@ -78,14 +87,25 @@ export function firingConfigForEngine(
   };
 }
 
+/** Where each engine's containment guard runs: the same `guard-hook.js` the
+ *  Claude settings file runs, as that CLI's own pre-tool hook. Gemini loads
+ *  hooks only in a trusted folder, so its lane trusts the worktree for each
+ *  session (`--skip-trust`), as `claude -p` runs without a trust prompt. */
+const GUARD_LINES: Readonly<Record<NonClaudeEngine, string>> = {
+  codex: 'the containment guard runs as its PreToolUse hook',
+  gemini:
+    'the containment guard runs as its BeforeTool hook from a system settings file, ' +
+    'with the worktree trusted for this session',
+};
+
 /** The flight-log line naming a non-Claude lane's engine and what changes
  *  with it; `null` for Claude, whose flight log stays as it was. */
 export function firingEngineLine(route: FiringEngineRoute): string | null {
   if (route.engine === 'claude') return null;
+  const { cli } = ENGINES[route.engine];
   return (
-    `Engine: Codex CLI on ${route.model} (AUTOPILOT_ENGINE). Model routing is off; ` +
-    `the containment guard runs as its PreToolUse hook; no cost is recorded, since ` +
-    `Codex reports no price; ${NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES} reverted firings ` +
-    `in a row demote the lane.`
+    `Engine: ${cli} CLI on ${route.model} (AUTOPILOT_ENGINE). Model routing is off; ` +
+    `${GUARD_LINES[route.engine]}; no cost is recorded, since ${cli} reports no price; ` +
+    `${NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES} reverted firings in a row demote the lane.`
   );
 }

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import type { FlightSettings } from '@autopilot/engine';
+import type { FlightSettings, GeminiFlightSettings } from '@autopilot/engine';
 
 /**
  * GUARD SETTINGS VERIFICATION (STPA finding): `fly.ts` writes the PreToolUse
@@ -25,11 +25,13 @@ export interface GuardVerification {
  * Verify the guard-settings file that was just written actually landed
  * correctly, and that the guard-hook script it references exists. `readRaw`
  * and `scriptExists` are injected so this stays pure and unit-testable —
- * fly.ts wires them to `readFileSync`/`existsSync`.
+ * fly.ts wires them to `readFileSync`/`existsSync`. A gemini lane's settings
+ * file (epic 0036) is checked the same way: Gemini treats a hook command that
+ * fails to run as no decision too.
  */
 export function verifyGuardSettings(
   guardSettingsPath: string,
-  expected: FlightSettings,
+  expected: FlightSettings | GeminiFlightSettings,
   guardScriptPath: string,
   readRaw: (path: string) => string,
   scriptExists: (path: string) => boolean,
