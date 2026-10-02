@@ -337,6 +337,26 @@ model routing and claim partitioning — neither touches the four locks below
 or the acceptance criteria; all six slices remain unchanged and live in
 production.
 
+Freshness check (2026-10-02, late morning): `fly.ts`, `flight/runner.ts` and
+`flight/registry.ts` gained two more commits since the check above. `7a0610c7`
+makes `RetryLoadedGate`'s one retry, after a gate crash attributed to sibling
+load rather than the work, wait 90 seconds (`LOADED_GATE_RETRY_PAUSE_MS`,
+stop-aware) before running again — the retry no longer starts into the same
+burst that killed the first run. `ac49fbe4` threads epic 0016 slice 3's
+fly-bar toggle (board web-mtpzzx7v-72q2dv) server-side: `StartFlightInput.
+socialFlight` takes one flight's own `AUTOPILOT_SOCIAL_FLIGHT` override,
+fail-closed-parsed before it ever reaches a child, through `FlightRunner` and
+`FlightRunnerRegistry`'s `spawnFlight` wrapper to the spawned child's env.
+Both are per-flight concerns — a retry-timing fix scoped to the one flight
+retrying, and one flight's own override riding in its own `StartFlightInput`
+— neither reads or writes another project's state. Lock 2 ("singleton
+`FlightRunner`") is unchanged: the registry still holds one runner per
+folder, keyed the same way; the new parameter only widens what a single
+spawn call can carry. Omitted (every existing caller of both changes), a
+flight behaves exactly as before. None of this changes the four locks above
+or the acceptance criteria below; all six slices remain unchanged and live
+in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
