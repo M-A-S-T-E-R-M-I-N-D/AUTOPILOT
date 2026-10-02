@@ -333,6 +333,18 @@ load crash still leaves the lane head unverified and the per-firing sync-back wi
 None of it touches `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, or the containment
 guard.
 
+Freshness check (2026-10-02, evening): `fly.ts` gained two commits since the `7a0610c7` check
+above — `c2d73137` and `52670f11` (epic 0036, provider parity). `AUTOPILOT_ENGINE=codex`/`=gemini`
+now route a lane's firing model to `CodexCliModel`/`GeminiCliModel` instead of
+`StreamingClaudeCliModel`, each still constructed with `repo: flightRoot` — the worktree remains
+the one directory the lane's CLI process runs in, whichever binary that is. The Codex lane reuses
+`guardHookCommand(flightRoot, guardScriptPath)` as its PreToolUse hook; the Gemini lane writes its
+own `flight-guard-<key>.gemini-settings.json` (a suffix no Claude `--settings` name can share) and
+verifies it back the same way `verifyGuardSettings` already does for Claude, refusing the flight on
+a mismatch rather than flying unguarded. Neither commit touches `deriveWorktreePlan`,
+`ensureWorktree`/`syncWorktreeBranch`, or the containment guard's snapshot/audit calls — they add an
+engine choice on top of the existing worktree wiring, not a new path into `target`.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a

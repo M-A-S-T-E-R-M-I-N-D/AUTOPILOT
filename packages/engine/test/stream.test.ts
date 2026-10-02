@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseStreamLine,
   activitiesFromEvent,
+  activityFromToolCall,
   isResultEvent,
   usageFromEvent,
   textDeltaFromEvent,
@@ -490,6 +491,45 @@ describe('activitiesFromEvent', () => {
       },
     });
     expect(nullUsage[0]).toMatchObject({ tokensIn: null, tokensOut: null });
+  });
+});
+
+describe('activityFromToolCall — a non-Claude driver reports a tool call', () => {
+  const usage = { model: 'gemini-2.5-pro', tokensIn: 12, tokensOut: 3 };
+
+  it('reads the target off input and threads the usage through, exactly as a tool_use block', () => {
+    expect(
+      activityFromToolCall('run_shell_command', { command: 'pnpm test' }, 'Run the suite.', usage),
+    ).toEqual({
+      tool: 'run_shell_command',
+      target: 'pnpm test',
+      kind: 'command',
+      reasoning: 'Run the suite.',
+      model: 'gemini-2.5-pro',
+      tokensIn: 12,
+      tokensOut: 3,
+    });
+  });
+
+  it('records no reasoning for an empty or whitespace-only text, never an empty string', () => {
+    expect(activityFromToolCall('read_file', { path: 'a.ts' }, '', usage).reasoning).toBeNull();
+    expect(
+      activityFromToolCall('read_file', { path: 'a.ts' }, ' \n\t ', usage).reasoning,
+    ).toBeNull();
+  });
+
+  it('keeps a one-character text and collapses its surrounding whitespace', () => {
+    expect(activityFromToolCall('read_file', { path: 'a.ts' }, '  x\n', usage).reasoning).toBe('x');
+  });
+
+  it('bounds a long text to the same 240-char excerpt as a Claude message', () => {
+    const reasoning = activityFromToolCall(
+      'read_file',
+      { path: 'a.ts' },
+      'w'.repeat(500),
+      usage,
+    ).reasoning;
+    expect(reasoning).toBe(`${'w'.repeat(239)}…`);
   });
 });
 

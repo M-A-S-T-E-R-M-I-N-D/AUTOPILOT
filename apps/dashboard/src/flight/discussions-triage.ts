@@ -33,11 +33,12 @@
  * post-reply-then-label sequencing composer mirroring `issue-triage.ts`'s own
  * {@link runIssueTriageRitual}: fetch, plan the batch, then for every
  * accepted plan post the reply first and only label on a successful post —
- * unlike `issue-triage.ts`'s `executeIssueTriageCommands`, which always runs
- * every command even after an earlier one fails, a discussion's label IS the
- * idempotency marker a re-run's {@link planDiscussionTriage} checks, so
- * labeling after a failed post would mark a discussion "handled" that never
- * actually got a reply — silently losing it to every future pass. Nothing in
+ * the mirror image of `issue-triage.ts`'s `executeIssueTriageCommands`,
+ * which labels first and withholds the reply once that edit fails: a
+ * discussion's label IS the idempotency marker a re-run's {@link
+ * planDiscussionTriage} checks, so labeling after a failed post would mark a
+ * discussion "handled" that never actually got a reply — silently losing it
+ * to every future pass. Nothing in
  * this codebase calls {@link runDiscussionTriageRitual} yet — same
  * deferred-caller stance `issue-triage.ts`'s own `runIssueTriageRitual` held
  * before its HTTP wiring landed. Still missing before this ritual is

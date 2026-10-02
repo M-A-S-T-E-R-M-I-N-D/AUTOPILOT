@@ -559,9 +559,11 @@ export interface SocialCommandResult {
  *  first failure because an approve-then-merge pair is a real dependency),
  *  every social command here is independent — one candidate's issue-create
  *  failing has no bearing on the next candidate's comment — so this runs
- *  the full list and continues past a failure, the same convention
- *  `issue-triage.ts`'s `executeIssueTriageCommands` already uses for its
- *  own independent per-issue commands. Never called autonomously: like
+ *  the full list and continues past a failure. (`issue-triage.ts`'s
+ *  `executeIssueTriageCommands` sits between the two: it withholds a plan's
+ *  reply once its marker label edit fails, because that pair IS a
+ *  dependency, but one issue's failure never stops the next issue's plan.)
+ *  Never called autonomously: like
  *  every other write path in this file's sibling rituals, a caller wires
  *  this in only behind a confirm-guarded HTTP endpoint. */
 export async function executeSocialCommands(

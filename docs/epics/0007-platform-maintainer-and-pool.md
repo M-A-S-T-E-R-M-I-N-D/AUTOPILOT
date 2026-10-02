@@ -875,6 +875,13 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    trusted a shim it could not fully read, would launch a file planted in the
    flight's own target — the same defeat-a-safety-mechanism class
    `engine/src/adapters/worktree.ts` above is flagged for; added in `e49f4bd7`),
+   the firing-engine security marker (`flight/firing-engine.ts` added to
+   `SECURITY_SENSITIVE_PATH_MARKERS` — epic 0036's `AUTOPILOT_ENGINE` env switch
+   decides WHICH agent CLI binary flies a lane's firings and under what model,
+   the same decide-what-gets-spawned class `flight/self-study.ts` above is
+   flagged for; a PR that fell back to an unguarded engine, or let an unknown
+   `AUTOPILOT_ENGINE` fly instead of refusing, would change what runs in the
+   target with no security keyword in its path; added in `c2d73137`),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do — the deleted-test
    guard above is a header-level fact, not a reading of the change), and
@@ -971,7 +978,8 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    comment` argv (same plan-then-apply shape as `issue-triage.ts`'s
    `planIssueTriageCommands`), `executeClaimPoolIssueCommands` runs a plan's
    commands through the injectable `exec` in order without aborting after a
-   failed step (same convention `executeIssueTriageCommands` uses), and
+   failed step (the convention `executeIssueTriageCommands` used at the time;
+   it has since gated a plan's reply on its marker edit, ap-mur9xjwq-0), and
    `claimPoolIssue` composes the whole pass — fetches the open pool and the
    caller's own gh identity (`pr-review.ts`'s `fetchViewerLogin`, exported
    for this reuse) in parallel, since a co-pilot claims for themselves,

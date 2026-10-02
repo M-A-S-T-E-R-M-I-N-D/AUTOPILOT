@@ -1284,18 +1284,40 @@ export interface IssueTriageCommandResult {
   readonly command: IssueTriageCommand;
   readonly code: number;
   readonly stdout: string;
+  /** Set when this command never ran because an earlier command in the same
+   *  plan failed — see {@link executeIssueTriageCommands}. `code` is then
+   *  {@link WITHHELD_COMMAND_CODE} and `stdout` empty. Absent (never `false`)
+   *  on a command that ran, whatever its exit. */
+  readonly withheld?: true;
 }
 
+/** The `code` a withheld {@link IssueTriageCommandResult} carries. No `gh`
+ *  process ran, so no exit status exists — and this is deliberately not a
+ *  valid one: a negative value can never collide with a real exit, while
+ *  every "`code !== 0` is not done" reader (the KEEPER panel's failure count,
+ *  its comment-link reader) keeps treating a withheld command as not done. */
+export const WITHHELD_COMMAND_CODE = -1;
+
 /**
- * Runs a KEEPER triage plan's {@link IssueTriageCommand}s in order through
+ * Runs ONE KEEPER triage plan's {@link IssueTriageCommand}s in order through
  * the injectable `exec` — the write-side counterpart to {@link
- * fetchOpenIssues}'s read wiring, same `CliExec` shape. Always runs every
- * command and reports every result, even after an earlier one fails: a
- * failed label edit doesn't make the trailing reasoning comment meaningless,
- * so this never aborts the plan partway through — the caller inspects each
- * result's `code` to judge overall success. Nothing in this codebase calls
- * this yet; it is a building block for the confirm-guarded execute path
- * described in this file's header comment, not an autonomous trigger.
+ * fetchOpenIssues}'s read wiring, same `CliExec` shape — and WITHHOLDS every
+ * command after the first failure, reporting it `withheld` instead of running
+ * it (board ap-mur9xjwq-0). Every plan is a marker label edit followed by the
+ * one reply that marker makes a one-off: `status: needs-format`,
+ * `dossier-posted`, `duplicate` and the `pool:` label are each what a later
+ * pass's {@link planIssueTriage} reads to skip the issue. `gh issue edit`
+ * resolves a label NAME against the repo's live labels, so an unseeded name
+ * fails the whole edit (board web-mtxey8h4-6z9g5o) — and this used to post
+ * the reply anyway, so the marker never landed and every later pass
+ * re-decided the same issue and replied again, with only the anti-flood
+ * guard between an applicant and a repeat dossier. Results stay paired 1:1
+ * with `commands`, so a caller can tell the step that broke from the steps
+ * it withheld; the same stop-at-failure stance `pr-review.ts`'s
+ * `executePrReviewCommands` takes for its approve-then-merge pair, which
+ * however drops the unrun tail rather than reporting it. Called only by
+ * {@link runIssueTriageRitual} behind the confirm-guarded execute path
+ * described in this file's header comment, never by an autonomous trigger.
  */
 export async function executeIssueTriageCommands(
   commands: readonly IssueTriageCommand[],
@@ -1303,6 +1325,11 @@ export async function executeIssueTriageCommands(
 ): Promise<readonly IssueTriageCommandResult[]> {
   const results: IssueTriageCommandResult[] = [];
   for (const command of commands) {
+    const priorFailed = results.some((result) => result.code !== 0);
+    if (priorFailed) {
+      results.push({ command, code: WITHHELD_COMMAND_CODE, stdout: '', withheld: true });
+      continue;
+    }
     const { code, stdout } = await exec(command.command, command.args);
     results.push({ command, code, stdout });
   }

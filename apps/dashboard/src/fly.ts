@@ -1656,6 +1656,9 @@ async function main(): Promise<void> {
             attributionEnabled: commitAttributionEnabled(soulOwn),
             subagentsEnabled,
             internetEnabled,
+            // The Harness trailer names the CLI that actually runs the firing,
+            // so a codex or gemini lane's commits never claim claude-cli.
+            ...(engineRoute.engine !== 'claude' ? { harness: `${engineRoute.engine}-cli` } : {}),
             ...(lastFailureFeedback !== undefined ? { lastFailure: lastFailureFeedback } : {}),
           }),
           version: FIRING_PROMPT_VERSION,

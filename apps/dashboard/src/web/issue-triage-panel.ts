@@ -272,6 +272,10 @@ export interface IssueTriageCommandResultLike {
   readonly command: { readonly details: string };
   readonly code: number;
   readonly stdout?: string;
+  /** `true` when the command never ran — `executeIssueTriageCommands`
+   *  withholds a plan's reply once its marker label edit fails (board
+   *  ap-mur9xjwq-0). Optional for the same reason `stdout` is. */
+  readonly withheld?: boolean;
 }
 
 /** The shape `issueTriageExecuteResult` reads off `POST
@@ -292,12 +296,15 @@ export interface IssueTriageExecuteResult {
 }
 
 /** Formats the KEEPER ISSUE TRIAGE EXECUTE result. Unlike
- *  `prReviewExecuteResult`, `executeIssueTriageCommands` never stops at the
- *  first failure — it runs every planned command across every issue in the
- *  batch — so a failure reports how many of the total failed alongside the
- *  first one's own detail, rather than treating that first failure as the
- *  end of the run. A clean run reports how many board tasks the batch
- *  created (may be zero when every issue was a duplicate). */
+ *  `prReviewExecuteResult`, one failure never ends the whole run —
+ *  `executeIssueTriageCommands` goes on to the next issue's plan — so a
+ *  failure reports how many of the total failed alongside the first one's
+ *  own detail. Within ONE plan it does stop: a reply after a failed marker
+ *  label edit is withheld, never run (board ap-mur9xjwq-0), and a withheld
+ *  command is neither a success nor a failed `gh` call, so it is counted
+ *  apart with the reason rather than inflating the failure count. A clean
+ *  run reports how many board tasks the batch created (may be zero when
+ *  every issue was a duplicate). */
 export function issueTriageExecuteResult(
   data: IssueTriageExecuteResponse | null | undefined,
 ): IssueTriageExecuteResult {
@@ -315,8 +322,13 @@ export function issueTriageExecuteResult(
         tasksCreated +
         (tasksCreated === 1 ? ' new board task created.' : ' new board tasks created.')
       : '';
-  const failedCount = results.filter((r) => r.code !== 0).length;
-  const firstFailed = results.find((r) => r.code !== 0);
+  const failedCount = results.filter((r) => r.code !== 0 && r.withheld !== true).length;
+  const withheldCount = results.filter((r) => r.withheld === true).length;
+  const withheldNote =
+    withheldCount > 0
+      ? ' ' + withheldCount + ' withheld: a reply never posts after its marker edit fails.'
+      : '';
+  const firstFailed = results.find((r) => r.code !== 0 && r.withheld !== true);
   if (firstFailed) {
     return {
       className: 'issue-triage-result issue-triage-result-fail',
@@ -330,6 +342,7 @@ export function issueTriageExecuteResult(
         ' (exit ' +
         firstFailed.code +
         ').' +
+        withheldNote +
         tasksNote,
     };
   }

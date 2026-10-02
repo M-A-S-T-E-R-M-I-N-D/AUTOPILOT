@@ -90,6 +90,14 @@ function pickNum(o: Record<string, unknown>, key: string): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
 
+/** `Number.isInteger` as the type guard it already is at runtime: it is
+ *  `false` for every non-number, `NaN` and `±Infinity`, so a `typeof` or
+ *  null check in front of it can never change the result. The nightly of
+ *  2026-10-02 left exactly such a guard in pickRank as its one survivor. */
+function isInteger(v: unknown): v is number {
+  return Number.isInteger(v);
+}
+
 /** A board rank is a 1-based position: an integer of at least 1, or null.
  *  The agent self-reports it, and a `0` (a zero-based habit, or "I picked
  *  nothing") used to pass {@link pickNum} straight into the metrics row's
@@ -97,8 +105,8 @@ function pickNum(o: Record<string, unknown>, key: string): number | null {
  *  after the model had already run (round 58, fleet-3, 2026-10-02). A rank
  *  that is not a rank is no rank. */
 function pickRank(o: Record<string, unknown>, key: string): number | null {
-  const v = pickNum(o, key);
-  return v !== null && Number.isInteger(v) && v >= 1 ? v : null;
+  const v = o[key];
+  return isInteger(v) && v >= 1 ? v : null;
 }
 
 function pickBool(o: Record<string, unknown>, key: string): boolean | null {

@@ -369,6 +369,15 @@ guarantees this epic tracks are untouched. None of this changes the four
 locks below or the acceptance criteria; all six slices remain unchanged and
 live in production.
 
+Freshness check (2026-10-02, evening): `fly.ts` gained two commits since the afternoon check
+above — `c2d73137` and `52670f11` (epic 0036, provider parity), letting a lane fly its firings on
+Codex or Gemini instead of Claude via `AUTOPILOT_ENGINE`. Both are per-lane engine selection, read
+once from `process.env` inside that lane's own `main()` — no board, SOUL or backlog row crosses
+projects because of them, and neither adds a write path shared across lanes. None of the four locks
+above changes: the per-project engine lock, the singleton `FlightRunner`, the shared store, and
+flight-end ritual serialization are all untouched by which CLI binary a firing's model wraps. All
+six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this

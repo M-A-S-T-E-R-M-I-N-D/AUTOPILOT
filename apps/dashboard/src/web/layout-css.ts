@@ -184,7 +184,13 @@ h2 > .icon, h3 > .icon, summary > .icon:not(:only-child) { margin-inline-end: va
 .connect > summary:hover, .connect > summary:focus-visible { color: var(--color-text); box-shadow: var(--elevation-level-1); }
 .connect > summary:active { box-shadow: none; }
 .connect[open] > summary { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
-.connect-body { position: fixed; inset-inline: var(--space-3); inset-block-start: 6.5rem; margin-top: 0; width: auto; max-width: none; z-index: 20; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); box-shadow: var(--elevation-level-2); }
+/* A popover never outgrows the viewport: the Connect panel with its report
+   form open ran past the bottom of a phone sheet and a 330px desktop menu
+   alike, and the page's own scroll never reaches a fixed or masthead-anchored
+   box (operator catch, 2026-10-02). The box caps its block size at what the
+   viewport leaves under it and scrolls inside; the sheet's cap keeps one
+   gutter clear at the bottom, the menu's leaves the masthead's own height. */
+.connect-body { position: fixed; inset-inline: var(--space-3); inset-block-start: 6.5rem; margin-top: 0; width: auto; max-width: none; max-block-size: calc(100dvh - 6.5rem - var(--space-3)); overflow-y: auto; overscroll-behavior: contain; z-index: 20; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); box-shadow: var(--elevation-level-2); }
 /* The theme/language popovers hold a single short pill row — the 320px
    connect-panel width left the buttons swimming at the start of a mostly
    empty box (operator catch, 2026-09-07). Size these two to content. */
@@ -193,7 +199,7 @@ h2 > .icon, h3 > .icon, summary > .icon:not(:only-child) { margin-inline-end: va
      grows toward the page's centre in both directions); below md it is a
      sheet pinned to the viewport's inline edges, which no control's position
      can push off-screen (RTL audit, 2026-09-12: 412px, Hebrew). */
-  .connect-body { position: absolute; inset-inline-start: auto; inset-inline-end: 0; inset-block-start: auto; margin-top: var(--space-2); width: 320px; max-width: 88vw; }
+  .connect-body { position: absolute; inset-inline-start: auto; inset-inline-end: 0; inset-block-start: auto; margin-top: var(--space-2); width: 320px; max-width: 88vw; max-block-size: calc(100dvh - 8rem); }
   .theme-menu > .connect-body, .lang-menu > .connect-body { width: max-content; }
 }
 .connect-status { margin: 0; font-size: var(--text-sm); }
