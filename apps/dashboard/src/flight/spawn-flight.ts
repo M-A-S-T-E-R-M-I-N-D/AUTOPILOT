@@ -145,6 +145,7 @@ export function createSpawnFlight(
     instanceId,
     taskScope,
     siblingsFlying,
+    socialFlight,
   ): SpawnedFlight => {
     const flightLogPath = instanceId
       ? flightLogPathFor(folder, instanceId)
@@ -178,6 +179,17 @@ export function createSpawnFlight(
       ...(instanceId || siblingsFlying
         ? { VITEST_MAX_FORKS: fleetGateWorkers(), VITEST_MAX_THREADS: fleetGateWorkers() }
         : {}),
+      // Epic 0016 "The GitHub Social Flight", slice 3/6's fly-bar toggle
+      // (board web-mtpzzx7v-72q2dv): this ONE flight's own
+      // AUTOPILOT_SOCIAL_FLIGHT override, set only when the operator
+      // actually picked one for THIS flight. Unlike AUTOPILOT_FLEET_
+      // TASK_SCOPE below, an omitted socialFlight is never deleted — a
+      // scoped fleet member leaking its OWN partition into an unscoped
+      // child would be wrong, but this dashboard process's own social-
+      // flight setting is exactly what every flight should inherit by
+      // default, so `...process.env` above is left to pass it through
+      // untouched.
+      ...(socialFlight !== undefined ? { AUTOPILOT_SOCIAL_FLIGHT: socialFlight } : {}),
     };
     // FLEET SCOPE PARTITIONER: the disjoint board scope this instance works
     // first (spec-scoped decomposition — see flight/scope-partition.ts).

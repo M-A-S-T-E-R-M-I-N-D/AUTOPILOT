@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { preflightRefusal, type PreflightReport } from './preflight.js';
+import { parseSocialFlightToggle, type SocialFlightToggle } from './social-flight-trigger.js';
 
 /**
  * The FlightRunner — the dashboard's "fly this folder" backing service. It owns a
@@ -90,6 +91,19 @@ export interface FlightRunnerDeps {
      * siblings already fly was escaping the cap entirely before this.
      */
     siblingsFlying?: boolean,
+    /**
+     * Epic 0016 "The GitHub Social Flight", slice 3/6's fly-bar toggle
+     * (board web-mtpzzx7v-72q2dv) — this flight's own override for the
+     * `AUTOPILOT_SOCIAL_FLIGHT` env var the social pass reads
+     * (`flight/social-flight-pass.ts`). Undefined for every existing caller:
+     * the spawned child then inherits whatever this dashboard process's own
+     * env already has, byte-for-byte unchanged. A real implementation sets
+     * the child's env to exactly this value when given, overriding the
+     * inherited one — `start()` has already fail-closed-parsed it with
+     * `parseSocialFlightToggle`, so it is always one of the four real
+     * toggle values here, never an unrecognized string.
+     */
+    socialFlight?: SocialFlightToggle,
   ) => SpawnedFlight;
   /** Does the target folder exist (and is usable as a flight target)? */
   readonly folderExists: (folder: string) => boolean;
@@ -190,6 +204,21 @@ export interface StartFlightInput {
    * caller): no scope, ordinary pull, byte-for-byte unchanged.
    */
   readonly taskScope?: readonly string[];
+  /**
+   * Epic 0016 "The GitHub Social Flight", slice 3/6's fly-bar toggle (board
+   * web-mtpzzx7v-72q2dv): this ONE flight's override for
+   * `AUTOPILOT_SOCIAL_FLIGHT`, read straight off an HTTP body
+   * (`server.ts`'s `handleFly` casts the parsed JSON directly to
+   * `StartFlightInput` with no field-by-field validation), so it is raw,
+   * untrusted input — any JSON value could land here. `start()` runs it
+   * through `parseSocialFlightToggle`'s own fail-closed parse before it
+   * ever reaches a child process, the same discipline
+   * `flight/social-flight-pass.ts` already applies to the raw env var.
+   * Omitted (every existing caller — the fly-bar toggle UI is a follow-up
+   * slice): the child inherits this dashboard process's own
+   * `AUTOPILOT_SOCIAL_FLIGHT`, exactly as it does today.
+   */
+  readonly socialFlight?: string;
 }
 
 export interface StartFlightResult {
@@ -413,6 +442,12 @@ export class FlightRunner {
       .map((id) => id.trim())
       .filter((id) => id.length > 0)
       .slice(0, 200);
+    // Fail-closed, same as the raw env var (flight/social-flight-trigger.ts):
+    // an unrecognized override is read as 'off', never guessed upward toward
+    // a value that could post to GitHub. Undefined stays undefined — the
+    // child must inherit this process's own env, not default to 'off'.
+    const socialFlight =
+      input.socialFlight !== undefined ? parseSocialFlightToggle(input.socialFlight) : undefined;
     const child = this.deps.spawnFlight(
       folder,
       firings,
@@ -420,6 +455,8 @@ export class FlightRunner {
       totalBudgetUsd,
       instanceId ?? undefined,
       taskScope.length > 0 ? taskScope : undefined,
+      undefined,
+      socialFlight,
     );
     this.#child = child;
     this.#status = {
