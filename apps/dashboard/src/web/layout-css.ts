@@ -1784,7 +1784,10 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .phase-name { text-transform: uppercase; letter-spacing: 0.04em; font-size: 9px; }
 .phase-count { font-weight: 700; font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--color-text); }
 .phase-on .phase-count { color: var(--color-accent-text); }
-.phase-arrow { color: var(--color-text-muted); }
+.phase-arrow { display: flex; color: var(--color-text-muted); }
+/* Epic 0025: the separators draw the vendored chevron-right; under dir=rtl the
+   rail runs right to left, so it mirrors like the plan chain's arrows. */
+[dir='rtl'] .phase-arrow > .icon { transform: scaleX(-1); }
 .flightmap { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
 .fnode { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-size: var(--text-xs); padding: 2px var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); color: var(--color-text-muted); max-width: 100%; }
 .fnode-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
