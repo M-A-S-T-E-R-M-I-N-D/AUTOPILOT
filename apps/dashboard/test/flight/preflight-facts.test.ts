@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   gatherPreflightFacts,
+  defaultEngineCliProbe,
   staleEngineLocks,
   distOlderThanSource,
   defaultGitRun,
@@ -34,7 +35,13 @@ describe('gatherPreflightFacts against a real scratch repository', () => {
   let scratch: string;
   let repo: string;
   let dbDir: string;
-  const noCli = { cliVersion: () => null, freeBytes: () => 7 };
+  // A codex or gemini lane's own gate runs these tests with AUTOPILOT_ENGINE
+  // set: no test may ask a real CLI.
+  const noCli = {
+    cliVersion: () => null,
+    engineCli: () => ({ found: false, version: null }),
+    freeBytes: () => 7,
+  };
 
   beforeEach(() => {
     scratch = mkdtempSync(join(tmpdir(), 'autopilot-preflight-'));
@@ -64,9 +71,56 @@ describe('gatherPreflightFacts against a real scratch repository', () => {
       dirtyLanes: [],
       parkedHeads: 0,
       cli: { found: true, version: '2.1.273 (Claude Code)' },
+      engine: { kind: 'claude' },
       authDescription: 'API key',
       caps: { wallClockMin: 60, idleMin: 5 },
       laneCount: 3,
+    });
+  });
+
+  it('reads AUTOPILOT_ENGINE as the flight does and asks only a codex or gemini lane its CLI', () => {
+    const asked: string[] = [];
+    const engineCli = (binary: string) => {
+      asked.push(binary);
+      return { found: true, version: '0.46.0' };
+    };
+    const claude = gatherPreflightFacts(repo, dbDir, { ...noCli, engineCli, env: {} });
+    expect(claude.engine).toEqual({ kind: 'claude' });
+    const codex = gatherPreflightFacts(repo, dbDir, {
+      ...noCli,
+      engineCli,
+      env: { AUTOPILOT_ENGINE: 'codex', AUTOPILOT_ENGINE_MODEL: 'gpt-5-codex' },
+    });
+    expect(codex.engine).toEqual({
+      kind: 'cli',
+      engine: 'codex',
+      model: 'gpt-5-codex',
+      found: true,
+      version: '0.46.0',
+    });
+    const gemini = gatherPreflightFacts(repo, dbDir, {
+      ...noCli,
+      env: { AUTOPILOT_ENGINE: 'gemini', AUTOPILOT_ENGINE_MODEL: 'gemini-2.5-pro' },
+    });
+    expect(gemini.engine).toEqual({
+      kind: 'cli',
+      engine: 'gemini',
+      model: 'gemini-2.5-pro',
+      found: false,
+      version: null,
+    });
+    expect(asked).toEqual(['codex']);
+  });
+
+  it('carries the refusal fly.ts would print for an engine setting it cannot honour', () => {
+    const refused = gatherPreflightFacts(repo, dbDir, {
+      ...noCli,
+      env: { AUTOPILOT_ENGINE: 'gemini', AUTOPILOT_ENGINE_MODEL: 'sonnet' },
+    });
+    expect(refused.engine).toEqual({
+      kind: 'refused',
+      reason:
+        'AUTOPILOT_ENGINE_MODEL=sonnet names a Claude model, which the Gemini CLI cannot run.',
     });
   });
 
@@ -135,6 +189,20 @@ describe('gatherPreflightFacts against a real scratch repository', () => {
     expect(canonical(facts.dirtyLanes[0] ?? '')).toBe(canonical(laneDirty));
     expect(facts.targetDirty).toBe(0);
     expect(facts.parkedHeads).toBe(2);
+  });
+});
+
+describe('defaultEngineCliProbe', () => {
+  it('finds a binary that answers --version with its x.y.z, and not one that is missing', () => {
+    // node stands in for codex/gemini: both are npm-installed node CLIs.
+    expect(defaultEngineCliProbe('node')).toEqual({
+      found: true,
+      version: process.versions.node,
+    });
+    expect(defaultEngineCliProbe('autopilot-no-such-engine-cli')).toEqual({
+      found: false,
+      version: null,
+    });
   });
 });
 

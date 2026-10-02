@@ -4,7 +4,8 @@
 /**
  * The FACTS `preflight.ts` judges, gathered from the machine: git state of
  * the target and its lane worktrees, the engine lock files, the rescue refs,
- * the build's freshness, free disk, the `claude` binary. Synchronous on
+ * the build's freshness, free disk, the `claude` binary and, for a lane
+ * `AUTOPILOT_ENGINE` routes off Claude, the Codex or Gemini CLI. Synchronous on
  * purpose — `FlightRunner.start()` is synchronous and every caller of it
  * (the Fly button, the fleet launcher, the fleet watchdog) gets the same
  * gate — and every probe is injectable so the gatherer itself is testable
@@ -26,7 +27,9 @@ import {
 import { cliTimeoutMsFromEnv, cliIdleTimeoutMsFromEnv } from './budget.js';
 import { sha256Of } from '../landing/freshness.js';
 import { readConnectionConfig } from '../connection/config.js';
-import type { PreflightFacts } from './preflight.js';
+import { parseCliVersion } from '../connection/cli-probe.js';
+import { firingEngineFromEnv } from './firing-engine.js';
+import type { EngineFact, PreflightFacts } from './preflight.js';
 
 /** Runs `git` in `cwd`; null on any failure (not a repo, git missing). */
 export type GitRun = (cwd: string, args: readonly string[]) => string | null;
@@ -69,6 +72,50 @@ export const defaultCliVersionProbe: CliVersionProbe = () => {
   return value;
 };
 
+/** `<binary> --version` for the Codex or Gemini CLI a lane flies on (epic
+ *  0036): found when it answered, with the x.y.z it printed. */
+export type EngineCliProbe = (binary: string) => {
+  readonly found: boolean;
+  readonly version: string | null;
+};
+
+const answeredEngineClis = new Map<string, { found: true; version: string | null }>();
+
+export const defaultEngineCliProbe: EngineCliProbe = (binary) => {
+  // Only an answer is kept: a CLI that was missing is asked again at the
+  // next launch, since the operator may have just installed it.
+  const answered = answeredEngineClis.get(binary);
+  if (answered !== undefined) return answered;
+  try {
+    const stdout = execFileSync(binary, ['--version'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 15_000,
+      // npm installs both CLIs on Windows as `.cmd` shims, which only a shell
+      // launches; `binary` is one of the engine names, never operator text.
+      shell: process.platform === 'win32',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const probe = { found: true as const, version: parseCliVersion(stdout) };
+    answeredEngineClis.set(binary, probe);
+    return probe;
+  } catch {
+    return { found: false, version: null };
+  }
+};
+
+/** What `AUTOPILOT_ENGINE` routes the flight to, read the way `fly.ts` reads
+ *  it, so the preflight refuses what the flight itself would. */
+export function gatherEngineFact(env: NodeJS.ProcessEnv, probe: EngineCliProbe): EngineFact {
+  const choice = firingEngineFromEnv(env);
+  if (!choice.ok) return { kind: 'refused', reason: choice.reason };
+  const { route } = choice;
+  if (route.engine === 'claude') return { kind: 'claude' };
+  // Each adapter's default binary is its engine's name (`CodexCliModel`,
+  // `GeminiCliModel`), and fly.ts names no other.
+  return { kind: 'cli', engine: route.engine, model: route.model, ...probe(route.engine) };
+}
+
 /** The hot path of every firing, relative to the repository root that ships
  *  the dashboard. Freshness is judged by CONTENT, the same way the landing
  *  code is (`landing/freshness.ts`): the build step writes a sha256 of each
@@ -90,6 +137,8 @@ export const FLIGHT_STAMP_FILE = 'apps/dashboard/dist/flight/freshness-stamp.jso
 export interface GatherOptions {
   readonly runGit?: GitRun;
   readonly cliVersion?: CliVersionProbe;
+  /** Asked only when `AUTOPILOT_ENGINE` routes the flight off Claude. */
+  readonly engineCli?: EngineCliProbe;
   /** Free bytes on the volume holding `target`; injectable for tests. */
   readonly freeBytes?: (target: string) => number | null;
   /** The repository the dashboard itself runs from (for build freshness);
@@ -219,6 +268,7 @@ export function gatherPreflightFacts(
     dirtyLanes,
     parkedHeads,
     cli: { found: version !== null, version },
+    engine: gatherEngineFact(env, opts.engineCli ?? defaultEngineCliProbe),
     // `dbDir` is the same directory main.ts and cli.ts each derive their
     // connection.json path from (dirname(dbPath)) — reading the REAL
     // configured mode here means every caller gets an honest answer without
