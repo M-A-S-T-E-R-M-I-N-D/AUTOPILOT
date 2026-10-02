@@ -141,6 +141,36 @@ describe('roving tabindex on the per-firing trace rows (D1 TAB-STOP ROVING)', ()
     }
   });
 
+  it('nests no focusable content inside the toggle <button> (HTML button content model, board ap-mupzhat7-0)', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+
+    // HTML's content model for <button>: phrasing content, but no interactive
+    // content descendant and NO descendant with the tabindex attribute. The
+    // row used to BE the button, with every roving field nested inside it.
+    // axe's nested-interactive rule only flags WIDGET-role descendants, so
+    // tabindex spans slipped through it. The disclosure control is now the
+    // headline <button> itself; the fields it roves across sit beside it.
+    const toggles = Array.from(document.querySelectorAll('.firing-timeline [data-firing-toggle]'));
+    expect(toggles.length).toBe(2);
+    for (const toggle of toggles) {
+      expect(toggle.tagName).toBe('BUTTON');
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(toggle.classList.contains('firing-headline')).toBe(true);
+      expect(
+        toggle.querySelectorAll('[tabindex], a[href], button, input, select, textarea').length,
+      ).toBe(0);
+    }
+    for (const row of rows()) {
+      expect(row.tagName).not.toBe('BUTTON');
+      expect(row.querySelectorAll('[data-firing-toggle]').length).toBe(1);
+      // The row's single Tab stop IS the disclosure button, so Tab lands on
+      // an operable control, not on a span that only carries a tooltip.
+      const stop = row.querySelector('[tabindex="0"]');
+      expect(stop?.hasAttribute('data-firing-toggle')).toBe(true);
+    }
+  });
+
   it('walks the row with Left/Right and jumps the rim with Home/End', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);

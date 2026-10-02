@@ -17,6 +17,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { STRINGS } from '@autopilot/tokens';
 import {
   reportActionLabel,
   reportConfirmMessage,
@@ -489,6 +490,100 @@ describe('reportMenuJs (live behavior, full bundle)', () => {
     expect(status.textContent).toBe(
       'Composed — suggested action: quick-fix PR. Review below, then Preview.',
     );
+  });
+
+  // Composer language doctrine, rule 2: the report language is choosable,
+  // defaulting to the page's locale, and the choice travels with Compose.
+  it("offers a labelled report-language select defaulting to the page's locale", async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    document.documentElement.lang = 'he';
+    try {
+      rightClick(target);
+      (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+      const select = document.getElementById('report-dialog-lang') as HTMLSelectElement;
+      expect(select.value).toBe('he');
+      // Each locale is named in its own script, whatever the page's locale.
+      expect(Array.from(select.options, (o) => [o.value, o.lang, o.textContent])).toEqual([
+        ['', '', expect.any(String)],
+        ['en', 'en', 'English'],
+        ['he', 'he', 'עברית'],
+      ]);
+    } finally {
+      document.documentElement.lang = 'en';
+    }
+  });
+
+  it('names the report-language select and its note option in the page language', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    rightClick(target);
+    (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+    const select = document.getElementById('report-dialog-lang') as HTMLSelectElement;
+    expect(document.querySelector('label[for="report-dialog-lang"]')?.textContent).toBe(
+      STRINGS.en.reportLanguageLabel,
+    );
+    expect(select.options[0]?.textContent).toBe(STRINGS.en.reportLanguageNote);
+    expect(select.getAttribute('data-tip')).toBe(STRINGS.en.reportLanguageTip);
+  });
+
+  it('Compose posts the chosen report language, and none for "Same as my note"', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    rightClick(target);
+    (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+    (document.getElementById('report-dialog-desc') as HTMLTextAreaElement).value = 'raw note';
+    const select = document.getElementById('report-dialog-lang') as HTMLSelectElement;
+    expect(select.value).toBe('en');
+    const bodies: Array<Record<string, unknown>> = [];
+    globalThis.fetch = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return { ok: true, json: async () => ({ ok: false, reasoning: 'nope' }) } as Response;
+    }) as unknown as typeof fetch;
+    const compose = document.querySelector('.report-compose') as HTMLButtonElement;
+
+    select.value = 'he';
+    compose.click();
+    await vi.advanceTimersByTimeAsync(1);
+    select.value = '';
+    compose.click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(bodies[0]?.['language']).toBe('he');
+    expect(bodies[1]).not.toHaveProperty('language');
+  });
+
+  it('a compose whose note reads as another language says so, naming the way back', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    rightClick(target);
+    (document.querySelector('.report-ctx-menu-item') as HTMLButtonElement).click();
+    (document.getElementById('report-dialog-desc') as HTMLTextAreaElement).value = 'הכפתור מושבת';
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        title: 'The button is disabled',
+        body: 'Detailed body text.',
+        action: 'issue',
+        noteLanguageDiffers: true,
+      }),
+    })) as unknown as typeof fetch;
+
+    (document.querySelector('.report-compose') as HTMLButtonElement).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const status = document.querySelector('.report-compose-status')?.textContent ?? '';
+    expect(status.startsWith('Composed — suggested action:')).toBe(true);
+    expect(status.endsWith('Preview. ' + STRINGS.en.composeNoteLanguageDiffers)).toBe(true);
   });
 
   it('a successful compose carrying a severity threads it onto the next Preview/Execute body', async () => {

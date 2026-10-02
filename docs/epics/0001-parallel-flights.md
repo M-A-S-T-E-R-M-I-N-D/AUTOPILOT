@@ -321,6 +321,22 @@ cross-project write path. The gate → sha → HEAD chain is unchanged. None of 
 changes the four locks below or the acceptance criteria; all six slices remain
 unchanged and live in production.
 
+Freshness check (2026-10-02): `fly.ts` gained two commits since the 2026-10-01
+check above. `9523fa2a` is the next per-project override in the same
+MASTER-PLAN §5.4 series: a SOUL line `"Model: <name>"` pins a project's
+firings to one model in place of the scoreboard's routing — read once from
+`soulOwn`, scoped to this project the same way Turns/Budget are, sitting
+under the operator's launch-time `AUTOPILOT_MODEL`/per-tier env pins and
+above routing. `b2272f5b` fixes a scope-partition bug (FAILURE-DOCTRINE row
+85): a lane's reserved slice is now narrowed to rows it could actually claim
+(unassigned or its own, unbenched, claimable) BEFORE the scope decision is
+made, so a blocked-verdict or benched row left in an otherwise-exhausted
+slice no longer reads as "still open" and starves the lane — it now falls
+back to the board instead. Both are same-folder N-way fleet-lane mechanics —
+model routing and claim partitioning — neither touches the four locks below
+or the acceptance criteria; all six slices remain unchanged and live in
+production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this

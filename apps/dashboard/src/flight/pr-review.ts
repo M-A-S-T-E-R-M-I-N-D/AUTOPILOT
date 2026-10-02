@@ -784,6 +784,22 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   '.github/workflows',
   'codeowners',
   'branch-protection',
+  // The standing registry (`.github/TRUSTED-CONTRIBUTORS.md`): a row here is
+  // a granted tier, and CONTRIBUTOR-STANDING.md promises nothing is
+  // auto-approved, the maintainer decides first. A green PR adding its
+  // author's own row would otherwise be planned for auto-merge, so it
+  // queues for a human. Path-anchored: the read-only parser
+  // (`flight/contributor-registry.ts`) stays unflagged.
+  '.github/trusted-contributors.md',
+  // The project's license grant: the full licence texts REUSE names by SPDX
+  // id (`LICENSES/`) and `REUSE.toml`, which declares the licence of every
+  // file that cannot carry a header. ci:license-check reads dependencies and
+  // ci:spdx only checks that a header is present, so neither sees a green PR
+  // that relicenses the project — a decision only the copyright holder makes.
+  // The root `LICENSE` and `NOTICE` files carry no distinctive segment, so
+  // they match by file name in LICENSE_GRANT_FILE_NAME below instead.
+  'licenses/',
+  'reuse.toml',
   'connection',
   'server',
   'landing/',
@@ -1542,10 +1558,21 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   'flight/version-restore',
 ] as const;
 
+/** A file NAMED `LICENSE` or `NOTICE`, with or without an extension, at the
+ *  root or in a package: Apache-2.0's grant and the attribution notice it
+ *  obliges redistributors to carry. Adding a second grant beside the first is
+ *  the same act as editing it. Matched on the last path segment, because a
+ *  `license`/`notice` substring marker would also sweep up the license-check
+ *  gate's test and `docs/THIRD-PARTY-LICENSES.md`. */
+const LICENSE_GRANT_FILE_NAME = /(?:^|\/)(?:license|notice)(?:\.[^/]*)?$/;
+
 export function touchesSecuritySensitivePath(paths: readonly string[]): boolean {
   return paths.some((path) => {
     const lower = path.toLowerCase();
-    return SECURITY_SENSITIVE_PATH_MARKERS.some((marker) => lower.includes(marker));
+    return (
+      LICENSE_GRANT_FILE_NAME.test(lower) ||
+      SECURITY_SENSITIVE_PATH_MARKERS.some((marker) => lower.includes(marker))
+    );
   });
 }
 

@@ -184,6 +184,18 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    `MAX_ISSUE_LIST` bounds, and a ritual test whose fake gh answers 30 per
    page unless `--paginate` is passed) and `test/flight/taxonomy-seed.test.ts`
    (the reaper's list line carries the same number).
+   Refined 2026-10-01 (board web-mtsylqbd-q2rg8k, epic 0019's additive-only
+   law, rule 2: "what the maintainer marks outranks triage"): `planIssueTriage`
+   now skips an issue carrying the `declined` label (seeded by `taxonomy-seed`
+   as "Triaged and declined — the reason is in a comment"), placed right after
+   the human-assignee skip and before any dedup scoring or template gate
+   (420ebfeb). CONTRIBUTING.md keeps declined issues open for reporters to
+   reply, so KEEPER must not override the maintainer's answer by re-accepting
+   it, re-needing-format, or anything else. The change only ever moves a
+   decision to skip (narrowing), never toward accept. Covered by
+   `test/flight/taxonomy-seed.test.ts` (the new block reads the label off
+   `HOUSE_TAXONOMY_LABELS` and drives `planIssueTriage` both with and without
+   it, verifying both accept and needs-format paths now skip when declined).
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure

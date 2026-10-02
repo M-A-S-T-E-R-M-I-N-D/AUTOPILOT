@@ -149,6 +149,19 @@ describe('tasksCreate', () => {
     const result = tasksCreate(store, { projectId: 'p1', title: 'x'.repeat(300) });
     expect(result.ok).toBe(true);
   });
+
+  it('measures the cap after trimming, as the dashboard form does — padding never counts', () => {
+    // server.ts and control-execute.ts both trim BEFORE the length check, and
+    // createTask stores the trimmed title — so a 300-char title with a stray
+    // trailing newline was accepted by the form but refused here.
+    insertProject('p1');
+    const result = tasksCreate(store, { projectId: 'p1', title: `  ${'x'.repeat(300)}\n` });
+    expect(result.ok).toBe(true);
+    const row = store.db.prepare('SELECT title FROM tasks WHERE id = ?').get(result.taskId) as {
+      title: string;
+    };
+    expect(row.title).toBe('x'.repeat(300));
+  });
 });
 
 describe('tasksReorder', () => {
@@ -276,6 +289,32 @@ describe('createControlServer over MCP', () => {
     expect(content[0]).toBeDefined();
     const parsed = JSON.parse(content[0]!.text) as { ok: boolean; status: string };
     expect(parsed).toEqual({ ok: true, taskId: 't1', status: 'done' });
+
+    await client.close();
+    await server.close();
+  });
+
+  it('tasks_create over MCP measures the title cap after trimming, as the dashboard form does', async () => {
+    insertProject('p1');
+    const server = createControlServer(store);
+    const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+
+    const padded = await client.callTool({
+      name: 'tasks_create',
+      arguments: { projectId: 'p1', title: `${'x'.repeat(300)}\n` },
+    });
+    expect(padded.isError).not.toBe(true);
+    const content = padded.content as Array<{ type: string; text: string }>;
+    expect(JSON.parse(content[0]!.text)).toMatchObject({ ok: true });
+
+    const over = await client.callTool({
+      name: 'tasks_create',
+      arguments: { projectId: 'p1', title: 'x'.repeat(301) },
+    });
+    expect(over.isError).toBe(true);
+    expect(store.db.prepare('SELECT count(*) c FROM tasks').get()).toEqual({ c: 1 });
 
     await client.close();
     await server.close();
