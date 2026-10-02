@@ -118,6 +118,12 @@ describe('createControlExecuteApi', () => {
     expect(outcome.ok).toBe(false);
   });
 
+  it('tasks_set_status refuses a missing or non-string task id', () => {
+    const api = createControlExecuteApi(dbPath);
+    expect(api('tasks_set_status', { status: 'done' }).ok).toBe(false);
+    expect(api('tasks_set_status', { taskId: 42, status: 'done' }).ok).toBe(false);
+  });
+
   it('tasks_create adds a task the same way the dashboard form does', () => {
     const api = createControlExecuteApi(dbPath);
     const outcome = api('tasks_create', { projectId: 'proj1', title: 'ARCHITECT-proposed task' });
@@ -133,6 +139,56 @@ describe('createControlExecuteApi', () => {
     expect(outcome.ok).toBe(false);
   });
 
+  it('tasks_create refuses a whitespace-only title and creates nothing', () => {
+    const api = createControlExecuteApi(dbPath);
+    const outcome = api('tasks_create', { projectId: 'proj1', title: '   \n\t ' });
+    expect(outcome).toMatchObject({ ok: false });
+    expect(outcome.error).toBeTruthy();
+    const after = api('tasks_list', { projectId: 'proj1' });
+    expect((after.result as unknown[]).length).toBe(2);
+  });
+
+  it('tasks_create measures the cap after trimming and stores the trimmed title', () => {
+    const api = createControlExecuteApi(dbPath);
+    const atCap = 'y'.repeat(300);
+    const outcome = api('tasks_create', { projectId: 'proj1', title: `  ${atCap}  ` });
+    expect(outcome.ok).toBe(true);
+    expect((outcome.result as { ok: boolean }).ok).toBe(true);
+    const after = api('tasks_list', { projectId: 'proj1' });
+    const titles = (after.result as Array<{ title: string }>).map((t) => t.title);
+    expect(titles).toContain(atCap);
+  });
+
+  it('tasks_create keeps a known severity/dimension and drops an unknown one to null', () => {
+    const api = createControlExecuteApi(dbPath);
+    api('tasks_create', {
+      projectId: 'proj1',
+      title: 'known tags',
+      severity: 'high',
+      dimension: 'accessibility',
+    });
+    api('tasks_create', {
+      projectId: 'proj1',
+      title: 'unknown tags',
+      severity: 'urgent',
+      dimension: 'vibes',
+    });
+    const after = api('tasks_list', { projectId: 'proj1' });
+    const rows = after.result as Array<{
+      title: string;
+      severity: string | null;
+      dimension: string | null;
+    }>;
+    expect(rows.find((t) => t.title === 'known tags')).toMatchObject({
+      severity: 'high',
+      dimension: 'accessibility',
+    });
+    expect(rows.find((t) => t.title === 'unknown tags')).toMatchObject({
+      severity: null,
+      dimension: null,
+    });
+  });
+
   it('tasks_reorder applies the given order and reports how many ids applied', () => {
     const api = createControlExecuteApi(dbPath);
     const outcome = api('tasks_reorder', { projectId: 'proj1', orderedIds: ['t2', 't1'] });
@@ -143,6 +199,22 @@ describe('createControlExecuteApi', () => {
     const api = createControlExecuteApi(dbPath);
     const outcome = api('tasks_reorder', { projectId: 'proj1', orderedIds: [] });
     expect(outcome.ok).toBe(false);
+  });
+
+  it('tasks_reorder refuses more ids than the dashboard reorder form allows', () => {
+    const api = createControlExecuteApi(dbPath);
+    const orderedIds = Array.from({ length: 501 }, (_, i) => `t${i}`);
+    const outcome = api('tasks_reorder', { projectId: 'proj1', orderedIds });
+    expect(outcome).toMatchObject({ ok: false });
+    expect(outcome.error).toBeTruthy();
+  });
+
+  it('tasks_reorder drops non-string ids and refuses a non-array orderedIds', () => {
+    const api = createControlExecuteApi(dbPath);
+    const mixed = api('tasks_reorder', { projectId: 'proj1', orderedIds: ['t2', 7, null, 't1'] });
+    expect(mixed).toMatchObject({ ok: true, result: { ok: true, reordered: 2 } });
+    const notArray = api('tasks_reorder', { projectId: 'proj1', orderedIds: 't1,t2' });
+    expect(notArray.ok).toBe(false);
   });
 
   it('tasks_delete removes a task outright', () => {
@@ -157,6 +229,27 @@ describe('createControlExecuteApi', () => {
     const api = createControlExecuteApi(dbPath);
     const outcome = api('tasks_delete', { taskId: 'nope', projectId: 'proj1' });
     expect(outcome).toMatchObject({ ok: true, result: { ok: false } });
+  });
+
+  it('tasks_delete refuses a missing project id and leaves the task in place', () => {
+    const api = createControlExecuteApi(dbPath);
+    const outcome = api('tasks_delete', { taskId: 't1' });
+    expect(outcome).toMatchObject({ ok: false });
+    expect(outcome.error).toBeTruthy();
+    const after = api('tasks_list', { projectId: 'proj1' });
+    expect((after.result as Array<{ id: string }>).map((t) => t.id).sort()).toEqual(['t1', 't2']);
+  });
+
+  it("tasks_delete never deletes across a project boundary — another project's task stays", () => {
+    const store = openStore(dbPath);
+    insertProject(store, 'proj2');
+    insertTask(store, 'other', 'proj2', 'queued');
+    store.close();
+    const api = createControlExecuteApi(dbPath);
+    const outcome = api('tasks_delete', { taskId: 'other', projectId: 'proj1' });
+    expect(outcome).toMatchObject({ ok: true, result: { ok: false, taskId: 'other' } });
+    const after = api('tasks_list', { projectId: 'proj2' });
+    expect((after.result as Array<{ id: string }>).map((t) => t.id)).toEqual(['other']);
   });
 
   it('project_reset removes the project and its tasks', () => {
