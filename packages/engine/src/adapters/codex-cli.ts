@@ -24,11 +24,16 @@
  */
 
 import { execFile, type ExecFileOptions } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
 import {
   activityFromToolCall,
+  guardDenialFromText,
   WEB_SEARCH_AUDIT_MAX_CHARS,
   type Activity,
+  type GuardDenialDetail,
   type MessageUsage,
   type WebSearchAudit,
 } from '../stream.js';
@@ -345,6 +350,79 @@ export function codexGuardArgs(command: string): string[] {
   ];
 }
 
+/**
+ * The calls the guard hook denied in one run, read off the deny log
+ * guard-hook.js appends each deny to: one Claude deny decision per line, its
+ * `permissionDecisionReason` the guard's own text, read by `stream.ts`'s
+ * `guardDenialFromText` as a Claude or Gemini denial is. The log is the only
+ * record. Read from openai/codex on 2026-10-02: a blocked call returns from
+ * `core/src/tools/registry.rs` before its handler runs, so no item starts, and
+ * `exec/src/event_processor_with_jsonl_output.rs` drops `HookStarted` and
+ * `HookCompleted`, so `exec --json` never shows the call at all. A line torn by
+ * a kill, or a reason no guard wrote, is skipped.
+ */
+export function codexGuardDenialsFromLog(log: string): readonly GuardDenialDetail[] {
+  return jsonObjectLines(log).flatMap((decision) => {
+    const output = recordOrEmpty(decision['hookSpecificOutput']);
+    const reason = strOrNull(output['permissionDecisionReason']);
+    const denial = reason === null ? null : guardDenialFromText(reason);
+    return denial === null ? [] : [denial];
+  });
+}
+
+/** One run's deny log, in a directory of its own so the run removes it whole. */
+interface DenyLog {
+  readonly dir: string;
+  readonly file: string;
+}
+
+/**
+ * A fresh deny log under the OS temp directory, outside the target the agent
+ * edits, or null when none can be made: the run still carries its guard, and
+ * only claims no count of what the guard denied.
+ */
+function openDenyLog(): DenyLog | null {
+  try {
+    const dir = mkdtempSync(join(tmpdir(), 'autopilot-codex-guard-'));
+    return { dir, file: join(dir, 'denials.jsonl') };
+  } catch {
+    return null;
+  }
+}
+
+/** The guard command with the deny log as its last argument, quoted and
+ *  slashed as `guard.ts`'s `guardHookCommand` writes the target root. */
+function guardCommandWithLog(command: string, log: DenyLog | null): string {
+  return log === null ? command : `${command} "${log.file.replace(/\\/g, '/')}"`;
+}
+
+function discardDenyLog(log: DenyLog): void {
+  try {
+    rmSync(log.dir, { recursive: true, force: true });
+  } catch {
+    // A hook the kill left running may hold it open; that costs one stray temp dir.
+  }
+}
+
+/** The log's text, '' when the hook never wrote it (it denied nothing), or
+ *  null when it cannot be read, which claims no count either way. */
+function readDenyLog(log: DenyLog): string | null {
+  try {
+    return readFileSync(log.file, 'utf8');
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ENOENT' ? '' : null;
+  }
+}
+
+/** The run's guard denials off its deny log, which is then removed. */
+function closeDenyLog(log: DenyLog): Pick<ModelResponse, 'guardDenials' | 'guardDenialDetails'> {
+  const text = readDenyLog(log);
+  discardDenyLog(log);
+  if (text === null) return {};
+  const guardDenialDetails = codexGuardDenialsFromLog(text);
+  return { guardDenials: guardDenialDetails.length, guardDenialDetails };
+}
+
 export interface CodexCliOptions {
   readonly repo: string;
   /** CLI binary — discovered from PATH by default (never a hardcoded personal path). */
@@ -380,7 +458,9 @@ export interface CodexCliOptions {
    * builds, run as the child's PreToolUse hook on every shell call and file patch
    * ({@link codexGuardArgs}). Empty or absent, the child runs with no guard hook.
    * A run that would have to carry it through cmd.exe is refused, never flown
-   * without it.
+   * without it. Each run appends a deny log of its own as the command's last
+   * argument and reports the calls logged there as its guard denials
+   * ({@link codexGuardDenialsFromLog}).
    */
   readonly guardHookCommand?: string;
   /** Called for each query a web search ran ({@link codexWebSearchesFromEvent}),
@@ -435,8 +515,12 @@ export interface CodexCliOptions {
  * Given {@link CodexCliOptions.onActivity}, it reports every tool call there the
  * same way, as the live activity timeline's steps. Given
  * {@link CodexCliOptions.guardHookCommand}, the child runs the containment guard
- * as its PreToolUse hook on every shell call and file patch ({@link codexGuardArgs});
- * the calls that hook denies are not yet read back as guard denials. It skips the rest of the
+ * as its PreToolUse hook on every shell call and file patch ({@link codexGuardArgs}),
+ * and the calls that hook denied come back as `guardDenials`/`guardDenialDetails`,
+ * as `GeminiCliModel`'s do: `exec --json` never shows a blocked call, so they are
+ * read off a deny log the hook appends to ({@link codexGuardDenialsFromLog}),
+ * made for each attempt under the OS temp directory and removed once it settles.
+ * It skips the rest of the
  * streaming hardening (partial usage on a kill), which the Claude driver gained
  * after real incidents this adapter has no flight history to have hit yet. It
  * shares the Claude driver's CLI-level resume fallback: a session id the CLI rejects
@@ -487,8 +571,10 @@ export class CodexCliModel implements ModelPort {
     // Global flags above are placed before the subcommand so they parse
     // correctly whether or not the CLI treats them as clap `global = true`
     // options (verified structure: openai/codex codex-rs/exec/src/cli.rs).
-    const guard = this.opts.guardHookCommand;
-    if (guard !== undefined && guard.length > 0) args.push(...codexGuardArgs(guard));
+    // Each attempt gets its own deny log, so a cold retry reports its own.
+    const guard = this.opts.guardHookCommand ?? '';
+    const denyLog = guard.length > 0 ? openDenyLog() : null;
+    if (guard.length > 0) args.push(...codexGuardArgs(guardCommandWithLog(guard, denyLog)));
     if (resumeSessionId !== undefined && resumeSessionId.length > 0) {
       args.push('resume', resumeSessionId);
     }
@@ -516,6 +602,7 @@ export class CodexCliModel implements ModelPort {
     // retries it cold. The guard's TOML never passes, so a guarded run is
     // refused rather than flown without its guard.
     if (viaCmd && !args.every((arg) => CMD_SAFE_ARG.test(arg))) {
+      if (denyLog !== null) discardDenyLog(denyLog);
       return Promise.resolve({
         stdout:
           'codex-cli: refused to pass the model, a resume id or the guard hook through cmd.exe',
@@ -613,6 +700,8 @@ export class CodexCliModel implements ModelPort {
                 }
               : {}),
             ...(capDeath !== null ? { timedOut: true } : {}),
+            // A killed run's denials count too: the guard said no either way.
+            ...(denyLog === null ? {} : closeDenyLog(denyLog)),
             // No event carries a duration, so this clock is the run's only
             // one; no turn count rides with it (ModelResponse.observed).
             observed: { elapsedMs },

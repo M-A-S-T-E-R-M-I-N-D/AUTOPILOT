@@ -33,9 +33,14 @@
  * The Codex CLI runs it as its `PreToolUse` hook (epic 0036). A shell call
  * arrives as the Claude `Bash` payload it already is; an `apply_patch` is
  * judged as a Claude `Write`/`Edit` of each file it names (codex-guard.ts),
- * and Codex reads Claude's deny as its own.
+ * and Codex reads Claude's deny as its own. Codex shows the agent's run no
+ * trace of a call its hook blocked, so `CodexCliModel` names a deny log as the
+ * argument after the target root (`node guard-hook.js <targetRoot> <denyLog>`),
+ * and every deny printed is appended there too, one line per denied call, for
+ * it to read back.
  */
 
+import { appendFileSync } from 'node:fs';
 import { lookup } from 'node:dns/promises';
 import {
   buildDenyDecision,
@@ -58,6 +63,7 @@ import { geminiToClaudeHookPayloads, toGeminiDenyDecision } from './gemini-guard
 import { codexPatchToClaudeHookPayloads } from './codex-guard.js';
 
 const targetRoot = process.argv[2] ?? '';
+const denyLog = process.argv[3] ?? '';
 
 let raw = '';
 process.stdin.setEncoding('utf8');
@@ -79,10 +85,28 @@ async function handleStdinEnd(): Promise<void> {
     const decision = await decide(payload);
     if (decision !== null) {
       process.stdout.write(geminiPayloads === null ? decision : toGeminiDenyDecision(decision));
+      logDeny(decision);
       break;
     }
   }
   process.exit(0);
+}
+
+/**
+ * Appends one deny to the log `CodexCliModel` named, if any. A write that
+ * fails costs only the count: the deny above was printed first and stands.
+ */
+function logDeny(decision: string): void {
+  // Stryker disable next-line ConditionalExpression: the `false` mutant is
+  // equivalent by construction. Without this check, appending to '' throws
+  // ENOENT into the catch below and writes nothing, the same outcome. It stays
+  // because only a Codex run names a log, and no other run should lean on a throw.
+  if (denyLog.length === 0) return;
+  try {
+    appendFileSync(denyLog, `${decision}\n`);
+  } catch {
+    // The deny stands; only the Codex run's count of it is lost.
+  }
 }
 
 /** The deny JSON for one Claude-shaped PreToolUse payload, or null for no decision. */

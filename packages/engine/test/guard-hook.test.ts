@@ -4,7 +4,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ensureWorktree } from '../src/adapters/worktree.js';
@@ -62,6 +62,7 @@ interface RunResult {
 async function runGuardHook(
   targetRootArg: string | undefined,
   chunks: readonly string[],
+  extraArgs: readonly string[] = [],
 ): Promise<RunResult> {
   vi.resetModules();
 
@@ -77,7 +78,7 @@ async function runGuardHook(
   process.argv =
     targetRootArg === undefined
       ? [originalArgv[0] ?? 'node', 'guard-hook.js']
-      : [originalArgv[0] ?? 'node', 'guard-hook.js', targetRootArg];
+      : [originalArgv[0] ?? 'node', 'guard-hook.js', targetRootArg, ...extraArgs];
   Object.defineProperty(process, 'stdin', { value: fakeStdin, configurable: true });
   process.stdout.write = ((chunk: string) => {
     output += chunk;
@@ -365,6 +366,63 @@ describe('guard-hook as the Codex CLI PreToolUse hook', () => {
       codexPayload('Bash', { command: 'cat /etc/passwd' }),
     ]);
     expect(shell.output).toContain('permissionDecision');
+  });
+
+  describe('the deny log a Codex run reads back, since `exec --json` never shows a blocked call', () => {
+    let dir: string;
+
+    beforeEach(() => {
+      dir = mkdtempSync(join(tmpdir(), 'guard-hook-denials-'));
+    });
+
+    afterEach(() => {
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it('appends each deny it prints to the log named after the target root, one line per denied call', async () => {
+      const log = join(dir, 'denials.jsonl');
+
+      const first = await runGuardHook(
+        '/work/sbx',
+        [codexPayload('Bash', { command: 'cat /etc/passwd' })],
+        [log],
+      );
+      const second = await runGuardHook(
+        '/work/sbx',
+        [codexPayload('Bash', { command: 'git push --force origin main' })],
+        [log],
+      );
+
+      expect(readFileSync(log, 'utf8')).toBe(`${first.output}\n${second.output}\n`);
+      expect(first.exitCodes).toEqual([0]);
+    });
+
+    it('logs nothing for a call it allows', async () => {
+      const log = join(dir, 'denials.jsonl');
+
+      const { output } = await runGuardHook(
+        '/work/sbx',
+        [codexPayload('Bash', { command: 'pnpm run test' })],
+        [log],
+      );
+
+      expect(output).toBe('');
+      expect(existsSync(log)).toBe(false);
+    });
+
+    it('still prints the deny, and exits 0, when the log cannot be written', async () => {
+      const log = join(dir, 'missing', 'denials.jsonl');
+
+      const { output, exitCodes } = await runGuardHook(
+        '/work/sbx',
+        [codexPayload('Bash', { command: 'cat /etc/passwd' })],
+        [log],
+      );
+
+      expect(output).toContain('"permissionDecision":"deny"');
+      expect(exitCodes).toEqual([0]);
+      expect(existsSync(log)).toBe(false);
+    });
   });
 });
 
