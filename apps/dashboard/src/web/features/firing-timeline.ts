@@ -173,7 +173,9 @@ function firingTraceSection(c) {
     // HTML's content model for <button> forbids any descendant with a
     // tabindex attribute, and every roving field below carries one. The
     // disclosure control is the headline <button> itself (aria-expanded, the
-    // click delegation's [data-firing-toggle]); the fields sit beside it.
+    // click delegation's [data-firing-toggle]); the fields sit beside it,
+    // and a click on any of them forwards to that button (firingRowToggleFor
+    // below) so the whole row still toggles, as it did when it WAS the button.
     // The open state rides .firing-open for the row's accent chrome.
     var row = el('div', 'firing-toggle' + (isOpen ? ' firing-open' : ''));
     var meta = firingTimelineRowMeta(g, f, traceTaskById, flightHeadlineOf, fmtAgo);
@@ -486,11 +488,27 @@ function firingTraceSection(c) {
   }
   return wrap;
 }
+// The row stopped being the <button> (board ap-mupzhat7-0) — its callsign,
+// verdict, event chips, count and timestamp now sit BESIDE the headline
+// button — but it still paints as ONE disclosure (the hover chrome spans the
+// whole row) and toggled wherever it was clicked while it was the button.
+// So a click on any non-interactive part of the row reaches the row's
+// headline toggle; a click on a real control inside the row (a link, a
+// button of its own) stays that control's.
+function firingRowToggleFor(target) {
+  if (!target || !target.closest) return null;
+  var row = target.closest('.firing-toggle');
+  if (!row) return null;
+  var control = target.closest('a,button,input,select,textarea');
+  if (control && row.contains(control)) return null;
+  return row.querySelector('[data-firing-toggle]');
+}
 // Per-firing trace drill-down (event-delegated): click a firing row to open
 // its own timeline of tool uses — same pure UI-state-only re-render as the
 // phase-toggle handler that stays inline in fleetJs().
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-firing-toggle]');
+  if (!b) b = firingRowToggleFor(e.target);
   if (!b) return;
   var pid = b.getAttribute('data-firing-pid');
   var fid = b.getAttribute('data-firing-toggle');
