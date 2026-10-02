@@ -238,6 +238,18 @@ describe('parseMetricsLine', () => {
     });
   });
 
+  it('drops a picked_rank that is not a 1-based position — 0, a negative, a fraction (2026-10-02)', () => {
+    // Round 58, fleet-3: an agent reported `"picked_rank":0`, the number
+    // passed the parser into the metrics row's CHECK (picked_rank >= 1), the
+    // insert threw after the model had run, and the whole lane died.
+    for (const bad of ['0', '-2', '1.5', 'null', 'true']) {
+      expect(
+        parseMetricsLine(`METRICS:{"item":"AP-1","picked_rank":${bad}}`).report?.pickedRank,
+      ).toBeNull();
+    }
+    expect(parseMetricsLine('METRICS:{"item":"AP-1","picked_rank":7}').report?.pickedRank).toBe(7);
+  });
+
   it('parses area, verifierUsed, and deferredTo fields', () => {
     const parsed = parseMetricsLine(
       'METRICS:{"item":"AP-1","area":"engine","verifierUsed":"tdd-guide","deferredTo":"AP-2"}',
