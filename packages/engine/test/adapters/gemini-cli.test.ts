@@ -7,6 +7,7 @@ import { EventEmitter } from 'node:events';
 import {
   parseGeminiStreamJsonOutput,
   isGeminiResumeFailure,
+  geminiWebSearchFromEvent,
   GeminiCliModel,
 } from '../../src/adapters/gemini-cli.js';
 import {
@@ -16,6 +17,7 @@ import {
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from '../../src/adapters/claude-cli.js';
+import { WEB_SEARCH_AUDIT_MAX_CHARS, type WebSearchAudit } from '../../src/stream.js';
 
 vi.mock('node:child_process', () => ({ execFile: vi.fn(), spawn: vi.fn() }));
 
@@ -442,6 +444,51 @@ describe('parseGeminiStreamJsonOutput — guard denials (StreamingClaudeCliModel
     );
     expect(response.guardDenials).toBe(0);
     expect(response.guardDenialDetails).toEqual([]);
+  });
+});
+
+/** What nonInteractiveCli.ts emits for a `google_web_search` call before it
+ *  runs: `tool_name` is the call's name, `parameters` its args. */
+function webSearch(toolId: string, query: unknown): Record<string, unknown> {
+  return {
+    type: 'tool_use',
+    tool_name: 'google_web_search',
+    tool_id: toolId,
+    parameters: { query },
+  };
+}
+
+describe('geminiWebSearchFromEvent — the web-search audit (THREAT-MODEL T6, StreamingClaudeCliModel parity)', () => {
+  it('keeps the query of a google_web_search call exactly as sent, whitespace intact', () => {
+    const query = '  vitest   fake timers\n advanceTimersByTimeAsync  ';
+    expect(geminiWebSearchFromEvent(webSearch('t1', query))).toEqual({
+      query,
+      queryLength: query.length,
+      allowedDomains: [],
+      blockedDomains: [],
+    });
+  });
+
+  it('caps a runaway query at WEB_SEARCH_AUDIT_MAX_CHARS and keeps its true length beside it', () => {
+    const query = 'x'.repeat(WEB_SEARCH_AUDIT_MAX_CHARS + 25);
+    const audit = geminiWebSearchFromEvent(webSearch('t1', query));
+    expect(audit?.query).toBe('x'.repeat(WEB_SEARCH_AUDIT_MAX_CHARS));
+    expect(audit?.queryLength).toBe(WEB_SEARCH_AUDIT_MAX_CHARS + 25);
+  });
+
+  it('reads nothing from any other event, any other tool, or a call with no string query', () => {
+    const query = 'repo secrets';
+    for (const event of [
+      { type: 'tool_use', tool_name: 'web_fetch', tool_id: 't1', parameters: { prompt: query } },
+      { type: 'tool_use', tool_name: 'run_shell_command', tool_id: 't2', parameters: { query } },
+      { type: 'tool_result', tool_name: 'google_web_search', tool_id: 't3', parameters: { query } },
+      { type: 'message', role: 'assistant', content: query, delta: true },
+      webSearch('t4', 42),
+      { type: 'tool_use', tool_name: 'google_web_search', tool_id: 't5' },
+      { type: 'tool_use', tool_name: 'google_web_search', tool_id: 't6', parameters: query },
+    ]) {
+      expect(geminiWebSearchFromEvent(event)).toBeNull();
+    }
   });
 });
 
@@ -1407,6 +1454,93 @@ describe('GeminiCliModel', () => {
       expect(execFileMock.mock.calls).toHaveLength(1);
       expect(res.timedOut).toBe(true);
       expect('resumed' in res).toBe(false);
+    });
+  });
+
+  describe('onWebSearch — each google_web_search is audited as its line arrives (THREAT-MODEL T6, StreamingClaudeCliModel parity)', () => {
+    /** A child whose stdout the test streams by hand; `exit` settles
+     *  execFile's callback with what the whole run printed. */
+    function mockStreamingChild(): {
+      readonly stdout: EventEmitter;
+      readonly exit: (error: (Error & { code?: unknown }) | null, printed: string) => void;
+    } {
+      const stdout = new EventEmitter();
+      let settle: ExecFileCallback = () => undefined;
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        settle = args[args.length - 1] as ExecFileCallback;
+        return { pid: 4321, stdout, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
+      });
+      return { stdout, exit: (error, printed) => settle(error, printed, '') };
+    }
+
+    const SHELL = {
+      type: 'tool_use',
+      tool_name: 'run_shell_command',
+      tool_id: 't3',
+      parameters: { command: 'ls' },
+    };
+
+    it('reports each search the moment its tool_use line lands, in wire order, and never again at settle', async () => {
+      const child = mockStreamingChild();
+      const searches: WebSearchAudit[] = [];
+      const pending = new GeminiCliModel({
+        repo: '/work/sbx',
+        onWebSearch: (search) => searches.push(search),
+      }).invoke('gemini-2.5-pro', 'do it');
+
+      const first = jsonl(INIT, webSearch('t1', 'first query'));
+      child.stdout.emit('data', first);
+      // Asserted before the run ends: the query has already left by now.
+      expect(searches.map((s) => s.query)).toEqual(['first query']);
+      // A line torn across two chunks is read once it is whole.
+      const second = jsonl(webSearch('t2', 'second query'), SHELL);
+      child.stdout.emit('data', second.slice(0, 30));
+      expect(searches).toHaveLength(1);
+      child.stdout.emit('data', second.slice(30));
+      expect(searches.map((s) => s.query)).toEqual(['first query', 'second query']);
+
+      const last = jsonl({ type: 'result', status: 'success', stats: streamStats({}) });
+      child.stdout.emit('data', last);
+      child.exit(null, first + second + last);
+      const res = await pending;
+
+      expect(searches.map((s) => s.query)).toEqual(['first query', 'second query']);
+      expect(res.envelope).toMatchObject({ isError: false });
+    });
+
+    it('audits a last line that came with no newline once the run settles, even a run that died', async () => {
+      const child = mockStreamingChild();
+      const searches: WebSearchAudit[] = [];
+      const pending = new GeminiCliModel({
+        repo: '/work/sbx',
+        onWebSearch: (search) => searches.push(search),
+      }).invoke('gemini-2.5-pro', 'do it');
+
+      const printed = jsonl(INIT) + JSON.stringify(webSearch('t1', 'unterminated query'));
+      child.stdout.emit('data', printed);
+      expect(searches).toEqual([]);
+      child.exit(Object.assign(new Error('killed'), { killed: true, code: 1 }), printed);
+      await pending;
+
+      expect(searches.map((s) => s.query)).toEqual(['unterminated query']);
+    });
+
+    it('settles the run even when the audit sink throws on that last line', async () => {
+      const child = mockStreamingChild();
+      const pending = new GeminiCliModel({
+        repo: '/work/sbx',
+        onWebSearch: () => {
+          throw new Error('events table is locked');
+        },
+      }).invoke('gemini-2.5-pro', 'do it');
+
+      const printed = JSON.stringify(webSearch('t1', 'unterminated query'));
+      child.stdout.emit('data', printed);
+      expect(() => child.exit(Object.assign(new Error('exit 1'), { code: 1 }), printed)).toThrow(
+        'events table is locked',
+      );
+
+      await expect(pending).resolves.toMatchObject({ exitCode: 1, envelope: null });
     });
   });
 });
