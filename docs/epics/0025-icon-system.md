@@ -216,7 +216,13 @@ propagation, and the filled style does not match the nav.
    vendored `arrow-right`, mirrored like the back link. The landing arrow is
    the line's only icon-alone mark, so it takes `role="img"`: axe flags an
    `aria-label` on a bare span once no text is left. The census pins a lone →
-   face at zero. The screenshots refresh (`docs/screens/`) is still open.
+   face at zero. **Screenshots 2026-10-02:** the README frames still showed
+   v0.54.0, whose SOUL cards led with ◇ and ✎ and whose rail had no
+   Benchmark. `scripts/docs/capture-screens.mjs` retook every frame under
+   `docs/screens/` from the populated fixture at v0.56.0 (`lock-on.png` came
+   out byte-identical), and `compose-evolution.mjs` re-ended the strip on
+   the new `fleet-terminal.png`. Slice 4's "docs and screenshots refreshed"
+   is done.
 
 ## Related
 
