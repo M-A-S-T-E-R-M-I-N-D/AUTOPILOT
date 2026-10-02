@@ -13,8 +13,11 @@
  *
  * Baselines are CI-canonical (`-win32`, rendered on the CI runner), so only a
  * CI-rendered PNG may ever be adopted — never a locally produced one. Retry
- * directories hold the same image; the last wins, which is the one CI finally
- * reported.
+ * directories usually hold the same image; when a flaky render differs, the
+ * last attempt wins, because it is the one CI finally reported. That order is
+ * by retry NUMBER: a plain path sort puts `-retry1` before the first attempt's
+ * directory (`-` sorts before `/` and `\`) and `retry10` before `retry2`, and
+ * did adopt the first attempt over every retry until 2026-10-02.
  *
  * **The project segment is load-bearing.** `project-populated-dark-win32.png`
  * and `project-populated-dark-chromium-win32.png` are BOTH committed, so
@@ -34,38 +37,21 @@
  */
 
 import { readdirSync, statSync, copyFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const [actualsRoot, repoRoot = '.'] = process.argv.slice(2);
-if (!actualsRoot) {
-  console.error('usage: adopt-visual-actuals.mjs <actuals-dir> [repo-root]');
-  process.exit(1);
+/**
+ * The attempt an artifact directory holds: 0 for the first run, N for `-retryN`.
+ * @param {string} artifactDir
+ * @returns {number}
+ */
+export function attemptOf(artifactDir) {
+  const match = /-retry(\d+)$/.exec(artifactDir.split(/[\\/]/).pop());
+  return match ? Number(match[1]) : 0;
 }
-
-const snapshotRoot = join(repoRoot, 'apps/dashboard/e2e');
-const snapshotDirs = readdirSync(snapshotRoot)
-  .filter((d) => d.endsWith('.spec.ts-snapshots'))
-  .map((d) => join(snapshotRoot, d));
-
-/** committed baseline file name -> absolute path (names are unique repo-wide) */
-const baselines = new Map();
-for (const dir of snapshotDirs) {
-  for (const file of readdirSync(dir)) baselines.set(file, join(dir, file));
-}
-
-/** [absolute actual path, the artifact directory it came from] */
-const actuals = [];
-const walk = (dir) => {
-  for (const entry of readdirSync(dir)) {
-    const p = join(dir, entry);
-    if (statSync(p).isDirectory()) walk(p);
-    else if (entry.endsWith('-actual.png')) actuals.push([p, dir]);
-  }
-};
-walk(actualsRoot);
 
 /** The committed baseline this actual belongs to, or null when unresolvable. */
-function resolveBaseline(stem, artifactDir) {
+function resolveBaseline(stem, artifactDir, baselines) {
   const dirName = artifactDir
     .split(/[\\/]/)
     .pop()
@@ -81,30 +67,74 @@ function resolveBaseline(stem, artifactDir) {
   return candidates[0].name;
 }
 
-let adopted = 0;
-const seen = new Set();
-const unmatched = [];
-for (const [actual, artifactDir] of actuals.sort()) {
-  const stem = actual
-    .split(/[\\/]/)
-    .pop()
-    .replace(/-actual\.png$/, '');
-  const wanted = resolveBaseline(stem, artifactDir);
-  if (wanted === null) {
-    unmatched.push(`${stem} [dir ${artifactDir.split(/[\\/]/).pop()}] -> no committed baseline`);
-    continue;
+/** committed baseline file name -> absolute path (names are unique repo-wide) */
+function loadBaselines(repoRoot) {
+  const snapshotRoot = join(repoRoot, 'apps/dashboard/e2e');
+  const baselines = new Map();
+  for (const d of readdirSync(snapshotRoot)) {
+    if (!d.endsWith('.spec.ts-snapshots')) continue;
+    const dir = join(snapshotRoot, d);
+    for (const file of readdirSync(dir)) baselines.set(file, join(dir, file));
   }
-  copyFileSync(actual, baselines.get(wanted));
-  if (!seen.has(wanted)) {
-    seen.add(wanted);
-    adopted += 1;
-    console.log(`adopted ${wanted}`);
+  return baselines;
+}
+
+/** [absolute actual path, the artifact directory it came from], in copy order:
+ *  every first attempt, then every retry1, and so on, so for each baseline the
+ *  final retry is copied last and wins. */
+function collectActuals(actualsRoot) {
+  const actuals = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir)) {
+      const p = join(dir, entry);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (entry.endsWith('-actual.png')) actuals.push([p, dir]);
+    }
+  };
+  walk(actualsRoot);
+  return actuals.sort(
+    ([pathA, dirA], [pathB, dirB]) =>
+      attemptOf(dirA) - attemptOf(dirB) || (pathA < pathB ? -1 : pathA > pathB ? 1 : 0),
+  );
+}
+
+function main() {
+  const [actualsRoot, repoRoot = '.'] = process.argv.slice(2);
+  if (!actualsRoot) {
+    console.error('usage: adopt-visual-actuals.mjs <actuals-dir> [repo-root]');
+    process.exit(1);
+  }
+
+  const baselines = loadBaselines(repoRoot);
+  const actuals = collectActuals(actualsRoot);
+  let adopted = 0;
+  const seen = new Set();
+  const unmatched = [];
+  for (const [actual, artifactDir] of actuals) {
+    const stem = actual
+      .split(/[\\/]/)
+      .pop()
+      .replace(/-actual\.png$/, '');
+    const wanted = resolveBaseline(stem, artifactDir, baselines);
+    if (wanted === null) {
+      unmatched.push(`${stem} [dir ${artifactDir.split(/[\\/]/).pop()}] -> no committed baseline`);
+      continue;
+    }
+    copyFileSync(actual, baselines.get(wanted));
+    if (!seen.has(wanted)) {
+      seen.add(wanted);
+      adopted += 1;
+      console.log(`adopted ${wanted}`);
+    }
+  }
+
+  console.log(`\n${adopted} baseline(s) adopted from ${actuals.length} actual(s)`);
+  if (unmatched.length > 0) {
+    console.log('UNMATCHED (left alone):');
+    for (const u of [...new Set(unmatched)]) console.log(`  ${u}`);
+    process.exitCode = 1;
   }
 }
 
-console.log(`\n${adopted} baseline(s) adopted from ${actuals.length} actual(s)`);
-if (unmatched.length > 0) {
-  console.log('UNMATCHED (left alone):');
-  for (const u of [...new Set(unmatched)]) console.log(`  ${u}`);
-  process.exitCode = 1;
-}
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) main();
