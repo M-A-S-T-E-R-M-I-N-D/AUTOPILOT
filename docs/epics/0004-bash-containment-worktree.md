@@ -345,6 +345,14 @@ a mismatch rather than flying unguarded. Neither commit touches `deriveWorktreeP
 `ensureWorktree`/`syncWorktreeBranch`, or the containment guard's snapshot/audit calls — they add an
 engine choice on top of the existing worktree wiring, not a new path into `target`.
 
+Freshness check (2026-10-03): `fly.ts` and `prompt.ts` gained one more commit since the check
+above — `0a1d6cc7` (epic 0036), which adds an optional `harness` field to `FiringPromptInput` so a
+Codex or Gemini lane's commits name their own CLI (`codex-cli`/`gemini-cli`) in the `Harness:`
+commit trailer instead of the fixed `claude-cli`, fixing a false provenance claim; a Claude lane's
+prompt stays byte-identical. The change is confined to prompt-text construction and touches neither
+`deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's
+snapshot/audit calls — it adds no new path into `target` and changes no worktree wiring.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a
