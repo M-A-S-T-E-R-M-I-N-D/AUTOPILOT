@@ -116,6 +116,13 @@ export interface FiringPromptInput {
    * Undefined or true renders Research first unchanged.
    */
   readonly internetEnabled?: boolean;
+  /**
+   * The CLI this firing's agent runs on, named in the `Harness:` commit
+   * trailer: `codex-cli` or `gemini-cli` for a lane flown under
+   * `AUTOPILOT_ENGINE` (epic 0036), so its commits never claim Claude's.
+   * Undefined or blank names {@link HARNESS_NAME}.
+   */
+  readonly harness?: string;
 }
 
 /** One open task handed to a firing (the assign→fly loop). */
@@ -147,7 +154,8 @@ export interface BoardTaskRef {
 
 export const FIRING_PROMPT_VERSION = 'firing-v17';
 
-/** The adapter that runs the agent — cited in commit provenance trailers (SOTA-MAP D1). */
+/** The adapter that runs the agent unless the caller names another
+ *  (`FiringPromptInput.harness`) — cited in commit provenance trailers (SOTA-MAP D1). */
 export const HARNESS_NAME = 'claude-cli';
 
 /** Bound the board section: enough to steer, never enough to bloat the prompt. */
@@ -648,7 +656,7 @@ export function buildFiringPrompt(input: FiringPromptInput): string {
     '   next to Signed-off-by so origin is repo-native, not siloed in telemetry:',
     `   \`Model: <your exact model id>\`, \`Firing-Prompt-Version: ${FIRING_PROMPT_VERSION}\`,`,
     ...commitTrailerLines(input.productVersion, input.attributionEnabled),
-    `   and \`Harness: ${HARNESS_NAME}\`. Then, on the FINAL line of your response, emit EXACTLY`,
+    `   and \`Harness: ${input.harness?.trim() || HARNESS_NAME}\`. Then, on the FINAL line of your response, emit EXACTLY`,
     '   one METRICS line and nothing after it:',
     '   METRICS:{"item":"<short-id>","outcome":"shipped","kind":"<feat|fix|docs|test|refactor|chore|perf>","sha":"<short-sha>","completion":"complete"}',
     '   If you make no change, emit outcome "noop" and do NOT commit. Every "outcome":"shipped"',
