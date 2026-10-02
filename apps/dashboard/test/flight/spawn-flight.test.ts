@@ -304,6 +304,50 @@ describe('createSpawnFlight', () => {
     });
   });
 
+  describe('socialFlight override (epic 0016 "The GitHub Social Flight", slice 3/6 fly-bar toggle)', () => {
+    const originalSocialFlight = process.env['AUTOPILOT_SOCIAL_FLIGHT'];
+    afterEach(() => {
+      if (originalSocialFlight === undefined) delete process.env['AUTOPILOT_SOCIAL_FLIGHT'];
+      else process.env['AUTOPILOT_SOCIAL_FLIGHT'] = originalSocialFlight;
+    });
+
+    it('rides a given override as AUTOPILOT_SOCIAL_FLIGHT, overriding whatever this process inherited', () => {
+      const child = fakeChild();
+      spawnMock.mockReturnValue(child);
+      process.env['AUTOPILOT_SOCIAL_FLIGHT'] = 'off';
+
+      createSpawnFlight('/repo/dist/fly.js', () => join(dir, 'flight.log'))(
+        '/target',
+        2,
+        5,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        'full',
+      );
+
+      const [, , options] = spawnMock.mock.calls[0] as [string, string[], { env?: object }];
+      expect(options.env).toMatchObject({ AUTOPILOT_SOCIAL_FLIGHT: 'full' });
+    });
+
+    // The opposite of AUTOPILOT_FLEET_TASK_SCOPE's own stale-parent test
+    // above: a scoped fleet member must never leak its OWN partition into an
+    // unscoped child, but this dashboard process's own social-flight setting
+    // is exactly what every flight should inherit by default — so an
+    // omitted override must NOT delete it.
+    it('leaves an inherited AUTOPILOT_SOCIAL_FLIGHT untouched when no override is given', () => {
+      const child = fakeChild();
+      spawnMock.mockReturnValue(child);
+      process.env['AUTOPILOT_SOCIAL_FLIGHT'] = 'start';
+
+      createSpawnFlight('/repo/dist/fly.js', () => join(dir, 'flight.log'))('/target', 2, 5);
+
+      const [, , options] = spawnMock.mock.calls[0] as [string, string[], { env?: object }];
+      expect(options.env).toMatchObject({ AUTOPILOT_SOCIAL_FLIGHT: 'start' });
+    });
+  });
+
   describe('fleet gate-worker cap (MACHINE BUDGET in code, not prompt prose)', () => {
     // Why: three fleet instances once launched all-core test runs at the same
     // moment and starved the box until the dashboard process died, taking

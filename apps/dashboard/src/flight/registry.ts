@@ -108,14 +108,28 @@ export class FlightRunnerRegistry {
     if (!runner) {
       runner = new FlightRunner({
         ...this.deps,
-        spawnFlight: (folder, firings, budgetUsd, totalBudgetUsd, instanceId, taskScope) => {
+        spawnFlight: (
+          folder,
+          firings,
+          budgetUsd,
+          totalBudgetUsd,
+          instanceId,
+          taskScope,
+          _siblingsFlying,
+          socialFlight,
+        ) => {
           // MACHINE BUDGET HOLE FIX (STPA finding web-mt1qa7ij-c6wqgi): this
           // registry is the one thing that actually knows the live running
           // count — forward it so spawnFlight can cap ANY concurrent spawn,
           // not only one that happens to carry an instanceId. Computed
           // BEFORE this new runner's own status flips to running (that only
           // happens after `start()` gets this return value), so it reflects
-          // OTHER flights only.
+          // OTHER flights only. `_siblingsFlying` is the bare FlightRunner's
+          // own 7th arg (always undefined — it has no notion of siblings),
+          // deliberately ignored in favor of the real value computed here;
+          // `socialFlight` (epic 0016 slice 3/6, board web-mtpzzx7v-72q2dv)
+          // rides straight through unchanged — this registry has no opinion
+          // on it, only `start()`'s own fail-closed parse does.
           const siblingsFlying = this.#runningCount() > 0;
           const child = this.deps.spawnFlight(
             folder,
@@ -125,6 +139,7 @@ export class FlightRunnerRegistry {
             instanceId,
             taskScope,
             siblingsFlying,
+            socialFlight,
           );
           return {
             pid: child.pid,

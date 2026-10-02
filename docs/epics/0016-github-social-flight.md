@@ -76,8 +76,19 @@ Per pass, mechanically derived — no guesses:
    after the last planned one, where the end pass speaks — and with the
    end-of-flight sweeps) — self-target guarded, refusing cleanly when gh is
    not connected, read-only with the caps in the flight log (RUNBOOK §13).
-   _Still open:_ the fly-bar toggle, and a candidate source (mirror-pass
-   findings) before the execute half is wired.
+   The fly-bar toggle's server-side half also now exists (board
+   web-mtpzzx7v-72q2dv): `StartFlightInput.socialFlight` (`flight/runner.ts`)
+   takes one flight's own `AUTOPILOT_SOCIAL_FLIGHT` override straight off the
+   HTTP body, fail-closed-parsed with `parseSocialFlightToggle` before it
+   ever reaches a child, threaded through `flight/registry.ts`'s
+   `spawnFlight` wrapper to `flight/spawn-flight.ts`, which sets the child's
+   env to exactly that value when given — an omitted override still inherits
+   this dashboard process's own env untouched, unlike
+   `AUTOPILOT_FLEET_TASK_SCOPE`'s delete-when-absent rule just above it.
+   _Still open:_ the fly-bar's own UI control (no operator-facing way to set
+   `StartFlightInput.socialFlight` exists yet — this remains a slice, not a
+   user-facing capability, per the UX-EXPRESSION DOCTRINE), and a candidate
+   source (mirror-pass findings) before the execute half is wired.
 4. **standalone**: "Fly GitHub" as a target choice in the fly bar (no code
    tree edits at all in this mode).
 5. **observability**: every social action in the flight log + a SOCIAL
