@@ -98,6 +98,17 @@ const ARROW_FROM_BAR_PATTERN = /\u{21EA}/gu;
  *  copy icon (2026-10-01), so the block pins zero in web/ and in STRINGS. */
 const MATH_SYMBOLS_B_PATTERN = /[\u{2980}-\u{29FF}]/gu;
 
+/** The single guillemets ‹ › (U+2039/U+203A) sat outside every range above,
+ *  yet the Firing Replay's "‹ Prev" and "Next ›" buttons led and trailed with
+ *  them as chevrons (en and he). They took the vendored chevron-left and
+ *  chevron-right (2026-10-02), mirrored under dir=rtl like the back link.
+ *  Only a guillemet at a label's edge stands in for an icon: the "Settings ›
+ *  HUD bar › Shown" breadcrumb and the phase rail's lone '›' separator stay
+ *  free, the way ⇧ and ⌘ stay free as key names. In web/ the edge is a string
+ *  literal's quote; in STRINGS it is the value's own start or end. */
+const EDGE_GUILLEMET_WEB_PATTERN = /(?<=['"`])‹(?=\s)|(?<=\s)›(?=['"`])/gu;
+const EDGE_GUILLEMET_VALUE_PATTERN = /^‹(?=\s)|(?<=\s)›$/gu;
+
 function tsFilesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true })
     .map((f) => String(f))
@@ -164,6 +175,16 @@ describe('icon system emoji census (epic 0025 slice 4) — zero raw emoji in web
   it('paints no Miscellaneous Mathematical Symbols-B glyph-icon in any web/ source file outside comments', () => {
     const offenders = webOffenders(files, MATH_SYMBOLS_B_PATTERN);
     expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
+  it('paints no edge-guillemet chevron in any web/ string literal outside comments', () => {
+    const offenders = webOffenders(files, EDGE_GUILLEMET_WEB_PATTERN);
+    expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
+  it("matches an edge chevron but leaves the breadcrumb and the phase rail's lone separator alone", () => {
+    const source = "'‹ Prev' 'Next ›' 'Settings › HUD bar › Shown' '›'";
+    expect(source.match(EDGE_GUILLEMET_WEB_PATTERN)).toEqual(['‹', '›']);
   });
 
   it('matches ⏭/⏱ but leaves the ⌘ key name alone', () => {
@@ -242,6 +263,11 @@ describe('icon system emoji census (epic 0025 law 5) — STRINGS values', () => 
 
   it('carries no Miscellaneous Mathematical Symbols-B glyph-icon in any locale value', () => {
     expect(emojiBearingStringKeys(MATH_SYMBOLS_B_PATTERN)).toEqual([]);
+  });
+
+  it('leads or trails with no guillemet chevron in any locale value', () => {
+    expect(emojiBearingStringKeys(EDGE_GUILLEMET_VALUE_PATTERN)).toEqual([]);
+    expect('Settings › HUD bar › Shown'.match(EDGE_GUILLEMET_VALUE_PATTERN)).toBeNull();
   });
 
   it('leads with no Geometric Shapes glyph-icon in any locale value', () => {

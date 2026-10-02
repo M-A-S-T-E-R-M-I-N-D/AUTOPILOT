@@ -18,7 +18,8 @@
  * (`web/replay-nav.ts`), so no fixed-text sweep may touch it — the later
  * `firing-replay-position-i18n.test.ts` slice made it a `{step}`/`{total}`
  * template instead, which is why it now flips too. The English text is
- * byte-identical to what the controls said before this slice. Drives the
+ * byte-identical to what the controls said before this slice, less the
+ * ‹ › that epic 0025 later moved into vendored chevron icons. Drives the
  * REAL client bundle in jsdom against a mocked /api/state, same harness as
  * firing-replay-nav.test.ts.
  */
@@ -185,17 +186,21 @@ describe('Firing Replay playback controls i18n (board web-msnsndki-dz3vn1)', () 
   it('tags Prev, Next and Exit the same way; Exit shares one key for its text and aria-label', async () => {
     await enterReplay();
 
+    // Epic 0025: the ‹ › chevrons are vendored icons beside the words now, so
+    // each label rides an inner [data-i18n] span (the back link's shape).
     const prev = q('[data-replay-prev="f1"]');
-    expect(prev.textContent).toBe('‹ Prev');
-    expect(prev.getAttribute('data-i18n')).toBe('replayPrev');
+    expect(prev.textContent).toBe('Prev');
+    expect(prev.querySelector('[data-i18n]')?.getAttribute('data-i18n')).toBe('replayPrev');
+    expect(prev.hasAttribute('data-i18n')).toBe(false);
     expect(prev.getAttribute('aria-label')).toBe('Previous action');
     expect(prev.getAttribute('data-i18n-aria')).toBe('replayPrevAria');
     expect(prev.getAttribute('data-tip')).toBe('Step back to the previous action in this replay');
     expect(prev.getAttribute('data-i18n-tip')).toBe('replayPrevTip');
 
     const next = q('[data-replay-next="f1"]');
-    expect(next.textContent).toBe('Next ›');
-    expect(next.getAttribute('data-i18n')).toBe('replayNext');
+    expect(next.textContent).toBe('Next');
+    expect(next.querySelector('[data-i18n]')?.getAttribute('data-i18n')).toBe('replayNext');
+    expect(next.hasAttribute('data-i18n')).toBe(false);
     expect(next.getAttribute('aria-label')).toBe('Next action');
     expect(next.getAttribute('data-i18n-aria')).toBe('replayNextAria');
     expect(next.getAttribute('data-tip')).toBe('Advance to the next action in this replay');
@@ -208,6 +213,33 @@ describe('Firing Replay playback controls i18n (board web-msnsndki-dz3vn1)', () 
     expect(exit.getAttribute('data-i18n-aria')).toBe('replayExit');
     expect(exit.getAttribute('data-tip')).toBe('Leave playback and show the full trace list');
     expect(exit.getAttribute('data-i18n-tip')).toBe('replayExitTip');
+  });
+
+  it('Prev leads with a chevron-left and Next trails with a chevron-right, decorative and kept across a locale switch (epic 0025)', async () => {
+    await enterReplay();
+
+    const prevIcon = q('[data-replay-prev="f1"]').firstElementChild;
+    expect(prevIcon?.tagName).toBe('svg');
+    expect(prevIcon?.classList.contains('icon-chevron-left')).toBe(true);
+    expect(prevIcon?.getAttribute('aria-hidden')).toBe('true');
+    const nextIcon = q('[data-replay-next="f1"]').lastElementChild;
+    expect(nextIcon?.tagName).toBe('svg');
+    expect(nextIcon?.classList.contains('icon-chevron-right')).toBe(true);
+    expect(nextIcon?.getAttribute('aria-hidden')).toBe('true');
+
+    clickLocale('he');
+    expect(
+      q('[data-replay-prev="f1"]').firstElementChild?.classList.contains('icon-chevron-left'),
+    ).toBe(true);
+    expect(
+      q('[data-replay-next="f1"]').lastElementChild?.classList.contains('icon-chevron-right'),
+    ).toBe(true);
+    for (const table of Object.values(STRINGS)) {
+      for (const key of ['replayPrev', 'replayNext'] as const) {
+        expect(table[key]).not.toMatch(/[‹›]/);
+        expect(table[key]).toBe(table[key].trim());
+      }
+    }
   });
 
   it('the "Step N of M" live region gets a tip tag and a two-slot template tag — never a fixed-text or aria sweep tag', async () => {
@@ -277,7 +309,7 @@ describe('Firing Replay playback controls i18n (board web-msnsndki-dz3vn1)', () 
     clickLocale('he');
     clickLocale('en');
 
-    expect(q('[data-replay-prev="f1"]').textContent).toBe('‹ Prev');
+    expect(q('[data-replay-prev="f1"]').textContent).toBe('Prev');
     expect(q('[data-replay-next="f1"]').getAttribute('aria-label')).toBe('Next action');
     expect(q('[data-replay-exit="f1"]').getAttribute('data-tip')).toBe(
       'Leave playback and show the full trace list',

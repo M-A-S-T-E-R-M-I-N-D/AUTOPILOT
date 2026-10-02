@@ -963,19 +963,19 @@ const EN_STRINGS = {
   // template (replayPosition; replayNoSteps for an empty trace) the bundle's
   // tr() fills inside the spliced helper, and the element carries the slots
   // as a data-i18n-args map for the sweep — never a fixed-text data-i18n
-  // tag. The ‹ › glyphs are bidi-mirrored characters, so Hebrew keeps them:
-  // the browser flips them with the layout. The toggle's ▶ is the vendored
-  // play icon now (epic 0025), beside the text rather than baked into it.
+  // tag. The toggle's ▶ is the vendored play icon now (epic 0025), beside
+  // the text rather than baked into it, and Prev/Next's ‹ › are vendored
+  // chevrons the same way, mirrored by CSS under dir=rtl.
   replayStart: 'Step through',
   replayStartAria: 'Step through',
   replayStartTip: 'Replay this firing one action at a time with Prev and Next controls',
-  replayPrev: '‹ Prev',
+  replayPrev: 'Prev',
   replayPrevAria: 'Previous action',
   replayPrevTip: 'Step back to the previous action in this replay',
   replayPositionTip: 'Your position in this replay — Left and Right arrow keys also step',
   replayPosition: 'Step {step} of {total}',
   replayNoSteps: 'No steps',
-  replayNext: 'Next ›',
+  replayNext: 'Next',
   replayNextAria: 'Next action',
   replayNextTip: 'Advance to the next action in this replay',
   replayExit: 'Exit replay',
@@ -2660,13 +2660,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     replayStart: 'צעד אחר צעד',
     replayStartAria: 'צעד אחר צעד',
     replayStartTip: 'שחזור ההפעלה הזו פעולה אחת בכל פעם, עם כפתורי הקודם והבא',
-    replayPrev: '‹ הקודם',
+    replayPrev: 'הקודם',
     replayPrevAria: 'הפעולה הקודמת',
     replayPrevTip: 'חזרה לפעולה הקודמת בשחזור הזה',
     replayPositionTip: 'המיקום שלכם בשחזור הזה — גם מקשי החצים שמאלה וימינה מדפדפים בין הצעדים',
     replayPosition: 'צעד {step} מתוך {total}',
     replayNoSteps: 'אין צעדים',
-    replayNext: 'הבא ›',
+    replayNext: 'הבא',
     replayNextAria: 'הפעולה הבאה',
     replayNextTip: 'מעבר לפעולה הבאה בשחזור הזה',
     replayExit: 'יציאה מהשחזור',

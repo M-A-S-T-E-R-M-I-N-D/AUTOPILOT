@@ -1827,6 +1827,12 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .replay-nav-btn:hover:not(:disabled), .replay-nav-btn:focus-visible:not(:disabled) { border-color: var(--color-accent); color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .replay-nav-btn:active:not(:disabled) { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .replay-nav-btn:disabled { opacity: 0.4; cursor: default; }
+/* Epic 0025: Prev leads with a chevron and Next trails one, in place of the
+   ‹ › the labels used to carry; under dir=rtl both mirror, the back link's
+   rule for a directional icon. */
+.replay-nav-btn > .icon:first-child { margin-inline-end: 0.25em; }
+.replay-nav-btn > .icon:last-child { margin-inline-start: 0.25em; }
+[dir='rtl'] .replay-nav-btn > .icon { transform: scaleX(-1); }
 .replay-nav-label { font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 /* Replay exit (COCKPIT 4/6): a link-style tertiary control, so its MX pair is
    the surface-raise treatment .detail summary and .soul-editor-summary carry
