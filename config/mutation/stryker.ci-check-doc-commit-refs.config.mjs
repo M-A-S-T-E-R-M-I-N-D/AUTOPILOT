@@ -9,12 +9,15 @@
  * stryker.ci-check-conflict-markers.config.mjs, stryker.ci-detect-flaky.config.mjs,
  * stryker.ci-quarantine-report.config.mjs, stryker.ci-license-check.config.mjs,
  * stryker.ci-secret-scan.config.mjs, stryker.ci-secret-scan-history.config.mjs
- * and stryker.ci-validate-no-personal-paths.config.mjs. Only `findShaCitations`
- * is mutated; `listTrackedMarkdown`, `isReachableFromHead`, `main` and the
- * `isMain` entry line sit under a `// Stryker disable all` comment in the
- * source since they shell out to `git ls-files` / `git merge-base`, read the
- * whole tree and call `process.exit`, the same stance the other nine ci/
- * configs take for their own impure glue.
+ * and stryker.ci-validate-no-personal-paths.config.mjs. Only `findShaCitations`,
+ * `checkAncestry` and `describeGitFailure` are mutated; `listTrackedMarkdown`,
+ * `runMergeBase`, `sleepSync`, `main` and the `isMain` entry line sit under a
+ * `// Stryker disable all` comment in the source since they shell out to
+ * `git ls-files` / `git merge-base`, block the thread, read the whole tree and
+ * call `process.exit`, the same stance the other nine ci/ configs take for
+ * their own impure glue. `checkAncestry` takes its git runner, sleep and warn
+ * as injected functions, so check-doc-commit-refs.test.ts pins every exit-code
+ * branch, the retry count, each pause and each warning line exactly.
  *
  * Why this target: ci:doc-commit-refs is the gate that keeps a doc's evidence
  * honest — a backtick-quoted SHA cited as proof ("Done — `abc1234` fixed it")
