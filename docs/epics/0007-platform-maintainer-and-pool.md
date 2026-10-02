@@ -823,6 +823,38 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    head each names is an ancestor of the flight branch; a PR that widened what
    counts as landed would close a strand whose commits are still parked, and
    the operator would never hear of them again; added in `dbe57b94`),
+   the standing-registry security marker (`.github/TRUSTED-CONTRIBUTORS.md`
+   added to `SECURITY_SENSITIVE_PATH_MARKERS` — the file where a contributor's
+   standing tier is granted, and CONTRIBUTOR-STANDING.md promises no row lands
+   without the maintainer deciding on the application issue; without the hold a
+   small green PR adding its own author's row could auto-merge, a standing
+   auto-verdict epic 0019 S2 rules out; path-anchored so the read-only parser
+   `flight/contributor-registry.ts` stays unflagged, and the RUNBOOK's decision
+   table names it in the same row as CODEOWNERS and branch-protection; added in
+   `4e64bb56`), the license-grant security marker (`LICENSE`, `NOTICE`,
+   `LICENSES/` and `REUSE.toml` added to `SECURITY_SENSITIVE_PATH_MARKERS` — no
+   gate reads the project's license grant (`ci:license-check` covers
+   dependencies only, `ci:spdx` only checks that a header is present), so a
+   green relicensing PR could otherwise merge with no human seeing it;
+   `LICENSE`/`NOTICE` match by file name via `LICENSE_GRANT_FILE_NAME` since
+   neither carries a distinctive path segment, kept narrow enough that the
+   license-check test and docs/THIRD-PARTY-LICENSES.md stay unflagged, and the
+   existing rename sweep already holds a rename-away; the RUNBOOK's decision
+   table names the license grant in its security-sensitive row; added in
+   `4e209d8b`), the social-pass/pool-claim security marker (`flight/social-
+   pass.ts` and `flight/pool-client.ts` added to `SECURITY_SENSITIVE_PATH_
+   MARKERS`, `.ts`-anchored so their read-only neighbours —
+   `social-flight-pass.ts`, `social-flight-trigger.ts`, `claim-ledger.ts`,
+   `claim-contract.ts` — stay unflagged: both were triaged benign when neither
+   wrote to GitHub, but `social-pass.ts` now runs `executeSocialCommands` (`gh
+   issue create`/`gh issue comment`) and holds the maintainer-or-guest check
+   behind epic 0019 law 1 and the spam caps behind law 4, and `pool-client.ts`
+   decides claim/contest/skip then runs the claim's `gh issue comment` plus
+   `--add-assignee` under the operator's own login — a small green PR could
+   have loosened either; a new guard now fails if any file still on
+   `BENIGN_FLIGHT` builds a `gh` write argv, so the next benign module that
+   grows an executor fails a test instead of staying auto-mergeable; added in
+   `6716a753`),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do — the deleted-test
    guard above is a header-level fact, not a reading of the change), and
