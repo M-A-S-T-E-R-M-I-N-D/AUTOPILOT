@@ -611,7 +611,11 @@ const CORE_GZIP_BUDGET = 74 * 1024;
 // non-English tables leave /panels.js for the on-demand /locales.js below.
 // Measured /panels.js 253.0KB → 177108B raw, 76.5KB → 53030B gzip. Both
 // panels lines stay put, the same headroom call as the core lines above.
-const PROJECT_RAW_BUDGET = 126 * 1024;
+// Then project raw 126→128KB (2026-10-02, issue #16's last sweep): the docs
+// viewer's six remaining literals render through tr() with data-i18n tags.
+// Measured 129229B raw against the 129024B line: 205 bytes over — the
+// margin every entry above refuses. About two KB of margin, as above.
+const PROJECT_RAW_BUDGET = 128 * 1024;
 const PANELS_RAW_BUDGET = 255 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a
