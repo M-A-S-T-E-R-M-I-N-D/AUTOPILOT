@@ -7,6 +7,7 @@ import { EventEmitter } from 'node:events';
 import {
   parseCodexExecOutput,
   CodexCliModel,
+  codexWebSearchesFromEvent,
   isCodexResumeFailure,
 } from '../../src/adapters/codex-cli.js';
 import {
@@ -16,6 +17,7 @@ import {
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
   DEFAULT_CLI_TIMEOUT_MS,
 } from '../../src/adapters/claude-cli.js';
+import { WEB_SEARCH_AUDIT_MAX_CHARS, type WebSearchAudit } from '../../src/stream.js';
 
 vi.mock('node:child_process', () => ({ execFile: vi.fn(), spawn: vi.fn() }));
 
@@ -301,6 +303,101 @@ describe('isCodexResumeFailure', () => {
 
   it('never fires on a wall-clock kill: a cold retry would only double the time the cap already spent', () => {
     expect(isCodexResumeFailure(THREAD.thread_id, { ...failed, timedOut: true })).toBe(false);
+  });
+});
+
+/** What `codex exec --json` prints once a web search returns: the
+ *  `web_search` item (exec_events.rs `WebSearchItem`) with the query Codex
+ *  reports for it and the Responses API action it ran. */
+function webSearch(id: string, query: unknown, action?: Record<string, unknown>): unknown {
+  return {
+    type: 'item.completed',
+    item: { id, type: 'web_search', query, ...(action === undefined ? {} : { action }) },
+  };
+}
+
+function auditedQueries(event: unknown): readonly string[] {
+  return codexWebSearchesFromEvent(event as Record<string, unknown>).map((s) => s.query);
+}
+
+describe('codexWebSearchesFromEvent — the web-search audit (THREAT-MODEL T6, StreamingClaudeCliModel parity)', () => {
+  it('keeps the query of a completed search exactly as sent, whitespace intact', () => {
+    const query = '  vitest   fake timers\n advanceTimersByTimeAsync  ';
+    expect(
+      codexWebSearchesFromEvent(
+        webSearch('item_1', query, { type: 'search', query }) as Record<string, unknown>,
+      ),
+    ).toEqual([{ query, queryLength: query.length, allowedDomains: [], blockedDomains: [] }]);
+  });
+
+  it('audits every query a multi-query search ran, since the item query keeps only the first', () => {
+    // core/src/web_search.rs `search_action_detail`: with no single query, the
+    // item's query is the first of `queries` and " ..." for the rest.
+    const event = webSearch('item_1', 'repo layout ...', {
+      type: 'search',
+      queries: ['repo layout', 'the secret it holds'],
+    });
+    expect(auditedQueries(event)).toEqual(['repo layout', 'the secret it holds']);
+  });
+
+  it('audits a query the action names both alone and in its list only once', () => {
+    const event = webSearch('item_1', 'first', {
+      type: 'search',
+      query: 'first',
+      queries: ['first', 'second'],
+    });
+    expect(auditedQueries(event)).toEqual(['first', 'second']);
+  });
+
+  it('audits the detail Codex reports for a page it opened or searched within, and for a CLI that sends no action', () => {
+    expect(
+      auditedQueries(
+        webSearch('item_1', 'https://example.test/?q=secret', {
+          type: 'open_page',
+          url: 'https://example.test/?q=secret',
+        }),
+      ),
+    ).toEqual(['https://example.test/?q=secret']);
+    expect(
+      auditedQueries(
+        webSearch('item_2', "'token' in https://example.test", {
+          type: 'find_in_page',
+          url: 'https://example.test',
+          pattern: 'token',
+        }),
+      ),
+    ).toEqual(["'token' in https://example.test"]);
+    // The SDK's own WebSearchItem (sdk/typescript/src/items.ts) has no action.
+    expect(auditedQueries(webSearch('item_3', 'older cli query'))).toEqual(['older cli query']);
+  });
+
+  it('caps a runaway query at WEB_SEARCH_AUDIT_MAX_CHARS and keeps its true length beside it', () => {
+    const query = 'x'.repeat(WEB_SEARCH_AUDIT_MAX_CHARS + 25);
+    const [audit] = codexWebSearchesFromEvent(
+      webSearch('item_1', query, { type: 'search', query }) as Record<string, unknown>,
+    );
+    expect(audit?.query).toBe('x'.repeat(WEB_SEARCH_AUDIT_MAX_CHARS));
+    expect(audit?.queryLength).toBe(WEB_SEARCH_AUDIT_MAX_CHARS + 25);
+  });
+
+  it('reads nothing from a search still running, any other item or event, or one with no query', () => {
+    const query = 'repo secrets';
+    for (const event of [
+      // ext/web-search/src/tool.rs starts the item with an empty query; a
+      // started item is never audited, so a search is counted once.
+      { type: 'item.started', item: { id: 'item_1', type: 'web_search', query: '' } },
+      { type: 'item.started', item: { id: 'item_1', type: 'web_search', query } },
+      { type: 'item.updated', item: { id: 'item_1', type: 'web_search', query } },
+      { type: 'item.completed', item: { id: 'item_2', type: 'command_execution', command: query } },
+      { type: 'item.completed', item: { id: 'item_3', type: 'agent_message', text: query } },
+      { type: 'turn.completed', usage: {}, query },
+      { type: 'item.completed' },
+      webSearch('item_4', '', { type: 'other' }),
+      webSearch('item_5', 42),
+      webSearch('item_6', '', { type: 'search', query: '', queries: [42, ''] }),
+    ]) {
+      expect(auditedQueries(event)).toEqual([]);
+    }
   });
 });
 
@@ -1171,6 +1268,101 @@ describe('CodexCliModel', () => {
       expect(execFileMock.mock.calls).toHaveLength(1);
       expect(res.timedOut).toBe(true);
       expect('resumed' in res).toBe(false);
+    });
+  });
+
+  describe('onWebSearch — each completed web_search is audited as its line arrives (THREAT-MODEL T6, GeminiCliModel parity)', () => {
+    /** A child whose stdout the test streams by hand; `exit` settles
+     *  execFile's callback with what the whole run printed. */
+    function mockStreamingChild(): {
+      readonly stdout: EventEmitter;
+      readonly exit: (error: (Error & { code?: unknown }) | null, printed: string) => void;
+    } {
+      const stdout = new EventEmitter();
+      let settle: ExecFileCallback = () => undefined;
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        settle = args[args.length - 1] as ExecFileCallback;
+        return { pid: 4321, stdout, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
+      });
+      return { stdout, exit: (error, printed) => settle(error, printed, '') };
+    }
+
+    const COMMAND = {
+      type: 'item.completed',
+      item: { id: 'item_9', type: 'command_execution', command: 'ls', status: 'completed' },
+    };
+
+    it('reports each search the moment its item.completed line lands, in wire order, and never again at settle', async () => {
+      const child = mockStreamingChild();
+      const searches: WebSearchAudit[] = [];
+      const pending = new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        onWebSearch: (search) => searches.push(search),
+      }).invoke('gpt-5-codex', 'do it');
+
+      const first = jsonl(
+        THREAD,
+        { type: 'item.started', item: { id: 'item_1', type: 'web_search', query: '' } },
+        webSearch('item_1', 'first query', { type: 'search', query: 'first query' }),
+      );
+      child.stdout.emit('data', first);
+      // Asserted before the run ends: the query has already left by now.
+      expect(searches.map((s) => s.query)).toEqual(['first query']);
+      // A line torn across two chunks is read once it is whole.
+      const second = jsonl(
+        webSearch('item_2', 'second query', { type: 'search', query: 'second query' }),
+        COMMAND,
+      );
+      child.stdout.emit('data', second.slice(0, 30));
+      expect(searches).toHaveLength(1);
+      child.stdout.emit('data', second.slice(30));
+      expect(searches.map((s) => s.query)).toEqual(['first query', 'second query']);
+
+      const last = jsonl(agentMessage('item_10', 'done'), completed({ output_tokens: 1 }));
+      child.stdout.emit('data', last);
+      child.exit(null, first + second + last);
+      const res = await pending;
+
+      expect(searches.map((s) => s.query)).toEqual(['first query', 'second query']);
+      expect(res.envelope).toMatchObject({ isError: false, result: 'done' });
+    });
+
+    it('audits a last line that came with no newline once the run settles, even a run that died', async () => {
+      const child = mockStreamingChild();
+      const searches: WebSearchAudit[] = [];
+      const pending = new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        onWebSearch: (search) => searches.push(search),
+      }).invoke('gpt-5-codex', 'do it');
+
+      const printed = jsonl(THREAD) + JSON.stringify(webSearch('item_1', 'unterminated query'));
+      child.stdout.emit('data', printed);
+      expect(searches).toEqual([]);
+      child.exit(Object.assign(new Error('killed'), { killed: true, code: 1 }), printed);
+      await pending;
+
+      expect(searches.map((s) => s.query)).toEqual(['unterminated query']);
+    });
+
+    it('settles the run even when the audit sink throws on that last line', async () => {
+      const child = mockStreamingChild();
+      const pending = new CodexCliModel({
+        repo: '/work/sbx',
+        platform: 'linux',
+        onWebSearch: () => {
+          throw new Error('events table is locked');
+        },
+      }).invoke('gpt-5-codex', 'do it');
+
+      const printed = JSON.stringify(webSearch('item_1', 'unterminated query'));
+      child.stdout.emit('data', printed);
+      expect(() => child.exit(Object.assign(new Error('exit 1'), { code: 1 }), printed)).toThrow(
+        'events table is locked',
+      );
+
+      await expect(pending).resolves.toMatchObject({ exitCode: 1, envelope: null });
     });
   });
 });
