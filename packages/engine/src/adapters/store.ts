@@ -41,6 +41,15 @@ export class SqliteFiringStore implements StorePort {
   ) {}
 
   recordFiring(record: FiringRecord): void {
+    // One transaction, so the record is saved whole or not at all. runFiring
+    // catches a failed save and the flight goes on (FAILURE-DOCTRINE row 87);
+    // with two bare INSERTs, a metrics row the table refused left the event
+    // row behind, and on a firing_id collision that orphan joined the first
+    // firing's metrics row a second time in every metrics⋈events reader.
+    this.store.db.transaction(() => this.insertRecord(record))();
+  }
+
+  private insertRecord(record: FiringRecord): void {
     const createdAt = this.now();
     const firingId = firingIdOf(this.projectId, record.firing, this.instanceId);
 
