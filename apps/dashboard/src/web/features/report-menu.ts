@@ -104,8 +104,41 @@ export function reportMenuJs(): string {
   return `
 var REPORT_MENU_EDITABLE_SELECTOR = ${JSON.stringify(REPORT_MENU_EDITABLE_SELECTOR)};
 // Composer language doctrine, rule 2: the choosable report languages are the
-// dashboard's own locales, each named in its own script.
-var REPORT_LANGUAGE_LABELS = ${JSON.stringify(LOCALE_LABELS)};
+// dashboard's own locales, each named in its own script, plus "Same as my
+// note" (rule 1's behaviour, kept for any language, so a Chinese note can
+// still get a Chinese report). Hoisted functions, not a var: the CONNECT
+// popover's report form (features/connect.ts) builds its select with them
+// too, and runs earlier in the same /panels.js concatenation, before a var
+// here would be assigned. The note option and the tip carry their STRINGS
+// keys, so translateDom() retranslates a select built before the locale
+// tables landed (a caller that builds its label early tags it the same way).
+function reportLanguageSelect(id) {
+  var labels = ${JSON.stringify(LOCALE_LABELS)};
+  var sel = document.createElement('select');
+  sel.id = id;
+  sel.dataset.i18nTip = 'reportLanguageTip';
+  sel.setAttribute('data-tip', tr('reportLanguageTip'));
+  var noteOpt = document.createElement('option');
+  noteOpt.value = '';
+  noteOpt.dataset.i18n = 'reportLanguageNote';
+  noteOpt.textContent = tr('reportLanguageNote');
+  sel.appendChild(noteOpt);
+  Object.keys(labels).forEach(function (code) {
+    var opt = document.createElement('option');
+    opt.value = code;
+    opt.lang = code;
+    opt.textContent = labels[code];
+    sel.appendChild(opt);
+  });
+  reportLanguageFollowPage(sel);
+  return sel;
+}
+// The page's own locale when it is a choosable one, English otherwise.
+function reportLanguageFollowPage(sel) {
+  var pageLang = document.documentElement.lang;
+  var known = Array.prototype.some.call(sel.options, function (o) { return o.value !== '' && o.value === pageLang; });
+  sel.value = known ? pageLang : 'en';
+}
 // reportActionLabel/reportConfirmMessage/reportExecuteResult/reportExecuteTip
 // are generated FROM web/report-panel.ts (real compiled source via
 // .toString(), not a hand-retyped copy) — the same preview/confirm/execute
@@ -398,23 +431,8 @@ function paintReportDialog(pid, capture) {
   langLabel.setAttribute('for', langId);
   langLabel.textContent = tr('reportLanguageLabel');
   dialog.appendChild(langLabel);
-  var langSel = document.createElement('select');
-  langSel.id = langId;
+  var langSel = reportLanguageSelect(langId);
   langSel.className = 'report-language';
-  langSel.setAttribute('data-tip', tr('reportLanguageTip'));
-  var noteLangOpt = document.createElement('option');
-  noteLangOpt.value = '';
-  noteLangOpt.textContent = tr('reportLanguageNote');
-  langSel.appendChild(noteLangOpt);
-  Object.keys(REPORT_LANGUAGE_LABELS).forEach(function (code) {
-    var langOpt = document.createElement('option');
-    langOpt.value = code;
-    langOpt.lang = code;
-    langOpt.textContent = REPORT_LANGUAGE_LABELS[code];
-    langSel.appendChild(langOpt);
-  });
-  var pageLang = document.documentElement.lang;
-  langSel.value = Object.prototype.hasOwnProperty.call(REPORT_LANGUAGE_LABELS, pageLang) ? pageLang : 'en';
   dialog.appendChild(langSel);
   // LLM ISSUE COMPOSER 1/3 follow-up (board web-mtpzdrt1-lirsgh): the
   // backend (flight/report-compose.ts's composeReport, POST /api/report/
