@@ -3,8 +3,9 @@
 
 /**
  * KEEPER review panel, awaiting-approval affordance (board web-mto1tya3-57v8ig):
- * `.pr-review-approve-link` — the "🔓 Review & approve on GitHub" anchor an
- * awaiting-approval card renders in its actions row (`features/pr-review.ts`,
+ * `.pr-review-approve-link` — the "Review & approve on GitHub" anchor (led by
+ * the vendored lock-open icon) an awaiting-approval card renders in its
+ * actions row (`features/pr-review.ts`,
  * href from `awaitingApprovalChecksUrl`). It sits beside the
  * `.pr-review-human-merge` button and must read as that button's structural
  * twin: same needs-you outline shell, same hover/focus-visible wash. An

@@ -33,8 +33,11 @@ const RUNBOOK = readFileSync(join(DOCS_DIR, 'RUNBOOK.md'), 'utf8');
 const MASTER_PROMPT = readFileSync(join(DOCS_DIR, 'MASTER-PROMPT.md'), 'utf8');
 
 /** Glyphs the dashboard dropped that no terminal output prints either — a
- *  living doc quoting one can only be describing retired chrome. */
-const RETIRED_CHROME_GLYPHS = ['🖥', '🛡', '🔧', '🍀'];
+ *  living doc quoting one can only be describing retired chrome. 🔒/🔓 were
+ *  the KEEPER PR review card's awaiting-approval badge and its "Review &
+ *  approve on GitHub" link, which lead with the vendored lock and lock-open
+ *  icons now (`prReviewDecisionIcon`, `features/pr-review.ts`). */
+const RETIRED_CHROME_GLYPHS = ['🖥', '🛡', '🔧', '🍀', '🔒', '🔓'];
 
 describe('icon system docs refresh (epic 0025) — living docs name the current chrome', () => {
   it.each([
@@ -57,6 +60,13 @@ describe('icon system docs refresh (epic 0025) — living docs name the current 
     // flightGuardChip is a `{n} blocked` template; the doc writes its N.
     expect(en.flightGuardChip).toBe('{n} blocked');
     expect(RUNBOOK).toContain('**N blocked**');
+  });
+
+  it('RUNBOOK names the awaiting-approval badge and link by the words the card paints', () => {
+    // The badge text comes from STRINGS; the link's text is a literal in
+    // features/pr-review.ts, held by pr-review-maintainer-icons.test.ts.
+    expect(RUNBOOK).toContain(`"${STRINGS.en.prReviewAwaitingApprovalLabel}"`);
+    expect(RUNBOOK).toContain('"Review & approve on GitHub"');
   });
 
   it('the lucky button is described as the icon-only button it is, in both docs', () => {
