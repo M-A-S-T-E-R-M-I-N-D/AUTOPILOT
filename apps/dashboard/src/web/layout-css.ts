@@ -1921,6 +1921,7 @@ main:focus { outline: none; }
 .ask-fab:hover, .ask-fab:focus-visible { transform: translateY(-2px); border-radius: var(--shape-large-hover, 1.25rem); }
 .ask-fab:active { transform: translateY(0); box-shadow: var(--elevation-level-1); }
 .ask-fab[aria-expanded="true"] { background: var(--color-surface-raised); color: var(--color-accent); border: 1px solid var(--color-accent); }
+.ask-fab > .icon { inline-size: 1.5rem; block-size: 1.5rem; }
 .ask-sheet { position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 55; display: grid; grid-template-rows: auto 1fr auto; max-block-size: 70vh; background: var(--color-surface-raised); border-block-start: 1px solid var(--color-border); border-start-start-radius: var(--shape-large, 1rem); border-start-end-radius: var(--shape-large, 1rem); box-shadow: var(--elevation-level-3, var(--elevation-level-2)); padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-bottom)); }
 .ask-sheet[hidden] { display: none; }
 .ask-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-block-end: 1px solid var(--color-border); }

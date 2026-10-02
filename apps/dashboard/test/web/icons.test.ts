@@ -158,11 +158,28 @@ describe('server-printed chrome draws vendored icons (law 1)', () => {
     );
   });
 
+  // The Ask button printed Feather's message-circle by hand at 24px; it draws
+  // Lucide's vendored one now, sized by CSS at the same 1.5rem.
+  it('the Ask button prints the vendored message-circle and keeps its name', () => {
+    const page = new DOMParser().parseFromString(renderShell(), 'text/html');
+    const button = page.getElementById('ask-fab') as HTMLButtonElement;
+    expect(button).not.toBeNull();
+    expect(button.children).toHaveLength(1);
+    const icon = button.querySelector('svg.icon.icon-message-circle');
+    expect(icon).not.toBeNull();
+    expect(icon!.getAttribute('aria-hidden')).toBe('true');
+    expect(icon!.hasAttribute('width')).toBe(false);
+    expect(button.textContent).toBe('');
+    expect(button.getAttribute('aria-label')).toBe('Ask');
+    expect(button.getAttribute('data-i18n-aria')).toBe('askFab');
+    expect(layoutCss()).toContain('.ask-fab > .icon { inline-size: 1.5rem; block-size: 1.5rem; }');
+  });
+
   // Shrink-only: the subject rail's Feather-derived table (three link
-  // builders and the focus toggle), the lucky button's filled clover and the
-  // Ask button's Feather message-circle still print their own markup.
+  // builders and the focus toggle) and the lucky button's filled clover
+  // still print their own markup.
   it('hand-inlines no 24-unit icon outside the vendored set beyond the known sites', () => {
-    expect(handInlinedIconSites()).toEqual(['shell-html.ts: 4', 'shell.ts: 2']);
+    expect(handInlinedIconSites()).toEqual(['shell-html.ts: 4', 'shell.ts: 1']);
   });
 });
 
