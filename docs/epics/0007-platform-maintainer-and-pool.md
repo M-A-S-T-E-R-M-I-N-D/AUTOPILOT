@@ -854,7 +854,16 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    have loosened either; a new guard now fails if any file still on
    `BENIGN_FLIGHT` builds a `gh` write argv, so the next benign module that
    grows an executor fails a test instead of staying auto-mergeable; added in
-   `6716a753`),
+   `6716a753`), the npm-shim adapter security marker (`engine/src/adapters/
+   npm-shim.ts` added to `SECURITY_SENSITIVE_PATH_MARKERS` — `resolveNpmShim`
+   (epic 0036 finding 3) decides which program a Windows Codex lane launches in
+   place of `cmd.exe`, reading the node/entry pair out of npm's `.cmd` shim and
+   running node on it directly so the CLI's own argv reaches it unparsed; it
+   walks absolute PATH folders only and declines whenever it cannot read a shim
+   cleanly, but a PR that let the search fall back to the working directory, or
+   trusted a shim it could not fully read, would launch a file planted in the
+   flight's own target — the same defeat-a-safety-mechanism class
+   `engine/src/adapters/worktree.ts` above is flagged for; added in `e49f4bd7`),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do — the deleted-test
    guard above is a header-level fact, not a reading of the change), and
