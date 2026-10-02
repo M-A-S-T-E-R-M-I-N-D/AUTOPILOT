@@ -37,6 +37,17 @@ describe('resolveModelVendor', () => {
     expect(resolveModelVendor('devstral-2').vendor.name).toBe('Mistral AI');
   });
 
+  it('credits an OpenAI o-series id however it is written, and only where it starts the name', () => {
+    // A Codex lane can fly `o3` (AUTOPILOT_ENGINE_MODEL), and a bare `o3`
+    // matched none of the "o3-" style markers, so its firings went uncredited.
+    for (const id of ['o1', 'o3', 'O3', 'o3-pro', 'o4-mini', 'o5', 'openai/o3', 'ollama/o3']) {
+      expect(resolveModelVendor(id).vendor.id, id).toBe('openai');
+    }
+    // The same letters inside another publisher's name are not OpenAI's.
+    expect(resolveModelVendor('llama-o1-distill').vendor.id).toBe('meta');
+    expect(resolveModelVendor('turbo1-7b').confidence).toBe('unknown');
+  });
+
   it('admits ignorance instead of guessing', () => {
     const r = resolveModelVendor('some-model-7b');
     expect(r.confidence).toBe('unknown');
