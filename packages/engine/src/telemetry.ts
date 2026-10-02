@@ -200,18 +200,26 @@ export interface TaskProposal {
   readonly fromBacklog: boolean;
 }
 
-const PROPOSALS_RE = /^PROPOSALS:(\[.*\])\s*$/m;
+// Global for the same reason as METRICS_RE: the prompt asks for this line
+// DIRECTLY ABOVE the METRICS line and renders its own template at line start,
+// so a reply that quotes the template first must not have it read as a real
+// proposal (a board task titled "...") — the LAST match is the real one.
+const PROPOSALS_RE = /^PROPOSALS:(\[.*\])\s*$/gm;
 export const MAX_PROPOSALS = 5;
 const MAX_PROPOSAL_TITLE_CHARS = 200;
 
 /**
- * Extract the agent's `PROPOSALS:[…]` line (emitted when the operator's board
- * is empty): suggested next tasks across quality lenses, surfaced on the
+ * Extract the agent's last `PROPOSALS:[…]` line (emitted when the operator's
+ * board is empty): suggested next tasks across quality lenses, surfaced on the
  * dashboard for APPROVAL — the agent never enacts its own proposals. Defensive
  * like the METRICS parser: anything malformed yields [] and never throws.
  */
 export function parseProposalsLine(resultText: string): readonly TaskProposal[] {
-  const match = PROPOSALS_RE.exec(resultText);
+  // Same last-match walk as parseMetricsLine; it leaves `lastIndex` at 0.
+  let match: RegExpExecArray | null = null;
+  for (let m = PROPOSALS_RE.exec(resultText); m !== null; m = PROPOSALS_RE.exec(resultText)) {
+    match = m;
+  }
   // Stryker disable next-line ConditionalExpression: when `match` is null,
   // skipping this early return just defers to the `catch` below — `match[1]`
   // throws immediately on a null `match`, and that catch also returns `[]` — so
