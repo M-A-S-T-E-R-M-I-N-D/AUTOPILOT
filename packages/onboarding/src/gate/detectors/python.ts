@@ -13,6 +13,12 @@ import { tomlHasSection, iniHasSection, directCommand } from '../manifests.js';
  * `setup.cfg` — the last is where flake8 reads natively (it has no pyproject
  * support) and the section names differ there (`[tool:pytest]`, `[mypy]`).
  */
+
+/** The tool-owned config files pytest and mypy search before any shared
+ *  manifest, hidden twins included (pytest.toml and .pytest.toml since pytest 9.0). */
+const PYTEST_CONFIG_FILES = ['pytest.toml', '.pytest.toml', 'pytest.ini', '.pytest.ini'];
+const MYPY_CONFIG_FILES = ['mypy.ini', '.mypy.ini'];
+
 export const pythonDetector: EcosystemDetector = {
   id: 'python',
   detect(snap) {
@@ -34,7 +40,7 @@ export const pythonDetector: EcosystemDetector = {
     const gate: MutableGateCommands = {};
 
     const hasPytest =
-      snap.has('pytest.ini') ||
+      PYTEST_CONFIG_FILES.some((file) => snap.has(file)) ||
       snap.has('tox.ini') ||
       tomlHasSection(pyproject, 'tool.pytest') ||
       iniHasSection(setupCfg, 'tool:pytest') ||
@@ -46,7 +52,7 @@ export const pythonDetector: EcosystemDetector = {
     }
 
     if (
-      snap.has('mypy.ini') ||
+      MYPY_CONFIG_FILES.some((file) => snap.has(file)) ||
       tomlHasSection(pyproject, 'tool.mypy') ||
       iniHasSection(setupCfg, 'mypy')
     ) {

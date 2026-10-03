@@ -75,6 +75,24 @@ describe('pythonDetector', () => {
     expect(d?.evidence).toEqual(['setup.cfg']);
   });
 
+  it.each(['pytest.ini', '.pytest.ini', 'pytest.toml', '.pytest.toml'])(
+    'detects pytest from its own config file %s alone',
+    (file) => {
+      // pytest's documented search order opens with these four (pytest.toml and
+      // its hidden twin since pytest 9.0) — each is pytest's alone, even empty.
+      const d = pythonDetector.detect(snap(['setup.py', file]));
+      expect(d?.gate.test).toEqual({ bin: 'pytest', args: [], label: 'pytest' });
+      expect(d?.evidence).toEqual(['setup.py', 'pytest']);
+    },
+  );
+
+  it.each(['mypy.ini', '.mypy.ini'])('detects mypy from its own config file %s alone', (file) => {
+    // mypy looks for mypy.ini, then the hidden .mypy.ini, before pyproject/setup.cfg.
+    const d = pythonDetector.detect(snap(['setup.py', file]));
+    expect(d?.gate.typecheck).toEqual({ bin: 'mypy', args: ['.'], label: 'mypy .' });
+    expect(d?.evidence).toEqual(['setup.py', 'mypy']);
+  });
+
   it('records requirements.txt as evidence on its own', () => {
     const d = pythonDetector.detect(snap(['requirements.txt']));
     expect(d?.evidence).toEqual(['requirements.txt']);
