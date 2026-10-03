@@ -174,6 +174,18 @@ resolutions and failures by kind. That is a two-line reporting change inside
 `flightWatchdogTick`/`landWatchdogTick`/`FLYABLE_STATUSES`. Every acceptance criterion
 above still holds; no drift here.
 
+DOC-FRESHNESS re-check (2026-10-03): `control/cli.ts` moved again on 2026-10-03
+(`cef141ca`, epic 0036 "a fleet watchdog's flights fly on the watch's own engine") —
+fleet-mode `watch` now reads `AUTOPILOT_ENGINE`/`AUTOPILOT_ENGINE_MODEL` once at start
+(`firingEngineRequestFromEnv`) and carries that choice on every fleet spawn's
+`/api/fly` body (`watchFlyBody`), so a fleet-watchdog-initiated flight rides the
+watch's own engine instead of silently inheriting the dashboard's env. That is epic
+0036's own provider-routing concern (`docs/epics/0036-provider-parity.md`), not the
+watchdog: `flightWatchdogTick`/`landWatchdogTick`/`FLYABLE_STATUSES` and every
+acceptance criterion above are untouched — `createHttpSpawnFlight`'s posted body
+merely gained an optional `engine`/`engineModel` field. Same "grown past this spec's
+scope, watchdog contract unchanged" shape as every re-check above; no drift here.
+
 ## Related
 
 - `docs/epics/0001-parallel-flights.md` — the concurrency substrate (registry, locks,
