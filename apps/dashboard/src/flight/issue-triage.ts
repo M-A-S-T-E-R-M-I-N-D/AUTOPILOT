@@ -189,7 +189,8 @@ export const RESERVED_FOR_HUMANS_DAYS = 14;
  *  lands as `Status: Needs-Format`. */
 export const NEEDS_FORMAT_LABEL = 'status: needs-format';
 /** Epics are tracking issues with their own protocol (docs/epics) — never
- *  gated on the bug/feature templates. */
+ *  gated on the bug/feature templates. Read in any casing ({@link
+ *  carriedMark}), as the lucky roll reads it: a repo's label may read `Epic`. */
 const EPIC_LABEL = 'epic';
 /** The house taxonomy's `declined` (taxonomy-seed.ts): the maintainer has
  *  answered the issue no, the reason in a comment. It may stay open for the
@@ -758,7 +759,8 @@ export function planIssueTriage(
   // THE PROTOCOL GATE (after duplicate scoring, before boarding): a body
   // without the template's sections is not boarded — it is labeled and asked
   // ONCE; the next pass lifts the label by itself when the body conforms.
-  const exemptFromTemplate = labels.includes(EPIC_LABEL) || isMaintainerAuthored(issue, repoOwner);
+  const exemptFromTemplate =
+    carriedMark(labels, [EPIC_LABEL]) !== undefined || isMaintainerAuthored(issue, repoOwner);
   const gaps = exemptFromTemplate ? null : issueTemplateGaps(issue);
   if (gaps !== null) {
     const named = gaps.missing.map((heading) => `"${heading}"`).join(', ');
