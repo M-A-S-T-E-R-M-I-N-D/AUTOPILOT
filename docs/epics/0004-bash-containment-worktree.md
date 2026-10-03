@@ -353,6 +353,15 @@ prompt stays byte-identical. The change is confined to prompt-text construction 
 `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's
 snapshot/audit calls — it adds no new path into `target` and changes no worktree wiring.
 
+Freshness check (2026-10-03, later): `fly.ts` gained one more commit since the check above —
+`bb332810` (epic 0036), which lets a Gemini lane's own settings file carry the flight's turn cap:
+`buildGeminiFlightSettings` now takes a `maxTurns` argument and writes it as `model.maxSessionTurns`
+in the same system-settings file the guard hook already rides in, read back by the existing
+`verifyGuardSettings` call. `fly.ts`'s change is only the extra argument it passes at that one call
+site — not which file is written, where it is written, or how it is verified. It touches neither
+`deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's
+snapshot/audit calls — no new path into `target`, no worktree wiring change.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a
