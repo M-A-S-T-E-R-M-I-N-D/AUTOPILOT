@@ -192,11 +192,29 @@ export function localLinkTargets(markdown: string): readonly string[] {
  * suffix names a heading inside the target, not a file, and is stripped
  * first; a target that is nothing BUT an anchor (`"#top"` already rejected by
  * {@link isLocalTarget}, but a bare `"#"` reaching here) resolves to nothing.
+ *
+ * The target is read the way a renderer reads it — as a URL: a `?query` is
+ * stripped too (GitHub serves `shot.png?raw=true` as `shot.png`), and
+ * percent-escapes are decoded (`My%20Notes.md` opens `My Notes.md`). Taken
+ * literally, both named a file that does not exist, and the docs reader
+ * painted the working link "(broken link)". Decoding comes last, so an
+ * encoded `%23` or `%3F` stays part of the file name.
  */
 export function resolveLocalLinkPath(fromFile: string, target: string): string | null {
-  const path = target.split('#')[0];
-  if (path === undefined || path.length === 0) return null;
+  const path = decodePath(target.split('#')[0]?.split('?')[0] ?? '');
+  if (path.length === 0) return null;
   return normalize(join(dirname(fromFile), path));
+}
+
+/** `path` with its percent-escapes decoded. A `%` that does not start a valid
+ *  escape (`100%.md`) makes `decodeURIComponent` throw; that path was never
+ *  encoded, so it is kept as written. */
+function decodePath(path: string): string {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
 }
 
 /** Every local link inside `markdown` (found at `fromFile`), resolved to the
