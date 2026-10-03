@@ -30,6 +30,7 @@
 
 import type { CliExec } from '../connection/cli-probe.js';
 import { MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
+import { isMaintainerMarked } from './contributor-issue-list.js';
 
 /** The label `taxonomy-seed.ts` seeds for "tracks a docs/ROADMAP.md
  *  direction item" — the only label this module reads by. */
@@ -49,6 +50,17 @@ export interface RoadmapItem {
 /** True when `labels` carries the `roadmap` label. */
 export function isRoadmapItem(labels: readonly string[]): boolean {
   return labels.includes(ROADMAP_LABEL);
+}
+
+/** True when nobody holds the item and the maintainer has declined it or put
+ *  it on hold. The panel would show it as "Unclaimed" under "what the fleet is
+ *  flying and what's open to claim", while the help-wanted group beside it
+ *  (help-wanted-items.ts), the pool claim and the Good-first list all skip it
+ *  (epic 0019 law 2: the maintainer's mark outranks a listing). A marked item
+ *  someone holds stays listed: "Claimed by" is still true, and the holder's My
+ *  claims filter still finds it. */
+function isMarkedAndUnclaimed(item: RoadmapItem): boolean {
+  return item.assignees.length === 0 && isMaintainerMarked(item.labels);
 }
 
 /** One issue entry as `gh issue list --json number,title,url,labels,
@@ -74,7 +86,8 @@ interface RawRoadmapItem {
  * `number`, string `title`, or string `url` are dropped rather than passed
  * through malformed — a single bad row must not throw, because
  * `collaboration.ts` composes this read with `help-wanted-items.ts`'s and a
- * throw there would blank both panels.
+ * throw there would blank both panels. An unassigned issue the maintainer has
+ * declined or put on hold is dropped ({@link isMarkedAndUnclaimed}).
  */
 export async function fetchRoadmapItems(exec: CliExec): Promise<RoadmapItem[]> {
   const { code, stdout } = await exec('gh', [
@@ -114,5 +127,5 @@ export async function fetchRoadmapItems(exec: CliExec): Promise<RoadmapItem[]> {
       labels: parseIssueLabels(raw.labels),
       assignees: parseAssignees(raw.assignees),
     }))
-    .filter((item) => isRoadmapItem(item.labels));
+    .filter((item) => isRoadmapItem(item.labels) && !isMarkedAndUnclaimed(item));
 }

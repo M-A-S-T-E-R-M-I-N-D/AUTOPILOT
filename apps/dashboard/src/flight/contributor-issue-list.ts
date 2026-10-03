@@ -74,8 +74,9 @@ function tierForLabels(labels: readonly string[]): ContributorIssueTier | null {
 const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS].map(normalizeLabel);
 
 /** True when `labels` carry one of {@link MAINTAINER_MARKS}, in any casing or
- *  hyphenation. Exported so the Collaboration panel's help-wanted read
- *  (help-wanted-items.ts) skips the same issues this list does. */
+ *  hyphenation. Exported so the Collaboration panel's help-wanted and roadmap
+ *  reads (help-wanted-items.ts, roadmap-items.ts) skip the same issues this
+ *  list does. */
 export function isMaintainerMarked(labels: readonly string[]): boolean {
   return labels.some((label) => MAINTAINER_MARKS.includes(normalizeLabel(label)));
 }

@@ -8,7 +8,10 @@ import {
   ROADMAP_LABEL,
   type RoadmapItem,
 } from '../../src/flight/roadmap-items.js';
-import { MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
+import { HOLD_LABELS, MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
+import { DECLINED_LABEL, planClaimPoolIssue } from '../../src/flight/pool-client.js';
+import { fetchHelpWantedItems, HELP_WANTED_LABEL } from '../../src/flight/help-wanted-items.js';
+import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 describe('isRoadmapItem', () => {
@@ -211,5 +214,79 @@ describe('fetchRoadmapItems', () => {
         assignees: [],
       },
     ]);
+  });
+});
+
+// Epic 0019 additive-only law, the Collaboration panel's roadmap group × the
+// maintainer's marks. The help-wanted group in the same panel already drops an
+// unclaimed issue the maintainer declined or put on hold (help-wanted-items.ts,
+// 986cf9ed), as do the pool claim and the Good-first list. This read only
+// checked the `roadmap` label, so an issue carrying both labels and a mark
+// left the help-wanted group yet still showed as "Unclaimed" under Roadmap.
+describe("fetchRoadmapItems × the maintainer's declined and held issues (regression, epic 0019 additive-only law)", () => {
+  const seeded = (name: string) =>
+    HOUSE_TAXONOMY_LABELS.find((label) => label.name === name)?.name ?? '';
+  const marks = [seeded('declined'), seeded('status: awaiting-human'), seeded('status: blocked')];
+  const raw = (number: number, labels: readonly string[], assignees: readonly string[] = []) => ({
+    number,
+    title: `Issue ${number}`,
+    url: `https://github.com/example/repo/issues/${number}`,
+    labels: labels.map((name) => ({ name })),
+    assignees: assignees.map((login) => ({ login })),
+  });
+  const execFor = (rows: readonly ReturnType<typeof raw>[]): CliExec =>
+    vi.fn().mockResolvedValue({ code: 0, stdout: JSON.stringify(rows) });
+  const roadmap = async (rows: readonly ReturnType<typeof raw>[]) =>
+    (await fetchRoadmapItems(execFor(rows))).map((item) => item.number);
+  const helpWanted = async (rows: readonly ReturnType<typeof raw>[]) =>
+    (await fetchHelpWantedItems(execFor(rows))).map((item) => item.number);
+
+  it('reads the labels the pool claim skips on, as the seeder stamps them', () => {
+    expect(seeded(ROADMAP_LABEL)).toBe(ROADMAP_LABEL);
+    expect([DECLINED_LABEL, ...HOLD_LABELS]).toEqual(marks);
+  });
+
+  it.each(marks)(
+    'agrees with the help-wanted group and the claim on an unclaimed issue marked "%s"',
+    async (mark) => {
+      const open = ['pool: ux', ROADMAP_LABEL, HELP_WANTED_LABEL];
+      const marked = [...open, mark];
+      const issue = (labels: readonly string[]) => ({
+        number: 1,
+        title: 'Issue 1',
+        url: 'https://github.com/example/repo/issues/1',
+        labels,
+        assignees: [],
+      });
+
+      expect(planClaimPoolIssue(issue(open), 'octocat').decision).toBe('claim');
+      expect(await helpWanted([raw(1, open)])).toEqual([1]);
+      expect(await roadmap([raw(1, open)])).toEqual([1]);
+
+      expect(planClaimPoolIssue(issue(marked), 'octocat').decision).toBe('skip');
+      expect(await helpWanted([raw(1, marked)])).toEqual([]);
+      expect(await roadmap([raw(1, marked)])).toEqual([]);
+    },
+  );
+
+  it('matches a mark in any casing, as the help-wanted group does', async () => {
+    const rows = [raw(1, [ROADMAP_LABEL, HELP_WANTED_LABEL, 'Status: Blocked'])];
+
+    expect(await helpWanted(rows)).toEqual([]);
+    expect(await roadmap(rows)).toEqual([]);
+  });
+
+  it('keeps a marked issue someone already holds, so "Claimed by" and My claims still show it', async () => {
+    expect(await roadmap([raw(7, [ROADMAP_LABEL, DECLINED_LABEL], ['octocat'])])).toEqual([7]);
+  });
+
+  it('drops only the unclaimed marked issue and keeps the rest in gh order', async () => {
+    const rows = [
+      raw(4, [ROADMAP_LABEL]),
+      raw(2, [ROADMAP_LABEL, 'status: awaiting-human']),
+      raw(3, [ROADMAP_LABEL], ['hubot']),
+    ];
+
+    expect(await roadmap(rows)).toEqual([4, 3]);
   });
 });
