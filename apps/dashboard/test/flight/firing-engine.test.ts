@@ -12,6 +12,7 @@ import {
   firingEngineLine,
   firingEngineRequestFields,
   firingEngineRequestFromEnv,
+  firingEngineTurnCap,
 } from '../../src/flight/firing-engine.js';
 
 describe('firingEngineFromEnv', () => {
@@ -358,6 +359,17 @@ describe('firingConfigForEngine', () => {
   });
 });
 
+describe('firingEngineTurnCap', () => {
+  it('keeps the cap on Claude (--max-turns) and Gemini (model.maxSessionTurns)', () => {
+    expect(firingEngineTurnCap({ engine: 'claude' }, 120)).toBe(120);
+    expect(firingEngineTurnCap({ engine: 'gemini', model: 'gemini-2.5-pro' }, 120)).toBe(120);
+  });
+
+  it('drops it on Codex, whose CLI has no turn limit, so its prompt never names one', () => {
+    expect(firingEngineTurnCap({ engine: 'codex', model: 'gpt-5-codex' }, 120)).toBeUndefined();
+  });
+});
+
 describe('firingEngineLine', () => {
   it('adds nothing to a Claude flight log', () => {
     expect(firingEngineLine({ engine: 'claude' })).toBeNull();
@@ -369,6 +381,7 @@ describe('firingEngineLine', () => {
     expect(line).toContain('Model routing is off');
     expect(line).toContain('PreToolUse hook');
     expect(line).toContain('no cost is recorded');
+    expect(line).toContain('no turn cap, since Codex has no turn limit');
     expect(line).toContain(`${NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES} reverted firings in a row`);
   });
 
@@ -379,6 +392,7 @@ describe('firingEngineLine', () => {
     expect(line).toContain('BeforeTool hook');
     expect(line).toContain('trusted for this session');
     expect(line).toContain('no cost is recorded, since Gemini reports no price');
+    expect(line).not.toContain('no turn cap');
     expect(line).toContain(`${NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES} reverted firings in a row`);
   });
 
