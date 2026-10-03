@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 Status: In progress (re-checked 2026-10-03) — the Codex and Gemini adapters, the Bedrock/Vertex
 `AuthMode` values and the gate-failure demotion rule shipped by 0.57.0 (2026-10-02), and a lane flies on
 either CLI since that day (`AUTOPILOT_ENGINE`); the fly bar's engine picker, per-lane engine on a fleet
-launch, the flight row's engine name and the connect panel's endpoint/Bedrock/Vertex modes landed
+launch, the flight row's engine and backend names and the connect panel's endpoint/Bedrock/Vertex modes landed
 2026-10-03 (after the 0.57.0 tag, unreleased). The `endpoint` auth mode (0.49.0) and the Ollama
 adapter predate the epic, and Ollama is still the one-substep offload, not a lane. The Copilot CLI
 adapter is unstarted, blocked on a captured `--output-format=json` sample (its wire schema is
@@ -366,6 +366,15 @@ glance. A launch that chose no engine flies on the dashboard's env, and since 20
 names that engine too: `FlightRunnerDeps.inheritedEngine` reads the dashboard's own
 `AUTOPILOT_ENGINE` through `firingEngineRequestFromEnv` (`server/main.ts`), for the status only, so
 the child and the preflight still get no engine of their own. Unset, the row names none, as before.
+Since 2026-10-03 a Claude flight's row also names the backend its CLI is routed to, GitHub #21
+slice S1's provider chip: "· Claude Code (Amazon Bedrock)", or an endpoint by its host, "· Claude
+Code (localhost:11434)". `FlightRunnerDeps.claudeBackend` reads `connection.json` at launch, as the
+child reads it at its start, through `claudeBackendOf` (`connection/config.ts`), which judges it as
+`resolveClaudeEnv` routes it: an endpoint needs its base URL and Vertex its project, or the CLI flies
+Anthropic's own API and the row names no backend. `FlightStatus` carries `backend` and an endpoint's
+`backendHost`, the URL's host alone, never userinfo, a path or a query a hand-edited file could
+carry. A Codex or Gemini lane names none, since it never reads the file. The fleet view's lane cards
+do not name it yet.
 Since 2026-10-03 a flight the watchdog starts on its own flies on the watch's own
 engine. A single-folder `watch` always did, since its flight is a child that inherits the watch's
 env, but a fleet-mode spawn (`createHttpSpawnFlight` in `control/cli.ts`) rides the dashboard's

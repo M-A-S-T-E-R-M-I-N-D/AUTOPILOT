@@ -59,6 +59,31 @@ export function readConnectionConfig(path: string): AuthConfig {
   }
 }
 
+/** Where a Claude flight's `claude` CLI is routed instead of Anthropic's own
+ *  API (epic 0036), so the fly bar's row can say so. `host` is set for an
+ *  endpoint whose base URL parses, and is only its host: never userinfo, a
+ *  path or a query, which a hand-edited file could carry. */
+export interface ClaudeBackend {
+  readonly kind: 'endpoint' | 'bedrock' | 'vertex';
+  readonly host?: string;
+}
+
+/** The backend `resolveClaudeEnv` routes `auth` to, judged the way it is: an
+ *  endpoint needs its base URL and Vertex its project, or the CLI's env names
+ *  neither and it flies Anthropic's own API. Undefined for that API. */
+export function claudeBackendOf(auth: AuthConfig): ClaudeBackend | undefined {
+  if (auth.mode === 'bedrock') return { kind: 'bedrock' };
+  if (auth.mode === 'vertex') return auth.gcpProjectId ? { kind: 'vertex' } : undefined;
+  if (auth.mode !== 'endpoint' || !auth.baseUrl) return undefined;
+  let host = '';
+  try {
+    host = new URL(auth.baseUrl).host;
+  } catch {
+    // Unparseable: the CLI still gets it, so the backend is still named.
+  }
+  return host ? { kind: 'endpoint', host } : { kind: 'endpoint' };
+}
+
 /**
  * Owner-only ACL on Windows — the real counterpart of POSIX 0600, where
  * `chmod` is a documented no-op (security review row 5, 2026-09-06): a
