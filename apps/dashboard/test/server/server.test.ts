@@ -864,6 +864,68 @@ describe('createServer (live loopback)', () => {
     expect(called).toBe(false);
   });
 
+  // Epic 0036: one engine choice for every lane of a multi-lane launch.
+  it('POST /api/fleet hands the chosen engine and its model to the launcher, read as the env would be', async () => {
+    let received: unknown = null;
+    const base = await start({
+      fleetLaunch: async (args) => {
+        received = args;
+        return { ok: true, lines: [] };
+      },
+    });
+    const res = await fetch(`${base}/api/fleet`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        folder: '/work/a',
+        laneCount: 2,
+        engine: ' Codex ',
+        engineModel: ' gpt-5-codex ',
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(received).toMatchObject({ laneCount: 2, engine: 'codex', engineModel: 'gpt-5-codex' });
+  });
+
+  it('POST /api/fleet passes a Claude choice without a model, and no engine when none was chosen', async () => {
+    const received: unknown[] = [];
+    const base = await start({
+      fleetLaunch: async (args) => {
+        received.push(args);
+        return { ok: true, lines: [] };
+      },
+    });
+    for (const body of [{ folder: '/work/a', engine: 'claude' }, { folder: '/work/a' }]) {
+      await fetch(`${base}/api/fleet`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    }
+    expect(received[0]).toMatchObject({ engine: 'claude' });
+    expect(received[0]).not.toHaveProperty('engineModel');
+    expect(received[1]).not.toHaveProperty('engine');
+    expect(received[1]).not.toHaveProperty('engineModel');
+  });
+
+  it('POST /api/fleet 400s an engine no lane could fly, with the reason, before any lane starts', async () => {
+    let called = false;
+    const base = await start({
+      fleetLaunch: async () => {
+        called = true;
+        return { ok: true, lines: [] };
+      },
+    });
+    const res = await fetch(`${base}/api/fleet`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ folder: '/work/a', engine: 'gemini', engineModel: 'claude-sonnet-5' }),
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toContain('names a Claude model');
+    expect(called).toBe(false);
+  });
+
   it('POST /api/fleet rejects a non-JSON content-type (CSRF guard)', async () => {
     let called = false;
     const base = await start({

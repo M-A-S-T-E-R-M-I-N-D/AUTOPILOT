@@ -91,6 +91,47 @@ describe('createFleetLaunchApi', () => {
     expect(result.lines[1]).toContain('202 not started');
   });
 
+  it("starts every lane on the launch's engine and reports the dashboard's reason for a lane it refused", async () => {
+    // A lane refused at preflight (say, the Codex CLI is not on PATH) used to
+    // come back as a mute "409 not started": the CLI's loopback postFly
+    // forwarded the message, this in-process one dropped it.
+    dir = mkdtempSync(join(tmpdir(), 'fleet-launch-api-'));
+    const dbPath = join(dir, 'store.db');
+    const store = openStore(dbPath);
+    migrate(store);
+    store.close();
+
+    const starts: { engine?: string; engineModel?: string }[] = [];
+    const api = createFleetLaunchApi(
+      dbPath,
+      (body) => {
+        starts.push(body);
+        return {
+          started: false,
+          message: 'preflight refused: engine: the Codex CLI does not answer --version',
+          status: IDLE_STATUS,
+        } satisfies StartFlightResult;
+      },
+      0,
+    );
+
+    const result = await api({
+      folder: join(dir, 'repo'),
+      laneCount: 2,
+      firings: 1,
+      budgetUsd: 5,
+      engine: 'codex',
+      engineModel: 'gpt-5-codex',
+    });
+    expect(starts.map((s) => [s.engine, s.engineModel])).toEqual([
+      ['codex', 'gpt-5-codex'],
+      ['codex', 'gpt-5-codex'],
+    ]);
+    expect(result.lines[1]).toBe(
+      '  base: 409 not started — 0 task(s) reserved — preflight refused: engine: the Codex CLI does not answer --version',
+    );
+  });
+
   it('empty board still launches every lane with an empty scope (partition-then-pull, not idle)', async () => {
     dir = mkdtempSync(join(tmpdir(), 'fleet-launch-api-'));
     const dbPath = join(dir, 'store.db');
