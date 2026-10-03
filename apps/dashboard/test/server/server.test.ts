@@ -1579,6 +1579,59 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(404);
   });
 
+  it('POST /api/update/execute updates (200) and forwards the chosen strategy', async () => {
+    const seen: Array<string | undefined> = [];
+    const base = await start({
+      updateExecute: async (strategy) => {
+        seen.push(strategy);
+        return { ok: true, reason: 'updated' as const, details: '', restarting: true };
+      },
+    });
+    const res = await fetch(`${base}/api/update/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ strategy: 'stash' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, restarting: true });
+    expect(seen).toEqual(['stash']);
+  });
+
+  // A text/plain form post is a "simple" request: a page on any site can send
+  // it to the loopback port with no preflight. Its `{"strategy":"stash"…}`
+  // body is still valid JSON, so without this guard any page the operator
+  // visited could stash their uncommitted work and bounce the dashboard.
+  it.each<[string, Record<string, string>, string | null]>([
+    ['a text/plain JSON body', { 'content-type': 'text/plain' }, '{"strategy":"stash","x":"="}'],
+    ['a body-less post', {}, null],
+  ])(
+    'POST /api/update/execute refuses %s without updating (CSRF guard)',
+    async (_label, headers, body) => {
+      let called = false;
+      const base = await start({
+        updateExecute: async () => {
+          called = true;
+          return { ok: true, reason: 'updated' as const, details: '', restarting: true };
+        },
+      });
+      const res = await fetch(`${base}/api/update/execute`, { method: 'POST', headers, body });
+      expect(res.status).toBe(415);
+      expect(called).toBe(false);
+    },
+  );
+
+  it('POST /api/update/execute 413s an oversized body, not "invalid JSON"', async () => {
+    const base = await start({
+      updateExecute: async () => ({ ok: true, reason: 'updated' as const, details: '' }),
+    });
+    const res = await fetch(`${base}/api/update/execute`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ strategy: 'stash', pad: 'x'.repeat(70 * 1024) }),
+    });
+    expect(res.status).toBe(413);
+  });
+
   it('POST /api/github-sync/execute syncs (200) on a successful command (CSRF-guarded)', async () => {
     const base = await start({
       githubSyncExecute: async (pid) =>
