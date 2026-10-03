@@ -4465,7 +4465,11 @@ function renderProjectPage(state, pid) {
   for (var i = 0; i < list.length; i++) if (list[i].id === pid) c = list[i];
   if (!c) {
     var e = el('div', 'empty');
-    var notFoundH = el('h2', null, 'Project not found');
+    // A decorative no-results shape leads the words (epic 0025); the sweep's
+    // setSweptText() keeps it across a locale switch.
+    var notFoundH = el('h2', null);
+    notFoundH.appendChild(iconEl('search-x'));
+    notFoundH.appendChild(document.createTextNode('Project not found'));
     notFoundH.setAttribute('data-i18n', 'projectNotFound');
     e.appendChild(notFoundH);
     var notFoundP = el('p', 'muted', 'It may have been removed from the dashboard. Head back to the fleet.');
@@ -5061,7 +5065,11 @@ function renderFleetBody(state) {
         // active locale here and kept there by the per-tick translateDom()
         // sweep below. The demo command is a shell literal — same in every
         // locale — so it stays untagged on purpose.
-        var emptyTitle = el('h2', null, tr('fleetEmptyTitle'));
+        // The rail's Fleet icon, a grid with no cards in it yet, leads the
+        // words (epic 0025), decorative and kept by every later sweep.
+        var emptyTitle = el('h2', null);
+        emptyTitle.appendChild(iconEl('layout-grid'));
+        emptyTitle.appendChild(document.createTextNode(tr('fleetEmptyTitle')));
         emptyTitle.setAttribute('data-i18n', 'fleetEmptyTitle');
         empty.appendChild(emptyTitle);
         var emptyHint = el('p', 'muted', tr('fleetEmptyHint'));
