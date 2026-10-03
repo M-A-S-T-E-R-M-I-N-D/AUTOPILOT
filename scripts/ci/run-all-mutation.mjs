@@ -33,7 +33,7 @@
  *                  instead of running every config.
  */
 import { execFileSync, execSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -41,11 +41,13 @@ const ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const MUTATION_DIR = join(ROOT, 'config', 'mutation');
 const MUTATE_BLOCK_RE = /mutate:\s*\[([\s\S]*?)\]/;
 const QUOTED_ENTRY_RE = /'([^']+)'/g;
+const JSON_REPORT_RE = /jsonReporter:\s*\{\s*fileName:\s*'([^']+)'/;
 
 /** Every Stryker config under `dir`, paired with the repo-relative file(s)
  *  its `mutate` array names (`[]` when unparseable — full-sweep mode never
  *  depended on this array, only `--diff` mode does, and an unparseable array
- *  there just means that one config never matches a diff). */
+ *  there just means that one config never matches a diff), and the JSON
+ *  report it writes (`null` when it declares none; see {@link wasScored}). */
 export function discoverConfigs(dir = MUTATION_DIR) {
   // Stryker disable next-line MethodExpression: `.sort()` guards against a
   // filesystem whose readdir order is not lexical. Every filesystem this
@@ -60,7 +62,7 @@ export function discoverConfigs(dir = MUTATION_DIR) {
     const src = readFileSync(join(dir, file), 'utf8');
     const block = src.match(MUTATE_BLOCK_RE);
     const mutate = block ? Array.from(block[1].matchAll(QUOTED_ENTRY_RE), (m) => m[1]) : [];
-    return { file, mutate };
+    return { file, mutate, report: JSON_REPORT_RE.exec(src)?.[1] ?? null };
   });
 }
 
@@ -157,8 +159,28 @@ function touchedFilesSince(ref) {
  * Stryker exits 1 when a config lands below its break threshold — that is
  * the ONE failure this sweep is designed to produce, and it means a mutant
  * survived. Any other ending is infrastructure.
+ *
+ * But exit 1 is ALSO how Stryker stops when it never gets to score: "No
+ * tests were executed", a failed initial test run, a config error. Reading
+ * every exit 1 as a survivor filed those configs as tasks asking for tests
+ * to kill mutants no run had tested (2026-10-03). {@link wasScored} tells
+ * the two apart.
  */
 const STRYKER_BREAK_EXIT = 1;
+
+/**
+ * Whether a finished `stryker run` got as far as scoring, read from the JSON
+ * report the config declares (repo-relative, resolved against `root`).
+ * Stryker's JSON reporter writes only from `onMutationTestReportReady`, which
+ * fires once every mutant is scored and BEFORE the break threshold sets the
+ * exit code, so a scored run below the threshold leaves the report and a run
+ * that stopped early leaves none. The runner deletes the old report before
+ * each run, so the one on disk afterwards is this run's. A config that
+ * declares no report cannot say either way and keeps the old reading.
+ */
+export function wasScored(report, root = ROOT) {
+  return report === null || existsSync(join(root, report));
+}
 
 /** Why a `stryker run` failed, in a phrase an operator can act on.
  *
@@ -176,7 +198,7 @@ const STRYKER_BREAK_EXIT = 1;
  */
 const SIGKILL_EXIT = 137;
 
-export function mutationFailureReason(error) {
+export function mutationFailureReason(error, scored = true) {
   const signal = error?.signal ?? null;
   if (signal !== null)
     return `killed by ${signal} — the process died before scoring, so this is the environment (memory is the usual cause), not a surviving mutant`;
@@ -186,6 +208,11 @@ export function mutationFailureReason(error) {
   // confusion this function exists to end.
   if (status === SIGKILL_EXIT)
     return `exit ${SIGKILL_EXIT} — killed by SIGKILL (128 + 9): the process died before scoring, so this is the environment (memory is the usual cause), not a surviving mutant`;
+  // "below the break threshold" is the one phrase the board's task filer
+  // (apps/dashboard/src/control/mutation-red-tasks.ts) reads as a survivor;
+  // no other reason here may contain it.
+  if (status === STRYKER_BREAK_EXIT && !scored)
+    return 'exit 1 with no mutation report — stryker stopped before it could score (a config or test-setup error, such as "No tests were executed" or a failed initial test run), not a surviving mutant';
   if (status === STRYKER_BREAK_EXIT) return 'exit 1 — below the break threshold: a mutant survived';
   if (typeof status === 'number') return `exit ${status} — stryker failed before it could score`;
   return 'no exit code and no signal — stryker never ran';
@@ -234,9 +261,13 @@ function main() {
     process.exit(0);
   }
 
+  const reportOf = new Map(configs.map((c) => [c.file, c.report]));
   const failures = [];
   for (const [i, cfg] of scoped.entries()) {
     console.log(`\n[${i + 1}/${scoped.length}] stryker run ${cfg}`);
+    const report = reportOf.get(cfg) ?? null;
+    // An earlier run's report would read as this run having scored.
+    if (report !== null) rmSync(join(ROOT, report), { force: true });
     try {
       execSync(`npx stryker run ${join('config', 'mutation', cfg)}`, {
         windowsHide: true,
@@ -244,7 +275,7 @@ function main() {
         stdio: 'inherit',
       });
     } catch (error) {
-      const reason = mutationFailureReason(error);
+      const reason = mutationFailureReason(error, wasScored(report));
       failures.push({ file: cfg, reason });
       console.error(
         `run-all-mutation: FAILED — ${cfg}: ${reason} (continuing; summary at the end)`,
