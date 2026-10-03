@@ -30,6 +30,9 @@
  * measured CORE at ~1.6KB raw / ~700B gzip of headroom before this slice — a
  * follow-up slice adds the real translation keys once there's budget room
  * (the same deferral `contributor-standing.ts`'s own doc comment takes).
+ * The heading's own key came first: epic 0025 slice 2 builds it through
+ * `panelHeading()` with the `map` icon, which needs `collaborationTitle` to
+ * resolve, since the words come from `tr()` rather than an English default.
  */
 import { collaborationClaimStateLabel, isMyCollaborationClaim } from '../collaboration-panel.js';
 
@@ -85,9 +88,7 @@ function renderCollaborationPanel() {
   var empty = roadmap.length === 0 && helpWanted.length === 0;
   if (section.hidden !== empty) section.hidden = empty;
   if (empty) return;
-  var title = el('h3', 'collaboration-title', 'Collaboration');
-  title.setAttribute('data-i18n', 'collaborationTitle');
-  section.appendChild(title);
+  section.appendChild(panelHeading('h3', 'collaboration-title', 'collaborationTitle', 'map'));
   var audience = el('p', 'panel-audience', "What the fleet is flying and what's open to claim, and who already holds it.");
   audience.setAttribute('data-i18n', 'collaborationAudience');
   section.appendChild(audience);

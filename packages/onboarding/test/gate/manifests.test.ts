@@ -30,6 +30,17 @@ describe('safeJsonParse', () => {
   it('returns null when JSON.parse throws on malformed text', () => {
     expect(safeJsonParse('{not valid json')).toBeNull();
   });
+
+  it('parses text that starts with a UTF-8 byte order mark, as Node and npm do', () => {
+    // readFileSync(…, 'utf8') keeps the BOM and JSON.parse rejects it, while
+    // Node's own JSON loader strips it, so a BOM'd package.json still runs.
+    expect(safeJsonParse('\uFEFF{"a":1}')).toEqual({ a: 1 });
+  });
+
+  it('strips one leading byte order mark only, so a BOM anywhere else stays malformed', () => {
+    expect(safeJsonParse('\uFEFF\uFEFF{"a":1}')).toBeNull();
+    expect(safeJsonParse('{"a":1}\uFEFF')).toBeNull();
+  });
 });
 
 describe('packageScripts', () => {

@@ -700,6 +700,50 @@ describe('FlightRunner', () => {
       expect(spawned).toEqual([undefined]);
     });
 
+    // The fly bar's row names the engine a lane flies on, so the status a
+    // running flight serves carries the launch's own choice.
+    it('reports the chosen engine and its model in the running status', () => {
+      const { deps } = spyDeps();
+      const runner = new FlightRunner(deps);
+      const result = runner.start({
+        folder: '/work/a',
+        engine: 'gemini',
+        engineModel: 'gemini-2.5-pro',
+      });
+
+      expect(result.status).toMatchObject({ engine: 'gemini', engineModel: 'gemini-2.5-pro' });
+      expect(runner.status()).toMatchObject({ engine: 'gemini', engineModel: 'gemini-2.5-pro' });
+    });
+
+    it('reports a Claude choice with no model, since Claude reads none', () => {
+      const { deps } = spyDeps();
+      const runner = new FlightRunner(deps);
+      runner.start({ folder: '/work/a', engine: 'claude' });
+
+      expect(runner.status().engine).toBe('claude');
+      expect(runner.status()).not.toHaveProperty('engineModel');
+    });
+
+    it('reports no engine for a launch that chose none, whose child inherits the env', () => {
+      const { deps } = makeDeps();
+      const runner = new FlightRunner(deps);
+      runner.start({ folder: '/work/a' });
+
+      expect(runner.status().running).toBe(true);
+      expect(runner.status()).not.toHaveProperty('engine');
+      expect(runner.status()).not.toHaveProperty('engineModel');
+    });
+
+    it('drops the engine once the chosen flight exits', () => {
+      const { deps, child } = makeDeps();
+      const runner = new FlightRunner(deps);
+      runner.start({ folder: '/work/a', engine: 'codex', engineModel: 'gpt-5-codex' });
+
+      child.fireExit(0);
+
+      expect(runner.status()).toEqual(IDLE_STATUS);
+    });
+
     it('refuses an engine choice it cannot honour, before the preflight runs or a child spawns', () => {
       const { deps, spawned, judged } = spyDeps();
       const runner = new FlightRunner(deps);

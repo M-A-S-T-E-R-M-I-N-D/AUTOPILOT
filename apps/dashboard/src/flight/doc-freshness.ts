@@ -62,12 +62,24 @@ export const DOC_SUBJECTS: readonly DocSubjectEntry[] = [
   {
     // Active epic, slices 1-2 landed (connect panel + sync-any-project) with a
     // well-defined subject area — the `gh` probe/doctor and the connect
-    // panel's UI — so drift is watchable even with slices 3-5 still open.
+    // panel's UI. Narrowed 2026-10-03: epic 0036 (provider parity) started
+    // landing unrelated auth-mode work in the same directory AND the same
+    // file — connection/config.ts + connection/service.ts (2bea3407) store
+    // the endpoint/Bedrock/Vertex modes, and connect-panel.ts's
+    // connectModeMeta/connectRequestBody half (42df2d51) added their
+    // fieldsets — none of it GitHub, so watching the whole directory or the
+    // whole mixed-concern file drew false drift the same way epic 0002's
+    // entry above already explains. connect-panel.ts is dropped outright
+    // rather than narrowed: its gh half (ghStatusMeta, ghLtsMeta,
+    // githubIssueConfirmMessage, githubIssueExecuteResult,
+    // reportComposeStatusMeta) and its auth-mode half share one file, and
+    // file-level tracking cannot separate them.
     doc: 'docs/epics/0006-github-connected-mode.md',
     subjects: [
       'apps/dashboard/src/github/',
-      'apps/dashboard/src/connection/',
-      'apps/dashboard/src/web/connect-panel.ts',
+      'apps/dashboard/src/connection/gh-probe.ts',
+      'apps/dashboard/src/connection/gh-login.ts',
+      'apps/dashboard/src/connection/gh-lts.ts',
     ],
   },
   {

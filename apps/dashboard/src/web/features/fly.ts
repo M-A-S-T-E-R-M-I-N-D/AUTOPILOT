@@ -740,6 +740,17 @@ ${sessionFlightDataFor.toString()}
       statusText = f.totalBudgetUsd
         ? tr('flightRowFlyingTotal', { name: f.folder, total: f.totalBudgetUsd })
         : tr('flightRowFlyingFirings', { name: f.folder, count: f.firings || 1 });
+      // Epic 0036: the engine this lane's launch chose, so a fleet flying
+      // several CLIs reads at a glance. A launch that chose none flies on the
+      // dashboard's own AUTOPILOT_ENGINE and names none here.
+      var engineName = f.engine === 'codex' ? tr('engineCodex')
+        : f.engine === 'gemini' ? tr('engineGemini')
+          : f.engine === 'claude' ? tr('engineClaude') : '';
+      if (engineName) {
+        statusText += f.engineModel
+          ? tr('flightRowEngineModelSuffix', { engine: engineName, model: f.engineModel })
+          : tr('flightRowEngineSuffix', { engine: engineName });
+      }
       if (f.initiatedBy === 'fleet-watchdog') statusText += tr('flightRowWatchdogSuffix');
     } else if (f.queued) {
       statusText = tr('flightRowQueued', f.folder);
@@ -974,12 +985,8 @@ ${sessionFlightDataFor.toString()}
       setMsg(tr('socialPassSingleLane'), 'err');
       return;
     }
-    // /api/fleet carries no engine either, so the same refusal holds for it.
+    // The engine does ride /api/fleet: every lane flies on it.
     var engineChoice = engineEl ? engineEl.value : '';
-    if (lanes > 1 && engineChoice) {
-      setMsg(tr('engineSingleLane'), 'err');
-      return;
-    }
     var engineModel = engineModelEl ? engineModelEl.value.trim() : '';
     if (engineNeedsModel() && !engineModel) {
       setMsg(tr('engineModelNeeded'), 'err');
@@ -1004,14 +1011,20 @@ ${sessionFlightDataFor.toString()}
     );
     setMsg(tr('launching'), '');
     if (lanes > 1) {
+      var fleetBody = { folder: folder, laneCount: lanes, firings: firings, budgetUsd: budgetUsd };
+      if (engineChoice) fleetBody.engine = engineChoice;
+      if (engineNeedsModel()) fleetBody.engineModel = engineModel;
       fetch('/api/fleet', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ folder: folder, laneCount: lanes, firings: firings, budgetUsd: budgetUsd }),
+        body: JSON.stringify(fleetBody),
       })
         .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
         .then(function (res) {
-          lastMsg = (res.j && Array.isArray(res.j.lines)) ? res.j.lines.join(' · ') : (res.ok ? tr('fleetLaunched') : tr('fleetLaunchFailed'));
+          // A refused launch (400) answers with its reason as "error".
+          lastMsg = (res.j && Array.isArray(res.j.lines)) ? res.j.lines.join(' · ')
+            : (res.j && typeof res.j.error === 'string') ? res.j.error
+            : (res.ok ? tr('fleetLaunched') : tr('fleetLaunchFailed'));
           lastKind = (res.ok && res.j && res.j.ok !== false) ? 'ok' : 'err';
           poll();
         })

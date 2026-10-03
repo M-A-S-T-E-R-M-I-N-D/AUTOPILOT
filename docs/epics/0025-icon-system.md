@@ -318,6 +318,28 @@ propagation, and the filled style does not match the nav.
    the label beneath, muted on a plain zone and in the on-accent tone inside
    the lit one, and pointer events fall through to the zone rect and its tip.
    The populated e2e baselines and README frames still show the bare zones.
+   **Activity feed icons 2026-10-03 (law 1):** each activity feed row led
+   with a glyph from a hand-authored 16-unit set (`ACT_ICON_SHAPES`, stroked
+   at 1.3 by its own CSS rule), the last icons in `src/web/` drawn outside
+   `icons.ts`. The hand-inlined census only matches server-printed 24-unit
+   markup, so it never saw them. Each `narratorKind()` names a vendored
+   Lucide icon now (`ACT_ICONS`): the phase kinds take the live phase pill's
+   `compass`, `shield-check` and `git-commit-horizontal`, an edit the DO
+   phase's `pencil`, a search `search`, and a file read, a plain command and
+   any other tool a newly vendored `file-text`, `square-terminal` and `dot`.
+   `actIcon()` builds them through `iconEl()` in the 14px box the old glyphs
+   had, so the reasoning line's indent still clears them. The populated e2e
+   baselines and README frames still show the old glyphs. **Community
+   headings 2026-10-03 (slice 2):** Good first issues, Pool and Fleet
+   coordination lead with a stroke icon through `panelHeading()`, but the
+   Contributor standing and Collaboration panels built a bare `<h3>` tagged
+   with a STRINGS key that did not exist, so under Hebrew both stayed
+   English. They go through `panelHeading()` now, with newly vendored
+   `award` (standing earned rung by rung) and `map` (the roadmap and what is
+   open to claim) icons, and `contributorStandingTitle` and
+   `collaborationTitle` carry their words in both locales, apart from the
+   sections' aria-label keys, the way `contributorIssueListTitle` is
+   (`apps/dashboard/test/web/community-panel-headings.test.ts`).
 
 ## Related
 

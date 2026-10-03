@@ -16,6 +16,9 @@ import {
   type DiscussionTriageAccept,
 } from '../../src/flight/discussions-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
+import { HOLD_LABELS, planIssueTriage } from '../../src/flight/issue-triage.js';
+import { DECLINED_LABEL } from '../../src/flight/pool-client.js';
+import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 
 function discussion(overrides: Partial<IncomingDiscussion> = {}): IncomingDiscussion {
   return {
@@ -758,5 +761,88 @@ describe("the discussion reply and attribution.ts's one signature and one lever"
     expect(posted).toMatch(/^body=#9 /);
     expect(posted).not.toContain(SIGNATURE_MARK);
     expect(posted).not.toContain('on behalf of');
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the KEEPER
+// Discussions ritual × the maintainer's marks. A discussion takes the repo's
+// labels, so the maintainer can mark one `declined` or put it on hold
+// (`status: awaiting-human`, `status: blocked`) exactly as on an issue. Issue
+// triage never scores, labels or answers such an issue (issue-triage.ts
+// planIssueTriage, law 2). This ritual checked only locked, answered and its
+// own `pool: *` label, so it posted a reply and a pool label on it.
+describe("planDiscussionTriage × the maintainer's declined and held discussions (regression, epic 0019 additive-only law)", () => {
+  const seeded = (name: string) =>
+    HOUSE_TAXONOMY_LABELS.find((label) => label.name === name)?.name ?? '';
+  const marks = [seeded('declined'), seeded('status: awaiting-human'), seeded('status: blocked')];
+  const node = (id: string, number: number, labels: readonly string[]) => ({
+    id,
+    number,
+    title: 'Keyboard nav is broken in the fleet table',
+    body: 'Screen reader users are stuck',
+    isAnswered: false,
+    locked: false,
+    category: { name: 'Q&A' },
+    labels: { nodes: labels.map((name) => ({ name })) },
+  });
+
+  it('reads the labels issue triage holds on, as the seeder stamps them', () => {
+    expect([DECLINED_LABEL, ...HOLD_LABELS]).toEqual(marks);
+  });
+
+  it.each(marks)('skips a discussion marked "%s", as issue triage skips such an issue', (mark) => {
+    const issue = { number: 9, title: 'Keyboard nav is broken', body: 'Stuck', labels: [mark] };
+
+    expect(planIssueTriage(issue, [], []).decision).toBe('skip');
+    expect(planDiscussionTriage(discussion()).decision).toBe('accept');
+
+    const decision = planDiscussionTriage(discussion({ labels: [mark] }));
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain(`"${mark}"`);
+  });
+
+  it.each(marks)(
+    'posts no reply and no pool label on a discussion marked "%s", while the unmarked one beside it is answered',
+    async (mark) => {
+      const exec: CliExec = vi
+        .fn()
+        .mockResolvedValueOnce({
+          code: 0,
+          stdout: discussionsGraphql([node('D_marked', 8, [mark]), node('D_open', 9, [])]),
+        })
+        .mockResolvedValueOnce({ code: 0, stdout: labelGraphql('LA_a11y') })
+        .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) })
+        .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) });
+
+      const result = await runDiscussionTriageRitual(exec, 'gabibi555');
+
+      expect(exec).toHaveBeenCalledTimes(4);
+      const sent = (vi.mocked(exec).mock.calls as [string, readonly string[]][]).map(([, args]) =>
+        args.join(' '),
+      );
+      expect(sent.filter((args) => args.includes('D_marked'))).toEqual([]);
+      expect(sent[2]).toContain('discussionId=D_open');
+      expect(sent[3]).toContain('labelableId=D_open');
+      expect(result.plans.map((plan) => plan.decision.decision)).toEqual(['skip', 'accept']);
+      expect(result.outcomes.map((outcome) => outcome.discussionNumber)).toEqual([9]);
+    },
+  );
+
+  it('names the mark, not the pool label, on a held discussion an earlier pass labeled', () => {
+    const decision = planDiscussionTriage(
+      discussion({ labels: ['pool: accessibility', 'status: blocked'] }),
+    );
+
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain('"status: blocked"');
+  });
+
+  it('still names locked and answered first, as before', () => {
+    expect(
+      planDiscussionTriage(discussion({ locked: true, labels: ['declined'] })).reasoning,
+    ).toContain('locked');
+    expect(
+      planDiscussionTriage(discussion({ isAnswered: true, labels: ['declined'] })).reasoning,
+    ).toContain('chosen answer');
   });
 });

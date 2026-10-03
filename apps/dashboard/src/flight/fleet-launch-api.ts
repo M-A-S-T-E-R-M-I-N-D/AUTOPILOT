@@ -17,14 +17,14 @@
 import { openStore, recentTasks } from '@autopilot/store';
 import {
   runFleetLaunch,
-  type FleetCliArgs,
+  type FleetLaunchArgs,
   type FleetLaunchPostBody,
   type FleetLaunchResult,
 } from './fleet-launch.js';
 import { deriveFlyProjectId } from './lock.js';
 import type { StartFlightResult } from './runner.js';
 
-export type FleetLaunchApi = (args: FleetCliArgs) => Promise<FleetLaunchResult>;
+export type FleetLaunchApi = (args: FleetLaunchArgs) => Promise<FleetLaunchResult>;
 
 /**
  * `startFlight` is the live `FlightApi.start` — called directly, in-process,
@@ -54,11 +54,15 @@ export function createFleetLaunchApi(
           store.close();
         }
       },
+      // The dashboard's own words ride along, as the CLI's loopback postFly
+      // forwards them: a lane refused at preflight (an engine CLI missing from
+      // PATH) otherwise reads as a mute "409 not started".
       postFly: (body) => {
         const result = startFlight(body);
         return Promise.resolve({
           status: result.started ? 200 : result.queued ? 202 : 409,
           started: result.started,
+          message: result.message,
         });
       },
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),

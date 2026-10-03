@@ -1410,6 +1410,10 @@ const EN_STRINGS = {
   // with the sprout icon) — distinct from contributorIssueListPanel above,
   // which stays the section's aria-label.
   contributorIssueListTitle: 'Good first issues',
+  // The same split for the Contributor standing and Collaboration panels:
+  // each h3 heading (panelHeading(), award and map icons) has its own key.
+  contributorStandingTitle: 'Contributor standing',
+  collaborationTitle: 'Collaboration',
   // APP SHELL (epic 0021): the subject navigation — a bottom bar on a phone,
   // a rail from tablet width up. Each subject is a place in the app.
   subjectNav: 'Sections',
@@ -1841,6 +1845,11 @@ const EN_STRINGS = {
   flightRowFlyingTotal: 'Flying {name} — up to ${total} total',
   flightRowFlyingFirings: 'Flying {name} — {count} firing(s)',
   flightRowWatchdogSuffix: ' (fleet-watchdog)',
+  // The engine a running row's launch chose (epic 0036): `{engine}` is the
+  // Engine select's own `engineClaude`/`engineCodex`/`engineGemini` name, and
+  // `{model}` the model a Codex or Gemini lane runs.
+  flightRowEngineSuffix: ' · {engine}',
+  flightRowEngineModelSuffix: ' · {engine} ({model})',
   flightRowQueued: 'Queued: {name} — waiting for a flight slot',
   pauseFlightOn: 'Pause the flight on {name}',
   stopFlightOn: 'Stop the flight on {name}',
@@ -1867,8 +1876,6 @@ const EN_STRINGS = {
     'Lanes launch with a fixed firing count — switch off total-spend mode first.',
   socialPassSingleLane:
     'The social pass choice applies to a single-lane flight — set Lanes to 1 or the social pass to default.',
-  engineSingleLane:
-    'The engine choice applies to a single-lane flight — set Lanes to 1 or the engine to default.',
   engineModelNeeded: 'Codex and Gemini need the model that CLI runs — fill in Engine model.',
   fleetLaunched: 'Fleet launched.',
   fleetLaunchFailed: 'Fleet launch failed.',
@@ -2984,6 +2991,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     collaborationPanel: 'שיתוף פעולה',
     contributorHowToClaim: 'איך תופסים משימה',
     contributorIssueListTitle: 'בעיות טובות למתחילים',
+    contributorStandingTitle: 'מעמד תורמים',
+    collaborationTitle: 'שיתוף פעולה',
     subjectNav: 'אזורים',
     subjectFleet: 'צי',
     subjectOverview: 'סקירה',
@@ -3355,6 +3364,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightRowFlyingTotal: 'בטיסה על {name} — עד ${total} בסך הכול',
     flightRowFlyingFirings: 'בטיסה על {name} — {count} הפעלות',
     flightRowWatchdogSuffix: ' (fleet-watchdog)',
+    flightRowEngineSuffix: ' · {engine}',
+    flightRowEngineModelSuffix: ' · {engine} ({model})',
     flightRowQueued: 'בתור: {name} — ממתין למקום טיסה פנוי',
     pauseFlightOn: 'השהיית הטיסה על {name}',
     stopFlightOn: 'עצירת הטיסה על {name}',
@@ -3380,8 +3391,6 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     lanesFixedFiringCount: 'נתיבים משוגרים עם מספר הפעלות קבוע — כבו קודם את מצב ההוצאה הכוללת.',
     socialPassSingleLane:
       'בחירת המעבר החברתי חלה על טיסה בנתיב בודד — הגדירו נתיבים ל-1 או את המעבר החברתי לברירת מחדל.',
-    engineSingleLane:
-      'בחירת המנוע חלה על טיסה בנתיב בודד — הגדירו נתיבים ל-1 או את המנוע לברירת מחדל.',
     engineModelNeeded: 'Codex ו-Gemini צריכים את המודל שה-CLI מריץ — מלאו את מודל המנוע.',
     fleetLaunched: 'הצי שוגר.',
     fleetLaunchFailed: 'שיגור הצי נכשל.',

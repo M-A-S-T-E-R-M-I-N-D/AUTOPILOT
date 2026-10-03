@@ -50,7 +50,13 @@
 import { type Dimension } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { attributionEnabled, conversationSignature } from './attribution.js';
-import { classifyIssueDimension, parseIssueLabels, POOL_LABEL_PREFIX } from './issue-triage.js';
+import {
+  classifyIssueDimension,
+  HOLD_LABELS,
+  parseIssueLabels,
+  POOL_LABEL_PREFIX,
+} from './issue-triage.js';
+import { DECLINED_LABEL } from './pool-client.js';
 
 /** The subset of a GitHub Discussion this policy needs — title/body/category
  *  plus the two states (`isAnswered`, `locked`) that decide whether a reply
@@ -99,6 +105,14 @@ export interface DiscussionTriageSkip {
 
 export type DiscussionTriageDecision = DiscussionTriageAccept | DiscussionTriageSkip;
 
+/** The maintainer's own marks, from the house taxonomy (taxonomy-seed.ts):
+ *  answered no ({@link DECLINED_LABEL}), or on hold until they lift it by
+ *  hand ({@link HOLD_LABELS}). A discussion takes the repo's labels, so it can
+ *  carry them exactly as an issue does, and issue triage never scores, labels
+ *  or answers an issue that does (epic 0019 law 2: the maintainer's mark
+ *  outranks triage). Matched exactly, as issue triage matches them. */
+const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS];
+
 /**
  * Decides what a KEEPER Discussions pass should do with one open discussion:
  * classifies it into a pool {@link Dimension} via {@link
@@ -108,8 +122,9 @@ export type DiscussionTriageDecision = DiscussionTriageAccept | DiscussionTriage
  * A locked discussion plans `'skip'` first — GitHub would reject any reply
  * regardless of classification. An already-answered discussion (a human
  * chose an answer) plans `'skip'` next — no autopilot reply is owed once a
- * human's answer already satisfies the asker. A discussion already carrying
- * a `pool: *` label from a previous pass plans `'skip'` last, the same
+ * human's answer already satisfies the asker. One the maintainer has marked
+ * ({@link MAINTAINER_MARKS}) plans `'skip'` after that. A discussion already
+ * carrying a `pool: *` label from a previous pass plans `'skip'` last, the same
  * idempotency marker {@link POOL_LABEL_PREFIX} gives issues, reused here
  * since Discussions share the same repo label set. Pure: never fetches or
  * replies — a caller wires those once this decision is made, and no reply
@@ -135,6 +150,17 @@ export function planDiscussionTriage(discussion: IncomingDiscussion): Discussion
   }
 
   const labels = discussion.labels ?? [];
+  const mark = MAINTAINER_MARKS.find((label) => labels.includes(label));
+  if (mark) {
+    return {
+      decision: 'skip',
+      reasoning:
+        `#${discussion.number} "${discussion.title}" carries "${mark}" — the maintainer has ` +
+        'answered it or put it on hold by hand, so KEEPER must not label or answer it until ' +
+        'they lift it.',
+    };
+  }
+
   const poolLabel = labels.find((label) => label.startsWith(POOL_LABEL_PREFIX));
   if (poolLabel) {
     return {
