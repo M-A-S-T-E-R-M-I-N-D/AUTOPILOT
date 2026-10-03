@@ -258,6 +258,23 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    duplicate answer, a boarding and a two-issue ritual, with `possible
    duplicate`, `duplicate?` and `duplicate-of-12` still triaged (written
    first, 5 of 6 new checks failed).
+   The template gate's own label followed the same day (7fbda7ec, epic 0019's
+   additive-only law, the templates flow). Triage labels an off-template
+   issue `status: needs-format` and replies once; a later pass reads the label
+   to stay quiet, and the accepting edit lifts it once the body conforms. Both
+   reads matched the seeder's spelling exactly, and gh resolves the write in
+   any casing, so on a repo whose label reads `Status: Needs-Format` every
+   later pass asked the reporter again and a fixed body was boarded with the
+   label still on it. `planIssueTriage` and `planIssueTriageCommands` now read
+   it through `carriedMark`: the skip names the label as the issue carries
+   it, and the accepting edit removes that spelling. The label KEEPER writes
+   is still `status: needs-format`, and the change only narrows what triage
+   writes. Covered by `test/flight/issue-triage-needs-format-casing.test.ts`
+   — three spellings against a waiting issue and a fixed body, the seeder's
+   spelling still lifted, a two-issue ritual that writes only on the
+   unlabeled issue, and `needs-format`, `status: needs-format-review` and
+   `status: format` still gated and never removed (written first, 7 of 10
+   checks failed).
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure
