@@ -405,8 +405,14 @@ child reads it at its start, through `claudeBackendOf` (`connection/config.ts`),
 `resolveClaudeEnv` routes it: an endpoint needs its base URL and Vertex its project, or the CLI flies
 Anthropic's own API and the row names no backend. `FlightStatus` carries `backend` and an endpoint's
 `backendHost`, the URL's host alone, never userinfo, a path or a query a hand-edited file could
-carry. A Codex or Gemini lane names none, since it never reads the file. The fleet view's lane cards
-do not name it yet.
+carry. A Codex or Gemini lane names none, since it never reads the file. Since 2026-10-04 the live
+lane cards name it too, the rest of slice S1's "provider chip in the fly bar + lane cards": each card
+carries a chip with its lane's CLI and, for Claude, its backend ("Claude Code (Amazon Bedrock)",
+"Codex"), a Codex or Gemini model being the model chip's beside it. The cards are built from the
+store, which knows nothing of the registry, so `withLaneEngines` (`read/lane-engines.ts`) merges each
+running flight's engine and backend into its project's card as `laneEngines`, in `server/main.ts`'s
+`readState`, keyed as `firingIdOf` keys the lane's firing ids (`<project>--<instanceId>`, or the bare
+project for the base flight). A lane whose flight names no engine shows no chip, as its row names none.
 Since 2026-10-03 a flight the watchdog starts on its own flies on the watch's own
 engine. A single-folder `watch` always did, since its flight is a child that inherits the watch's
 env, but a fleet-mode spawn (`createHttpSpawnFlight` in `control/cli.ts`) rides the dashboard's

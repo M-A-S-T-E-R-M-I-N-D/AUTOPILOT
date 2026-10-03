@@ -1269,6 +1269,16 @@ const EN_STRINGS = {
   // live-worker card's liveTurnsTip (that one also covers a turn count and
   // progress-vs-average this compact card omits).
   liveElapsedTip: 'How long this lane has been running',
+  // The engine chip on a live lane's card (epic 0036, GitHub #21 slice S1):
+  // `{engine}` is the Engine select's own `engineClaude`/`engineCodex`/
+  // `engineGemini` name, and `{backend}` the backend a Claude lane's CLI is
+  // routed to (`authModeBedrock`/`authModeVertex`), or an endpoint's host.
+  // The tip rides [data-i18n-tip]; the aria prefix wraps the chip's text in
+  // its {name} slot and is swept as [data-i18n-aria-template].
+  laneEngineChip: '{engine} ({backend})',
+  laneEngineTip:
+    'The CLI this lane flies on — for Claude Code, also the backend its CLI is routed to',
+  laneEngineAria: 'engine: {name}',
   // The rest of liveWorkerCard()'s own lines (the tool/target line above was
   // the first): the "live" label rides [data-i18n], the static tips ride
   // [data-i18n-tip], and the lines that wrap a live value — the phase pill's
@@ -2895,6 +2905,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     liveTargetTip: 'הקובץ, הפקודה או היעד שקריאת הכלי הזו נגעה בהם',
     liveTargetAria: 'יעד: {name}',
     liveElapsedTip: 'כמה זמן המסלול הזה פועל',
+    laneEngineChip: '{engine} ({backend})',
+    laneEngineTip: 'ה-CLI שהנתיב הזה טס עליו — ב-Claude Code, גם השרת שאליו ה-CLI שלו מנותב',
+    laneEngineAria: 'מנוע: {name}',
     liveLabel: 'חי — הפעלה בעיצומה',
     livePhaseAria: 'שלב נוכחי: {name}',
     liveNarratorTip: 'הסיכום של AUTOPILOT עצמו, במשפט אחד, לפעולה האחרונה שלו בהפעלה הזו',
