@@ -13,7 +13,9 @@
  * resolve to aliases neither CLI can run, and the flight's other Claude
  * calls (the commit reviewer, the merge-escalation agent) keep using them.
  * Unset, or `claude`, nothing changes. A setting this cannot honour refuses
- * the flight instead of flying Claude unasked.
+ * the flight instead of flying Claude unasked. A dashboard launch can choose
+ * the engine for its own flight instead (`firingEngineFromRequest`), which
+ * reaches the child as the same two variables (`firingEngineEnv`).
  */
 
 import {
@@ -97,6 +99,62 @@ export function firingEngineFromEnv(env: NodeJS.ProcessEnv): FiringEngineChoice 
     };
   }
   return { ok: true, route: { engine, model } };
+}
+
+/** The longest model name a launch request may carry: room for a provider
+ *  prefix and a dated suffix, short of an unbounded env var. */
+const MAX_REQUESTED_MODEL_CHARS = 128;
+
+/** The characters model ids use (`gpt-5-codex`, `ollama/gemma3:27b`,
+ *  `gpt-5@2026-01`), and none a shell or cmd.exe reads as syntax. */
+const REQUESTED_MODEL = /^[A-Za-z0-9._:/@-]+$/;
+
+/** A launch request's engine choice: `route` is `undefined` when it named
+ *  none, and the child then inherits this process's env. */
+export type FiringEngineRequest =
+  | { readonly ok: true; readonly route: FiringEngineRoute | undefined }
+  | { readonly ok: false; readonly reason: string };
+
+/**
+ * Reads the engine a launch request chose (`StartFlightInput.engine` and
+ * `engineModel`). Both come straight off an HTTP body, so neither is trusted.
+ * The child reads the pair as `AUTOPILOT_ENGINE` and `AUTOPILOT_ENGINE_MODEL`,
+ * so a chosen engine meets every refusal `firingEngineFromEnv` makes, here,
+ * before a child exists to refuse it. A malformed model is refused even
+ * beside `claude`, which reads none: untrusted input is judged for what it
+ * carries, not only for what this launch happens to use.
+ */
+export function firingEngineFromRequest(engine: unknown, model: unknown): FiringEngineRequest {
+  if (engine !== undefined && typeof engine !== 'string') {
+    return { ok: false, reason: 'engine must be a string: claude, codex or gemini.' };
+  }
+  if (model !== undefined && typeof model !== 'string') {
+    return { ok: false, reason: 'engineModel must be a string.' };
+  }
+  const name = (engine ?? '').trim();
+  const modelName = (model ?? '').trim();
+  if (name === '') {
+    if (modelName === '') return { ok: true, route: undefined };
+    return {
+      ok: false,
+      reason: 'engineModel names a model only together with engine (codex or gemini).',
+    };
+  }
+  const tooLong = modelName.length > MAX_REQUESTED_MODEL_CHARS;
+  if (tooLong || (modelName !== '' && !REQUESTED_MODEL.test(modelName))) {
+    return {
+      ok: false,
+      reason: `engineModel must be one model name of at most ${MAX_REQUESTED_MODEL_CHARS} letters, digits, '.', '_', ':', '/', '@' or '-'.`,
+    };
+  }
+  return firingEngineFromEnv({ AUTOPILOT_ENGINE: name, AUTOPILOT_ENGINE_MODEL: modelName });
+}
+
+/** The env levers that fly a child on `route`, over whatever it inherits.
+ *  Claude is named outright, so an inherited `AUTOPILOT_ENGINE` cannot win. */
+export function firingEngineEnv(route: FiringEngineRoute): Record<string, string> {
+  if (route.engine === 'claude') return { AUTOPILOT_ENGINE: 'claude' };
+  return { AUTOPILOT_ENGINE: route.engine, AUTOPILOT_ENGINE_MODEL: route.model };
 }
 
 /** The config a lane's firings run under: Claude's untouched, or every model

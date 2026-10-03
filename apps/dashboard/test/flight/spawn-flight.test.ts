@@ -348,6 +348,65 @@ describe('createSpawnFlight', () => {
     });
   });
 
+  describe('engine choice (epic 0036, per-lane pilot)', () => {
+    const saved = {
+      engine: process.env['AUTOPILOT_ENGINE'],
+      model: process.env['AUTOPILOT_ENGINE_MODEL'],
+    };
+    afterEach(() => {
+      for (const [key, value] of [
+        ['AUTOPILOT_ENGINE', saved.engine],
+        ['AUTOPILOT_ENGINE_MODEL', saved.model],
+      ] as const) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    });
+
+    function spawnWith(engine?: Parameters<ReturnType<typeof createSpawnFlight>>[8]): object {
+      spawnMock.mockReturnValue(fakeChild());
+      createSpawnFlight('/repo/dist/fly.js', () => join(dir, 'flight.log'))(
+        '/target',
+        2,
+        5,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        engine,
+      );
+      const [, , options] = spawnMock.mock.calls[0] as [string, string[], { env: object }];
+      return options.env;
+    }
+
+    it('rides a chosen engine and its model as the env levers the flight reads, over inherited ones', () => {
+      process.env['AUTOPILOT_ENGINE'] = 'gemini';
+      process.env['AUTOPILOT_ENGINE_MODEL'] = 'gemini-2.5-pro';
+
+      expect(spawnWith({ engine: 'codex', model: 'gpt-5-codex' })).toMatchObject({
+        AUTOPILOT_ENGINE: 'codex',
+        AUTOPILOT_ENGINE_MODEL: 'gpt-5-codex',
+      });
+    });
+
+    it('names Claude outright when Claude was chosen, so an inherited engine cannot win', () => {
+      process.env['AUTOPILOT_ENGINE'] = 'codex';
+
+      expect(spawnWith({ engine: 'claude' })).toMatchObject({ AUTOPILOT_ENGINE: 'claude' });
+    });
+
+    it('leaves the inherited engine untouched when none was chosen', () => {
+      process.env['AUTOPILOT_ENGINE'] = 'codex';
+      process.env['AUTOPILOT_ENGINE_MODEL'] = 'gpt-5-codex';
+
+      expect(spawnWith()).toMatchObject({
+        AUTOPILOT_ENGINE: 'codex',
+        AUTOPILOT_ENGINE_MODEL: 'gpt-5-codex',
+      });
+    });
+  });
+
   describe('fleet gate-worker cap (MACHINE BUDGET in code, not prompt prose)', () => {
     // Why: three fleet instances once launched all-core test runs at the same
     // moment and starved the box until the dashboard process died, taking
