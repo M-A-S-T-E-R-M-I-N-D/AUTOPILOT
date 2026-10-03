@@ -207,6 +207,33 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    the maintainer lifts it by hand. Covered by `test/flight/issue-triage.test.ts`
    (one case per hold label, each asserting a skip whose reasoning names the
    issue and the label).
+   Refined 2026-10-03 (board web-mtsylqbd-q2rg8k, epic 0019 law 2: partner-
+   application dossier marks): `planIssueTriage`'s three hold checks above
+   (`declined`, `status: awaiting-human`, `status: blocked`) apply to ordinary
+   issues. Partner-application issues (labeled `partner-application`, the dossier
+   path) took a separate route: `planIssueTriage` returned a `'dossier'` decision
+   for any application, then `runIssueTriageRitual` fetched the applicant's
+   evidence and posted a public account dossier as the decision core. An
+   application the maintainer marked with any of the three labels still routed
+   into dossier planning and posted a dossier AFTER the maintainer had answered
+   or held it — the opposite of the promised rule "what the maintainer marks
+   outranks triage". `planIssueTriage` now checks for any of the three marks
+   on ALL issues, including partner applications, BEFORE any path branches: an
+   application carrying `declined`, `status: awaiting-human`, or
+   `status: blocked` plans a `'skip'` and never reaches the dossier route.
+   CONTRIBUTOR-STANDING.md now states that a declined or held application gets
+   no dossier until its mark is lifted. The check's side effect closes a
+   separate hole: a command-execution failure (e.g. a label edit failing because
+   the name was unseeded) used to leave later steps in the plan unrun with no
+   signal, so callers never learned which commands succeeded or which broke.
+   `IssueTriageCommandResult` now carries an optional `withheld: true` flag set
+   when a command planned but never ran because an earlier step failed. Covered
+   by `test/flight/issue-triage-dossier-marks.test.ts` (three labels × two
+   application states; each checks that the application skips before any dossier
+   lookup, and the unmarked sibling still gets its dossier) and
+   `test/flight/issue-triage.test.ts` (the mark check placed early, verified
+   against both the accept and reject paths, paired with the withheld-command
+   flag).
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure
