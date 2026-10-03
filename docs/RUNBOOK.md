@@ -111,7 +111,7 @@ its sources (`pnpm run build`), a lane worktree with leftovers
 5 GiB free, a fleet wider than four lanes, a Codex CLI that says it is not
 signed in (`codex login`). The Fly button names them in the message it
 shows once the flight starts, after `preflight warns:`; a fleet launch's
-summary does not yet. `pnpm dashboard:doctor <folder>`
+summary names them the same way on each started lane's line. `pnpm dashboard:doctor <folder>`
 prints the whole report from the terminal, `[!!]` for blocking lines.
 
 ## 2. The stale-4317-server ritual (when the CLI can't see it)
@@ -761,7 +761,9 @@ themselves then run concurrently in their own worktrees as intended.
 Requires a dashboard server already running against the target project
 (`dashboard start` first) — the launcher POSTs to that server's own
 `/api/fly`, it does not spawn one. Output is one line per lane
-(`<lane>: <status> started|not started — N task(s) reserved`); a lane whose
+(`<lane>: <status> started|not started — N task(s) reserved`), ending
+`— <reason>` for a lane the dashboard refused and `— preflight warns: …`
+for a started lane that flies past a warning (see §1); a lane whose
 POST couldn't even reach the dashboard is reported without aborting the rest,
 and the command exits non-zero if any lane failed to reach the server (a
 non-2xx the dashboard itself answered is still an exit-0 run — that's an

@@ -98,7 +98,7 @@ describe('mirrorPassJs', () => {
     expect(out).toContain("runBtn.setAttribute('data-i18n-tip', 'mirrorPassExecuteTip');");
     expect(out).toContain("runBtn.setAttribute('data-i18n-aria', 'mirrorPassExecuteTip');");
     expect(out).toContain("window.confirm(tr('mirrorPassExecuteConfirm'))");
-    expect(out).toContain("b.textContent = tr('mirrorPassExecuting');");
+    expect(out).toContain("setSweptText(b, tr('mirrorPassExecuting'));");
     expect(out).toContain("resultEl.textContent = tr('mirrorPassRequestFailed');");
     expect(out).not.toContain("'Running…'");
   });
@@ -139,7 +139,7 @@ describe('mirrorPassJs', () => {
     expect(out).toContain("driftBtn.setAttribute('data-i18n-tip', 'mirrorPassDriftExecuteTip');");
     expect(out).toContain("driftBtn.setAttribute('data-i18n-aria', 'mirrorPassDriftExecuteTip');");
     expect(out).toContain("window.confirm(tr('mirrorPassDriftExecuteConfirm'))");
-    expect(out).toContain("b.textContent = tr('mirrorPassDriftExecuting');");
+    expect(out).toContain("setSweptText(b, tr('mirrorPassDriftExecuting'));");
     expect(out).toContain("resultEl.textContent = tr('mirrorPassDriftRequestFailed');");
   });
 
@@ -175,7 +175,7 @@ describe('mirrorPassJs', () => {
       "landingNoteBtn.setAttribute('data-i18n-aria', 'mirrorPassLandingNoteExecuteTip');",
     );
     expect(out).toContain("window.confirm(tr('mirrorPassLandingNoteExecuteConfirm'))");
-    expect(out).toContain("b.textContent = tr('mirrorPassLandingNoteExecuting');");
+    expect(out).toContain("setSweptText(b, tr('mirrorPassLandingNoteExecuting'));");
     expect(out).toContain("resultEl.textContent = tr('mirrorPassLandingNoteRequestFailed');");
   });
 
@@ -213,7 +213,7 @@ describe('mirrorPassJs', () => {
       "staleClaimBtn.setAttribute('data-i18n-aria', 'mirrorPassStaleClaimExecuteTip');",
     );
     expect(out).toContain("window.confirm(tr('mirrorPassStaleClaimExecuteConfirm'))");
-    expect(out).toContain("b.textContent = tr('mirrorPassStaleClaimExecuting');");
+    expect(out).toContain("setSweptText(b, tr('mirrorPassStaleClaimExecuting'));");
     expect(out).toContain("resultEl.textContent = tr('mirrorPassStaleClaimRequestFailed');");
   });
 
@@ -248,7 +248,7 @@ describe('mirrorPassJs', () => {
       "priorityFollowBtn.setAttribute('data-i18n-aria', 'mirrorPassPriorityFollowExecuteTip');",
     );
     expect(out).toContain("window.confirm(tr('mirrorPassPriorityFollowExecuteConfirm'))");
-    expect(out).toContain("b.textContent = tr('mirrorPassPriorityFollowExecuting');");
+    expect(out).toContain("setSweptText(b, tr('mirrorPassPriorityFollowExecuting'));");
     expect(out).toContain("resultEl.textContent = tr('mirrorPassPriorityFollowRequestFailed');");
   });
 

@@ -926,6 +926,75 @@ describe('createServer (live loopback)', () => {
     expect(called).toBe(false);
   });
 
+  // GitHub #21 slice S-last: a heterogeneous fleet, one engine per lane.
+  it('POST /api/fleet hands each lane its own engine, an empty entry the launch-wide one', async () => {
+    let received: unknown = null;
+    const base = await start({
+      fleetLaunch: async (args) => {
+        received = args;
+        return { ok: true, lines: [] };
+      },
+    });
+    const res = await fetch(`${base}/api/fleet`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        folder: '/work/a',
+        laneCount: 3,
+        engine: 'claude',
+        laneEngines: [{ engine: ' Gemini ', engineModel: 'gemini-2.5-pro' }, {}],
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(received).toMatchObject({
+      laneCount: 3,
+      engine: 'claude',
+      laneEngines: [{ engine: 'gemini', engineModel: 'gemini-2.5-pro' }, { engine: 'claude' }],
+    });
+  });
+
+  it('POST /api/fleet passes no laneEngines when the body names none', async () => {
+    let received: unknown = null;
+    const base = await start({
+      fleetLaunch: async (args) => {
+        received = args;
+        return { ok: true, lines: [] };
+      },
+    });
+    await fetch(`${base}/api/fleet`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ folder: '/work/a', laneCount: 2 }),
+    });
+    expect(received).not.toHaveProperty('laneEngines');
+  });
+
+  it('POST /api/fleet 400s a lane no CLI could fly, naming it, before any lane starts', async () => {
+    let called = false;
+    const base = await start({
+      fleetLaunch: async () => {
+        called = true;
+        return { ok: true, lines: [] };
+      },
+    });
+    for (const [laneEngines, error] of [
+      [
+        [{}, { engine: 'gemini', engineModel: 'claude-sonnet-5' }],
+        /^lane fleet-2: .*names a Claude model/,
+      ],
+      [[{}, {}, {}, {}], /^laneEngines names 4 lane\(s\), but the fleet has 3\.$/],
+    ] as const) {
+      const res = await fetch(`${base}/api/fleet`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ folder: '/work/a', laneEngines }),
+      });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toMatch(error);
+    }
+    expect(called).toBe(false);
+  });
+
   it('POST /api/fleet rejects a non-JSON content-type (CSRF guard)', async () => {
     let called = false;
     const base = await start({

@@ -29,7 +29,7 @@ import {
   type StopFlightResult,
   type PauseFlightResult,
 } from '../flight/runner.js';
-import { parseFleetCliArgs } from '../flight/fleet-launch.js';
+import { fleetLaneEnginesFromRequest, parseFleetCliArgs } from '../flight/fleet-launch.js';
 import type { FleetLaunchApi } from '../flight/fleet-launch-api.js';
 import { firingEngineFromRequest, firingEngineRequestFields } from '../flight/firing-engine.js';
 import type { LuckyPlan, LuckyProbe } from '../flight/lucky-plan.js';
@@ -1220,7 +1220,7 @@ async function handleFly(
  * `parseFleetCliArgs` (the exact same checks `dashboard fleet`'s argv
  * parsing already has), fed with each field's string form. An `engine` and
  * `engineModel` (epic 0036) fly every lane on that CLI, as they fly one
- * `POST /api/fly` flight.
+ * `POST /api/fly` flight, and `laneEngines` flies a lane on one of its own.
  */
 async function handleFleetLaunch(
   req: IncomingMessage,
@@ -1289,8 +1289,20 @@ async function handleFleetLaunch(
     return;
   }
   const engine = firingEngineRequestFields(engineRequest.route);
+  // GitHub #21 slice S-last: a lane may name an engine of its own, judged
+  // the same way, so a heterogeneous fleet refuses as a whole or not at all.
+  const lanes = fleetLaneEnginesFromRequest(body['laneEngines'], parsed.args.laneCount, engine);
+  if (!lanes.ok) {
+    send(400, { error: lanes.reason });
+    return;
+  }
 
-  const result = await api({ ...parsed.args, folder: resolve(parsed.args.folder), ...engine });
+  const result = await api({
+    ...parsed.args,
+    folder: resolve(parsed.args.folder),
+    ...engine,
+    ...(lanes.laneEngines !== undefined ? { laneEngines: lanes.laneEngines } : {}),
+  });
   send(result.ok ? 200 : 502, result);
 }
 

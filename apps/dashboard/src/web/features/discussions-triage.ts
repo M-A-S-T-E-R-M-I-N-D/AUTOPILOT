@@ -105,6 +105,9 @@ function renderDiscussionsTriageBody(body, plans, canExecute) {
   if (canExecute) {
     var actions = el('div', 'discussions-triage-actions');
     var execBtn = el('button', 'discussions-triage-execute', 'Run KEEPER Discussions triage');
+    // Epic 0025 slice 2 (execute buttons): leads with the panel heading's
+    // message-circle, decorative; setSweptText() keeps it through a sweep.
+    execBtn.prepend(iconEl('message-circle'));
     execBtn.type = 'button';
     execBtn.setAttribute('data-i18n', 'discussionsTriageExecute');
     execBtn.setAttribute('data-discussions-triage-execute', '');
@@ -163,8 +166,9 @@ document.addEventListener('click', function (e) {
   var body = b.closest('.discussions-triage-body');
   var resultEl = body && body.querySelector('.discussions-triage-result');
   b.disabled = true;
+  // setSweptText() swaps the words and keeps the leading icon in place.
   var originalText = b.textContent;
-  b.textContent = tr('discussionsTriageExecuting');
+  setSweptText(b, tr('discussionsTriageExecuting'));
   ritualFetch('discussions-triage', '/api/discussions-triage/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -175,7 +179,7 @@ document.addEventListener('click', function (e) {
       var result = discussionsTriageExecuteResultMessage(r.status, r.data);
       if (result.className.indexOf('discussions-triage-result-fail') !== -1) {
         b.disabled = false;
-        b.textContent = originalText;
+        setSweptText(b, originalText);
         if (resultEl) {
           resultEl.className = result.className;
           resultEl.textContent = result.text;
@@ -190,7 +194,7 @@ document.addEventListener('click', function (e) {
     })
     .catch(function () {
       b.disabled = false;
-      b.textContent = originalText;
+      setSweptText(b, originalText);
       if (resultEl) {
         resultEl.className = 'discussions-triage-result discussions-triage-result-fail';
         resultEl.textContent = tr('discussionsTriageRequestFailed');

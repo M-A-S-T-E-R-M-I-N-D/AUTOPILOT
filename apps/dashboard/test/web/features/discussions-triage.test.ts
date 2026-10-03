@@ -128,7 +128,7 @@ describe('discussionsTriageJs', () => {
     expect(out).toContain(
       'window.confirm(discussionsTriageConfirmMessage(discussionsTriagePlans))',
     );
-    expect(out).toContain("b.textContent = tr('discussionsTriageExecuting');");
+    expect(out).toContain("setSweptText(b, tr('discussionsTriageExecuting'));");
     expect(out).toContain("resultEl.textContent = tr('discussionsTriageRequestFailed');");
   });
 

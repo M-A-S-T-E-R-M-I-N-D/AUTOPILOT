@@ -196,7 +196,8 @@ var keeperQueueSeen = {};
 /** The queue's host section: created once, placed as the first Keeper
  *  section outside the context rail (so it reads first under Keeper at
  *  every width), else ahead of Community; re-placed when the page rebuilds
- *  around it (renderProjectPage). Never created for an empty queue. */
+ *  around it (renderProjectPage). Never created for a queue that has listed
+ *  nothing this session. */
 function keeperQueueHost(create) {
   var host = document.getElementById('keeper-queue');
   if (!host && !create) return null;
@@ -272,14 +273,17 @@ function keeperQueueHeading(text) {
 }
 function renderKeeperQueue() {
   var items = keeperQueueItems();
-  var host = keeperQueueHost(items.length > 0);
-  if (!host) return;
-  var sig = items.map(function (it) { return it.key + '|' + it.why + '|' + (it.action ? it.action.textContent + (it.action.disabled ? '!' : '') : ''); }).join('\\n');
-  keeperQueueLive = items;
   var liveKeys = {};
   items.forEach(function (it) { liveKeys[it.key] = true; keeperQueueSeen[it.key] = true; });
   var settled = 0;
   Object.keys(keeperQueueSeen).forEach(function (k) { if (!liveKeys[k]) settled++; });
+  // A settled session needs its host too: renderProjectPage's rebuild
+  // detaches it, and the tick that settles the last item would otherwise
+  // leave nothing to say "Nothing waiting on you".
+  var host = keeperQueueHost(items.length > 0 || settled > 0);
+  if (!host) return;
+  var sig = items.map(function (it) { return it.key + '|' + it.why + '|' + (it.action ? it.action.textContent + (it.action.disabled ? '!' : '') : ''); }).join('\\n');
+  keeperQueueLive = items;
   sig += '\\n#settled=' + settled;
   if (host.dataset.sig === sig) return;
   host.dataset.sig = sig;

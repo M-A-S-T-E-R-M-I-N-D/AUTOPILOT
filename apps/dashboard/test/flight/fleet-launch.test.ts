@@ -19,6 +19,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   buildFleetLaunchPlan,
+  fleetLaneEnginesFromRequest,
   fleetLaneNames,
   parseFleetCliArgs,
   runFleetLaunch,
@@ -152,6 +153,82 @@ describe('parseFleetCliArgs', () => {
     expect(parseFleetCliArgs(['./repo', '3', '1', 'garbage'], 10).ok).toBe(false);
     expect(parseFleetCliArgs(['./repo', '3', '1', '0'], 10).ok).toBe(false);
     expect(parseFleetCliArgs(['./repo', '3', '1', '-5'], 10).ok).toBe(false);
+  });
+});
+
+describe('fleetLaneEnginesFromRequest (GitHub #21 slice S-last)', () => {
+  const codex = { engine: 'codex', engineModel: 'gpt-5-codex' };
+
+  it('reads no list as no per-lane choice', () => {
+    expect(fleetLaneEnginesFromRequest(undefined, 3, codex)).toEqual({
+      ok: true,
+      laneEngines: undefined,
+    });
+  });
+
+  it('reads each entry as a single launch reads its pair, trimmed and lower-cased', () => {
+    expect(
+      fleetLaneEnginesFromRequest(
+        [{ engine: ' Gemini ', engineModel: ' gemini-2.5-pro ' }, { engine: 'claude' }],
+        3,
+        {},
+      ),
+    ).toEqual({
+      ok: true,
+      laneEngines: [{ engine: 'gemini', engineModel: 'gemini-2.5-pro' }, { engine: 'claude' }],
+    });
+  });
+
+  it("gives an entry that names no engine the launch's own", () => {
+    expect(fleetLaneEnginesFromRequest([{}, { engine: '' }], 2, codex)).toEqual({
+      ok: true,
+      laneEngines: [codex, codex],
+    });
+    expect(fleetLaneEnginesFromRequest([], 2, codex)).toEqual({ ok: true, laneEngines: [] });
+  });
+
+  it('refuses a list longer than the fleet rather than dropping a lane unread', () => {
+    expect(fleetLaneEnginesFromRequest([{}, {}, {}], 2, {})).toEqual({
+      ok: false,
+      reason: 'laneEngines names 3 lane(s), but the fleet has 2.',
+    });
+  });
+
+  it('refuses anything but a list of objects', () => {
+    for (const raw of ['codex', { engine: 'codex' }, null]) {
+      expect(fleetLaneEnginesFromRequest(raw, 2, {})).toEqual({
+        ok: false,
+        reason: 'laneEngines must be a list of { engine, engineModel }, one per lane.',
+      });
+    }
+    for (const entry of [null, 'codex', ['codex']]) {
+      expect(fleetLaneEnginesFromRequest([{}, entry], 2, {})).toEqual({
+        ok: false,
+        reason: 'lane fleet-2: laneEngines entries must be { engine, engineModel }.',
+      });
+    }
+  });
+
+  it('refuses the launch on the first lane no CLI could fly, naming that lane', () => {
+    const result = fleetLaneEnginesFromRequest(
+      [{ engine: 'claude' }, { engine: 'gemini', engineModel: 'claude-sonnet-5' }],
+      2,
+      {},
+    );
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.reason).toMatch(/^lane fleet-2: .*names a Claude model/);
+    expect(fleetLaneEnginesFromRequest([{ engine: 'codex' }], 1, {})).toMatchObject({
+      ok: false,
+      reason: expect.stringMatching(
+        /^lane base: AUTOPILOT_ENGINE=codex needs AUTOPILOT_ENGINE_MODEL/,
+      ),
+    });
+    expect(fleetLaneEnginesFromRequest([{ engineModel: 'gpt-5' }], 1, {})).toMatchObject({
+      ok: false,
+      reason: expect.stringMatching(
+        /^lane base: engineModel names a model only together with engine/,
+      ),
+    });
   });
 });
 
@@ -340,6 +417,69 @@ describe('runFleetLaunch', () => {
     expect(postFly.mock.calls[0]?.[0]).toMatchObject({ engine: 'claude' });
     expect(postFly.mock.calls[0]?.[0]).not.toHaveProperty('engineModel');
     expect(claude.lines[0]).toMatch(/, on claude$/);
+  });
+
+  it('flies each lane on its own engine and names it on its line (GitHub #21 slice S-last)', async () => {
+    const postFly = vi
+      .fn<(body: FleetLaunchPostBody) => Promise<FleetLaunchPostResult>>()
+      .mockResolvedValue({ status: 200, started: true });
+    const result = await runFleetLaunch(
+      {
+        ...baseArgs,
+        laneCount: 3,
+        engine: 'codex',
+        engineModel: 'gpt-5-codex',
+        laneEngines: [{ engine: 'gemini', engineModel: 'gemini-2.5-pro' }, { engine: 'claude' }],
+      },
+      0,
+      { loadOpenTasks: () => [], postFly, sleep: async () => {} },
+    );
+    expect(postFly.mock.calls.map((c) => [c[0].engine, c[0].engineModel])).toEqual([
+      ['gemini', 'gemini-2.5-pro'],
+      ['claude', undefined],
+      // Past the list's end, a lane flies on the launch's own engine.
+      ['codex', 'gpt-5-codex'],
+    ]);
+    expect(postFly.mock.calls[1]?.[0]).not.toHaveProperty('engineModel');
+    expect(result.lines).toEqual([
+      'fleet: 3 lane(s) over 0 open task(s) — 1 firing(s) each at $5/firing, engine per lane',
+      '  base on gemini (gemini-2.5-pro): 200 started — 0 task(s) reserved',
+      '  fleet-2 on claude: 200 started — 0 task(s) reserved',
+      '  fleet-3 on codex (gpt-5-codex): 200 started — 0 task(s) reserved',
+    ]);
+  });
+
+  it('names no engine on a per-lane line whose lane inherits the dashboard env', async () => {
+    const postFly = vi
+      .fn<(body: FleetLaunchPostBody) => Promise<FleetLaunchPostResult>>()
+      .mockResolvedValue({ status: 200, started: true });
+    const result = await runFleetLaunch(
+      { ...baseArgs, laneEngines: [{ engine: 'codex', engineModel: 'gpt-5-codex' }] },
+      0,
+      { loadOpenTasks: () => [], postFly, sleep: async () => {} },
+    );
+    expect(postFly.mock.calls[1]?.[0]).not.toHaveProperty('engine');
+    expect(result.lines.slice(1)).toEqual([
+      '  base on codex (gpt-5-codex): 200 started — 0 task(s) reserved',
+      '  fleet-2: 200 started — 0 task(s) reserved',
+    ]);
+  });
+
+  it('keeps the single-engine summary when the lane list is empty', async () => {
+    const postFly = vi
+      .fn<(body: FleetLaunchPostBody) => Promise<FleetLaunchPostResult>>()
+      .mockResolvedValue({ status: 200, started: true });
+    const result = await runFleetLaunch(
+      { ...baseArgs, engine: 'codex', engineModel: 'gpt-5-codex', laneEngines: [] },
+      0,
+      { loadOpenTasks: () => [], postFly, sleep: async () => {} },
+    );
+    expect(result.lines[0]).toMatch(/, on codex \(gpt-5-codex\)$/);
+    expect(result.lines[1]).toBe('  base: 200 started — 0 task(s) reserved');
+    expect(postFly.mock.calls[1]?.[0]).toMatchObject({
+      engine: 'codex',
+      engineModel: 'gpt-5-codex',
+    });
   });
 
   it('sends no engine keys and names none when the launch chose none', async () => {

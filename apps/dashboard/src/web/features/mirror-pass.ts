@@ -165,8 +165,12 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecu
   body.appendChild(list);
   if (canExecute || canExecuteDrift || canExecuteLandingNote || canExecuteStaleClaim || canExecutePriorityFollow) {
     var actions = el('div', 'mirror-pass-actions');
+    // Epic 0025 slice 2 (execute buttons): each button leads with a
+    // decorative icon of what it does — the pass itself takes the panel
+    // heading's repeat — and setSweptText() keeps it through a locale sweep.
     if (canExecute) {
       var runBtn = el('button', 'mirror-pass-execute', 'Run mirror pass');
+      runBtn.prepend(iconEl('repeat'));
       runBtn.type = 'button';
       runBtn.setAttribute('data-i18n', 'mirrorPassExecute');
       runBtn.setAttribute('data-mirror-pass-execute', pid);
@@ -183,6 +187,7 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecu
     }
     if (canExecuteDrift) {
       var driftBtn = el('button', 'mirror-pass-execute', 'Fix doc drift');
+      driftBtn.prepend(iconEl('file-text'));
       driftBtn.type = 'button';
       driftBtn.setAttribute('data-i18n', 'mirrorPassDriftExecute');
       driftBtn.setAttribute('data-mirror-pass-drift-execute', pid);
@@ -196,6 +201,7 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecu
     }
     if (canExecuteLandingNote) {
       var landingNoteBtn = el('button', 'mirror-pass-execute', 'Post landing note(s)');
+      landingNoteBtn.prepend(iconEl('message-circle'));
       landingNoteBtn.type = 'button';
       landingNoteBtn.setAttribute('data-i18n', 'mirrorPassLandingNoteExecute');
       landingNoteBtn.setAttribute('data-mirror-pass-landing-note-execute', pid);
@@ -209,6 +215,7 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecu
     }
     if (canExecuteStaleClaim) {
       var staleClaimBtn = el('button', 'mirror-pass-execute', 'Free stale claim(s)');
+      staleClaimBtn.prepend(iconEl('lock-open'));
       staleClaimBtn.type = 'button';
       staleClaimBtn.setAttribute('data-i18n', 'mirrorPassStaleClaimExecute');
       staleClaimBtn.setAttribute('data-mirror-pass-stale-claim-execute', pid);
@@ -222,6 +229,7 @@ function renderMirrorPassBody(body, items, canExecute, canExecuteDrift, canExecu
     }
     if (canExecutePriorityFollow) {
       var priorityFollowBtn = el('button', 'mirror-pass-execute', 'Follow GitHub priority label(s)');
+      priorityFollowBtn.prepend(iconEl('flag'));
       priorityFollowBtn.type = 'button';
       priorityFollowBtn.setAttribute('data-i18n', 'mirrorPassPriorityFollowExecute');
       priorityFollowBtn.setAttribute('data-mirror-pass-priority-follow-execute', pid);
@@ -355,8 +363,10 @@ document.addEventListener('click', function (e) {
   var body = b.closest('.mirror-pass-body');
   var resultEl = body && body.querySelector('.mirror-pass-result');
   b.disabled = true;
+  // The busy and idle words swap through setSweptText(), not textContent,
+  // so the leading icon stays put (shell.ts's setTaggedLabel does the same).
   var originalText = b.textContent;
-  b.textContent = tr('mirrorPassExecuting');
+  setSweptText(b, tr('mirrorPassExecuting'));
   ritualFetch('mirror-pass', '/api/mirror-pass/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -367,7 +377,7 @@ document.addEventListener('click', function (e) {
       var result = mirrorPassExecuteResultMessage(r.status, r.data);
       if (result.className.indexOf('mirror-pass-result-fail') !== -1) {
         b.disabled = false;
-        b.textContent = originalText;
+        setSweptText(b, originalText);
         if (resultEl) {
           resultEl.className = result.className;
           resultEl.textContent = result.text;
@@ -382,7 +392,7 @@ document.addEventListener('click', function (e) {
     })
     .catch(function () {
       b.disabled = false;
-      b.textContent = originalText;
+      setSweptText(b, originalText);
       if (resultEl) {
         resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
         resultEl.textContent = tr('mirrorPassRequestFailed');
@@ -398,7 +408,7 @@ document.addEventListener('click', function (e) {
   var resultEl = body && body.querySelector('.mirror-pass-result');
   b.disabled = true;
   var originalText = b.textContent;
-  b.textContent = tr('mirrorPassDriftExecuting');
+  setSweptText(b, tr('mirrorPassDriftExecuting'));
   ritualFetch('mirror-pass', '/api/mirror-pass/drift/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -409,7 +419,7 @@ document.addEventListener('click', function (e) {
       var result = mirrorPassDriftExecuteResultMessage(r.status, r.data);
       if (result.className.indexOf('mirror-pass-result-fail') !== -1) {
         b.disabled = false;
-        b.textContent = originalText;
+        setSweptText(b, originalText);
         if (resultEl) {
           resultEl.className = result.className;
           resultEl.textContent = result.text;
@@ -423,7 +433,7 @@ document.addEventListener('click', function (e) {
     })
     .catch(function () {
       b.disabled = false;
-      b.textContent = originalText;
+      setSweptText(b, originalText);
       if (resultEl) {
         resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
         resultEl.textContent = tr('mirrorPassDriftRequestFailed');
@@ -439,7 +449,7 @@ document.addEventListener('click', function (e) {
   var resultEl = body && body.querySelector('.mirror-pass-result');
   b.disabled = true;
   var originalText = b.textContent;
-  b.textContent = tr('mirrorPassLandingNoteExecuting');
+  setSweptText(b, tr('mirrorPassLandingNoteExecuting'));
   ritualFetch('mirror-pass', '/api/mirror-pass/landing-note/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -450,7 +460,7 @@ document.addEventListener('click', function (e) {
       var result = mirrorPassExecuteResultMessage(r.status, r.data);
       if (result.className.indexOf('mirror-pass-result-fail') !== -1) {
         b.disabled = false;
-        b.textContent = originalText;
+        setSweptText(b, originalText);
         if (resultEl) {
           resultEl.className = result.className;
           resultEl.textContent = result.text;
@@ -464,7 +474,7 @@ document.addEventListener('click', function (e) {
     })
     .catch(function () {
       b.disabled = false;
-      b.textContent = originalText;
+      setSweptText(b, originalText);
       if (resultEl) {
         resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
         resultEl.textContent = tr('mirrorPassLandingNoteRequestFailed');
@@ -480,7 +490,7 @@ document.addEventListener('click', function (e) {
   var resultEl = body && body.querySelector('.mirror-pass-result');
   b.disabled = true;
   var originalText = b.textContent;
-  b.textContent = tr('mirrorPassStaleClaimExecuting');
+  setSweptText(b, tr('mirrorPassStaleClaimExecuting'));
   ritualFetch('mirror-pass', '/api/mirror-pass/stale-claims/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -491,7 +501,7 @@ document.addEventListener('click', function (e) {
       var result = mirrorPassExecuteResultMessage(r.status, r.data);
       if (result.className.indexOf('mirror-pass-result-fail') !== -1) {
         b.disabled = false;
-        b.textContent = originalText;
+        setSweptText(b, originalText);
         if (resultEl) {
           resultEl.className = result.className;
           resultEl.textContent = result.text;
@@ -505,7 +515,7 @@ document.addEventListener('click', function (e) {
     })
     .catch(function () {
       b.disabled = false;
-      b.textContent = originalText;
+      setSweptText(b, originalText);
       if (resultEl) {
         resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
         resultEl.textContent = tr('mirrorPassStaleClaimRequestFailed');
@@ -521,7 +531,7 @@ document.addEventListener('click', function (e) {
   var resultEl = body && body.querySelector('.mirror-pass-result');
   b.disabled = true;
   var originalText = b.textContent;
-  b.textContent = tr('mirrorPassPriorityFollowExecuting');
+  setSweptText(b, tr('mirrorPassPriorityFollowExecuting'));
   ritualFetch('mirror-pass', '/api/mirror-pass/priority-follow/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -532,7 +542,7 @@ document.addEventListener('click', function (e) {
       var result = mirrorPassExecuteResultMessage(r.status, r.data);
       if (result.className.indexOf('mirror-pass-result-fail') !== -1) {
         b.disabled = false;
-        b.textContent = originalText;
+        setSweptText(b, originalText);
         if (resultEl) {
           resultEl.className = result.className;
           resultEl.textContent = result.text;
@@ -546,7 +556,7 @@ document.addEventListener('click', function (e) {
     })
     .catch(function () {
       b.disabled = false;
-      b.textContent = originalText;
+      setSweptText(b, originalText);
       if (resultEl) {
         resultEl.className = 'mirror-pass-result mirror-pass-result-fail';
         resultEl.textContent = tr('mirrorPassPriorityFollowRequestFailed');
