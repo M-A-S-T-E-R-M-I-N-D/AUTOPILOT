@@ -445,8 +445,17 @@ propagation, and the filled style does not match the nav.
    request, as the mirror pass runs do. The test file now removes each test's
    document click delegates afterwards, since a stale bundle's delegate
    answered a later click and restored the busy words
-   (`apps/dashboard/test/web/keeper-execute-button-icons.test.ts`). Open: the
-   pool claim and the report execute buttons are still bare words.
+   (`apps/dashboard/test/web/keeper-execute-button-icons.test.ts`). **Pool
+   execute buttons 2026-10-03 (slice 2):** the Pool panel's Claim (and Claim
+   anyway, on a held issue) and the Fly button a queued claim offers were
+   bare words beside the KEEPER execute buttons. Claim leads with the `flag`
+   the contest badge plants on a held issue, and Fly with the `send` the
+   rail's Fly link draws; neither is newly vendored, and each is decorative,
+   so the button's accessible name stays its tip. Both swap their busy words
+   ("Claiming…", "Starting…") through `setSweptText()`, through a refused
+   claim, a refused flight and a failed request, and the execute-icon spacing
+   rule covers them (`apps/dashboard/test/web/pool-client-button-icons.test.ts`).
+   Open: the report execute button is still bare words.
 
 ## Related
 
