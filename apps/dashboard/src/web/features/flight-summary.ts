@@ -56,7 +56,10 @@ function flightSummarySection(c) {
   var summaries = finishedFlightSummaries(c);
   if (!summaries.length) return null;
   var wrap = el('div', 'flight-summary');
+  // Epic 0025 slice 2: a decorative package-check leads the words, above the
+  // iconed Landing and Flight console panels; setSweptText() keeps it.
   var title = el('h2', 'detail-h', 'Recently shipped');
+  title.prepend(iconEl('package-check'));
   title.setAttribute('data-i18n', 'flightSummaryTitle');
   wrap.appendChild(title);
   var ul = el('ul', 'flight-summary-list');

@@ -339,7 +339,17 @@ propagation, and the filled style does not match the nav.
    open to claim) icons, and `contributorStandingTitle` and
    `collaborationTitle` carry their words in both locales, apart from the
    sections' aria-label keys, the way `contributorIssueListTitle` is
-   (`apps/dashboard/test/web/community-panel-headings.test.ts`).
+   (`apps/dashboard/test/web/community-panel-headings.test.ts`). **Project
+   detail headings 2026-10-03 (slice 2):** on a project page's Data tab,
+   Health, Evolution, DORA and gate parallelism lead with a stroke icon, but
+   the two chart panels between them headed with bare words, and so did
+   "Recently shipped" above the Fleet tab's iconed Landing and Flight console
+   panels. "Firing activity" leads with a newly vendored `calendar-days`, the
+   evolution trend chart with `trending-up` and "Recently shipped" with
+   `package-check`, each decorative beside its words. The STRINGS key stays
+   on the `<h2>` the i18n tests pin, and `setSweptText()` keeps the icon
+   across a locale switch, the way the tasks heading's focus-mode `target`
+   survives (`apps/dashboard/test/web/project-detail-heading-icons.test.ts`).
 
 ## Related
 

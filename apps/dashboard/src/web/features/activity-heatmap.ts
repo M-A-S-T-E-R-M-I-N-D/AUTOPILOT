@@ -114,7 +114,10 @@ function contributionHeatmap(c) {
     svg.appendChild(rect);
   }
   var wrap = el('div', 'heatmap-wrap');
+  // Epic 0025 slice 2: a decorative calendar leads the words, like the Data
+  // tab's other panel headings; setSweptText() keeps it through a locale switch.
   var heatmapH = el('h2', 'detail-h', 'Firing activity');
+  heatmapH.prepend(iconEl('calendar-days'));
   heatmapH.setAttribute('data-i18n', 'firingActivity');
   wrap.appendChild(heatmapH);
   wrap.appendChild(svg);
