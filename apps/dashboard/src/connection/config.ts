@@ -4,8 +4,9 @@
 /**
  * Persist the Claude connection choice. The default (subscription) stores NO
  * secret — the CLI's own login carries it. Only the opt-in API-key / OAuth-token
- * modes persist a credential, and only to a git-ignored local file written 0600.
- * The value is never logged and never returned by the status API.
+ * modes, and an endpoint's optional token, persist a credential, and only to a
+ * git-ignored local file written 0600. The value is never logged and never
+ * returned by the status API.
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, chmodSync } from 'node:fs';
@@ -13,7 +14,26 @@ import { dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { DEFAULT_AUTH, type AuthConfig, type AuthMode } from '@autopilot/engine';
 
-const MODES: readonly AuthMode[] = ['subscription', 'api-key', 'oauth-token'];
+const MODES: readonly AuthMode[] = [
+  'subscription',
+  'api-key',
+  'oauth-token',
+  'endpoint',
+  'bedrock',
+  'vertex',
+];
+
+/** Every string field an `AuthConfig` can carry. `fly.ts` reads a lane's auth
+ *  from this file alone, so a field dropped here never reaches the CLI's env. */
+const STRING_FIELDS = [
+  'apiKey',
+  'oauthToken',
+  'baseUrl',
+  'authToken',
+  'awsRegion',
+  'gcpProjectId',
+  'gcpRegion',
+] as const;
 
 export function isAuthMode(value: unknown): value is AuthMode {
   // Stryker disable next-line ConditionalExpression: `.includes()` uses strict
@@ -29,13 +49,11 @@ export function readConnectionConfig(path: string): AuthConfig {
   try {
     const raw = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
     const mode = isAuthMode(raw['mode']) ? raw['mode'] : 'subscription';
-    const apiKey = typeof raw['apiKey'] === 'string' ? raw['apiKey'] : undefined;
-    const oauthToken = typeof raw['oauthToken'] === 'string' ? raw['oauthToken'] : undefined;
-    return {
-      mode,
-      ...(apiKey ? { apiKey } : {}),
-      ...(oauthToken ? { oauthToken } : {}),
-    };
+    const fields = STRING_FIELDS.flatMap((field) => {
+      const value = raw[field];
+      return typeof value === 'string' && value !== '' ? [[field, value] as const] : [];
+    });
+    return { mode, ...Object.fromEntries(fields) };
   } catch {
     return DEFAULT_AUTH;
   }

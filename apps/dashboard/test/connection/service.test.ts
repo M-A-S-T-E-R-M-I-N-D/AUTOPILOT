@@ -76,6 +76,65 @@ describe('validateConnect', () => {
   });
 });
 
+describe('validateConnect — the modes that route the same claude CLI elsewhere', () => {
+  it('keeps an endpoint base URL and an optional token, trimmed', () => {
+    expect(
+      validateConnect({ mode: 'endpoint', baseUrl: ' http://localhost:11434 ', authToken: ' t ' }),
+    ).toEqual({ mode: 'endpoint', baseUrl: 'http://localhost:11434', authToken: 't' });
+    expect(
+      validateConnect({ mode: 'endpoint', baseUrl: 'https://gw.example', authToken: ' ' }),
+    ).toEqual({ mode: 'endpoint', baseUrl: 'https://gw.example' });
+  });
+
+  it('requires an endpoint base URL that is http(s)', () => {
+    expect(() => validateConnect({ mode: 'endpoint' })).toThrow(/base URL is required/);
+    expect(() => validateConnect({ mode: 'endpoint', baseUrl: 'not a url' })).toThrow(/http/);
+    expect(() => validateConnect({ mode: 'endpoint', baseUrl: 'file:///etc/passwd' })).toThrow(
+      /http/,
+    );
+  });
+
+  // The status DTO describes an endpoint by its URL, so a URL that carries a
+  // secret would hand it to every screen that renders the description.
+  it('refuses a base URL carrying credentials, a query or a fragment', () => {
+    for (const baseUrl of [
+      'https://user@gw.example',
+      'https://:pass@gw.example',
+      'https://gw.example/?key=secret',
+      'https://gw.example/#secret',
+    ]) {
+      expect(() => validateConnect({ mode: 'endpoint', baseUrl })).toThrow(/token field/);
+    }
+  });
+
+  it('takes Bedrock with or without a region', () => {
+    expect(validateConnect({ mode: 'bedrock' })).toEqual({ mode: 'bedrock' });
+    expect(validateConnect({ mode: 'bedrock', awsRegion: ' eu-west-1 ' })).toEqual({
+      mode: 'bedrock',
+      awsRegion: 'eu-west-1',
+    });
+    expect(() => validateConnect({ mode: 'bedrock', awsRegion: 'eu west 1' })).toThrow(/region/);
+  });
+
+  it('requires a Vertex project, the region optional', () => {
+    expect(validateConnect({ mode: 'vertex', gcpProjectId: ' my-project ' })).toEqual({
+      mode: 'vertex',
+      gcpProjectId: 'my-project',
+    });
+    expect(
+      validateConnect({ mode: 'vertex', gcpProjectId: 'example.com:proj', gcpRegion: 'global' }),
+    ).toEqual({ mode: 'vertex', gcpProjectId: 'example.com:proj', gcpRegion: 'global' });
+    expect(() => validateConnect({ mode: 'vertex', gcpRegion: 'global' })).toThrow(/project/);
+    expect(() => validateConnect({ mode: 'vertex', gcpProjectId: 'a b' })).toThrow(/project/);
+  });
+
+  it('never carries another mode’s fields into the stored config', () => {
+    expect(validateConnect({ mode: 'bedrock', apiKey: KEY, baseUrl: 'http://x' })).toEqual({
+      mode: 'bedrock',
+    });
+  });
+});
+
 describe('getConnectionStatus', () => {
   it('defaults to subscription and reflects a present CLI', async () => {
     const status = await getConnectionStatus(deps(cliPresent));
@@ -196,6 +255,45 @@ describe('applyConnection', () => {
     const status = await applyConnection(deps(cliPresent), { mode: 'subscription' });
     expect(status).toMatchObject({ mode: 'subscription', hasCredential: false });
     expect(readFileSync(configPath, 'utf8')).not.toContain(TOKEN);
+  });
+
+  it('persists an endpoint so the lane reads it back, its token never in the status', async () => {
+    const input = { mode: 'endpoint', baseUrl: 'http://localhost:11434', authToken: TOKEN };
+    const status = await applyConnection(deps(cliPresent), input);
+    expect(status).toMatchObject({ mode: 'endpoint', hasCredential: true, ready: true });
+    expect(status.description).toContain('http://localhost:11434');
+    expect(JSON.stringify(status)).not.toContain(TOKEN);
+    expect(readConnectionConfig(configPath)).toEqual(input);
+  });
+
+  it('is ready on an endpoint with no token, since a local server needs none', async () => {
+    const status = await applyConnection(deps(cliPresent), {
+      mode: 'endpoint',
+      baseUrl: 'http://localhost:11434',
+    });
+    expect(status).toMatchObject({ mode: 'endpoint', hasCredential: false, ready: true });
+  });
+
+  it('is ready on Bedrock and Vertex as the CLI is, their credentials ambient', async () => {
+    const bedrock = await applyConnection(deps(cliPresent), { mode: 'bedrock' });
+    expect(bedrock).toMatchObject({ mode: 'bedrock', hasCredential: false, ready: true });
+    const vertex = await applyConnection(deps(cliPresent), {
+      mode: 'vertex',
+      gcpProjectId: 'my-project',
+    });
+    expect(vertex).toMatchObject({ mode: 'vertex', ready: true });
+    expect(readConnectionConfig(configPath)).toEqual({
+      mode: 'vertex',
+      gcpProjectId: 'my-project',
+    });
+    const noCli = await applyConnection(deps(cliMissing), { mode: 'bedrock' });
+    expect(noCli.ready).toBe(false);
+  });
+
+  it('is not ready on a stored Vertex config that names no project (raw config edge case)', async () => {
+    writeFileSync(configPath, JSON.stringify({ mode: 'vertex' }));
+    const status = await getConnectionStatus(deps(cliPresent));
+    expect(status).toMatchObject({ mode: 'vertex', ready: false });
   });
 
   it('rejects invalid input (bubbles the validation error)', async () => {
