@@ -95,6 +95,54 @@ describe('the agent office map', () => {
     expect(labels).toEqual(['ORIENT', 'DO', 'GATE', 'COMMIT']);
   });
 
+  it("leads every zone with the live phase pill's icon, inset clear of the dot (epic 0025 slice 3)", async () => {
+    current = stateWith({
+      status: 'flying',
+      activity: [
+        {
+          tool: 'Bash',
+          target: 'pnpm test',
+          kind: 'command',
+          phase: 'gate',
+          at: 1,
+          firingId: 'f1',
+        },
+      ],
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(2000);
+
+    const icons = Array.from(document.querySelectorAll('.office-map svg.office-zone-icon'));
+    const shapeOf = (i: Element) => Array.from(i.classList).find((c) => c.startsWith('icon-'));
+    expect(icons.map(shapeOf)).toEqual([
+      'icon-compass',
+      'icon-pencil',
+      'icon-shield-check',
+      'icon-git-commit-horizontal',
+    ]);
+    // One map for both: the card's phase pill draws the same shape for GATE.
+    expect(document.querySelector('.pill.live-phase-gate .icon-shield-check')).not.toBeNull();
+
+    const dot = document.querySelector('.office-dot')!;
+    const dotLeft = Number(dot.getAttribute('cx')) - Number(dot.getAttribute('r'));
+    icons.forEach((icon, i) => {
+      // Decorative beside the label; the zone rect carries the name and tip.
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+      // Zone i starts at 13 + i*(64+13); the 12-unit icon sits 6 in, centred
+      // in the zone's height (8 + (28 - 12) / 2 = 16).
+      const zoneX = 13 + i * 77;
+      expect(Number(icon.getAttribute('x'))).toBe(zoneX + 6);
+      expect(Number(icon.getAttribute('y'))).toBe(16);
+      expect(icon.getAttribute('width')).toBe('12');
+      expect(icon.getAttribute('height')).toBe('12');
+    });
+    // The GATE icon ends before the dot parked at the zone's centre begins.
+    expect(Number(icons[2]!.getAttribute('x')) + 12).toBeLessThan(dotLeft);
+    // Only the lit zone's icon takes the active colour, like its label.
+    const lit = Array.from(document.querySelectorAll('.office-zone-icon-active'));
+    expect(lit.map(shapeOf)).toEqual(['icon-shield-check']);
+  });
+
   it('renders NO map at all when nothing is flying (an idle office is noise)', async () => {
     current = stateWith({ status: 'registered', activity: [] });
     new Function(clientJs())();

@@ -308,7 +308,16 @@ propagation, and the filled style does not match the nav.
    and the same turn pointed it left while closed and right once open. Each
    summary ends with the existing `chevron-right` now, turned down while
    closed and up once open; a rotation reads the same in both directions
-   (`apps/dashboard/test/web/keeper-group-chevron.test.ts`).
+   (`apps/dashboard/test/web/keeper-group-chevron.test.ts`). **Office map
+   zones 2026-10-03 (slice 3):** the live cards' phase pill led with its
+   phase icon, but the office map beside it drew the same four phases as
+   bare zones over a word. Each zone leads with the pill's icon now, from the
+   same `LIVE_PHASE_ICONS` map: a 12-unit stroke 6 units in from the zone's
+   left edge and centred in its height, clear of the dot parked at the
+   zone's centre and of two lanes spread around it. It is decorative like
+   the label beneath, muted on a plain zone and in the on-accent tone inside
+   the lit one, and pointer events fall through to the zone rect and its tip.
+   The populated e2e baselines and README frames still show the bare zones.
 
 ## Related
 

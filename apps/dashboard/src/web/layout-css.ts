@@ -1906,6 +1906,12 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .office-zone-active { fill: var(--color-accent); stroke: var(--color-accent); }
 .office-zone-label { font-size: 8px; letter-spacing: 0.04em; text-transform: uppercase; fill: var(--color-text-muted); font-family: var(--font-sans); }
 .office-zone-label-active { fill: var(--color-accent-text); }
+/* Each zone's phase icon (epic 0025 slice 3): sized in the map's user units
+   past the generic .icon rule's 1em, muted on a plain zone and drawn in the
+   on-accent tone inside the lit zone's accent fill. Pointer events fall
+   through to the zone rect, which carries the tip. */
+.office-map .office-zone-icon { inline-size: 12px; block-size: 12px; color: var(--color-text-muted); pointer-events: none; }
+.office-map .office-zone-icon-active { color: var(--color-accent-text); }
 .office-dot { fill: var(--color-accent); stroke: var(--color-surface); stroke-width: 1.5; }
 .office-dot-idle { fill: var(--color-text-muted); opacity: 0.6; }
 .office-satellite { fill: var(--color-accent); opacity: 0.55; stroke: var(--color-surface); stroke-width: 1; }
