@@ -1410,6 +1410,10 @@ const EN_STRINGS = {
   // with the sprout icon) — distinct from contributorIssueListPanel above,
   // which stays the section's aria-label.
   contributorIssueListTitle: 'Good first issues',
+  // The same split for the Contributor standing and Collaboration panels:
+  // each h3 heading (panelHeading(), award and map icons) has its own key.
+  contributorStandingTitle: 'Contributor standing',
+  collaborationTitle: 'Collaboration',
   // APP SHELL (epic 0021): the subject navigation — a bottom bar on a phone,
   // a rail from tablet width up. Each subject is a place in the app.
   subjectNav: 'Sections',
@@ -2984,6 +2988,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     collaborationPanel: 'שיתוף פעולה',
     contributorHowToClaim: 'איך תופסים משימה',
     contributorIssueListTitle: 'בעיות טובות למתחילים',
+    contributorStandingTitle: 'מעמד תורמים',
+    collaborationTitle: 'שיתוף פעולה',
     subjectNav: 'אזורים',
     subjectFleet: 'צי',
     subjectOverview: 'סקירה',
