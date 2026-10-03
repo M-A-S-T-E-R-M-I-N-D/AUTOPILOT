@@ -186,6 +186,17 @@ acceptance criterion above are untouched — `createHttpSpawnFlight`'s posted bo
 merely gained an optional `engine`/`engineModel` field. Same "grown past this spec's
 scope, watchdog contract unchanged" shape as every re-check above; no drift here.
 
+DOC-FRESHNESS re-check (2026-10-03, second): `control/cli.ts` moved again the same day
+(`2a496e3c`, epic 0036 "a fleet launch names the preflight warnings each lane flies
+past") — the `fleet` case's loopback spawn call now also forwards a started lane's
+`warnings` field alongside `started`/`message`, so `runFleetLaunch` can append a
+started lane's preflight warning the same way it already appends a refused lane's
+reason. That is `dashboard fleet`'s own launch-summary reporting
+(`flight/fleet-launch.ts`), not the watchdog: `flightWatchdogTick`/`landWatchdogTick`/
+`FLYABLE_STATUSES` and every acceptance criterion above are untouched. Same "grown past
+this spec's scope, watchdog contract unchanged" shape as every re-check above; no drift
+here.
+
 ## Related
 
 - `docs/epics/0001-parallel-flights.md` — the concurrency substrate (registry, locks,
