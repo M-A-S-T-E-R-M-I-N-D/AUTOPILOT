@@ -457,7 +457,7 @@ describe('detectGate — static site', () => {
     expect(d.spec.ecosystem).toBe('static-site');
     expect(d.spec.lint).toMatchObject({
       bin: 'npx',
-      args: ['--yes', 'html-validate', '**/*.html'],
+      args: ['--yes', 'html-validate', '**/*.html', '**/*.htm'],
     });
     expect(d.spec.test).toMatchObject({
       bin: 'npx',

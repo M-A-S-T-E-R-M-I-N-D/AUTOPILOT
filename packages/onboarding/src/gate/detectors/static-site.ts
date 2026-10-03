@@ -12,7 +12,14 @@ import { directCommand } from '../manifests.js';
  * detector defers rather than doubling up. Tools run via `npx --yes` (not the
  * `--no-install` idiom the `js` detector uses) because there is no local
  * install to reuse — the site has no build tooling by definition.
+ *
+ * html-validate gets one pattern per extension the detector matches on: it
+ * exits 1 only when its patterns together match no file, so an `.html`-only
+ * glob failed every `.htm`-only site's gate and skipped a mixed site's `.htm`
+ * pages, while a pattern that matches nothing beside one that does is fine.
  */
+const PAGE_PATTERNS = ['**/*.html', '**/*.htm'];
+
 export const staticSiteDetector: EcosystemDetector = {
   id: 'static-site',
   detect(snap) {
@@ -21,7 +28,7 @@ export const staticSiteDetector: EcosystemDetector = {
 
     const evidence: string[] = ['*.html'];
     const gate: MutableGateCommands = {
-      lint: directCommand('npx', ['--yes', 'html-validate', '**/*.html']),
+      lint: directCommand('npx', ['--yes', 'html-validate', ...PAGE_PATTERNS]),
       test: directCommand('npx', ['--yes', 'linkinator', '.', '--recurse']),
     };
     evidence.push('html-validate', 'linkinator');

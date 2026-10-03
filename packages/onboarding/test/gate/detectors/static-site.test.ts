@@ -30,8 +30,8 @@ describe('staticSiteDetector', () => {
     expect(d).not.toBeNull();
     expect(d?.gate.lint).toEqual({
       bin: 'npx',
-      args: ['--yes', 'html-validate', '**/*.html'],
-      label: 'npx --yes html-validate **/*.html',
+      args: ['--yes', 'html-validate', '**/*.html', '**/*.htm'],
+      label: 'npx --yes html-validate **/*.html **/*.htm',
     });
     expect(d?.gate.test).toEqual({
       bin: 'npx',
@@ -44,6 +44,13 @@ describe('staticSiteDetector', () => {
 
   it('matches via a bare .htm file too', () => {
     expect(staticSiteDetector.detect(snap(['legacy.htm']))).not.toBeNull();
+  });
+
+  it('lints the .htm pages it matched on, not only .html', () => {
+    // html-validate exits 1 ("No files matching patterns") when its patterns
+    // match nothing, so an .html-only glob failed every .htm-only site's gate.
+    const d = staticSiteDetector.detect(snap(['legacy.htm']));
+    expect(d?.gate.lint?.args).toContain('**/*.htm');
   });
 
   it('records index.html as extra evidence and a score bonus when present', () => {
