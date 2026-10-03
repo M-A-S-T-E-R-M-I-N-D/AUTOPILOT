@@ -1924,6 +1924,46 @@ describe('classifyUnverifiableCause', () => {
     ).toBe('crash');
   });
 
+  // GateRunner's crash details are the verdict line, then the command's raw
+  // output tail underneath. The tail is the tool's own text, so a word in it
+  // says nothing about why the gate could not judge the commit.
+  it('classifies a worker-start crash as crash, though its output tail says timeout', () => {
+    expect(
+      classifyUnverifiableCause({
+        gateChecks: [{ label: 'test', pass: false, durationMs: 1 }],
+        gateError:
+          'test failed (crashed: test workers never started — the machine was too loaded to judge)' +
+          ' — gate could not verify the commit\n' +
+          'Error: [vitest-pool]: Failed to start forks worker for test files a.test.ts\n' +
+          'Caused by: Error: [vitest-pool-runner]: Timeout waiting for worker to respond',
+      }),
+    ).toBe('crash');
+  });
+
+  it('classifies a crash whose output tail names a revert by its verdict line', () => {
+    expect(
+      classifyUnverifiableCause({
+        gateChecks: [{ label: 'test', pass: false, durationMs: 1 }],
+        gateError:
+          'test failed (crashed: ENOENT) — gate could not verify the commit\n' +
+          ' ✓ test/landing.test.ts > reports when the revert failed',
+      }),
+    ).toBe('crash');
+  });
+
+  // firing.ts writes the revert-failed prefix itself, then appends git's own
+  // message, which can say anything — a hook on the revert commit timing out.
+  it('classifies a revert failure as revert-failed even when git says it timed out', () => {
+    expect(
+      classifyUnverifiableCause({
+        gateChecks: [{ label: 'test', pass: false, durationMs: 1 }],
+        gateError:
+          'gate failed AND the revert failed — the commit is still in history: ' +
+          'git revert failed (exit 1): husky - pre-commit hook timed out',
+      }),
+    ).toBe('revert-failed');
+  });
+
   it('classifies a non-empty gateChecks with no recognizable gateError as unparsable', () => {
     expect(
       classifyUnverifiableCause({
