@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { CliExec } from '../connection/cli-probe.js';
-import { HOLD_LABELS, MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
-import { DECLINED_LABEL } from './pool-client.js';
+import { MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
+import { isMaintainerMarked, normalizeLabel } from './pool-client.js';
 import { ghExec } from './gh-exec.js';
 
 /**
@@ -53,10 +53,6 @@ const TIER_RANK: Record<ContributorIssueTier, number> = {
   'help wanted': 1,
 };
 
-function normalizeLabel(label: string): string {
-  return label.toLowerCase().replace(/-/g, ' ').trim();
-}
-
 /** The higher tier wins when an issue carries both labels — a visitor
  *  should see the more approachable framing, not a duplicate entry. */
 function tierForLabels(labels: readonly string[]): ContributorIssueTier | null {
@@ -66,20 +62,14 @@ function tierForLabels(labels: readonly string[]): ContributorIssueTier | null {
   return null;
 }
 
-/** The maintainer's own marks on an issue: answered no, or on hold until they
- *  lift it by hand. Such an issue stays open, tier label and all, for its
- *  reporter to reply to (CONTRIBUTING.md); the pool claim skips it on the same
- *  labels (pool-client.ts), so this list must not offer it either (epic 0019
- *  law 2: the maintainer's mark outranks a listing). */
-const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS].map(normalizeLabel);
-
-/** True when `labels` carry one of {@link MAINTAINER_MARKS}, in any casing or
- *  hyphenation. Exported so the Collaboration panel's help-wanted and roadmap
- *  reads (help-wanted-items.ts, roadmap-items.ts) skip the same issues this
- *  list does. */
-export function isMaintainerMarked(labels: readonly string[]): boolean {
-  return labels.some((label) => MAINTAINER_MARKS.includes(normalizeLabel(label)));
-}
+/** The maintainer's own marks on an issue (`declined`, `status:
+ *  awaiting-human`, `status: blocked`), matched in any casing or hyphenation.
+ *  Such an issue stays open, tier label and all, for its reporter to reply to
+ *  (CONTRIBUTING.md). The predicate lives in pool-client.ts so the claim and
+ *  the stale-claim reaper read the same check as this list; re-exported here
+ *  for the Collaboration panel's help-wanted and roadmap reads
+ *  (help-wanted-items.ts, roadmap-items.ts) and the mirror pass. */
+export { isMaintainerMarked };
 
 /**
  * Filters open issues down to the CONTRIBUTOR JOURNEY's pick list: only
@@ -87,7 +77,7 @@ export function isMaintainerMarked(labels: readonly string[]): boolean {
  * excluded outright (a visitor should never be steered at something someone
  * already owns — the same claim signal `flight/pool-client.ts`'s
  * `isClaimedPoolIssue` reads), and so are ones the maintainer has declined or
- * put on hold ({@link MAINTAINER_MARKS}). Good-first-issue entries rank before
+ * put on hold ({@link isMaintainerMarked}). Good-first-issue entries rank before
  * help-wanted, ties broken by issue number so the order is stable across
  * calls with identical input.
  */

@@ -121,6 +121,34 @@ export function isPoolIssue(labels: readonly string[]): boolean {
  *  pool still lists it; KEEPER triage skips it on the same label. */
 export const DECLINED_LABEL = 'declined';
 
+/** A label as the maintainer's marks are compared: any casing, a hyphen read
+ *  as a space. A repo's own label may read `Declined` or `Status: Blocked`
+ *  rather than the seeder's spelling, and it is still the maintainer's mark.
+ *  Exported so the contributor lists (contributor-issue-list.ts) compare their
+ *  tier labels the same way. */
+export function normalizeLabel(label: string): string {
+  return label.toLowerCase().replace(/-/g, ' ').trim();
+}
+
+/** The first of `labels` that is one of `marks` under {@link normalizeLabel},
+ *  spelled as the issue carries it, or `undefined` when none is. */
+function carriedMark(labels: readonly string[], marks: readonly string[]): string | undefined {
+  const wanted = marks.map(normalizeLabel);
+  return labels.find((label) => wanted.includes(normalizeLabel(label)));
+}
+
+/** True when `labels` carry one of the maintainer's own marks: answered no
+ *  ({@link DECLINED_LABEL}) or on hold until they lift it by hand ({@link
+ *  HOLD_LABELS}), in any casing or hyphenation. The claim and the stale-claim
+ *  reaper here, the Good-first list (contributor-issue-list.ts, which
+ *  re-exports it), the Collaboration panel's help-wanted and roadmap groups and
+ *  the mirror pass all read this one predicate, so no listing offers an issue
+ *  the claim refuses (epic 0019 law 2: the maintainer's mark outranks a
+ *  listing). */
+export function isMaintainerMarked(labels: readonly string[]): boolean {
+  return carriedMark(labels, [DECLINED_LABEL, ...HOLD_LABELS]) !== undefined;
+}
+
 /** The issue's live claims — the ledger when the fetch carried comments,
  *  else the assignees as undated claims (the pre-ledger reading). */
 export function issueClaims(issue: PoolIssue): readonly PoolClaim[] {
@@ -141,10 +169,9 @@ export function isClaimedPoolIssue(issue: PoolIssue): boolean {
  *  claim skips both marks ({@link planClaimPoolIssue}), so a released claim
  *  there would tell its holder "anyone can pick it back up" about an issue
  *  nobody can claim, and a hold is the maintainer's to lift (epic 0019 law 2).
- *  Exact label match, the same check the claim makes. */
+ *  Read through {@link isMaintainerMarked}, the same check the claim makes. */
 export function isReapablePoolClaim(issue: PoolIssue): boolean {
-  if (!isClaimedPoolIssue(issue) || issue.labels.includes(DECLINED_LABEL)) return false;
-  return !HOLD_LABELS.some((label) => issue.labels.includes(label));
+  return isClaimedPoolIssue(issue) && !isMaintainerMarked(issue.labels);
 }
 
 /** One issue entry as `gh issue list --json number,title,url,labels,
@@ -294,8 +321,10 @@ function isoDay(ms: number | null): string {
  * carries no `pool: <dimension>` label ({@link isPoolIssue}) — it was never
  * accepted into the pool — when the maintainer has since declined it
  * ({@link DECLINED_LABEL}) or put it on hold ({@link HOLD_LABELS}, the
- * labels KEEPER triage holds on too), or when it is already assigned ({@link
- * isClaimedPoolIssue}), otherwise claim. Pure: reuses the same classifiers
+ * labels KEEPER triage holds on too), in any casing or hyphenation as the
+ * contributor lists match them ({@link isMaintainerMarked}), or when it is
+ * already assigned ({@link isClaimedPoolIssue}), otherwise claim. Pure:
+ * reuses the same classifiers
  * `fetchPoolIssues` already filters by rather than re-deriving pool/claimed
  * status a second way.
  */
@@ -310,14 +339,15 @@ export function planClaimPoolIssue(
       reasoning: `#${issue.number} carries no pool: label — it was never accepted into the pool`,
     };
   }
-  if (issue.labels.includes(DECLINED_LABEL)) {
+  const declined = carriedMark(issue.labels, [DECLINED_LABEL]);
+  if (declined !== undefined) {
     return {
       decision: 'skip',
-      reasoning: `#${issue.number} carries "${DECLINED_LABEL}" — the maintainer has answered it, so nobody should claim it`,
+      reasoning: `#${issue.number} carries "${declined}" — the maintainer has answered it, so nobody should claim it`,
     };
   }
-  const hold = HOLD_LABELS.find((label) => issue.labels.includes(label));
-  if (hold) {
+  const hold = carriedMark(issue.labels, HOLD_LABELS);
+  if (hold !== undefined) {
     return {
       decision: 'skip',
       reasoning: `#${issue.number} carries "${hold}" — the maintainer has put it on hold, so nobody should claim it until they lift it`,
