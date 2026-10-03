@@ -10,6 +10,7 @@ import {
   readConnectionConfig,
   writeConnectionConfig,
   isAuthMode,
+  claudeBackendOf,
 } from '../../src/connection/config.js';
 
 import { execFileSync } from 'node:child_process';
@@ -121,6 +122,52 @@ describe('readConnectionConfig', () => {
   it('omits an endpoint field that is empty or not a string', () => {
     writeFileSync(configPath, JSON.stringify({ mode: 'endpoint', baseUrl: 7, authToken: '' }));
     expect(readConnectionConfig(configPath)).toEqual({ mode: 'endpoint' });
+  });
+});
+
+// Epic 0036, GitHub #21 slice S1's provider chip: a Claude flight's fly-bar
+// row names the backend its `claude` CLI is routed to, exactly when
+// resolveClaudeEnv routes it there.
+describe('claudeBackendOf', () => {
+  it("names an endpoint by its base URL's host alone", () => {
+    expect(
+      claudeBackendOf({ mode: 'endpoint', baseUrl: 'http://localhost:11434', authToken: 'ollama' }),
+    ).toEqual({ kind: 'endpoint', host: 'localhost:11434' });
+    expect(
+      claudeBackendOf({ mode: 'endpoint', baseUrl: 'https://api.deepseek.com/anthropic' }),
+    ).toEqual({ kind: 'endpoint', host: 'api.deepseek.com' });
+  });
+
+  // A hand-edited connection.json skips validateConnect, so a credential in
+  // the URL must still never reach the status the dashboard serves.
+  it('never carries userinfo, a path or a query from a hand-edited base URL', () => {
+    expect(
+      claudeBackendOf({ mode: 'endpoint', baseUrl: 'https://user@gw.example/v1?key=abc#frag' }),
+    ).toEqual({ kind: 'endpoint', host: 'gw.example' });
+    expect(claudeBackendOf({ mode: 'endpoint', baseUrl: 'https://:pass@gw.example:8443' })).toEqual(
+      { kind: 'endpoint', host: 'gw.example:8443' },
+    );
+  });
+
+  it('names an endpoint with no host when its base URL does not parse', () => {
+    expect(claudeBackendOf({ mode: 'endpoint', baseUrl: 'not a url' })).toEqual({
+      kind: 'endpoint',
+    });
+  });
+
+  it('names Bedrock, and Vertex once it has the project its env needs', () => {
+    expect(claudeBackendOf({ mode: 'bedrock' })).toEqual({ kind: 'bedrock' });
+    expect(claudeBackendOf({ mode: 'vertex', gcpProjectId: 'my-project' })).toEqual({
+      kind: 'vertex',
+    });
+  });
+
+  it("names none where resolveClaudeEnv routes the CLI to Anthropic's own API", () => {
+    expect(claudeBackendOf({ mode: 'subscription' })).toBeUndefined();
+    expect(claudeBackendOf({ mode: 'api-key', apiKey: 'k' })).toBeUndefined();
+    expect(claudeBackendOf({ mode: 'oauth-token', oauthToken: 't' })).toBeUndefined();
+    expect(claudeBackendOf({ mode: 'endpoint' })).toBeUndefined();
+    expect(claudeBackendOf({ mode: 'vertex' })).toBeUndefined();
   });
 });
 

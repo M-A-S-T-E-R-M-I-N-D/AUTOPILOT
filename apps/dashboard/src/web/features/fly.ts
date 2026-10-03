@@ -742,13 +742,19 @@ ${sessionFlightDataFor.toString()}
         : tr('flightRowFlyingFirings', { name: f.folder, count: f.firings || 1 });
       // Epic 0036: the engine this lane flies on, so a fleet flying several
       // CLIs reads at a glance: the launch's own choice, or else the
-      // dashboard's AUTOPILOT_ENGINE; none when neither names one.
+      // dashboard's AUTOPILOT_ENGINE; none when neither names one. A Claude
+      // flight routed off Anthropic's own API (GitHub #21 slice S1) names its
+      // backend in the model's place, an endpoint by its host.
       var engineName = f.engine === 'codex' ? tr('engineCodex')
         : f.engine === 'gemini' ? tr('engineGemini')
-          : f.engine === 'claude' ? tr('engineClaude') : '';
+          : (f.engine === 'claude' || f.backend) ? tr('engineClaude') : '';
+      var backendName = f.backend === 'endpoint' && f.backendHost ? f.backendHost
+        : f.backend === 'bedrock' ? tr('authModeBedrock') : f.backend === 'vertex' ? tr('authModeVertex')
+          : f.backend === 'endpoint' ? tr('authModeEndpoint') : '';
+      var engineDetail = f.engineModel || backendName;
       if (engineName) {
-        statusText += f.engineModel
-          ? tr('flightRowEngineModelSuffix', { engine: engineName, model: f.engineModel })
+        statusText += engineDetail
+          ? tr('flightRowEngineModelSuffix', { engine: engineName, model: engineDetail })
           : tr('flightRowEngineSuffix', { engine: engineName });
       }
       if (f.initiatedBy === 'fleet-watchdog') statusText += tr('flightRowWatchdogSuffix');

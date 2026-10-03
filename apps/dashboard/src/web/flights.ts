@@ -102,6 +102,10 @@ export interface FlightRowStatusItem extends FlightsListItem {
    *  (`FlightStatus.engine`/`engineModel`, epic 0036). */
   readonly engine?: string;
   readonly engineModel?: string;
+  /** The backend a Claude flight's CLI is routed to, and an endpoint's host
+   *  (`FlightStatus.backend`/`backendHost`, GitHub #21 slice S1). */
+  readonly backend?: string;
+  readonly backendHost?: string;
 }
 
 /** How a running row names each engine — the `engineClaude`/`engineCodex`/
@@ -112,14 +116,33 @@ const ENGINE_NAMES: Readonly<Record<string, string>> = {
   gemini: 'Gemini',
 };
 
+/** How a Claude row names a backend with no host — the `authModeBedrock`/
+ *  `authModeVertex`/`authModeEndpoint` STRINGS the connect panel shows. */
+const BACKEND_NAMES: Readonly<Record<string, string>> = {
+  bedrock: 'Amazon Bedrock',
+  vertex: 'Google Vertex AI',
+  endpoint: 'Compatible endpoint (gateway or local server)',
+};
+
+/** What the row puts in the model's place: the Codex/Gemini model, or for a
+ *  Claude flight the backend it is routed to, an endpoint by its host. */
+function engineDetail(f: FlightRowStatusItem): string {
+  if (f.engineModel) return f.engineModel;
+  if (f.backend === 'endpoint' && f.backendHost) return f.backendHost;
+  return (f.backend && Object.hasOwn(BACKEND_NAMES, f.backend) && BACKEND_NAMES[f.backend]) || '';
+}
+
 /** The row's engine clause — the `flightRowEngineSuffix`/
  *  `flightRowEngineModelSuffix` shape, empty when the status names no engine
  *  (neither the launch nor the dashboard's own `AUTOPILOT_ENGINE` chose one)
- *  or one this build cannot name. */
+ *  or one this build cannot name. A backend names Claude Code, since only a
+ *  Claude flight reports one. */
 function engineClause(f: FlightRowStatusItem): string {
-  const name = f.engine && Object.hasOwn(ENGINE_NAMES, f.engine) ? ENGINE_NAMES[f.engine] : '';
+  const engine = f.engine ?? (f.backend ? 'claude' : '');
+  const name = Object.hasOwn(ENGINE_NAMES, engine) ? ENGINE_NAMES[engine] : '';
   if (!name) return '';
-  return f.engineModel ? ` · ${name} (${f.engineModel})` : ` · ${name}`;
+  const detail = engineDetail(f);
+  return detail ? ` · ${name} (${detail})` : ` · ${name}`;
 }
 
 /** The fly bar's per-folder status sentence for one live/paused/queued flight
