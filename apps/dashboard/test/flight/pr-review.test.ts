@@ -4874,23 +4874,35 @@ describe('prHasHoldLabel', () => {
 
   // EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k): a steward
   // slice's own taxonomy is a neighboring flow's real input, not just its
-  // own contract — taxonomy-seed.ts's HOUSE_TAXONOMY_LABELS stamps
-  // `status: blocked` onto owned repos, and this asserts it actually trips
-  // the auto-merge hold guard the way a human-applied `blocked` label does
-  // (normalizeLabel folds "status: blocked" to the "status-blocked" token
-  // sequence, which prHasHoldLabel's endsWith('-blocked') branch catches).
-  // Reading the real HOUSE_TAXONOMY_LABELS constant, rather than a
-  // hand-typed string, means renaming or dropping that label in
-  // taxonomy-seed.ts breaks this test instead of silently unwiring the
-  // guard. Every other house label is confirmed to NOT read as a hold —
-  // the steward's own priority/area/epic/community taxonomy must never
-  // accidentally freeze auto-merge.
-  it('the steward-stamped "status: blocked" label trips the auto-merge hold guard; every other house label does not', () => {
-    const statusBlocked = HOUSE_TAXONOMY_LABELS.find((label) => label.name === 'status: blocked');
-    expect(statusBlocked).toBeDefined();
-    expect(prHasHoldLabel(candidate({ labels: [statusBlocked!.name] }))).toBe(true);
+  // own contract — taxonomy-seed.ts's HOUSE_TAXONOMY_LABELS stamps three
+  // maintainer marks that say "not this one, not yet" onto owned repos:
+  // `status: blocked`, `status: awaiting-human` ("waiting on an
+  // operator/maintainer decision by design") and `declined` (answered no,
+  // the reason in a comment). Issue triage already holds every one of them
+  // (issue-triage.ts DECLINED_LABEL / HOLD_LABELS, epic 0019 law 2), so the
+  // auto-merge hold guard must too — otherwise the same mark that stops
+  // triage lets a policy-green PR squash-merge. Reading the real
+  // HOUSE_TAXONOMY_LABELS constant, rather than hand-typed strings, means
+  // renaming or dropping one of them in taxonomy-seed.ts breaks this test
+  // instead of silently unwiring the guard. Every other house label is
+  // confirmed to NOT read as a hold — the steward's own
+  // priority/area/epic/community taxonomy must never accidentally freeze
+  // auto-merge.
+  const MAINTAINER_HOLD_LABELS = ['status: blocked', 'status: awaiting-human', 'declined'];
 
-    const nonHoldLabels = HOUSE_TAXONOMY_LABELS.filter((label) => label.name !== 'status: blocked');
+  it.each(MAINTAINER_HOLD_LABELS)(
+    'the steward-stamped "%s" label trips the auto-merge hold guard',
+    (name) => {
+      const seeded = HOUSE_TAXONOMY_LABELS.find((label) => label.name === name);
+      expect(seeded).toBeDefined();
+      expect(prHasHoldLabel(candidate({ labels: [seeded!.name] }))).toBe(true);
+    },
+  );
+
+  it('every other house label does not trip the auto-merge hold guard', () => {
+    const nonHoldLabels = HOUSE_TAXONOMY_LABELS.filter(
+      (label) => !MAINTAINER_HOLD_LABELS.includes(label.name),
+    );
     expect(nonHoldLabels.length).toBeGreaterThan(0);
     for (const label of nonHoldLabels) {
       expect(prHasHoldLabel(candidate({ labels: [label.name] }))).toBe(false);
@@ -4989,6 +5001,16 @@ describe('planPrReview hold-label guard (human "do not merge yet" signal)', () =
     expect(decision.decision).toBe('queue-for-human');
     expect(decision.reasoning).toContain('hold label');
   });
+
+  it.each(['status: awaiting-human', 'declined'])(
+    'queues an otherwise policy-green PR the maintainer marked "%s" instead of merging it',
+    (label) => {
+      const decision = planPrReview(candidate({ labels: [label] }));
+
+      expect(decision.decision).toBe('queue-for-human');
+      expect(decision.reasoning).toContain('hold label');
+    },
+  );
 
   it('names every hold marker in the reasoning so the operator knows which labels to clear', () => {
     const decision = planPrReview(candidate({ labels: ['hold'] }));

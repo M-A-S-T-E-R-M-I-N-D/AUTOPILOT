@@ -378,6 +378,18 @@ above changes: the per-project engine lock, the singleton `FlightRunner`, the sh
 flight-end ritual serialization are all untouched by which CLI binary a firing's model wraps. All
 six slices remain unchanged and live in production.
 
+Freshness check (2026-10-03): `fly.ts` and `prompt.ts` gained one more commit since the evening
+check above — `0a1d6cc7` (epic 0036), which adds an optional `harness` field to
+`FiringPromptInput` so a Codex or Gemini lane's commits name their own CLI
+(`codex-cli`/`gemini-cli`) in the `Harness:` commit trailer instead of the fixed `claude-cli`,
+fixing a false provenance claim; a Claude lane's prompt stays byte-identical. Like the two
+engine-selection commits above, this is per-lane prompt-text construction, read once from
+`process.env` inside that lane's own `main()` — no board, SOUL or backlog row crosses projects
+because of it, and it opens no cross-project write path. None of the four locks above change: the
+per-project engine lock, the singleton `FlightRunner`, the shared store, and flight-end ritual
+serialization are all untouched by which CLI name a firing's commit trailer carries. All six
+slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this

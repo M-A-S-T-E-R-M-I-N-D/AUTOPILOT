@@ -54,6 +54,11 @@ function isNonClaudeEngine(engine: string): engine is NonClaudeEngine {
   return Object.hasOwn(ENGINES, engine);
 }
 
+/** The name the flight log and the preflight give an engine's CLI. */
+export function firingEngineCli(engine: NonClaudeEngine): string {
+  return ENGINES[engine].cli;
+}
+
 /** Reads `AUTOPILOT_ENGINE` and `AUTOPILOT_ENGINE_MODEL`. */
 export function firingEngineFromEnv(env: NodeJS.ProcessEnv): FiringEngineChoice {
   const engine = (env['AUTOPILOT_ENGINE'] ?? '').trim().toLowerCase();
@@ -125,7 +130,7 @@ const GUARD_LINES: Readonly<Record<NonClaudeEngine, string>> = {
  *  with it; `null` for Claude, whose flight log stays as it was. */
 export function firingEngineLine(route: FiringEngineRoute): string | null {
   if (route.engine === 'claude') return null;
-  const { cli } = ENGINES[route.engine];
+  const cli = firingEngineCli(route.engine);
   return (
     `Engine: ${cli} CLI on ${route.model} (AUTOPILOT_ENGINE). Model routing is off; ` +
     `${GUARD_LINES[route.engine]}; no cost is recorded, since ${cli} reports no price; ` +

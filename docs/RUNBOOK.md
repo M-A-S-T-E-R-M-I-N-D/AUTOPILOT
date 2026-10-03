@@ -98,6 +98,7 @@ refusal reads `preflight refused: <check>: <what to do>` and names one of:
 | `target-clean` | changed or untracked paths in the live checkout — every sync-back into it would refuse | commit or stash them                                       |
 | `git-identity` | `user.name` / `user.email` unset — every commit the flight makes fails | `git config user.name …` / `git config user.email …`       |
 | `claude-cli`   | `claude` is not on the PATH                                        | install Claude Code and sign in once                       |
+| `engine`       | `AUTOPILOT_ENGINE` names a setting the flight would refuse, or a `codex`/`gemini` that is not on the PATH | fix the setting the line names, or install that CLI and sign in once |
 | `disk-space`   | under 1 GiB free                                                   | free space; the gate, the snapshot and a lane need it      |
 
 Warnings let the flight go and say what to expect: a build older than
@@ -307,8 +308,12 @@ that, and every firing then exits untrusted. Two gate-reverted firings in a row 
 `Stopped by: demoted`. An unknown engine, a missing model or a Claude model refuses the flight with
 a `⛔` line naming the fix, and so does a Gemini lane given a model the vendor table places with
 another publisher (`gpt-5-codex`, `llama-4-maverick`) or a locally served one (`ollama/…`), since
-the Gemini CLI reaches only Google's models. A name the table cannot place still flies. Spec and
-status:
+the Gemini CLI reaches only Google's models. A name the table cannot place still flies. A launch
+from the dashboard (the Fly button, `dashboard fleet`, the watchdog) meets each of those refusals
+in its preflight first, as `preflight refused: engine: …`, and so does a lane whose `codex` or
+`gemini` does not answer `--version` on the PATH; `claude-cli` stays required, since the commit
+reviewer runs on it. `pnpm dashboard:doctor <folder>` shows the CLI's version and model on its
+`engine` line. Spec and status:
 [`docs/epics/0036-provider-parity.md`](epics/0036-provider-parity.md).
 
 ### Substep routing & local offload (the M6 cost lever)
@@ -498,7 +503,7 @@ inputs: a misleading description cannot talk its way past the ritual. Checks run
 | Gate failed or still running (a gating check exists but has not concluded green) | request-changes — an agent's judgment never substitutes for the gate |
 | Merge conflicts against the base branch | request-changes — nothing in this ritual resolves conflicts; when a local `git apply --check` can name the conflicting file(s), the posted reasoning names them (an uncomputed merge state says "not computed yet" instead of claiming conflicts nobody verified) |
 | Branch is behind the base (`mergeStateStatus: BEHIND`) | request-changes — its green gate was computed against a base that has since moved, and strict branch protection would refuse the merge after the approve posted; update the branch so CI re-runs |
-| Carries a human-applied hold label (`do-not-merge`, `hold`, `blocked`, `wip`, `work-in-progress`) | queue-for-human — a maintainer's explicit "not ready" signal, the same convention the draft exclusion honors; remove the label to let a later pass reconsider |
+| Carries a human-applied hold label (`do-not-merge`, `hold`, `blocked`, `wip`, `work-in-progress`, `awaiting-human`, `declined` — so the house taxonomy's `status: blocked`, `status: awaiting-human` and `declined` hold it too, as they hold issue triage) | queue-for-human — a maintainer's explicit "not ready" signal, the same convention the draft exclusion honors; remove the label to let a later pass reconsider |
 | gh's label report was unreadable (not a list of named labels) | queue-for-human — the hold sweep never ran, so a human's standing `do-not-merge` could be invisible; an unassessed fact fails closed |
 | Standing `CHANGES_REQUESTED` review from a reviewer other than this ritual | queue-for-human — a human's explicit "not yet" outranks a green gate; the ritual's own stale reviews are excluded so it never stalls on itself. A comment-only follow-up from that reviewer does not clear it (GitHub keeps the request standing until they approve or it is dismissed), so the ritual reads the full review history by `submittedAt`, not just each reviewer's latest review, to see through that mask |
 | Standing `CHANGES_REQUESTED` review whose reviewer could not be checked (the `gh api user` viewer lookup failed) | queue-for-human — nobody can say whether that review is a human's "not yet" or this ritual's own stale one; the next pass re-checks with a fresh lookup |

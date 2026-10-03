@@ -1261,6 +1261,16 @@ var PROJECT_STATUS_KEYS = {
   hibernating: 'projectStatusHibernating',
   needs_you: 'projectStatusNeedsYou',
 };
+// The fleet card's leading status glyph (epic 0025 slice 3): the task row's
+// circle family below, so flying reads like an in-progress task and needs
+// you like a task awaiting your decision.
+var PROJECT_STATUS_ICONS = {
+  registered: 'circle',
+  flying: 'circle-dot',
+  paused: 'circle-pause',
+  hibernating: 'moon',
+  needs_you: 'circle-question-mark',
+};
 var TASK_STATUS_KEYS = {
   queued: 'taskStatusQueued',
   in_progress: 'taskStatusInProgress',
@@ -1298,9 +1308,12 @@ var TASK_SOURCE_KEYS = {
 // decomposition", slice 2, seventy-fourth cut) — its real compiled source via
 // .toString(), not a hand-retyped copy. It can no longer drift apart.
 ${sharedStatusPillMeta.toString()}
-function statusPill(classPrefix, status, keys) {
+function statusPill(classPrefix, status, keys, icons) {
   var meta = statusPillMeta(status, keys, tr);
   var pill = el('span', classPrefix + status, meta.label);
+  // setSweptText() (features/locale.ts) keeps a leading icon when a locale
+  // switch rewrites the pill's word.
+  if (icons[status]) pill.insertBefore(iconEl(icons[status]), pill.firstChild);
   if (meta.tip) {
     pill.setAttribute('tabindex', '0');
     // i18n: painted via tr() at build so a saved locale renders right first
@@ -1493,7 +1506,7 @@ function cardHead(c) {
   title.appendChild(titleLink);
   head.appendChild(title);
   var badges = el('div', 'card-head-badges');
-  badges.appendChild(statusPill('pill pill-', c.status, PROJECT_STATUS_KEYS));
+  badges.appendChild(statusPill('pill pill-', c.status, PROJECT_STATUS_KEYS, PROJECT_STATUS_ICONS));
   if (c.anomalies) {
     for (var ai = 0; ai < c.anomalies.length; ai++) badges.appendChild(anomalyChip(c.anomalies[ai], c.id));
   }
@@ -3209,12 +3222,7 @@ function tasksSection(c) {
           li.appendChild(unpinBtn);
         }
       }
-      var taskPill = statusPill('pill task-', t.status, TASK_STATUS_KEYS);
-      // setSweptText() (features/locale.ts) keeps a leading icon when a
-      // locale switch rewrites the pill's word.
-      var statusIcon = TASK_STATUS_ICONS[t.status];
-      if (statusIcon) taskPill.insertBefore(iconEl(statusIcon), taskPill.firstChild);
-      li.appendChild(taskPill);
+      li.appendChild(statusPill('pill task-', t.status, TASK_STATUS_KEYS, TASK_STATUS_ICONS));
       // Title itself was the last silent element on the row — TaskEntry carries
       // at/priority but nothing ever displayed them (app-wide interactivity
       // audit v2 follow-up: every panel drills down).

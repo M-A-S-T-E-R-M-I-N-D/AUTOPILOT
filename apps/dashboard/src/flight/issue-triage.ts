@@ -197,8 +197,9 @@ const DECLINED_LABEL = 'declined';
  *  by design" or "cannot proceed — blocker named in a comment". Epic 0019
  *  law 2 (docs/epics/0019-github-steward.md): what the maintainer marks
  *  outranks triage, so neither label is ever scored, re-labeled, or
- *  answered — the maintainer lifts it by hand when the hold is over. */
-const HOLD_LABELS = ['status: awaiting-human', 'status: blocked'] as const;
+ *  answered — the maintainer lifts it by hand when the hold is over. The
+ *  pool claim (pool-client.ts) holds on the same labels. */
+export const HOLD_LABELS = ['status: awaiting-human', 'status: blocked'] as const;
 
 /**
  * Is this issue the maintainer's own?
