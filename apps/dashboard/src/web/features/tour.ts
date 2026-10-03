@@ -217,7 +217,12 @@ function paintTour() {
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-labelledby', 'tour-title');
-  var h = el('h2', '', tr(keys.titleKey));
+  // A decorative compass leads the words (epic 0025), the one the overflow
+  // menu's Tour item draws, so the name the dialog takes through
+  // aria-labelledby stays the stop's words and its counter.
+  var h = el('h2', '');
+  h.appendChild(iconEl('compass'));
+  h.appendChild(document.createTextNode(tr(keys.titleKey)));
   h.id = 'tour-title';
   // "Step 3 of 9" belongs in the dialog's own heading, not a live region:
   // an aria-modal dialog hides outside live regions, and moving focus into

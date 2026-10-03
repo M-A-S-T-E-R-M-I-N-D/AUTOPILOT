@@ -395,7 +395,15 @@ propagation, and the filled style does not match the nav.
    name the dialog takes through `aria-labelledby` stays the words alone; the
    title is built with `tr()` on every paint, so a Hebrew page paints Hebrew
    words beside the same icon
-   (`apps/dashboard/test/web/browse-dialog-title-icon.test.ts`).
+   (`apps/dashboard/test/web/browse-dialog-title-icon.test.ts`). **Tour
+   title 2026-10-03 (slice 2):** every guided tour stop headed with bare
+   words beside its "Step N of M" counter. It leads with the `compass` the
+   overflow menu's Tour item draws now, as the Ask sheet leads with its
+   button's `message-circle`; nothing is newly vendored, and `tour.ts` rides
+   `/panels.js`, so core does not grow. The icon is decorative, so the name
+   the dialog takes through `aria-labelledby` stays the stop's words and its
+   counter, and `paintTour()` builds the title with `tr()` on every stop
+   (`apps/dashboard/test/web/tour-title-icon.test.ts`).
 
 ## Related
 
