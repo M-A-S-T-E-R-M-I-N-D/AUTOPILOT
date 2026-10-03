@@ -14,6 +14,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
 const BASE_PROJECT = {
@@ -66,6 +67,8 @@ describe('the many-lanes grid', () => {
   let current: ReturnType<typeof stateWith>;
 
   beforeEach(() => {
+    // The locale switch below saves 'ap-locale'; never let it reach a later test.
+    localStorage.clear();
     vi.useFakeTimers();
     document.open();
     document.write(renderShell());
@@ -184,6 +187,63 @@ describe('the many-lanes grid', () => {
     const grid = document.querySelector('.lane-grid');
     expect(grid?.getAttribute('role')).toBe('group');
     expect(grid?.getAttribute('aria-label')).toBe("Who's flying now");
+  });
+
+  // Epic 0025 slice 3 (the live-worker cards): the single-lane card's focus
+  // line led with the target icon, but the lane card printed the same line as
+  // bare words — and a fleet shows lane cards whenever two lanes fly.
+  it("leads each lane card's focus line with the target icon, kept across a locale switch", async () => {
+    current = stateWith({
+      activity: [
+        { tool: 'Read', target: 'src/b.ts', kind: 'file', phase: 'do', at: 2, firingId: 'f2' },
+        { tool: 'Read', target: 'src/c.ts', kind: 'file', phase: 'gate', at: 1, firingId: 'f1' },
+      ],
+      tasks: [{ id: 't1', title: 'Add docs', status: 'queued', focus: true }],
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const focusLines = () =>
+      Array.from(
+        document.querySelectorAll(
+          '.lane-card .live-worker-line[data-i18n-template="liveFocusTask"]',
+        ),
+      );
+    expect(focusLines()).toHaveLength(2);
+    for (const line of focusLines()) {
+      const icon = line.firstElementChild;
+      expect(icon?.matches('svg.icon-target')).toBe(true);
+      expect(icon?.getAttribute('aria-hidden')).toBe('true');
+      expect(line.textContent).toBe('working: Add docs');
+      expect(line.getAttribute('aria-label')).toBe('working: Add docs');
+    }
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    for (const line of focusLines()) {
+      expect(line.querySelector('svg.icon-target')).not.toBeNull();
+      expect(line.textContent).toBe(STRINGS.he.liveFocusTask.replaceAll('{name}', 'Add docs'));
+      expect(line.getAttribute('aria-label')).toBe(line.textContent);
+    }
+  });
+
+  it("leaves a lane card's probable-task guess line without an icon, like the single-lane card's", async () => {
+    current = stateWith({
+      activity: [
+        { tool: 'Read', target: 'src/b.ts', kind: 'file', phase: 'do', at: 2, firingId: 'f2' },
+        { tool: 'Read', target: 'src/c.ts', kind: 'file', phase: 'gate', at: 1, firingId: 'f1' },
+      ],
+      tasks: [{ id: 't1', title: 'Harden the guard hook', status: 'queued', focus: false }],
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const guesses = Array.from(document.querySelectorAll('.lane-card .live-worker-guess'));
+    expect(guesses).toHaveLength(2);
+    for (const guess of guesses) {
+      expect(guess.querySelector('svg')).toBeNull();
+      expect(guess.textContent).toBe('probably working: Harden the guard hook');
+    }
   });
 
   it('every focusable line in a lane card is keyboard-reachable (roving tabindex seeded)', async () => {
