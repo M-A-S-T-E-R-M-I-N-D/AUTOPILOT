@@ -42,19 +42,25 @@
  * not a limit — this script picks a fixture size at least that large.
  *
  * Usage: `pnpm run cockpit-metrics` (or `pnpm run build && node scripts/cockpit-metrics.mjs`
- * directly) — writes `docs/EVALUATION-<today>-cockpit-baseline.md`. Unlike this repo's `ci:*`
- * regen scripts (`data-model`, `citation`, `architecture`, ...), which refresh ONE living,
- * git-checked doc in place, every `EVALUATION-*.md` in this repo is a dated point-in-time
- * snapshot that is never rewritten under an old date — so this script always writes today's
- * file fresh rather than diff-checking a prior day's numbers against a `--check` flag.
+ * directly) — folds today's run into the living `docs/COCKPIT-BASELINE.md`
+ * (`./cockpit-baseline-doc.mjs`) instead of a fresh dated EVALUATION file. `--check`
+ * measures without writing and exits 1 naming each block this tree no longer reproduces —
+ * a manual check (build + real Chromium), never a `ci:*` script (FAILURE-DOCTRINE row 89).
  */
 import { builtinEnvironments } from 'vitest/runtime';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import axe from 'axe-core';
 import { chromium } from '@playwright/test';
 import { summarizeInteractionTiming } from './cockpit-metrics-interaction.mjs';
+import {
+  AXE_IMPACTS,
+  BASELINE_DOC,
+  renderBaselineBlocks,
+  staleBlocks,
+  updateBaseline,
+} from './cockpit-baseline-doc.mjs';
 import { renderShell, clientJs } from '../apps/dashboard/dist/web/shell.js';
 import { layoutCss } from '../apps/dashboard/dist/web/layout-css.js';
 import { fontFaceCss } from '../apps/dashboard/dist/assets/fonts.js';
@@ -75,7 +81,6 @@ const AXE_OPTIONS = {
   runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
   rules: { 'color-contrast': { enabled: false } },
 };
-const AXE_IMPACTS = ['critical', 'serious', 'moderate', 'minor'];
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -1119,440 +1124,8 @@ async function measureAxeAxis(label, smallN, largeN, fixtureOf) {
   return { label, smallN, small, largeN, large };
 }
 
-function renderContrastTheme(theme) {
-  const surfaceRows = [];
-  const seen = new Map();
-  for (const cell of theme.cells) {
-    if (cell.fg === 'accentText') continue;
-    const row = seen.get(cell.fg) ?? [];
-    row.push(cell.ratio.toFixed(2));
-    seen.set(cell.fg, row);
-  }
-  for (const [fg, ratios] of seen) {
-    surfaceRows.push(`| \`${fg}\` | ${ratios.join(' | ')} |`);
-  }
-  const fillCells = theme.cells.filter((c) => c.fg === 'accentText');
-  return `### ${theme.name}
-
-min **${theme.min.ratio.toFixed(2)}** (\`${theme.min.fg}\` on \`${theme.min.bg}\`) —
-${theme.belowNonText} of ${theme.cells.length} cells below 3:1, ${theme.nonTextOnly} in
-[3, 4.5) (non-text/large-text only), ${theme.textReady} at ≥ 4.5:1 (normal-text ready).
-
-| token | on \`surface\` | on \`surfaceRaised\` | on \`surfaceSunken\` |
-| --- | --- | --- | --- |
-${surfaceRows.join('\n')}
-
-| \`accentText\` on fill | ratio |
-| --- | --- |
-${fillCells.map((c) => `| \`${c.bg}\` | ${c.ratio.toFixed(2)} |`).join('\n')}
-`;
-}
-
-function renderDoc(
-  dateStr,
-  axes,
-  axeAxes,
-  tabAxes,
-  attrAxes,
-  dupAxes,
-  longestTaskAxes,
-  cssCensus,
-  specificity,
-  contrast,
-  alarmIndex,
-  alarmAxes,
-  i18nAxes,
-  tokenColorCensus,
-  interactionAxes,
-) {
-  const ratePct = (side) => ((side.alarmed / side.total) * 100).toFixed(1) + '%';
-  const ms = (value) => value.toFixed(2);
-  const interactionRows = interactionAxes
-    .map(
-      (a) =>
-        `| ${a.label} | ${a.smallN} → ${a.largeN} | ${a.small.interactions} → ${a.large.interactions} | ${ms(a.small.inpP75)} → ${ms(a.large.inpP75)} | ${ms(a.small.inpMax)} → ${ms(a.large.inpMax)} | ${ms(a.small.longestTask)} → ${ms(a.large.longestTask)} |`,
-    )
-    .join('\n');
-  const alarmRows = alarmAxes
-    .map((a) => {
-      const shapeCells = Object.keys(ALARM_TOKEN_VARS)
-        .map((level) => `${a.small.shape[level]} → ${a.large.shape[level]}`)
-        .join(' | ');
-      return `| ${a.label} | ${a.smallN} → ${a.largeN} | ${a.small.alarmed} → ${a.large.alarmed} (${ratePct(a.small)} → ${ratePct(a.large)}) | ${shapeCells} |`;
-    })
-    .join('\n');
-  const alarmSelectorCounts = Object.entries(alarmIndex)
-    .map(([level, selectors]) => `${level} ${selectors.length}`)
-    .join(', ');
-  const rows = axes
-    .map(
-      (a) =>
-        `| ${a.label} | ${a.smallN} → ${a.largeN} | ${a.smallNodes} → ${a.largeNodes} | ${a.perUnit.toFixed(1)} |`,
-    )
-    .join('\n');
-  const axeRows = axeAxes
-    .map(
-      (a) =>
-        `| ${a.label} | ${a.smallN} → ${a.largeN} | ${AXE_IMPACTS.map((impact) => `${a.small[impact]} → ${a.large[impact]}`).join(' | ')} |`,
-    )
-    .join('\n');
-  const tabRows = tabAxes
-    .map(
-      (a) =>
-        `| ${a.label} | ${a.smallN} → ${a.largeN} | ${a.smallStops} → ${a.largeStops} | ${a.perUnit.toFixed(1)} |`,
-    )
-    .join('\n');
-  const attrRows = attrAxes
-    .map(
-      (a) =>
-        `| ${a.label} | ${a.smallN} → ${a.largeN} | ${a.smallBytes} → ${a.largeBytes} | ${a.perUnit.toFixed(1)} |`,
-    )
-    .join('\n');
-  const dupRows = dupAxes
-    .map(
-      (a) =>
-        `| ${a.label} | ${a.smallN} → ${a.largeN} | ${a.smallMutations} → ${a.largeMutations} | ${a.perUnit.toFixed(1)} |`,
-    )
-    .join('\n');
-  const longestTaskRows = longestTaskAxes
-    .map(
-      (a) =>
-        `| ${a.label} | ${a.smallN} → ${a.largeN} | ${a.smallMs.toFixed(1)}ms → ${a.largeMs.toFixed(1)}ms |`,
-    )
-    .join('\n');
-  const censusRows = cssCensus.top
-    .map((p) => `| \`${p.property}\` | ${p.declarations} | ${p.unique} |`)
-    .join('\n');
-  const specificityRows = specificity.buckets
-    .map((b) => `| ${b.spec.a},${b.spec.b},${b.spec.c} | ${b.count} | \`${b.example}\` |`)
-    .join('\n');
-  const i18nCell = (side, pool) => {
-    const { tagged, untagged } = side[pool];
-    const total = tagged + untagged;
-    const pct = total === 0 ? 'n/a' : `${((tagged / total) * 100).toFixed(1)}%`;
-    return `${tagged}/${total} (${pct})`;
-  };
-  const i18nRows = i18nAxes
-    .map(
-      (a) =>
-        `| ${a.label} | ${a.smallN} → ${a.largeN} | ${i18nCell(a.small, 'text')} → ${i18nCell(a.large, 'text')} | ${i18nCell(a.small, 'aria')} → ${i18nCell(a.large, 'aria')} | ${i18nCell(a.small, 'placeholder')} → ${i18nCell(a.large, 'placeholder')} |`,
-    )
-    .join('\n');
-  const driftedRows =
-    tokenColorCensus.drifted
-      .slice(0, CENSUS_TOP_COUNT)
-      .map(
-        (d) =>
-          `| \`${d.property}\` | \`${d.value}\` | \`${d.selector}\` | ${d.matches.join(', ')} |`,
-      )
-      .join('\n') || '| — | — | — | — |';
-  const uncoveredRows =
-    tokenColorCensus.uncovered
-      .slice(0, CENSUS_TOP_COUNT)
-      .map((u) => `| \`${u.property}\` | \`${u.value}\` | \`${u.selector}\` |`)
-      .join('\n') || '| — | — | — |';
-  return `<!--
-SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
-SPDX-License-Identifier: Apache-2.0
--->
-
-# EVALUATION — cockpit baseline, DOM growth + axe by impact + tab stops + attribute payload + duplicate renders + longest task + unique values + specificity + contrast matrix + alarm rate + severity shape + token coverage + i18n tagging coverage + interaction latency (${dateStr})
-
-COCKPIT PHASE 0 MEASURE (\`docs/epics/0015-cockpit-supervisory-control.md\`, board
-web-mtbpiiur-43tmr3): thirteen rows of the brief's §5 table, twelve measured against the REAL
-served surfaces (\`renderShell\`/\`clientJs\`, \`apps/dashboard/src/web/shell.ts\`, plus the
-\`/tokens.css\` stylesheet exactly as \`server/routes.ts\` composes it, and the theme token
-maps exactly as \`colorVars()\` serves them) in jsdom, and the thirteenth — longest task — in a
-real Chromium against the real \`createServer\` HTTP server, since the Long Tasks API has no
-jsdom implementation; all via \`scripts/cockpit-metrics.mjs\`, not asserted. The last §5
-row (INP p75) stays open for a follow-on slice; regenerate this file with
-\`pnpm run cockpit-metrics\`.
-
-## DOM growth per lane / task / row
-
-| axis | fixture size | total DOM nodes | nodes per added unit |
-| --- | --- | --- | --- |
-${rows}
-
-- **row** — fleet-grid project cards (\`.card\`), ${axes[0].smallN} vs ${axes[0].largeN} projects.
-- **task** — one project's task board (\`.task\`), ${axes[1].smallN} vs ${axes[1].largeN} tasks.
-- **lane** — the fleet-wide \`#live-workers\` chip strip (\`.live-worker-chip\`, one chip per
-  concurrently-flying worktree lane — board web-mtbp0t86-rnimyi's fix), ${axes[2].smallN} vs
-  ${axes[2].largeN} lanes on a single project. The per-card \`.live-worker\` panel is a
-  separate, still-single-lane surface (\`liveFiring()\`, not \`liveFirings()\`) and is not what
-  this axis measures.
-
-No ratchet is set yet — the epic's own rule is "ratchets start at today's measured value,
-never the ideal", and this is the first measurement. A follow-on slice should turn the
-\`perUnit\` column into a committed ratchet once a second data point exists to judge drift
-against.
-
-## axe violations by impact
-
-Same three fixtures (row/task/lane) run through \`axe-core\` (WCAG 2.0/2.1/2.2 A+AA rules,
-\`color-contrast\` disabled — jsdom has no layout engine to compute it, asserted separately by
-the token package's contrast tests) at each fixture's small and large size. Counted per
-AFFECTED NODE, not per rule, so the count scales with fixture size the same way DOM growth
-does above.
-
-| axis | fixture size | critical | serious | moderate | minor |
-| --- | --- | --- | --- | --- | --- |
-${axeRows}
-
-\`test/web/a11y.test.ts\` already asserts zero violations at fixed fixture sizes across the
-app's real surfaces — this table adds the same axe pass at the SAME two scales as the DOM-
-growth axes above, to see whether violation counts grow with content the way node counts do.
-
-## tab stops
-
-Count of elements reachable via sequential Tab navigation (every native/\`tabindex\`-bearing
-focusable element, minus disabled controls) at each fixture's small and large size. A list
-that adds one tab stop per added row/task/lane instead of virtualizing or using a roving-
-tabindex container becomes a keyboard trap in practice long before it looks like a problem —
-this is the measurement D1's "tab stops via roving tabindex" foundation work will be judged
-against.
-
-| axis | fixture size | tab stops | stops per added unit |
-| --- | --- | --- | --- |
-${tabRows}
-
-No ratchet is set yet, same as the DOM-growth axes — this is the first measurement.
-
-## attribute payload
-
-Sum of every element's attribute name + value string length (characters) at each fixture's
-small and large size — the same three fixtures and render harness as DOM growth above, but
-counting per-node attribute weight instead of node count. A node count can stay flat while
-attribute payload balloons (a growing \`data-tip\`/\`aria-label\` string, more classes or
-\`data-*\` attributes stacked onto the same element) — this axis catches that class of
-regression, which the node-count axis above cannot.
-
-| axis | fixture size | attribute chars | chars per added unit |
-| --- | --- | --- | --- |
-${attrRows}
-
-No ratchet is set yet, same as the other axes above — this is the first measurement.
-
-## duplicate renders
-
-DOM mutations applied by ONE simulated poll cycle delivering the SAME data already painted —
-every interval callback the client registered (the \`startFleetStream\` fetch poll plus the
-pool-client/pr-review panel polls) fires once under a whole-document MutationObserver, with
-the stubbed fetch returning the identical state both times. An idempotent client mutates
-NOTHING here; every counted mutation is duplicate-render churn (or a per-tick timestamp
-rewrite — the same class of churn). This is the baseline the epic's D2 "dedup renders" work
-and the DoD's "no duplicate renders" clause are judged against. Counted per mutated node
-(childList records contribute added + removed nodes; attribute/characterData records count 1
-each) so the number scales with fixture size the same way DOM growth does.
-
-| axis | fixture size | mutations per identical-state tick | mutations per added unit |
-| --- | --- | --- | --- |
-${dupRows}
-
-No ratchet is set yet, same as the other axes above — this is the first measurement.
-
-## longest task
-
-Longest single main-thread task (Long Tasks API, PerformanceEntry.duration, the browser's own
->50ms-blocks-a-frame definition) observed from navigation through first paint of the SAME
-three fixtures (row/task/lane) at each fixture's small and large size — the one row of the
-brief's §5 table jsdom cannot answer (no Long Tasks implementation), so this axis runs in a
-REAL Chromium (\`@playwright/test\`, already a devDependency for \`apps/dashboard/e2e/\`)
-against a REAL loopback HTTP server (\`createServer\`, the exact function
-\`apps/dashboard/src/index.ts\` boots in production) instead of jsdom's \`document.write\` +
-stubbed \`fetch\`. A \`PerformanceObserver\` is installed via \`page.addInitScript\` before
-navigation so it is live for the FIRST script the served page runs, then the page is given a
-250ms settle window past its \`waitSelector\` paint to catch trailing hydration work (the real
-SSE connect, the pool-client/pr-review panel polls) the jsdom axes above stub out entirely.
-
-| axis | fixture size | longest task |
-| --- | --- | --- |
-${longestTaskRows}
-
-No ratchet is set yet, same as the other axes above — this is the first measurement. A 0ms
-result is not a broken probe: at this fixture scale the client's hydration work may simply
-never cross the 50ms Long Tasks threshold — the axis exists to catch the fixture size where it
-starts to.
-
-## unique declaration values
-
-Unique values per CSS property across the stylesheet \`server/routes.ts\` serves at
-\`GET /tokens.css\` (\`fontFaceCss() + stylesheet() + layoutCss()\`, composed in that exact
-order), parsed through jsdom's CSSOM. Custom-property DEFINITIONS (\`--*\`, the token sheet
-itself) are bucketed separately — token definitions are unique by design, while many distinct
-values piled onto one standard property is exactly the drift phase 1's ledger will chase.
-Measured ONCE, not at two fleet sizes: \`/tokens.css\` is static text, byte-identical at 1
-lane and 8 (the ≥2-sizes constraint exists for metrics that scale with state). Known parser
-omission: jsdom's \`CSSFontFaceRule\` serialization drops \`src\`, so the font-face data-URI
-values (by-design-unique, no drift signal) are absent from the counts.
-
-**${cssCensus.properties} standard properties, ${cssCensus.declarations} declarations,
-${cssCensus.uniqueValues} unique values** (plus ${cssCensus.custom.declarations}
-custom-property definitions carrying ${cssCensus.custom.unique} unique values). Top
-${cssCensus.top.length} properties by unique-value count:
-
-| property | declarations | unique values |
-| --- | --- | --- |
-${censusRows}
-
-No ratchet is set yet, same as the other axes above — this is the first measurement. A high
-unique-value count on a tokenizable property (colors, spacing, radii, durations) marks where
-the phase-1 drift ledger should start.
-
-## selector specificity
-
-Specificity of every selector in the same served stylesheet as the unique-values census
-above, scored per CSS Selectors 4 (\`:not()\` counts as its most specific argument;
-combinators and \`*\` count nothing) and bucketed by exact (id, class, type) triple.
-Measured ONCE, not at two fleet sizes, for the same reason as the value census —
-\`/tokens.css\` is static text. High-specificity buckets are where override wars and
-\`!important\` escalation start; phase 1's flattening work is judged against this table.
-
-**${specificity.selectors} selectors across ${specificity.styleRules} style rules; max
-specificity ${specificity.max.a},${specificity.max.b},${specificity.max.c};
-${specificity.idSelectors} selectors carry an ID.**
-
-| specificity (id,class,type) | selectors | example |
-| --- | --- | --- |
-${specificityRows}
-
-No ratchet is set yet, same as the other axes above — this is the first measurement.
-
-## contrast matrix
-
-WCAG contrast ratio of every color token against every canvas it renders on — 14 foreground
-tokens × the 3 surface tokens, plus \`accentText\` × the 10 fill tokens it paints text over
-(\`accentText\` never renders on a surface; in dark it IS the surface color, so surface pairs
-would report by-design-identical colors as failures) — per theme, computed with the token
-package's own \`contrastRatio\` (the OKLCH→luminance core \`themes.test.ts\` enforces its
-floors with) over the exact values \`colorVars()\` serves as \`--color-*\` custom properties.
-Floors: **4.5:1** normal text (WCAG 1.4.3), **3:1** large text and non-text UI components
-(1.4.11 — borders, chip fills, icons). The tests pin a handful of known-used pairs; this
-matrix commits the full picture so phase-1 recon can read which untested pairs sit below
-3:1 (never usable as-is) or in [3, 4.5) (non-text/large-text only) without re-deriving it.
-Measured ONCE, not at two fleet sizes: theme tokens are static values.
-
-${contrast.map((theme) => renderContrastTheme(theme)).join('\n')}
-No ratchet is set yet, same as the other axes above — this is the first measurement. A
-below-3:1 cell is not automatically a defect: it is a pair no rendered surface may use.
-The phase-1 drift ledger should cross-reference this table against the token coverage
-census below to prove no such pair is actually painted.
-
-## token coverage via computed-style census
-
-Every color-relevant declaration (\`color\`, \`background\`/\`background-color\`,
-\`border*-color\`, \`outline-color\`, \`fill\`, \`stroke\`) in the same served stylesheet as the
-unique-values/specificity censuses above, classified per the epic's Phase 1 vocabulary
-(covered/drifted/uncovered): **covered** references a design token (\`var(--color-*)\`);
-**drifted** hardcodes a literal that normalizes to the SAME value as one of the token
-package's own theme colors — should be a \`var(--color-*)\` reference but duplicates one
-instead; **uncovered** hardcodes a literal matching no known token — genuinely untracked ink.
-Values normalized through jsdom's own \`CSSStyleDeclaration\` parser (\`#fff\` and
-\`rgb(255, 255, 255)\` collapse to the same string) so spelling does not fake drift. Keyword
-values (\`transparent\`, \`currentColor\`, \`inherit\`, \`none\`, ...) carry no fixed color and are
-excluded from all three buckets — there is no ink to cover.
-
-**${tokenColorCensus.covered} covered, ${tokenColorCensus.drifted.length} drifted,
-${tokenColorCensus.uncovered.length} uncovered** (plus ${tokenColorCensus.keyword} keyword
-values and ${tokenColorCensus.unparsed} declarations jsdom could not parse as a color — both
-excluded from the buckets above).
-
-### drifted — hardcoded literal duplicates a token
-
-| property | value | selector | duplicates |
-| --- | --- | --- | --- |
-${driftedRows}
-
-### uncovered — hardcoded literal matches no token
-
-| property | value | selector |
-| --- | --- | --- |
-${uncoveredRows}
-
-No ratchet is set yet, same as the other axes above — this is the first measurement. An empty
-drifted/uncovered table would not be proof of full token coverage either: this census only
-sees the SERVED stylesheet, not the token package's own internal values (already
-token-covered by definition) or any future inline style — see the doc comment on
-\`measureTokenColorCensus\` for why an inline-style-driven census is unnecessary in this
-codebase today.
-
-## alarm rate & severity shape
-
-Alarm-styled elements in the SAME painted renders as the DOM-growth axes above, at each
-fixture's small and large size. The alarm-selector set is DERIVED from the served
-stylesheet, not hand-listed: every resting-state selector whose declarations reference an
-attention token (\`--color-sev-*\`, \`--color-needs-you\`) — interaction-state selectors
-(\`:hover\`/\`:focus\`/\`:active\`) excluded, pseudo-elements matched via their host — so the
-census tracks the stylesheet automatically as rules move (derived resting selectors:
-${alarmSelectorCounts}). **Rate** is the share of ALL rendered elements painted with
-response-demanding ink — critical, high, needs-you (ISA-18.2's definition: an alarm requires
-an operator response; medium/low are caution/info ink). **Shape** is the per-token element
-distribution the epic's "re-rationalize severity to the shape where critical is rare" is
-judged against. An element painted with two buckets' ink counts in both buckets' shape,
-once in the rate.
-
-| axis | fixture size | alarm-styled (rate) | critical | high | needs-you | medium | low |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-${alarmRows}
-
-Reading the shape: the \`medium\`/\`low\` buckets include DOUBLE-DUTY ink — e.g. activity
-chips painted with \`--color-sev-low\`/\`--color-sev-medium\` as mere category colors
-(\`.act-file\`/\`.act-search\`, no severity semantics) — so a count there is not
-automatically caution/info signal; that conflation is exactly the double-duty token drift
-the epic's phase-1 audit hunts ("one confirmed instance already"). No ratchet is set yet,
-same as the other axes above — this is the first measurement.
-
-## i18n tagging coverage
-
-Same three fixtures (row/task/lane) as the axes above, checked at each fixture's small and
-large size against \`web/features/locale.ts\`'s OWN \`translateDom()\` sweep targets rather
-than a hand-picked selector list, so a new sweep attribute added there is picked up here for
-free. Three independent candidate pools, one per sweep: elements carrying their OWN
-non-whitespace text (tagged by \`[data-i18n]\` or \`[data-i18n-template]\`), elements with an
-\`aria-label\` (tagged by \`[data-i18n-aria]\` or \`[data-i18n-aria-template]\`), and elements
-with a \`placeholder\` (tagged by \`[data-i18n-placeholder]\`). \`data-tip\` hover text is out of scope by design (\`strings.ts\`:
-"stays English-only for now") and never enters any pool here.
-
-| axis | fixture size | text tagged/total | aria-label tagged/total | placeholder tagged/total |
-| --- | --- | --- | --- | --- |
-${i18nRows}
-
-Coverage falls as row/task/lane count grows because the denominator is dominated by
-client-rendered FLEET DATA (project names, task titles, activity targets) — content, not
-untranslated chrome — while the numerator (tagged static chrome: masthead, searchbar,
-flightbar) stays fixed regardless of fleet size. This is expected, not a regression signal;
-it marks the boundary between i18n foundation's already-tagged chrome and the still-larger,
-per-project/task client-rendered surface \`strings.ts\`'s own doc comment names as its next,
-much larger target. No ratchet is set yet, same as the other axes above — this is the first
-measurement.
-## interaction latency (INP p75 proxy) & longest task
-
-One simulated click dispatched on EVERY tab-stop element — the exact population the
-tab-stops axis counts, so the two axes describe one keyboard surface — in the same painted
-renders as the DOM-growth axes, with each dispatch's synchronous processing duration timed.
-**INP p75** is the nearest-rank 75th percentile of those durations, a PROXY for field INP:
-jsdom runs handlers synchronously and never paints, so of INP's three components (input
-delay, processing duration, presentation delay) only processing duration exists here.
-**longest task** is the longest uninterrupted main-thread block observed anywhere in the
-render's lifecycle: the client bundle's initial synchronous eval, a poll tick drained
-through its microtask render continuations (an upper bound — the drain lumps every
-continuation into one block), or the slowest single interaction dispatch. Anchor default
-actions are suppressed via a capture-phase \`preventDefault\` (jsdom cannot navigate);
-handlers themselves still run.
-
-| axis | fixture size | interactions | INP p75 (ms) | INP max (ms) | longest task (ms) |
-| --- | --- | --- | --- | --- | --- |
-${interactionRows}
-
-These are wall-clock timings on the measuring machine — noisy run-to-run and
-machine-dependent, unlike every count above. This dated snapshot is the SHAPE baseline
-(how latency scales from the small to the large fixture), not a CI ratchet; the epic's
-"ratchets start at today's measured value" rule applies once a second data point exists
-to judge stability against.
-`;
-}
-
-async function main() {
+async function main(argv) {
+  const check = argv.includes('--check');
   const dateStr = new Date().toISOString().slice(0, 10);
 
   const axes = [
@@ -1712,8 +1285,7 @@ async function main() {
     );
   }
 
-  const doc = renderDoc(
-    dateStr,
+  const fresh = renderBaselineBlocks(dateStr, {
     axes,
     axeAxes,
     tabAxes,
@@ -1728,10 +1300,22 @@ async function main() {
     i18nAxes,
     tokenColorCensus,
     interactionAxes,
-  );
-  const outPath = join(ROOT, 'docs', `EVALUATION-${dateStr}-cockpit-baseline.md`);
-  writeFileSync(outPath, doc);
-  console.log(`Wrote ${outPath}`);
+  });
+  const docPath = join(ROOT, BASELINE_DOC);
+  const recorded = readFileSync(docPath, 'utf8');
+  if (check) {
+    const stale = staleBlocks(recorded, fresh);
+    if (stale.length > 0) {
+      console.error(
+        `cockpit-metrics --check FAILED: ${BASELINE_DOC} is behind the tree in ${stale.join(', ')} — run \`pnpm run cockpit-metrics\` and commit the result`,
+      );
+      process.exit(1);
+    }
+    console.log(`cockpit-metrics --check OK (${BASELINE_DOC} matches this run, timings aside)`);
+    return;
+  }
+  writeFileSync(docPath, updateBaseline(recorded, fresh));
+  console.log(`Folded the ${dateStr} run into ${docPath}`);
 }
 
-await main();
+await main(process.argv.slice(2));

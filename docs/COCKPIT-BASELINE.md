@@ -13,23 +13,25 @@ SPDX-License-Identifier: Apache-2.0
 > The superseded dated snapshots are kept, unmodified except for a pointer note, in
 > [`archive/`](archive/EVALUATION-2026-08-28-cockpit-baseline.md) for provenance.
 >
-> **Regenerating:** `pnpm run cockpit-metrics` still writes a fresh
-> `docs/EVALUATION-<date>-cockpit-baseline.md` — the script itself has not yet been taught
-> to append to this file directly (a follow-on slice). Until it is, fold a new run in by
-> hand: add one row per axis to the trend tables below, update the "current" figures, then
-> move the freshly-generated dated file into `archive/` with the same pointer-note pattern
-> used for the three runs already there.
+> **Regenerating:** `pnpm run cockpit-metrics` folds its run into this file in place (one
+> dated row per axis in every trend table, the latest-run figures rewritten; no dated file).
+> It owns only the `<!-- COCKPIT:<name>:START/END -->` blocks; the prose stays hand-written.
+> `--check` measures without writing and exits 1 naming each block the tree no longer
+> reproduces, wall-clock timings aside — a manual check, never `ci:*` (doctrine row 89).
 
 COCKPIT PHASE 0 MEASURE (`docs/epics/0015-cockpit-supervisory-control.md`, board
 web-mtbpiiur-43tmr3), measured against the REAL served surfaces (`renderShell`/`clientJs`,
 `apps/dashboard/src/web/shell.ts`, plus the `/tokens.css` stylesheet exactly as
 `server/routes.ts` composes it, and the theme token maps exactly as `colorVars()` serves
 them) in jsdom — except longest-task, which runs in a real Chromium against the real
-`createServer` HTTP server, since the Long Tasks API has no jsdom implementation. Three runs
-so far: **2026-08-28**, **2026-08-29**, **2026-09-03**. Not asserted — these are measured
-snapshots, not CI ratchets; "No ratchet is set yet" throughout means the epic's own rule
-("ratchets start at today's measured value, never the ideal") awaits a second stable data
-point per axis.
+`createServer` HTTP server, since the Long Tasks API has no jsdom implementation. Not
+asserted — these are measured snapshots, not CI ratchets; "No ratchet is set yet"
+throughout means the epic's own rule ("ratchets start at today's measured value, never the
+ideal") awaits a second stable data point per axis.
+
+<!-- COCKPIT:runs:START -->
+Runs so far: **2026-08-28**, **2026-08-29**, **2026-09-03**.
+<!-- COCKPIT:runs:END -->
 
 ## Known measurement issue — longest-task `task` axis is not yet trustworthy
 
@@ -56,6 +58,7 @@ See the "duplicate renders" trend table below.
   single project. The per-card `.live-worker` panel is a separate, still-single-lane surface
   (`liveFiring()`, not `liveFirings()`) and is not what this axis measures.
 
+<!-- COCKPIT:dom-growth:START -->
 | axis | date | fixture size | total DOM nodes | nodes per added unit |
 | --- | --- | --- | --- | --- |
 | row | 2026-08-28 | 1 → 8 | 246 → 764 | 74.0 |
@@ -67,6 +70,7 @@ See the "duplicate renders" trend table below.
 | lane | 2026-08-28 | 1 → 8 | 312 → 424 | 16.0 |
 | lane | 2026-08-29 | 1 → 8 | 312 → 424 | 16.0 |
 | lane | 2026-09-03 | 1 → 8 | 324 → 450 | 18.0 |
+<!-- COCKPIT:dom-growth:END -->
 
 No ratchet is set yet. The task axis's node counts dropped between 08-29 and 09-03 (570 →
 477 at the large fixture) while its per-unit slope rose slightly (6.1 → 7.1) — a smaller
@@ -82,9 +86,17 @@ does above. `test/web/a11y.test.ts` already asserts zero violations at fixed fix
 across the app's real surfaces — this table adds the same axe pass at the SAME two scales as
 the DOM-growth axes, to see whether violation counts grow with content the way node counts do.
 
+<!-- COCKPIT:axe:START -->
+| axis | date | fixture size | critical | serious | moderate | minor |
+| --- | --- | --- | --- | --- | --- | --- |
+| row | 2026-09-03 | 1 → 8 | 0 → 0 | 0 → 0 | 0 → 0 | 0 → 0 |
+| task | 2026-09-03 | 1 → 20 | 0 → 0 | 0 → 0 | 0 → 0 | 0 → 0 |
+| lane | 2026-09-03 | 1 → 8 | 0 → 0 | 0 → 0 | 0 → 0 | 0 → 0 |
+<!-- COCKPIT:axe:END -->
+
 **Zero violations at every impact level (critical/serious/moderate/minor), every fixture,
-every fixture size, across all three runs (08-28, 08-29, 09-03).** No trend to show — flat
-at zero is the good outcome here.
+every fixture size, across the first three runs (08-28, 08-29, 09-03).** Flat at zero is
+the good outcome here.
 
 ## tab stops
 
@@ -95,6 +107,7 @@ roving-tabindex container becomes a keyboard trap in practice long before it loo
 problem — this is the measurement D1's "tab stops via roving tabindex" foundation work will
 be judged against.
 
+<!-- COCKPIT:tab-stops:START -->
 | axis | date | fixture size | tab stops | stops per added unit |
 | --- | --- | --- | --- | --- |
 | row | 2026-08-28 | 1 → 8 | 77 → 238 | 23.0 |
@@ -106,6 +119,7 @@ be judged against.
 | lane | 2026-08-28 | 1 → 8 | 103 → 152 | 7.0 |
 | lane | 2026-08-29 | 1 → 8 | 103 → 152 | 7.0 |
 | lane | 2026-09-03 | 1 → 8 | 98 → 119 | 3.0 |
+<!-- COCKPIT:tab-stops:END -->
 
 No ratchet is set yet. The row axis is perfectly flat across all three runs. The lane axis's
 per-unit slope more than halved (7.0 → 3.0) between 08-29 and 09-03 — fewer tab stops added
@@ -121,6 +135,7 @@ attribute payload balloons (a growing `data-tip`/`aria-label` string, more class
 `data-*` attributes stacked onto the same element) — this axis catches that class of
 regression, which the node-count axis cannot.
 
+<!-- COCKPIT:attribute-payload:START -->
 | axis | date | fixture size | attribute chars | chars per added unit |
 | --- | --- | --- | --- | --- |
 | row | 2026-08-28 | 1 → 8 | 15544 → 43036 | 3927.4 |
@@ -132,6 +147,7 @@ regression, which the node-count axis cannot.
 | lane | 2026-08-28 | 1 → 8 | 20961 → 27960 | 999.9 |
 | lane | 2026-08-29 | 1 → 8 | 20961 → 27960 | 999.9 |
 | lane | 2026-09-03 | 1 → 8 | 21294 → 28879 | 1083.6 |
+<!-- COCKPIT:attribute-payload:END -->
 
 No ratchet is set yet — per-unit slopes are stable to flat-rising across the series.
 
@@ -145,6 +161,7 @@ NOTHING here; every counted mutation is duplicate-render churn (or a per-tick ti
 rewrite — the same class of churn). This is the baseline the epic's D2 "dedup renders" work
 and the DoD's "no duplicate renders" clause are judged against.
 
+<!-- COCKPIT:duplicate-renders:START -->
 | axis | date | fixture size | mutations per identical-state tick | mutations per added unit |
 | --- | --- | --- | --- | --- |
 | row | 2026-08-28 | 1 → 8 | 14 → 14 | 0.0 |
@@ -156,6 +173,7 @@ and the DoD's "no duplicate renders" clause are judged against.
 | lane | 2026-08-28 | 1 → 8 | 14 → 14 | 0.0 |
 | lane | 2026-08-29 | 1 → 8 | 14 → 14 | 0.0 |
 | lane | 2026-09-03 | 1 → 8 | 0 → 0 | 0.0 |
+<!-- COCKPIT:duplicate-renders:END -->
 
 See the headline finding above — every axis dropped from 14 mutations/tick to 0 between
 08-29 and 09-03.
@@ -169,6 +187,7 @@ table jsdom cannot answer, so this axis runs in a REAL Chromium (`@playwright/te
 a REAL loopback HTTP server (`createServer`, the exact function `apps/dashboard/src/index.ts`
 boots in production). Not measured in 08-28 (added 08-29).
 
+<!-- COCKPIT:longest-task:START -->
 | axis | date | fixture size | longest task |
 | --- | --- | --- | --- |
 | row | 2026-08-29 | 1 → 8 | 0.0ms → 0.0ms |
@@ -177,6 +196,7 @@ boots in production). Not measured in 08-28 (added 08-29).
 | task | 2026-09-03 | 1 → 20 | 0.0ms → 55.0ms |
 | lane | 2026-08-29 | 1 → 8 | 0.0ms → 0.0ms |
 | lane | 2026-09-03 | 1 → 8 | 0.0ms → 0.0ms |
+<!-- COCKPIT:longest-task:END -->
 
 See "Known measurement issue" above — the `task` axis is not yet trustworthy. A 0ms result on
 `row`/`lane` is not a broken probe: at this fixture scale the client's hydration work may
@@ -191,17 +211,20 @@ itself) are bucketed separately. Measured ONCE per run, not at two fleet sizes: 
 is static text. Known parser omission: jsdom's `CSSFontFaceRule` serialization drops `src`,
 so font-face data-URI values are absent from the counts.
 
+<!-- COCKPIT:unique-values:START -->
 | date | standard properties | declarations | unique values | custom-property defs | custom unique values |
 | --- | --- | --- | --- | --- | --- |
 | 2026-08-28 | 95 | 2680 | 356 | 193 | 135 |
 | 2026-08-29 | 95 | 2680 | 356 | 193 | 135 |
 | 2026-09-03 | 97 | 2875 | 379 | 193 | 135 |
+<!-- COCKPIT:unique-values:END -->
+
+<!-- COCKPIT:css-top:START -->
+Top 12 properties by unique-value count in the latest run (declarations/unique values): `padding` 147/25, `background` 159/20, `margin` 96/14, `opacity` 44/14, `width` 34/13, `border-radius` 212/12, `fill` 27/12, `color` 261/11, `font-size` 204/10, `border` 114/10, `gap` 104/10, `height` 21/10.
+<!-- COCKPIT:css-top:END -->
 
 CSS grew between 08-29 and 09-03 (new panels/overlays landed elsewhere in the codebase); the
-custom-property token definitions themselves haven't moved. Current top-12 properties by
-unique-value count (2026-09-03): `padding` 147/25, `background` 159/20, `margin` 96/14,
-`opacity` 44/14, `width` 34/13, `border-radius` 212/12, `fill` 27/12, `color` 261/11,
-`font-size` 204/10, `border` 114/10, `gap` 104/10, `height` 21/10. No ratchet is set yet.
+custom-property token definitions themselves haven't moved. No ratchet is set yet.
 
 ## selector specificity
 
@@ -210,11 +233,13 @@ above, scored per CSS Selectors 4 (`:not()` counts as its most specific argument
 and `*` count nothing) and bucketed by exact (id, class, type) triple. Measured ONCE per run,
 not at two fleet sizes, for the same reason as the value census.
 
+<!-- COCKPIT:specificity:START -->
 | date | selectors | style rules | max specificity | selectors with an ID |
 | --- | --- | --- | --- | --- |
 | 2026-08-28 | 813 | 691 | 1,2,0 | 31 |
 | 2026-08-29 | 813 | 691 | 1,2,0 | 31 |
 | 2026-09-03 | 891 | 738 | 1,2,0 | 34 |
+<!-- COCKPIT:specificity:END -->
 
 Selector count grew in step with the CSS growth noted above; max specificity has not
 regressed past 1,2,0 in any run. No ratchet is set yet.
@@ -227,19 +252,23 @@ per theme, computed with the token package's own `contrastRatio` over the exact 
 `colorVars()` serves. Floors: **4.5:1** normal text (WCAG 1.4.3), **3:1** large text and
 non-text UI components (1.4.11). Measured ONCE per run: theme tokens are static values.
 
-**Identical across all three runs (08-28, 08-29, 09-03) — theme tokens have not changed.**
+**Identical across the first three runs (08-28, 08-29, 09-03) — theme tokens had not
+changed.** The table shows the latest run only:
 
+<!-- COCKPIT:contrast:START -->
 | theme | min ratio (pair) | below 3:1 | in [3, 4.5) | ≥ 4.5:1 (of 52 cells) |
 | --- | --- | --- | --- | --- |
 | dark | 1.30 (`border` on `surfaceRaised`) | 6 | 0 | 46 |
 | light | 1.24 (`border` on `surfaceSunken`) | 6 | 6 | 40 |
 | terminal | 1.52 (`border` on `surfaceRaised`) | 3 | 3 | 46 |
+<!-- COCKPIT:contrast:END -->
 
 A below-3:1 cell is not automatically a defect: it is a pair no rendered surface may use —
 cross-reference against the token coverage census below to confirm no such pair is actually
-painted. Full per-token-pair ratios live in the latest archived snapshot
-([`archive/EVALUATION-2026-09-03-cockpit-baseline.md`](archive/EVALUATION-2026-09-03-cockpit-baseline.md))
-since they haven't moved since 08-28.
+painted. Full per-token-pair ratios as of 09-03 live in the last archived snapshot
+([`archive/EVALUATION-2026-09-03-cockpit-baseline.md`](archive/EVALUATION-2026-09-03-cockpit-baseline.md));
+the generator keeps only this summary, so a run that moves a row here is the cue to
+re-derive the pairs.
 
 ## token coverage via computed-style census
 
@@ -250,10 +279,16 @@ normalizes to the same value as a token (duplicates one instead of referencing i
 **uncovered** hardcodes a literal matching no known token. Not measured in 08-28 (added
 08-29).
 
+<!-- COCKPIT:token-coverage:START -->
 | date | covered | drifted | uncovered | keyword values | unparsed |
 | --- | --- | --- | --- | --- | --- |
 | 2026-08-29 | 453 | 0 | 2 | 38 | 0 |
 | 2026-09-03 | 491 | 0 | 3 | 41 | 0 |
+<!-- COCKPIT:token-coverage:END -->
+
+<!-- COCKPIT:color-literals:START -->
+Latest run — drifted: none. Uncovered: `.tour-overlay` (`background: rgba(0, 0, 0, 0.5)`); `.browse-overlay` (`background: rgba(0, 0, 0, 0.5)`); `.report-dialog-overlay` (`background: rgba(0, 0, 0, 0.5)`).
+<!-- COCKPIT:color-literals:END -->
 
 Uncovered selectors, 2026-08-29: `.tour-overlay`, `.browse-overlay` (both
 `background: rgba(0, 0, 0, 0.5)`). 2026-09-03 adds one more of the same pattern:
@@ -269,6 +304,7 @@ ink — critical, high, needs-you (ISA-18.2's definition). **Shape** is the per-
 distribution the epic's "re-rationalize severity to the shape where critical is rare" is
 judged against.
 
+<!-- COCKPIT:alarm:START -->
 | axis | date | fixture size | alarm-styled (rate) | critical | high | needs-you | medium | low |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | row | 2026-08-28 | 1 → 8 | 4 → 18 (1.6% → 2.4%) | 1 → 8 | 3 → 10 | 0 → 0 | 1 → 1 | 1 → 8 |
@@ -280,6 +316,11 @@ judged against.
 | lane | 2026-08-28 | 1 → 8 | 4 → 4 (1.3% → 0.9%) | 1 → 1 | 3 → 3 | 0 → 0 | 1 → 1 | 4 → 11 |
 | lane | 2026-08-29 | 1 → 8 | 4 → 4 (1.3% → 0.9%) | 1 → 1 | 3 → 3 | 0 → 0 | 1 → 1 | 4 → 11 |
 | lane | 2026-09-03 | 1 → 8 | 4 → 4 (1.2% → 0.9%) | 1 → 1 | 3 → 3 | 0 → 0 | 1 → 1 | 4 → 11 |
+<!-- COCKPIT:alarm:END -->
+
+<!-- COCKPIT:alarm-selectors:START -->
+Derived resting alarm selectors in the latest run: critical 13, high 21, needsYou 14, medium 15, low 4.
+<!-- COCKPIT:alarm-selectors:END -->
 
 Raw element counts are flat to the point of complete stability across all three runs; rate
 percentages drift by tenths of a point as the shared denominator (total rendered elements)
@@ -299,6 +340,7 @@ OWN non-whitespace text (`[data-i18n]`/`[data-i18n-template]`), elements with an
 hover text is out of scope by design. Not measured in 08-29 (present in 08-28, then again in
 09-03).
 
+<!-- COCKPIT:i18n:START -->
 | axis | date | fixture size | text tagged/total | aria-label tagged/total | placeholder tagged/total |
 | --- | --- | --- | --- | --- | --- |
 | row | 2026-08-28 | 1 → 8 | 44/109 (40.4%) → 121/368 (32.9%) | 21/60 (35.0%) → 28/207 (13.5%) | 4/4 (100.0%) → 4/4 (100.0%) |
@@ -307,6 +349,7 @@ hover text is out of scope by design. Not measured in 08-29 (present in 08-28, t
 | task | 2026-09-03 | 1 → 20 | 61/161 (37.9%) → 61/276 (22.1%) | 24/65 (36.9%) → 24/129 (18.6%) | 5/7 (71.4%) → 5/7 (71.4%) |
 | lane | 2026-08-28 | 1 → 8 | 46/144 (31.9%) → 46/193 (23.8%) | 22/87 (25.3%) → 22/136 (16.2%) | 4/4 (100.0%) → 4/4 (100.0%) |
 | lane | 2026-09-03 | 1 → 8 | 47/157 (29.9%) → 47/220 (21.4%) | 22/76 (28.9%) → 22/111 (19.8%) | 4/4 (100.0%) → 4/4 (100.0%) |
+<!-- COCKPIT:i18n:END -->
 
 Coverage falls as row/task/lane count grows because the denominator is dominated by
 client-rendered FLEET DATA (project names, task titles, activity targets), not untranslated
@@ -321,14 +364,15 @@ axis counts — in the same painted renders as the DOM-growth axes, with each di
 synchronous processing duration timed. **INP p75** is the nearest-rank 75th percentile of
 those durations, a PROXY for field INP (jsdom runs handlers synchronously and never paints, so
 only processing duration exists here). **longest task** here is jsdom's own upper-bound proxy
-— distinct from the real-Chromium Long Tasks measurement above. First measurement, 2026-09-03
-only — no trend yet.
+— distinct from the real-Chromium Long Tasks measurement above. First measured 2026-09-03.
 
-| axis | fixture size | interactions | INP p75 (ms) | INP max (ms) | longest task (ms) |
-| --- | --- | --- | --- | --- | --- |
-| row | 1 → 8 | 77 → 238 | 1.31 → 1.09 | 6.89 → 20.86 | 15.96 → 20.86 |
-| task | 1 → 20 | 100 → 183 | 1.05 → 1.07 | 9.04 → 14.04 | 15.81 → 16.08 |
-| lane | 1 → 8 | 92 → 92 | 1.07 → 1.08 | 10.27 → 14.98 | 15.97 → 15.80 |
+<!-- COCKPIT:interaction:START -->
+| axis | date | fixture size | interactions | INP p75 (ms) | INP max (ms) | longest task (ms) |
+| --- | --- | --- | --- | --- | --- | --- |
+| row | 2026-09-03 | 1 → 8 | 77 → 238 | 1.31 → 1.09 | 6.89 → 20.86 | 15.96 → 20.86 |
+| task | 2026-09-03 | 1 → 20 | 100 → 183 | 1.05 → 1.07 | 9.04 → 14.04 | 15.81 → 16.08 |
+| lane | 2026-09-03 | 1 → 8 | 92 → 92 | 1.07 → 1.08 | 10.27 → 14.98 | 15.97 → 15.80 |
+<!-- COCKPIT:interaction:END -->
 
 These are wall-clock timings on the measuring machine — noisy run-to-run and
 machine-dependent, unlike every count above. This is the SHAPE baseline (how latency scales
