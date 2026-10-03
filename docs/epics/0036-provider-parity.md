@@ -375,6 +375,15 @@ summary line names the engine. The bar no longer refuses an engine with Lanes ab
 choice on the fleet body, and shows the server's reason when the launch is refused. A lane the
 preflight refuses (the engine's CLI missing from the PATH) now says why in the bar's summary, since
 the in-process fleet launcher forwards the dashboard's message as the CLI's loopback one does.
+Since 2026-10-03 one fleet's lanes can fly different CLIs, the server half of S-last's heterogeneous
+lanes: `POST /api/fleet` takes `laneEngines`, one `{ engine, engineModel }` per lane in roster order
+(base, fleet-2, …). `fleetLaneEnginesFromRequest` (`flight/fleet-launch.ts`) reads each entry as
+`firingEngineFromRequest` reads a single launch's pair, so one lane no CLI could fly refuses the
+whole fleet, naming that lane, before the first starts. An entry naming no engine, and every lane
+past the list's end, flies on the launch's own `engine`, and a list longer than the fleet is refused
+rather than dropped unread. The summary then says "engine per lane", and each lane's line names
+its own ("fleet-2 on gemini (gemini-2.5-pro): 200 started — …"). The fly bar does not offer a
+per-lane choice yet.
 Since 2026-10-03 the bar also shows which engine each running flight is on: `FlightStatus` carries
 the launch's `engine` and, beside Codex or Gemini, its `engineModel` (`flight/runner.ts`), and the
 flight's row reads "Flying … — 3 firing(s) · Codex (gpt-5-codex)" (`flightRowEngineModelSuffix`,
