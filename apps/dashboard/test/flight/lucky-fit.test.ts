@@ -17,6 +17,9 @@ import {
   type FitCandidate,
   type FitOperator,
 } from '../../src/flight/lucky-fit.js';
+import { DECLINED_LABEL, planClaimPoolIssue } from '../../src/flight/pool-client.js';
+import { HOLD_LABELS } from '../../src/flight/issue-triage.js';
+import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 
 function candidate(overrides: Partial<FitCandidate> = {}): FitCandidate {
   return {
@@ -140,6 +143,40 @@ describe('luckyFit — the ranked shortlist', () => {
     expect(fit.shortlist.map((l) => l.number)).toEqual([16, 100, 101, 102, 103]);
     expect(fit.shortlist.some((l) => l.number === 9)).toBe(false);
     expect(fit.attention).toBe('evening');
+  });
+});
+
+// Epic 0019 additive-only law, the 🍀 roll × the maintainer's marks. The pool
+// client still lists a pool issue the maintainer has declined or put on hold —
+// it stays open for its reporter to reply to (CONTRIBUTING.md) — and the pool
+// claim skips it (pool-client.ts planClaimPoolIssue). The scorer read only the
+// assignees, so it could rank that issue the best work to fly, and the claim
+// the operator then made on it was refused.
+describe("luckyFitLine × the maintainer's declined and held issues (regression, epic 0019 additive-only law)", () => {
+  const seeded = (name: string) =>
+    HOUSE_TAXONOMY_LABELS.find((label) => label.name === name)?.name ?? '';
+  const marks = [seeded('declined'), seeded('status: awaiting-human'), seeded('status: blocked')];
+  const marked = (mark: string) => candidate({ labels: [...candidate().labels, mark] });
+
+  it('reads the labels the pool claim skips on, as the seeder stamps them', () => {
+    expect([DECLINED_LABEL, ...HOLD_LABELS]).toEqual(marks);
+  });
+
+  it.each(marks)('never offers a pool issue marked "%s", which the claim would refuse', (mark) => {
+    expect(planClaimPoolIssue(candidate(), 'octocat').decision).toBe('claim');
+    expect(luckyFitLine(candidate(), operator())).toBeDefined();
+
+    expect(planClaimPoolIssue(marked(mark), 'octocat').decision).toBe('skip');
+    expect(luckyFitLine(marked(mark), operator())).toBeUndefined();
+  });
+
+  it('drops a marked issue from the shortlist and still counts it as considered', () => {
+    const fit = luckyFit(
+      [{ ...marked(DECLINED_LABEL), number: 16 }, candidate({ number: 17, labels: [] })],
+      operator(),
+    );
+    expect(fit.considered).toBe(2);
+    expect(fit.shortlist.map((l) => l.number)).toEqual([17]);
   });
 });
 
