@@ -62,6 +62,21 @@ into a per-project ritual any instance can run on any repo it owns.
   unresolved identity, or a project with no GitHub origin runs the preview
   as before. Making `gh` act on the project's own repository
   (`--repo`/`GH_REPO`) is still open.
+  **The maintainer's marks 2026-10-03 (board web-mtsylqbd-q2rg8k, the
+  additive-only law):** a board task outlives a later "no" on its issue.
+  When the maintainer declined an accepted issue (`declined`) and closed
+  it, the reconcile reopened it and called the close "a false-close". On
+  an issue they had put on hold (`status: awaiting-human`, `status:
+  blocked`) it closed, noted or settled as if the label were not there.
+  `fetchIssueState` now reads the labels in the same `gh issue view` call.
+  The reconcile and the landing note plan nothing for an issue that
+  carries any of the three marks, matched the way the contributor lists
+  match them, and the landing note does not read that issue's comments.
+  Lifting the label lets the next pass act as before. Covered by
+  `test/flight/mirror-pass-marks.test.ts`: the labels are the seeder's,
+  each of the five reconcile findings and the landing note skip a marked
+  issue, and the execute sends no reopen or note for it while its unmarked
+  neighbour is still reconciled.
 - **S4 — operator routing console:** the dashboard surfaces "what the
   page says" (milestone progress, label queues, claims) next to the
   board, so steering happens from either side with one truth.
