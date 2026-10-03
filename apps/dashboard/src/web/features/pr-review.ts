@@ -370,8 +370,10 @@ function renderPrReviewPanel(plans, fetchFailed, identity) {
     // branch below, appended to item directly after the gate regardless of
     // which side of it renders.
     var diagnoseBtn = null;
+    // Epic 0025 slice 2: Apply leads with the KEEPER key the issue triage
+    // run draws; prPanelRestore() brings it back after a failed apply.
     var applyBtn = prPanelButton('pr-review-execute', 'Apply', 'data-pr-review-execute',
-      plan.pr.number, prReviewExecuteTip(plan.pr, plan.decision, tr), false);
+      plan.pr.number, prReviewExecuteTip(plan.pr, plan.decision, tr), false, 'key-round');
     applyBtn.setAttribute('data-i18n', 'prReviewApply');
     actions.appendChild(applyBtn);
     // THE MAINTAINER VERBS — only on the cards the ritual deliberately
