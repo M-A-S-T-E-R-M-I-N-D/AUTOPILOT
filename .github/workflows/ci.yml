@@ -102,7 +102,12 @@ jobs:
         run: pnpm run ci:citation
 
       - name: Living status blocks match the tree (counts, version, Node floor)
-        run: pnpm run ci:docs-status
+        # Not a ci:* script on purpose: the firing gate runs every ci:* script,
+        # and a lane that added a test file or a doctrine row got a red gate
+        # and a revert instead of a nudge (round 71, 2026-10-03). The landing
+        # ritual and the release cut regenerate the blocks; this step and
+        # `pnpm run verify` are where drift is judged.
+        run: pnpm run docs:status-check
 
       - name: Every relative doc link resolves to a real file
         run: pnpm run ci:doc-links
