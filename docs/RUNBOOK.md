@@ -323,10 +323,18 @@ refusals before its preflight, which then judges that engine's CLI. A model with
 refused too, as is a model name over 128 characters or holding anything but letters, digits and
 `. _ : / @ -`. The fly bar offers the choice behind its gear: **Engine** (default, Claude Code,
 Codex, Gemini), and for Codex or Gemini an **Engine model** field, which the bar requires before it
-sends anything. Default sends no engine, so the lane inherits the dashboard's env. The bar remembers
-the choice per folder, so a paused flight's Resume flies the engine it last flew. `POST /api/fleet`
-carries none, so the bar refuses an engine with Lanes above 1 rather than fly the fleet on the default.
-Spec and status:
+sends anything. Default sends no engine, so the lane inherits the dashboard's env. A running
+flight's row names its engine (`· Codex (gpt-5-codex)`): the launch's own choice, or else the one
+the dashboard's own `AUTOPILOT_ENGINE` names, and none while neither names one. The bar remembers
+the choice per folder, so a paused flight's Resume flies the engine it last flew. With Lanes above 1
+the bar sends the choice on `POST /api/fleet`, which judges it once and puts it on every lane's body.
+
+`dashboard watch` flies on its own `AUTOPILOT_ENGINE` and `AUTOPILOT_ENGINE_MODEL`: a watched
+folder's flight inherits them as its env, and a fleet-mode watch (no folder) sends them with every
+flight it starts, so those lanes fly them rather than the dashboard's env. Unset, a fleet spawn names
+no engine and flies the dashboard's env, as before. The start line names the engine (`; flights fly
+on the Codex CLI on gpt-5-codex (AUTOPILOT_ENGINE)`), and a setting a flight would refuse stops the
+watch at once with `watch refused: …` rather than failing every spawn. Spec and status:
 [`docs/epics/0036-provider-parity.md`](epics/0036-provider-parity.md).
 
 ### Substep routing & local offload (the M6 cost lever)

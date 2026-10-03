@@ -5,7 +5,13 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0026. The tasks screen — a list with a point of view, and Ask one gesture away
 
-Status: Draft (2026-09-13). Board tasks seeded 2026-09-12 under this number.
+Status: In progress (2026-10-03) — slices 1, 2 and 4 shipped (slice 1 closed with the
+split pane 2026-09-28; slice 2's filters, display options and groupings by 2026-09-27;
+slice 4's bulk actions from the palette 2026-09-27); slice 3's Ask sheet shipped
+2026-09-13 (CHANGELOG 0.44.0) but carries no selection context yet; slice 5 (visual
+regression at four breakpoints, three themes, list and columns) is open —
+`e2e/board-columns.spec.ts` pins only the 1280px dark columns view. Drafted
+2026-09-13; board tasks seeded 2026-09-12 under this number.
 First cut of the column card shipped 2026-09-13 (title on its own line, controls
 as a strip). Slice 1's keyboard half shipped 2026-09-26: the `j`/`k` cursor
 with Escape, then `a` approve / `d` done on the row under it and the one-line

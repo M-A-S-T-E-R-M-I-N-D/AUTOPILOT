@@ -5,7 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0006. GitHub connected mode — solo by default, federated by choice
 
-Status: All five slices SHIPPED. Slice 1 (connect panel: gh presence/auth/identity
+Status: Done (2026-08-23; re-checked 2026-10-03) — all five slices shipped and still
+live at 0.57.0. Slice 1 (connect panel: gh presence/auth/identity
 detection, SETUP doctor's optional gh check) done (2026-08-17); slice 2 (sync any
 project: `gh repo create --source --push` + re-sync, secret-scan-gated public sync)
 also done (2026-08-17); slice 3 (maintainer flow: push-tag + `gh release create`)
@@ -19,6 +20,16 @@ offer a "connective/shared" GitHub mode where co-pilots align to the LTS version
 main-version bug reports upstream, contribute fixes/features, and can sync ANY
 autopiloted project to GitHub with one action. The maintainer (founder) additionally
 needs the first-push capability — main version to a private repo, for testing, now.
+
+Freshness check (2026-10-03): `connect-panel.ts` gained one more commit since this doc's
+2026-10-02 slice-5 refresh — `42df2d51` (epic 0036), which adds the endpoint, Bedrock and
+Vertex AI-model connection modes to the CONNECT form (`connectModeMeta`'s three new
+branches, plus the new `connectRequestBody`). That change is confined to the AI-provider
+credential functions; the GitHub-facing functions this epic documents — `ghStatusMeta`
+(slice 1) and `ghLtsMeta` (slice 4) — are untouched, and no `gh`-related POST body,
+route, or markup changed. None of the six acceptance criteria above change; the
+"no token ever persisted" constraint still holds by the same grep-provable construction;
+all five slices remain unchanged and live in production.
 
 ## Doctrine fit (why this design)
 

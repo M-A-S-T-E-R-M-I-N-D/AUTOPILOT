@@ -99,6 +99,56 @@ describe('resolveLocalLinkPath', () => {
   it('returns null when the target is only an anchor', () => {
     expect(resolveLocalLinkPath('README.md', '#top')).toBeNull();
   });
+
+  // A renderer reads a link target as a URL: GitHub opens `My%20Notes.md` as
+  // the file `My Notes.md` and serves `shot.png?raw=true` as `shot.png`. Taken
+  // literally, both named a file that does not exist, so the docs reader
+  // painted a working link "(broken link)" in any project whose docs wrote one.
+  it('decodes a percent-encoded target, the file a renderer opens', () => {
+    expect(resolveLocalLinkPath('docs/index.md', 'My%20Notes.md')).toBe(
+      normalizeForPlatform('docs/My Notes.md'),
+    );
+  });
+
+  it('strips a ?query suffix before resolving', () => {
+    expect(resolveLocalLinkPath('README.md', 'docs/shot.png?raw=true')).toBe(
+      normalizeForPlatform('docs/shot.png'),
+    );
+  });
+
+  it('strips a query that comes before an anchor', () => {
+    expect(resolveLocalLinkPath('README.md', 'guide.md?plain=1#setup')).toBe(
+      normalizeForPlatform('guide.md'),
+    );
+  });
+
+  it('keeps an encoded # or ? as part of the file name', () => {
+    expect(resolveLocalLinkPath('README.md', 'c%23-notes.md')).toBe(
+      normalizeForPlatform('c#-notes.md'),
+    );
+    expect(resolveLocalLinkPath('README.md', 'why%3F.md')).toBe(normalizeForPlatform('why?.md'));
+  });
+
+  it('keeps a malformed percent sequence as written instead of throwing', () => {
+    expect(resolveLocalLinkPath('README.md', '100%.md')).toBe(normalizeForPlatform('100%.md'));
+  });
+
+  it('returns null when the target is only a query', () => {
+    expect(resolveLocalLinkPath('README.md', '?tab=readme')).toBeNull();
+  });
+
+  // GitHub: "Links starting with / will be relative to the repository root."
+  // Joined onto the referring file's directory instead, `/README.md` written
+  // in `docs/epics/` named `docs/epics/README.md`, and the docs reader painted
+  // the working link "(broken link)".
+  it('resolves a root-relative target from the repository root, not the file', () => {
+    expect(resolveLocalLinkPath('docs/epics/0023-docs-reader.md', '/README.md')).toBe(
+      normalizeForPlatform('README.md'),
+    );
+    expect(resolveLocalLinkPath('docs/index.md', '/docs/My%20Notes.md#setup')).toBe(
+      normalizeForPlatform('docs/My Notes.md'),
+    );
+  });
 });
 
 describe('localLinkPaths', () => {
@@ -115,6 +165,20 @@ describe('localLinkPaths', () => {
 
   it('returns an empty list when the markdown has no local links', () => {
     expect(localLinkPaths('[ext](https://example.com)', 'README.md')).toEqual([]);
+  });
+
+  it('resolves an encoded target to the decoded path the docs index is keyed by', () => {
+    const markdown = '[notes](My%20Notes.md) [shot](shot.png?raw=true)';
+    expect(localLinkPaths(markdown, 'docs/index.md')).toEqual([
+      'docs/My Notes.md',
+      'docs/shot.png',
+    ]);
+  });
+
+  it('resolves a root-relative link to the repo-relative path a backlink matches', () => {
+    expect(localLinkPaths('[plan](/docs/PLAN.md)', 'docs/epics/0023-docs-reader.md')).toEqual([
+      'docs/PLAN.md',
+    ]);
   });
 });
 

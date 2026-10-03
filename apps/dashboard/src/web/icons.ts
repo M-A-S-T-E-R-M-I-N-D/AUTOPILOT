@@ -172,6 +172,37 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M3 3v16a2 2 0 0 0 2 2h16' }],
     ['path', { d: 'm19 9-5 5-4-4-3 3' }],
   ],
+  // Epic 0025 slice 2: the project page's bare detail headings (lucide-static
+  // 1.50.0). Firing activity (a calendar of days) takes calendar-days, the
+  // evolution trend chart trending-up, and Recently shipped package-check.
+  'calendar-days': [
+    ['path', { d: 'M8 2v3' }],
+    ['path', { d: 'M16 2v3' }],
+    ['rect', { x: '3', y: '3', width: '18', height: '18', rx: '2' }],
+    ['path', { d: 'M3 9h18' }],
+    ['path', { d: 'M8 13h.01' }],
+    ['path', { d: 'M12 13h.01' }],
+    ['path', { d: 'M16 13h.01' }],
+    ['path', { d: 'M8 17h.01' }],
+    ['path', { d: 'M12 17h.01' }],
+    ['path', { d: 'M16 17h.01' }],
+  ],
+  'trending-up': [
+    ['path', { d: 'M16 7h6v6' }],
+    ['path', { d: 'm22 7-8.5 8.5-5-5L2 17' }],
+  ],
+  'package-check': [
+    ['path', { d: 'M12 22V12' }],
+    ['path', { d: 'm16 17 2 2 4-4' }],
+    [
+      'path',
+      {
+        d: 'M21 11.127V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l1.32-.753',
+      },
+    ],
+    ['path', { d: 'M3.29 7 12 12l8.71-5' }],
+    ['path', { d: 'm7.5 4.27 8.997 5.148' }],
+  ],
   zap: [
     [
       'path',
@@ -696,6 +727,57 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ],
     ['path', { d: 'M15 5.764v15' }],
     ['path', { d: 'M9 3.236v15' }],
+  ],
+  // Epic 0025 slice 2: the fleet card Details panel's bare section headings
+  // (lucide-static 1.50.0). Top directories takes folder-tree, Hot files (the
+  // largest files by bytes, not the busiest) weight, Flight log scroll-text,
+  // Per-firing trace (grouped, collapsible) list-tree and Metrics gauge.
+  'folder-tree': [
+    [
+      'path',
+      {
+        d: 'M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z',
+      },
+    ],
+    [
+      'path',
+      {
+        d: 'M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z',
+      },
+    ],
+    ['path', { d: 'M3 5a2 2 0 0 0 2 2h3' }],
+    ['path', { d: 'M3 3v13a2 2 0 0 0 2 2h3' }],
+  ],
+  weight: [
+    ['circle', { cx: '12', cy: '5', r: '3' }],
+    [
+      'path',
+      {
+        d: 'M6.5 8a2 2 0 0 0-1.905 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.925-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z',
+      },
+    ],
+  ],
+  'scroll-text': [
+    ['path', { d: 'M15 12h-5' }],
+    ['path', { d: 'M15 8h-5' }],
+    ['path', { d: 'M19 17V5a2 2 0 0 0-2-2H4' }],
+    [
+      'path',
+      {
+        d: 'M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3',
+      },
+    ],
+  ],
+  'list-tree': [
+    ['path', { d: 'M8 5h13' }],
+    ['path', { d: 'M13 12h8' }],
+    ['path', { d: 'M13 19h8' }],
+    ['path', { d: 'M3 10a2 2 0 0 0 2 2h3' }],
+    ['path', { d: 'M3 5v12a2 2 0 0 0 2 2h3' }],
+  ],
+  gauge: [
+    ['path', { d: 'm12 14 4-4' }],
+    ['path', { d: 'M3.34 19a10 10 0 1 1 17.32 0' }],
   ],
 };
 

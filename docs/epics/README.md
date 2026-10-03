@@ -71,28 +71,28 @@ Links to the research/plan doc(s), ADRs, or board items this epic distills.
 | [0002](0002-shell-decomposition.md) | Shell decomposition — modularize the five outsized files | Active |
 | [0003](0003-ring-0-fleet-watchdog.md) | Ring-0 fleet watchdog — one daemon spawns and revives across ALL registered projects | Done |
 | [0004](0004-bash-containment-worktree.md) | Bash containment — fly from a worktree, not the live checkout | Done |
-| [0005](0005-cockpit-redesign.md) | Cockpit MX redesign — dark-luxury flight deck on a Material-future system | Active |
-| [0006](0006-github-connected-mode.md) | GitHub connected mode — solo by default, federated by choice | Active |
+| [0005](0005-cockpit-redesign.md) | Cockpit MX redesign — dark-luxury flight deck on a Material-future system | Abandoned (superseded by 0015) |
+| [0006](0006-github-connected-mode.md) | GitHub connected mode — solo by default, federated by choice | Done |
 | [0007](0007-platform-maintainer-and-pool.md) | The platform — one canonical main, a maintainer autopilot, a contributor pool | Active |
 | [0008](0008-brand-identity.md) | Brand identity — the goggles mark: a pilot you can trust, a face you never see | Active |
 | [0009](0009-warm-sessions.md) | Warm sessions — resume a flight's CLI session instead of cold-spawning every firing | Active |
 | [0010](0010-maintenance-ritual.md) | Maintenance ritual — the recurring sweep the founder does by hand today | Active |
-| [0011](0011-architect-chat-v2.md) | ARCHITECT chat v2 — a persona-switched control surface for the Ask panel | Draft |
+| [0011](0011-architect-chat-v2.md) | ARCHITECT chat v2 — a persona-switched control surface for the Ask panel | Active |
 | [0012](0012-agentic-ask-escalation.md) | Agentic Ask escalation — a READ-ONLY iterative tier for the Ask panel | Done |
-| [0013](0013-cost-semantics-v3.md) | Cost semantics v3 — real subscription cost, not API list-price | Draft |
+| [0013](0013-cost-semantics-v3.md) | Cost semantics v3 — real subscription cost, not API list-price | Active |
 | [0014](0014-fleet-wisdom-generalization.md) | Fleet wisdom generalization — a marker registry, not a similarity engine | Done |
 | [0015](0015-cockpit-supervisory-control.md) | Cockpit supervisory control — the COCKPIT MASTER BRIEF, reconciled to this repo | Active |
 | [0016](0016-github-social-flight.md) | The GitHub social flight — on/off, only when gh is connected and authenticated | Active |
 | [0017](0017-navigation-remake.md) | Navigation remake — minimal, visual, memorable | Active |
-| [0018](0018-calm-cockpit.md) | Calm Cockpit — layout stability, tabs, and the many-lanes view | Active |
+| [0018](0018-calm-cockpit.md) | Calm Cockpit — layout stability, tabs, and the many-lanes view | Done |
 | [0019](0019-github-steward.md) | GitHub Steward — the pilot manages the page | Active |
 | [0020](0020-legible-surface.md) | The legible surface — every panel says what it is and what it did | Active |
 | [0021](0021-app-shell.md) | The app shell — subjects, a rail, and a phone-first cockpit (rows 1–11 shipped; row 3 tap-tap connect open) | Active |
-| [0022](0022-ask-answer-quality-doctrine.md) | ASK answer-quality doctrine — citations, honest refusals, escalation offer, native locale (born 0021) | Active |
-| [0023](0023-docs-reader.md) | The docs reader — Markdown rendered live, edited in place, kept honest | Draft |
+| [0022](0022-ask-answer-quality-doctrine.md) | ASK answer-quality doctrine — citations, honest refusals, escalation offer, native locale (born 0021) | Done |
+| [0023](0023-docs-reader.md) | The docs reader — Markdown rendered live, edited in place, kept honest | Done |
 | [0024](0024-pipeline-graph-editor.md) | The pipeline as a node graph — every instruction, tool and stage visible and editable | Draft |
 | [0025](0025-icon-system.md) | The icon system — one stroke family, no emoji, credits kept | Active |
-| [0026](0026-tasks-screen.md) | The tasks screen — a list with a point of view, and Ask one gesture away | Draft |
+| [0026](0026-tasks-screen.md) | The tasks screen — a list with a point of view, and Ask one gesture away | Active |
 | [0027](0027-the-envoy.md) | The envoy — the fleet's autonomous, critical representative in public | Draft |
 | [0028](0028-busy-states.md) | Busy states — the ritual scrim: acknowledge, show real progress, hold writes, always an escape | Active |
 | [0029](0029-settings-and-the-masthead.md) | Settings and the masthead — one gear, icons not emoji, AAA within reach, GitHub as a connection | Active |
@@ -102,4 +102,4 @@ Links to the research/plan doc(s), ADRs, or board items this epic distills.
 | [0033](0033-owned-work.md) | Owned work — from a public claim to a green, shipped contribution | Active |
 | [0034](0034-the-machine-visible.md) | The machine, visible — the live answer, and the cockpit's motion language | Specified |
 | [0035](0035-modular-landings.md) | Modular landings — more than one runway, and a main that is always green | Specified |
-| [0036](0036-provider-parity.md) | Provider parity — more than one engine behind the same invoke port | Draft |
+| [0036](0036-provider-parity.md) | Provider parity — more than one engine behind the same invoke port | Active |

@@ -101,6 +101,9 @@ jobs:
       - name: Citation metadata matches package.json/CHANGELOG.md
         run: pnpm run ci:citation
 
+      - name: Living status blocks match the tree (counts, version, Node floor)
+        run: pnpm run ci:docs-status
+
       - name: Every relative doc link resolves to a real file
         run: pnpm run ci:doc-links
 

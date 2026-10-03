@@ -5,7 +5,14 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0036. Provider parity — more than one engine behind the same invoke port
 
-Status: In progress — research spec landed 2026-09-27; the first slice (Bedrock/Vertex `AuthMode`
+Status: In progress (re-checked 2026-10-03) — the Codex and Gemini adapters, the Bedrock/Vertex
+`AuthMode` values and the gate-failure demotion rule shipped by 0.57.0 (2026-10-02), and a lane flies on
+either CLI since that day (`AUTOPILOT_ENGINE`); the fly bar's engine picker, per-lane engine on a fleet
+launch, the flight row's engine name and the connect panel's endpoint/Bedrock/Vertex modes landed
+2026-10-03 (after the 0.57.0 tag, unreleased). The `endpoint` auth mode (0.49.0) and the Ollama
+adapter predate the epic, and Ollama is still the one-substep offload, not a lane. The Copilot CLI
+adapter is unstarted, blocked on a captured `--output-format=json` sample (its wire schema is
+undocumented; see finding 5). Research spec landed 2026-09-27; the first slice (Bedrock/Vertex `AuthMode`
 values in `auth.ts`) landed the same day. `ModelPort` now has four live implementations
 (`ClaudeCliModel`/`StreamingClaudeCliModel`, `OllamaModel`, `CodexCliModel`, and `GeminiCliModel`) — Bedrock/Vertex
 need none, since both route through the same `claude` CLI (see row below). The Codex adapter
@@ -355,9 +362,19 @@ Since 2026-10-03 the bar also shows which engine each running flight is on: `Fli
 the launch's `engine` and, beside Codex or Gemini, its `engineModel` (`flight/runner.ts`), and the
 flight's row reads "Flying … — 3 firing(s) · Codex (gpt-5-codex)" (`flightRowEngineModelSuffix`,
 `flightRowEngineSuffix` for a Claude choice). A fleet flying several CLIs at once can be read at a
-glance. A launch that chose no engine flies on the dashboard's env, which the row cannot see, so its
-row names none. Still open: a flight the fleet watchdog starts on its own (`createHttpSpawnFlight` in
-`control/cli.ts`) sends no engine, so it flies on the dashboard's env.
+glance. A launch that chose no engine flies on the dashboard's env, and since 2026-10-03 its row
+names that engine too: `FlightRunnerDeps.inheritedEngine` reads the dashboard's own
+`AUTOPILOT_ENGINE` through `firingEngineRequestFromEnv` (`server/main.ts`), for the status only, so
+the child and the preflight still get no engine of their own. Unset, the row names none, as before.
+Since 2026-10-03 a flight the watchdog starts on its own flies on the watch's own
+engine. A single-folder `watch` always did, since its flight is a child that inherits the watch's
+env, but a fleet-mode spawn (`createHttpSpawnFlight` in `control/cli.ts`) rides the dashboard's
+`POST /api/fly` and flew on the dashboard's env. `watch` now reads `AUTOPILOT_ENGINE` and
+`AUTOPILOT_ENGINE_MODEL` once through `firingEngineRequestFromEnv`, judged as the request will be,
+and `watchFlyBody` (`control/flight-watchdog.ts`) carries the choice on every spawn's body, through
+the same `firingEngineRequestFields` `POST /api/fleet` uses. Unset, a spawn names no engine, as
+before. A setting a flight would refuse stops the watch at start (`watch refused: …`) instead of
+failing every spawn's request unseen, and the start line names the engine (`watchEngineClause`).
 
 Since 2026-10-02 `AUTOPILOT_ENGINE=gemini` routes a lane to `GeminiCliModel` the same way, with the
 same model slots, routing skip and demotion. Since 2026-10-03 it also refuses a model

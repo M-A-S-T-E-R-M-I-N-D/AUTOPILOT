@@ -150,6 +150,33 @@ export function firingEngineFromRequest(engine: unknown, model: unknown): Firing
   return firingEngineFromEnv({ AUTOPILOT_ENGINE: name, AUTOPILOT_ENGINE_MODEL: modelName });
 }
 
+/** The launch-request fields (`engine`, `engineModel`) that choose `route`,
+ *  which `firingEngineFromRequest` reads back as that route: none when no
+ *  engine was chosen, and no model beside Claude, which reads none. */
+export function firingEngineRequestFields(route: FiringEngineRoute | undefined): {
+  readonly engine?: string;
+  readonly engineModel?: string;
+} {
+  if (route === undefined) return {};
+  if (route.engine === 'claude') return { engine: 'claude' };
+  return { engine: route.engine, engineModel: route.model };
+}
+
+/**
+ * The engine a launcher's own env chooses for the flights it starts through
+ * `POST /api/fly`, judged as that request will be. `route` is `undefined`
+ * while `AUTOPILOT_ENGINE` is unset or blank, so such a launch names none and
+ * its flight flies on the dashboard's env, as before. A stray model beside
+ * Claude is dropped, as the flight itself would ignore it.
+ */
+export function firingEngineRequestFromEnv(env: NodeJS.ProcessEnv): FiringEngineRequest {
+  if ((env['AUTOPILOT_ENGINE'] ?? '').trim() === '') return { ok: true, route: undefined };
+  const choice = firingEngineFromEnv(env);
+  if (!choice.ok) return choice;
+  const fields = firingEngineRequestFields(choice.route);
+  return firingEngineFromRequest(fields.engine, fields.engineModel);
+}
+
 /** The env levers that fly a child on `route`, over whatever it inherits.
  *  Claude is named outright, so an inherited `AUTOPILOT_ENGINE` cannot win. */
 export function firingEngineEnv(route: FiringEngineRoute): Record<string, string> {

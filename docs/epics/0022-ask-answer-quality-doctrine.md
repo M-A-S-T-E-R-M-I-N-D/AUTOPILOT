@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 
 > Renumbered 0022 on 2026-09-13. Born as 0021 on 2026-09-09; two days later the app-shell epic took the same number and became the operator-facing 0021 (issue #49, the release notes, every commit message), so this doctrine moved to the next free number. Code and tests reference it by path.
 
-Status: Done — all 4 doctrine pieces shipped, plus transparency metadata. Citations
-(`56752134`), `lowConfidence` signal (`920e8081`), escalation-offer UI + `en`/`he`
-strings, and answer-transparency metadata tracking model, duration, and cost
-(`2d096134`). Live-state context fixed (`bd56b267`).
+Status: Done (2026-09-14; re-checked 2026-10-03) — all 4 doctrine pieces shipped, plus
+transparency metadata. Citations (`56752134`, 2026-09-09), `lowConfidence` signal
+(`920e8081`, 2026-09-09), escalation-offer UI + `en`/`he` strings, and
+answer-transparency metadata tracking model, duration, and cost (`2d096134`,
+2026-09-13). Live-state context fixed (`bd56b267`, 2026-09-14).
 
 Board task: `web-mtt5qwjp-xns6ps` ("ASK/ARCHITECT answer-quality doctrine (SOTA
 in-app answers): grounded file:line citations in every answer, honest

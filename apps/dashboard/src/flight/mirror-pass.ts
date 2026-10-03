@@ -80,6 +80,8 @@ import { basename, join } from 'node:path';
 import type { CliExec } from '../connection/cli-probe.js';
 import { STALE_TASK_DAYS } from '../web/task-queue.js';
 import { claimLedger } from './claim-ledger.js';
+import { isMaintainerMarked } from './contributor-issue-list.js';
+import { parseIssueLabels } from './issue-triage.js';
 import { parsePoolComments } from './pool-client.js';
 
 /** Parses `issue-triage.ts`'s `issueTaskId` convention (`github-<n>`) back
@@ -125,6 +127,20 @@ export interface MirrorPassIssueState {
    *  must not block can be told apart: the assignee closing their own
    *  issue through the board. Absent = not fetched (pure callers). */
   readonly assignees?: readonly string[];
+  /** The issue's label names. Read so the pass can leave alone an issue the
+   *  maintainer declined or put on hold ({@link isHeldByMaintainer}). Absent
+   *  = not fetched (pure callers), which reads as unmarked. */
+  readonly labels?: readonly string[];
+}
+
+/** EPIC 0019 law 2, the maintainer's mark outranks the pass: an issue they
+ *  declined (`declined`) or put on hold by hand (`status: awaiting-human`,
+ *  `status: blocked`) gets no close, reopen, note or settle from it. These are
+ *  the labels triage never answers and the pool claim skips, read the way the
+ *  contributor lists read them (contributor-issue-list.ts). Once the mark is
+ *  lifted, the next pass plans for the issue as before. */
+function isHeldByMaintainer(issue: MirrorPassIssueState): boolean {
+  return isMaintainerMarked(issue.labels ?? []);
 }
 
 /**
@@ -207,7 +223,10 @@ export type MirrorPassFinding =
  * but GitHub still shows the issue open (closes it, with the landing SHA if
  * one was recorded), or {@link MirrorPassReopenFinding} when the board no
  * longer says done (reopened, deferred, whatever) but GitHub already closed
- * it — reopened rather than left standing as a stale false-close.
+ * it — reopened rather than left standing as a stale false-close. An issue
+ * the maintainer declined or put on hold ({@link isHeldByMaintainer}) is also
+ * `null`: their mark outranks the board, so a declined issue they closed is
+ * never reopened as a "false-close".
  */
 /** Is `login` one of the issue's assignees? Logins compare case-insensitively,
  *  the same way `social-pass.ts` decides the viewer's role. */
@@ -223,6 +242,7 @@ export function planMirrorPassReconcile(
 ): MirrorPassFinding | null {
   const issueNumber = issueNumberFromTaskId(task.id);
   if (issueNumber === null || !issue) return null;
+  if (isHeldByMaintainer(issue)) return null;
 
   if (task.status === 'done' && issue.state === 'open') {
     // #40: never close on a claim the pass did not verify. Two claims are
@@ -405,24 +425,28 @@ export function planMirrorPassBatch(
   });
 }
 
-/** One github-issue-view entry as `gh issue view --json number,state` emits
+/** One github-issue-view entry as `gh issue view --json
+ *  number,state,assignees,labels` emits
  *  it — untrusted process output, parsed defensively rather than trusted as
  *  already shaped like {@link MirrorPassIssueState}. */
 interface RawGithubIssueState {
   readonly assignees?: unknown;
+  readonly labels?: unknown;
   readonly number?: unknown;
   readonly state?: unknown;
 }
 
 /**
  * Fetches one issue's live open/closed state via `gh issue view <n> --json
- * number,state`, run through the injectable `exec` — the same `CliExec`
+ * number,state,assignees,labels`, run through the injectable `exec` — the same `CliExec`
  * shape `issue-triage.ts`'s `fetchOpenIssues` uses, so this stays
  * deterministically testable without a real `gh` on PATH. Returns `null` on
  * a non-zero exit (issue not found, `gh` not authenticated, etc.) or
  * unparseable/malformed JSON rather than throwing — {@link
  * planMirrorPassReconcile} already treats a missing issue as "don't guess",
- * never as a signal to act on.
+ * never as a signal to act on. The labels ride the same call, so reading the
+ * maintainer's marks costs no extra `gh` call; a payload without a `labels`
+ * list leaves the field absent.
  */
 export async function fetchIssueState(
   exec: CliExec,
@@ -433,7 +457,7 @@ export async function fetchIssueState(
     'view',
     String(issueNumber),
     '--json',
-    'number,state,assignees',
+    'number,state,assignees,labels',
   ]);
   if (code !== 0) return null;
 
@@ -455,7 +479,12 @@ export async function fetchIssueState(
         )
         .filter((login): login is string => typeof login === 'string' && login !== '')
     : [];
-  return { number: raw.number, state: state === 'OPEN' ? 'open' : 'closed', assignees };
+  return {
+    number: raw.number,
+    state: state === 'OPEN' ? 'open' : 'closed',
+    assignees,
+    ...(Array.isArray(raw.labels) ? { labels: parseIssueLabels(raw.labels) } : {}),
+  };
 }
 
 /**
@@ -505,7 +534,9 @@ export interface MirrorPassLandingNoteFinding {
  * ({@link issueNumberFromTaskId} returning `null`, or a missing `issue`).
  * `existingComments` is every comment already on the issue — a body already
  * containing the SHA means the note was posted before, so `null` is
- * returned rather than posting a duplicate.
+ * returned rather than posting a duplicate. An issue the maintainer declined
+ * or put on hold ({@link isHeldByMaintainer}) gets no note either, the same
+ * as {@link planMirrorPassReconcile} gives it no close.
  */
 export function planMirrorPassLandingNote(
   task: MirrorPassTaskCandidate,
@@ -514,6 +545,7 @@ export function planMirrorPassLandingNote(
 ): MirrorPassLandingNoteFinding | null {
   const issueNumber = issueNumberFromTaskId(task.id);
   if (issueNumber === null || !issue || issue.state !== 'closed') return null;
+  if (isHeldByMaintainer(issue)) return null;
   if (task.status !== 'done' || !task.landedSha) return null;
   const sha = task.landedSha;
   if (existingComments.some((body) => body.includes(sha))) return null;
@@ -614,9 +646,10 @@ export async function fetchIssueComments(
 
 /**
  * Fetches comments only for issues that actually need the derivation-2/4
- * check — closed, with a task that's done and carries a `landedSha` — so a
- * still-open issue (handled by the close-with-landing-note path instead)
- * never costs an extra `gh` call. The read wiring a caller composes with
+ * check — closed, unmarked by the maintainer, with a task that's done and
+ * carries a `landedSha` — so a still-open issue (handled by the
+ * close-with-landing-note path instead) or a declined or held one never costs
+ * an extra `gh` call. The read wiring a caller composes with
  * {@link planMirrorPassLandingNoteBatch}, same division of labor {@link
  * fetchMirrorPassIssueStates} has with {@link planMirrorPassBatch}.
  */
@@ -630,7 +663,8 @@ export async function fetchMirrorPassIssueComments(
     if (task.status !== 'done' || !task.landedSha) continue;
     const issueNumber = issueNumberFromTaskId(task.id);
     if (issueNumber === null) continue;
-    if (issuesByNumber.get(issueNumber)?.state === 'closed') numbers.add(issueNumber);
+    const issue = issuesByNumber.get(issueNumber);
+    if (issue?.state === 'closed' && !isHeldByMaintainer(issue)) numbers.add(issueNumber);
   }
   const comments = new Map<number, readonly string[]>();
   for (const number of numbers) {

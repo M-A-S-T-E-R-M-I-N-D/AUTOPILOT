@@ -5,11 +5,15 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0013. Cost semantics v3 — real subscription cost, not API list-price
 
-Status: In progress — slices 1 and 2 landed (FiringRecord now carries `realCostUsd`,
-operator-configurable via `AUTOPILOT_SUBSCRIPTION_PRICE_USD` / `AUTOPILOT_USAGE_POOL_DIRS`),
-slice 3's docs note, flight-summary-panel UI addition, and fleet-wide "real cost"
-header tile all landed; the remaining slice 3 call site (`web/shell.ts`'s own inline
-`fmtCost` sites) is still open, blocked on a sibling's live claim on that file
+Status: In progress (re-checked 2026-10-03) — slices 1 and 2 landed (FiringRecord
+carries `realCostUsd`, operator-configurable via `AUTOPILOT_SUBSCRIPTION_PRICE_USD` /
+`AUTOPILOT_USAGE_POOL_DIRS`); slice 3 is partial: the docs note, the flight-summary
+panel's real-cost chip, the fleet-wide "real cost" header tile and the flight-row and
+flight-log cost chips (`flightCostAgoMeta`) carry it, while `web/shell.ts`'s remaining
+inline `fmtCost` sites (the flight-group head total, the cost-per-firing spark, the
+queue forecast, the task detail's history and the task burn/runaway chips) still render
+list price only, and slice 1's transcript-schema caveat is still unverified against a
+real `~/.claude` sample.
 
 Board task: `web-msw01sww-869dqi` ("COST SEMANTICS v3 (precise, ccusage-method): real
 cost = cost_usd x (subscription price / MACHINE-WIDE 30d equiv), denominator from

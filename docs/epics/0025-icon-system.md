@@ -5,7 +5,14 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0025. The icon system — one stroke family, no emoji, credits kept
 
-Status: Draft (2026-09-13). Board tasks seeded 2026-09-12 under this number.
+Status: In progress (2026-10-03) — slices 1, 2 and 4 shipped: `icons.ts`, the credits
+and the board's glyphs on 2026-09-13 (CHANGELOG 0.44.0), the panel-heading hub the same
+day, and the censuses — emoji, geometric and technical glyphs, hand-inlined icon markup
+— pinned at zero across `web/` and STRINGS by 2026-10-02, with the README frames
+retaken that day. Slice 3's status pills, live cards and office-map markers landed
+2026-10-03. Open: the populated e2e baselines and README frames still show the office
+map's bare zones and the activity feed's old glyphs. Drafted 2026-09-13; board tasks
+seeded 2026-09-12 under this number.
 
 ## The ask
 
@@ -339,7 +346,29 @@ propagation, and the filled style does not match the nav.
    open to claim) icons, and `contributorStandingTitle` and
    `collaborationTitle` carry their words in both locales, apart from the
    sections' aria-label keys, the way `contributorIssueListTitle` is
-   (`apps/dashboard/test/web/community-panel-headings.test.ts`).
+   (`apps/dashboard/test/web/community-panel-headings.test.ts`). **Project
+   detail headings 2026-10-03 (slice 2):** on a project page's Data tab,
+   Health, Evolution, DORA and gate parallelism lead with a stroke icon, but
+   the two chart panels between them headed with bare words, and so did
+   "Recently shipped" above the Fleet tab's iconed Landing and Flight console
+   panels. "Firing activity" leads with a newly vendored `calendar-days`, the
+   evolution trend chart with `trending-up` and "Recently shipped" with
+   `package-check`, each decorative beside its words. The STRINGS key stays
+   on the `<h2>` the i18n tests pin, and `setSweptText()` keeps the icon
+   across a locale switch, the way the tasks heading's focus-mode `target`
+   survives (`apps/dashboard/test/web/project-detail-heading-icons.test.ts`).
+   **Details panel headings 2026-10-03 (slice 2):** the fleet card's
+   Details panel headed its seven sections (Languages, Top directories, Hot
+   files, Flight log, Activity, Per-firing trace, Metrics) with bare words.
+   Each leads with a decorative stroke now: Languages reuses `code-xml`,
+   Activity reuses `activity`, and Top directories, Hot files, Flight log,
+   Per-firing trace and Metrics take newly vendored `folder-tree`, `weight`
+   (the largest files by bytes, not the busiest), `scroll-text`,
+   `list-tree` (grouped, collapsible) and `gauge`. The STRINGS key stays on
+   each `<h3>`, Hot files, Flight log and Per-firing trace keep their own
+   `aria-label`, and `setSweptText()` keeps every icon across a locale
+   switch (`apps/dashboard/test/web/detail-panel-heading-icons.test.ts`).
+   Core grew to 247.1KB raw / 73.3KB gzip of its 251KB / 74KB budget.
 
 ## Related
 

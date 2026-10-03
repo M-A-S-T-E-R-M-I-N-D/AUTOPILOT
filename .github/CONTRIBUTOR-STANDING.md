@@ -59,6 +59,10 @@ assembles an evidence dossier for the maintainer — nothing is auto-approved:
 - patch quality signals: were the diffs meaningful, minimal, well-tested —
   and did any ever trip a security review.
 
+If the maintainer has already labeled the application `declined`,
+`status: awaiting-human` or `status: blocked`, the KEEPER posts no dossier
+until that label is lifted.
+
 The maintainer decides; the decision (and reasoning) lands on the application
 issue — approvals and declines are equally documented. Standing is recorded in
 [`TRUSTED-CONTRIBUTORS.md`](TRUSTED-CONTRIBUTORS.md), which both sides' fleets

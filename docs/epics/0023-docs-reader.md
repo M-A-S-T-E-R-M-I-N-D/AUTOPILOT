@@ -5,7 +5,12 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0023. The docs reader — Markdown rendered live, edited in place, kept honest
 
-Status: Draft (2026-09-13). Board tasks seeded 2026-09-12 under this number.
+Status: Done (2026-09-26; re-checked 2026-10-03) — all five slices landed between
+2026-09-18 and 2026-09-26: the freshness badge, link check, table of contents,
+backlinks and the archived badge on 2026-09-18 (CHANGELOG 0.53.0); the guarded write
+endpoint and split-preview editor on 2026-09-25 and the live re-render on disk change
+on 2026-09-26 (CHANGELOG 0.55.0). One fix since: an anchor link hands focus to its
+heading (0.57.0). Drafted 2026-09-13; board tasks seeded 2026-09-12 under this number.
 
 ## The ask
 

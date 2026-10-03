@@ -10,6 +10,8 @@ import {
   firingEngineFromEnv,
   firingEngineFromRequest,
   firingEngineLine,
+  firingEngineRequestFields,
+  firingEngineRequestFromEnv,
 } from '../../src/flight/firing-engine.js';
 
 describe('firingEngineFromEnv', () => {
@@ -216,6 +218,81 @@ describe('firingEngineFromRequest', () => {
         route: { engine: 'codex', model },
       });
     }
+  });
+});
+
+describe('firingEngineRequestFields', () => {
+  it('carries nothing when no engine was chosen', () => {
+    expect(firingEngineRequestFields(undefined)).toEqual({});
+  });
+
+  it('carries no model beside Claude, and the model beside codex or gemini', () => {
+    expect(firingEngineRequestFields({ engine: 'claude' })).toEqual({ engine: 'claude' });
+    expect(firingEngineRequestFields({ engine: 'gemini', model: 'gemini-2.5-pro' })).toEqual({
+      engine: 'gemini',
+      engineModel: 'gemini-2.5-pro',
+    });
+  });
+
+  it('reads back through firingEngineFromRequest as the route it was built from', () => {
+    for (const route of [
+      undefined,
+      { engine: 'claude' },
+      { engine: 'codex', model: 'gpt-5-codex' },
+    ] as const) {
+      const fields = firingEngineRequestFields(route);
+      expect(firingEngineFromRequest(fields.engine, fields.engineModel)).toEqual({
+        ok: true,
+        route,
+      });
+    }
+  });
+});
+
+describe('firingEngineRequestFromEnv', () => {
+  it('chooses no engine when AUTOPILOT_ENGINE is unset or blank, so the dashboard env decides', () => {
+    for (const env of [{}, { AUTOPILOT_ENGINE: '  ' }, { AUTOPILOT_ENGINE_MODEL: 'gpt-5-codex' }]) {
+      expect(firingEngineRequestFromEnv(env)).toEqual({ ok: true, route: undefined });
+    }
+  });
+
+  it('chooses the engine the env names, Claude included, so it beats the dashboard env', () => {
+    expect(firingEngineRequestFromEnv({ AUTOPILOT_ENGINE: 'Claude' })).toEqual({
+      ok: true,
+      route: { engine: 'claude' },
+    });
+    expect(
+      firingEngineRequestFromEnv({
+        AUTOPILOT_ENGINE: 'codex',
+        AUTOPILOT_ENGINE_MODEL: ' gpt-5-codex ',
+      }),
+    ).toEqual({ ok: true, route: { engine: 'codex', model: 'gpt-5-codex' } });
+  });
+
+  it('ignores a stray model beside Claude, as the flight itself would', () => {
+    expect(
+      firingEngineRequestFromEnv({ AUTOPILOT_ENGINE: 'claude', AUTOPILOT_ENGINE_MODEL: 'a & b' }),
+    ).toEqual({ ok: true, route: { engine: 'claude' } });
+  });
+
+  it('refuses what the env levers refuse', () => {
+    expect(firingEngineRequestFromEnv({ AUTOPILOT_ENGINE: 'gemini' })).toEqual({
+      ok: false,
+      reason:
+        'AUTOPILOT_ENGINE=gemini needs AUTOPILOT_ENGINE_MODEL to name the model Gemini runs (e.g. gemini-2.5-pro).',
+    });
+    expect(firingEngineRequestFromEnv({ AUTOPILOT_ENGINE: 'copilot' })).toMatchObject({
+      ok: false,
+    });
+  });
+
+  it('refuses a model the launch request itself would refuse', () => {
+    const choice = firingEngineRequestFromEnv({
+      AUTOPILOT_ENGINE: 'codex',
+      AUTOPILOT_ENGINE_MODEL: 'gpt-5 & calc',
+    });
+    expect(choice.ok).toBe(false);
+    expect(choice.ok === false && choice.reason).toContain('engineModel must be one model name');
   });
 });
 
