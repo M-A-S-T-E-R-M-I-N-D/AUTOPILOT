@@ -14,6 +14,7 @@ import {
   WHATS_NEW_NEVER_KEY,
   WHATS_NEW_STRINGS,
 } from '../../src/web/whats-new.js';
+import { ICON_SHAPES } from '../../src/web/icons.js';
 
 const PAYLOAD = {
   version: '0.54.0',
@@ -228,6 +229,83 @@ describe("what's new — what it shows", () => {
       rules: { 'color-contrast': { enabled: false } },
     });
     expect(result.violations.map((v) => v.id)).toEqual([]);
+  });
+});
+
+// Epic 0025 (icon system): the dialog headed with bare words while every
+// panel heading beside it leads with a stroke icon. The title takes the
+// release panel's rocket, "What you can do now" the sparkles of something
+// new, "This round" the round panel's refresh-cw and "On GitHub" the GitHub
+// PR summary's git-pull-request. Each is decorative beside its words.
+describe("what's new — headings lead with vendored icons (epic 0025)", () => {
+  beforeEach(() => {
+    localStorage.setItem('ap-tour-seen', '1');
+  });
+
+  function expectLeadingIcon(heading: Element | null | undefined, name: string): void {
+    expect(heading, name).toBeTruthy();
+    const icon = heading!.firstElementChild!;
+    expect(icon.tagName.toLowerCase(), name).toBe('svg');
+    expect(icon.getAttribute('class'), name).toBe('icon icon-' + name);
+    expect(icon.getAttribute('aria-hidden'), name).toBe('true');
+    expect(icon.getAttribute('focusable'), name).toBe('false');
+    expect(icon.getAttribute('fill'), name).toBe('none');
+    expect(icon.getAttribute('stroke'), name).toBe('currentColor');
+    expect(icon.hasAttribute('width'), name).toBe(false);
+    // drawn from the vendored data, shape for shape
+    const shapes = ICON_SHAPES[name]!;
+    expect(
+      [...icon.children].map((c) => c.tagName.toLowerCase()),
+      name,
+    ).toEqual(shapes.map(([tag]) => tag));
+    shapes.forEach(([, attrs], i) => {
+      for (const [k, v] of Object.entries(attrs)) {
+        expect(icon.children[i]!.getAttribute(k), `${name} ${k}`).toBe(v);
+      }
+    });
+    expect(heading!.querySelectorAll('svg'), name).toHaveLength(1);
+  }
+
+  it('the title and each section heading lead with their icon and keep their words', async () => {
+    boot();
+    await painted();
+    const d = dialog()!;
+    const title = d.querySelector('#wn-title');
+    expectLeadingIcon(title, 'rocket');
+    expect(title?.textContent).toBe("What's new in v0.54.0");
+    const sections = [...d.querySelectorAll('.wn-section > h3')];
+    expect(sections.map((h) => h.textContent)).toEqual([
+      WHATS_NEW_STRINGS.en.nowYouCan,
+      WHATS_NEW_STRINGS.en.round,
+      WHATS_NEW_STRINGS.en.github,
+    ]);
+    expectLeadingIcon(sections[0], 'sparkles');
+    expectLeadingIcon(sections[1], 'refresh-cw');
+    expectLeadingIcon(sections[2], 'git-pull-request');
+  });
+
+  it('keeps the icons when the interface speaks Hebrew', async () => {
+    document.documentElement.lang = 'he';
+    boot();
+    await painted();
+    const d = dialog()!;
+    expectLeadingIcon(d.querySelector('#wn-title'), 'rocket');
+    const sections = [...d.querySelectorAll('.wn-section > h3')];
+    expect(sections.map((h) => h.textContent)).toEqual([
+      WHATS_NEW_STRINGS.he.nowYouCan,
+      WHATS_NEW_STRINGS.he.round,
+      WHATS_NEW_STRINGS.he.github,
+    ]);
+    expectLeadingIcon(sections[2], 'git-pull-request');
+  });
+
+  it('ships only the shapes it draws, spliced from the vendored set (law 1)', () => {
+    const chunk = whatsNewClientJs('0.54.0');
+    for (const name of ['rocket', 'sparkles', 'refresh-cw', 'git-pull-request']) {
+      expect(chunk, name).toContain(JSON.stringify(ICON_SHAPES[name]));
+    }
+    expect(chunk).not.toContain(JSON.stringify(ICON_SHAPES['target']));
+    expect(chunk).not.toContain('<svg');
   });
 });
 

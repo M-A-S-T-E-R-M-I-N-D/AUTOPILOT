@@ -377,7 +377,17 @@ propagation, and the filled style does not match the nav.
    both were already vendored. Each icon is decorative, so the name each
    dialog takes through `aria-labelledby` stays the words alone, and the
    STRINGS key moves onto an inner span, as on the checklist's title
-   (`apps/dashboard/test/web/dialog-title-icons.test.ts`).
+   (`apps/dashboard/test/web/dialog-title-icons.test.ts`). **What's new
+   headings 2026-10-03 (slice 2):** the once-per-version message headed its
+   title and its "What you can do now", "This round" and "On GitHub"
+   sections with bare words. Each leads with a decorative stroke now: the
+   title takes the release panel's `rocket`, the new capabilities
+   `sparkles`, the round the round panel's `refresh-cw` and GitHub the PR
+   summary's `git-pull-request`, none newly vendored. `/whats-new.js` is
+   its own chunk and cannot reach core's `iconEl()`, so it splices only
+   those four shapes from `icons.ts`, the way the onboarding ladder ships
+   its own, and builds them with `createElementNS`
+   (`apps/dashboard/test/web/whats-new-client.test.ts`).
 
 ## Related
 
