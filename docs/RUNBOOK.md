@@ -104,7 +104,8 @@ refusal reads `preflight refused: <check>: <what to do>` and names one of:
 Warnings let the flight go and say what to expect: a build older than
 its sources (`pnpm run build`), a lane worktree with leftovers
 (`git -C <lane> stash`), stale engine locks (reclaimed at launch), under
-5 GiB free, a fleet wider than four lanes. `pnpm dashboard:doctor <folder>`
+5 GiB free, a fleet wider than four lanes, a Codex CLI that says it is not
+signed in (`codex login`). `pnpm dashboard:doctor <folder>`
 prints the whole report from the terminal, `[!!]` for blocking lines.
 
 ## 2. The stale-4317-server ritual (when the CLI can't see it)
@@ -313,7 +314,11 @@ from the dashboard (the Fly button, `dashboard fleet`, the watchdog) meets each 
 in its preflight first, as `preflight refused: engine: …`, and so does a lane whose `codex` or
 `gemini` does not answer `--version` on the PATH; `claude-cli` stays required, since the commit
 reviewer runs on it. `pnpm dashboard:doctor <folder>` shows the CLI's version and model on its
-`engine` line.
+`engine` line. For a Codex lane the preflight also asks `codex login status`, unless
+`CODEX_API_KEY` is set (`codex exec` signs in with it, and the status verb never reads it). A
+`Not logged in` answer turns the `engine` line into a `[--]` warning: run `codex login`, or set
+the key. That answer only warns, so the launch still flies, since Codex's own config can route the
+model to a provider that needs no sign-in.
 
 A single dashboard launch can choose its own engine instead: a `POST /api/fly` body may carry
 `engine` (`claude`, `codex` or `gemini`) and `engineModel`. They reach that flight's child as

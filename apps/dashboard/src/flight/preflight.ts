@@ -36,6 +36,10 @@ export type EngineFact =
       readonly model: string;
       readonly found: boolean;
       readonly version: string | null;
+      /** What `codex login status` answered, present only when it said:
+       *  Codex alone has the verb, and a `CODEX_API_KEY` leaves nothing to
+       *  ask (`preflight-facts.ts`'s `codexLoginStatus`). */
+      readonly signedIn?: boolean;
     };
 
 export interface PreflightCheck extends DoctorCheck {
@@ -88,7 +92,9 @@ function gib(bytes: number): string {
 
 /** A Codex or Gemini lane flies once its setting holds and its CLI answers:
  *  either miss fails every firing, and a firing that commits nothing gives
- *  the demotion count nothing to judge. A Claude lane adds no line. */
+ *  the demotion count nothing to judge. A Codex CLI that is not signed in
+ *  only warns: its own config can route the model to a provider that needs
+ *  no sign-in, which no answer here can see. A Claude lane adds no line. */
 function engineCheck(engine: EngineFact): PreflightCheck | null {
   if (engine.kind === 'claude') return null;
   if (engine.kind === 'refused') {
@@ -103,11 +109,20 @@ function engineCheck(engine: EngineFact): PreflightCheck | null {
       detail: `\`${engine.engine}\` is not on the PATH — AUTOPILOT_ENGINE=${engine.engine} flies every firing on the ${cli} CLI; install it and sign in once, or unset AUTOPILOT_ENGINE`,
     };
   }
+  const running = `${cli} CLI ${engine.version ?? '(version unknown)'} on ${engine.model} (AUTOPILOT_ENGINE)`;
+  if (engine.signedIn === false) {
+    return {
+      level: 'warn',
+      name: 'engine',
+      ok: true,
+      detail: `${running} is not signed in (\`codex login status\`) — every firing fails unless ${cli}'s own config routes the model to a provider that needs no sign-in; run \`codex login\`, or set CODEX_API_KEY`,
+    };
+  }
   return {
     level: 'info',
     name: 'engine',
     ok: true,
-    detail: `${cli} CLI ${engine.version ?? '(version unknown)'} on ${engine.model} (AUTOPILOT_ENGINE) — no cost is recorded, since ${cli} reports no price`,
+    detail: `${running} — no cost is recorded, since ${cli} reports no price`,
   };
 }
 

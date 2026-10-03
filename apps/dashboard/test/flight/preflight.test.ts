@@ -224,6 +224,36 @@ describe('evaluatePreflight — the go/no-go before a flight spends a dollar', (
     );
   });
 
+  it('a codex lane whose CLI says it is not signed in WARNS: its own config may route to a provider that needs none', () => {
+    const codex = {
+      kind: 'cli' as const,
+      engine: 'codex' as const,
+      model: 'gpt-5-codex',
+      found: true,
+      version: '0.46.0',
+    };
+    const signedOut = evaluatePreflight(facts({ engine: { ...codex, signedIn: false } }));
+    expect(signedOut.go).toBe(true);
+    expect(check(signedOut, 'engine')).toEqual({
+      level: 'warn',
+      name: 'engine',
+      ok: true,
+      detail:
+        "Codex CLI 0.46.0 on gpt-5-codex (AUTOPILOT_ENGINE) is not signed in (`codex login status`) — every firing fails unless Codex's own config routes the model to a provider that needs no sign-in; run `codex login`, or set CODEX_API_KEY",
+    });
+    expect(formatPreflight(signedOut)).toContain(
+      `[--] engine: ${check(signedOut, 'engine').detail}`,
+    );
+    const signedIn = evaluatePreflight(facts({ engine: { ...codex, signedIn: true } }));
+    expect(check(signedIn, 'engine')).toEqual({
+      level: 'info',
+      name: 'engine',
+      ok: true,
+      detail:
+        'Codex CLI 0.46.0 on gpt-5-codex (AUTOPILOT_ENGINE) — no cost is recorded, since Codex reports no price',
+    });
+  });
+
   it('a codex lane still needs `claude`: the commit reviewer stays on it', () => {
     const report = evaluatePreflight(
       facts({
