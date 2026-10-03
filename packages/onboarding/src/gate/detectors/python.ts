@@ -2,17 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { EcosystemDetector, MutableGateCommands } from '../types.js';
-import { tomlHasSection, directCommand } from '../manifests.js';
+import { tomlHasSection, iniHasSection, directCommand } from '../manifests.js';
 
 /**
  * Python gate detector. Recognises a repo by a manifest (pyproject/setup) or the
  * presence of `.py` files, then maps common tools (pytest / ruff|flake8 / mypy).
  * Tools are proposed as direct invocations; the operator can adjust per SOUL.
+ *
+ * A tool's config is looked for in its own file, in `pyproject.toml`, and in
+ * `setup.cfg` — the last is where flake8 reads natively (it has no pyproject
+ * support) and the section names differ there (`[tool:pytest]`, `[mypy]`).
  */
 export const pythonDetector: EcosystemDetector = {
   id: 'python',
   detect(snap) {
     const pyproject = snap.read('pyproject.toml');
+    const setupCfg = snap.read('setup.cfg');
     const hasManifest =
       pyproject !== null ||
       snap.has('setup.py') ||
@@ -32,6 +37,7 @@ export const pythonDetector: EcosystemDetector = {
       snap.has('pytest.ini') ||
       snap.has('tox.ini') ||
       tomlHasSection(pyproject, 'tool.pytest') ||
+      iniHasSection(setupCfg, 'tool:pytest') ||
       snap.hasGlob('test_*.py') ||
       snap.hasGlob('*_test.py');
     if (hasPytest) {
@@ -39,7 +45,11 @@ export const pythonDetector: EcosystemDetector = {
       evidence.push('pytest');
     }
 
-    if (snap.has('mypy.ini') || tomlHasSection(pyproject, 'tool.mypy')) {
+    if (
+      snap.has('mypy.ini') ||
+      tomlHasSection(pyproject, 'tool.mypy') ||
+      iniHasSection(setupCfg, 'mypy')
+    ) {
       gate.typecheck = directCommand('mypy', ['.']);
       evidence.push('mypy');
     }
@@ -47,7 +57,11 @@ export const pythonDetector: EcosystemDetector = {
     if (snap.has('ruff.toml') || snap.has('.ruff.toml') || tomlHasSection(pyproject, 'tool.ruff')) {
       gate.lint = directCommand('ruff', ['check', '.']);
       evidence.push('ruff');
-    } else if (snap.has('.flake8') || tomlHasSection(pyproject, 'tool.flake8')) {
+    } else if (
+      snap.has('.flake8') ||
+      tomlHasSection(pyproject, 'tool.flake8') ||
+      iniHasSection(setupCfg, 'flake8')
+    ) {
       gate.lint = directCommand('flake8', []);
       evidence.push('flake8');
     }
