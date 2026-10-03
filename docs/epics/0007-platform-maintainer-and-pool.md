@@ -234,6 +234,30 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    `test/flight/issue-triage.test.ts` (the mark check placed early, verified
    against both the accept and reject paths, paired with the withheld-command
    flag).
+   Refined again 2026-10-03 (same board task, carrying slice 6's same-day
+   any-casing fix for the claim over to triage): the three mark checks above
+   matched `declined`, `status: awaiting-human` and `status: blocked`
+   exactly, so on a repo whose own label read `Declined` or `Status:
+   Blocked` the pool claim refused an
+   issue that triage still labeled, answered and boarded, and a marked
+   partner application still got its dossier. `planIssueTriage` now finds a
+   mark through `carriedMark` — any casing, a hyphen read as a space, the
+   comparison `pool-client.ts`'s `isMaintainerMarked` makes, restated in
+   `issue-triage.ts` because `pool-client.ts` imports it — and the skip names
+   the label as the issue carries it (a2a1c716). The idempotence skip on
+   GitHub's stock `duplicate` label followed (b2819edd): `gh issue edit
+   --add-label` resolves a label name in any casing, so on a repo whose label
+   reads `Duplicate` KEEPER's own write landed as `Duplicate`, the exact match
+   missed it, and every later pass posted the same duplicate reply again. It
+   now reads through `carriedMark` too; the label KEEPER writes is still
+   `duplicate`. Both narrow triage only: nothing skipped before is triaged
+   now. Covered by `test/flight/issue-triage-dossier-marks.test.ts` — the
+   claim's five variants against an accepted issue, a marked application and
+   a four-issue ritual, plus a label that only resembles a mark (written
+   first, 11 of 13 checks failed); `Duplicate` and `DUPLICATE` against a
+   duplicate answer, a boarding and a two-issue ritual, with `possible
+   duplicate`, `duplicate?` and `duplicate-of-12` still triaged (written
+   first, 5 of 6 new checks failed).
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure
@@ -1130,9 +1154,11 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    the claim refused it. It now reads `isMaintainerMarked` and its own
    `MAINTAINER_MARKS` list is gone. Narrowing-only: nothing it skipped before
    is offered now. Covered by `test/flight/lucky-fit.test.ts` (the five
-   variants plus `Status: Awaiting Human`, a four-issue roll, and a label
-   that only resembles a mark; written first, it failed 3 of its 9 checks
-   against the old code).
+   variants plus `Status: Awaiting Human`, a roll over all six and one
+   unmarked issue, and three labels that only resemble a mark; written
+   first, it failed 3 of its 9 checks against the old code). Two lanes
+   shipped this fix in parallel (2dd3b937, 9636d64f); the landing kept
+   9636d64f's test block and dropped the other's near-identical one.
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable
