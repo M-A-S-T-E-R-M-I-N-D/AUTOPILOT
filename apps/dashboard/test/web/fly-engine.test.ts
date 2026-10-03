@@ -18,6 +18,7 @@ import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 import { flyJs } from '../../src/web/features/fly.js';
 import { firingEngineFromRequest } from '../../src/flight/firing-engine.js';
+import { fleetLaneEnginesFromRequest } from '../../src/flight/fleet-launch.js';
 
 interface RecordedCall {
   readonly href: string;
@@ -434,6 +435,221 @@ describe('FLY-BAR Engine select (epic 0036, GitHub #21 slice S-last)', () => {
         'flyEngineTip',
         'flyEngineModelTip',
         'engineModelNeeded',
+      ] as const) {
+        expect(STRINGS[locale][key], `${locale}.${key}`).toBeTruthy();
+      }
+    }
+  });
+});
+
+function setLanes(count: number): void {
+  const lanes = document.getElementById('fly-lanes') as HTMLInputElement;
+  lanes.value = String(count);
+  lanes.dispatchEvent(new Event('input'));
+}
+
+function laneEnginesBox(): HTMLFieldSetElement {
+  return document.getElementById('fly-lane-engines') as HTMLFieldSetElement;
+}
+
+function laneSelect(i: number): HTMLSelectElement {
+  return document.getElementById(`fly-lane-engine-${i}`) as HTMLSelectElement;
+}
+
+function laneModel(i: number): HTMLInputElement {
+  return document.getElementById(`fly-lane-engine-model-${i}`) as HTMLInputElement;
+}
+
+function chooseLaneEngine(i: number, engine: string, model?: string): void {
+  laneSelect(i).value = engine;
+  laneSelect(i).dispatchEvent(new Event('change'));
+  if (model !== undefined) laneModel(i).value = model;
+}
+
+async function fleetLaunch(calls: RecordedCall[]): Promise<Record<string, unknown> | null> {
+  await vi.waitFor(() => {
+    expect(calls.some((c) => c.href.endsWith('/api/fleet'))).toBe(true);
+  });
+  return calls.find((c) => c.href.endsWith('/api/fleet'))?.body ?? null;
+}
+
+describe('FLY-BAR Engine per lane (epic 0036, GitHub #21 slice S-last, heterogeneous fleet)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('shows one labelled select per lane, in roster order, only while Lanes is above 1', async () => {
+    await boot([]);
+    expect(document.getElementById('fly-options')?.contains(laneEnginesBox())).toBe(true);
+    expect(laneEnginesBox().hidden).toBe(true);
+    expect(laneEnginesBox().querySelector('legend')?.textContent?.trim()).toBe(
+      STRINGS.en.laneEngines,
+    );
+
+    setLanes(3);
+    expect(laneEnginesBox().hidden).toBe(false);
+    const labels = [0, 1, 2].map(
+      (i) => document.querySelector(`label[for="fly-lane-engine-${i}"]`)?.textContent,
+    );
+    expect(labels).toEqual(['Lane base', 'Lane fleet-2', 'Lane fleet-3']);
+    expect(Array.from(laneSelect(1).options).map((o) => o.value)).toEqual([
+      '',
+      'claude',
+      'codex',
+      'gemini',
+    ]);
+    expect(laneSelect(1).options[0]?.textContent).toBe(STRINGS.en.laneEngineSame);
+    expect(laneSelect(1).value).toBe('');
+
+    setLanes(1);
+    expect(laneEnginesBox().hidden).toBe(true);
+    expect(laneEnginesBox().querySelectorAll('select')).toHaveLength(0);
+  });
+
+  it("keeps the lanes' choices when Lanes changes, and drops only the rows past it", async () => {
+    await boot([]);
+    setLanes(3);
+    chooseLaneEngine(1, 'gemini', 'gemini-2.5-pro');
+    chooseLaneEngine(2, 'codex', 'gpt-5-codex');
+    setLanes(2);
+    expect(laneSelect(2)).toBeNull();
+    setLanes(4);
+    expect(laneSelect(1).value).toBe('gemini');
+    expect(laneModel(1).value).toBe('gemini-2.5-pro');
+    expect(laneSelect(2).value).toBe('');
+    expect(laneSelect(3).value).toBe('');
+  });
+
+  it("shows a lane's model field only while that lane is on Codex or Gemini", async () => {
+    await boot([]);
+    setLanes(2);
+    expect(laneModel(1).hidden).toBe(true);
+    expect(laneModel(1).getAttribute('aria-label')).toBe('Engine model for lane fleet-2');
+    chooseLaneEngine(1, 'codex');
+    expect(laneModel(1).hidden).toBe(false);
+    expect(laneModel(0).hidden).toBe(true);
+    chooseLaneEngine(1, 'claude');
+    expect(laneModel(1).hidden).toBe(true);
+  });
+
+  it('is axe-clean with the lanes shown and a model field open', async () => {
+    await boot([]);
+    (document.getElementById('fly-options-toggle') as HTMLButtonElement).click();
+    setLanes(3);
+    chooseLaneEngine(2, 'gemini');
+
+    const results = await axe.run(document.getElementById('flightbar') as HTMLElement, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
+      rules: { 'color-contrast': { enabled: false } },
+    });
+    expect(results.violations.map((v) => v.id)).toEqual([]);
+  });
+
+  it('every lane left on "same as Engine" sends the fleet body with no laneEngines', async () => {
+    const calls: RecordedCall[] = [];
+    await boot(calls);
+    setLanes(3);
+    chooseEngine('codex');
+    modelInput().value = 'gpt-5-codex';
+    fillAndSubmit();
+
+    expect(await fleetLaunch(calls)).toEqual({
+      folder: '/srv/projects/checkout-web',
+      laneCount: 3,
+      firings: 1,
+      budgetUsd: 10,
+      engine: 'codex',
+      engineModel: 'gpt-5-codex',
+    });
+  });
+
+  it("sends each lane's own engine as laneEngines, a list the server's parse accepts", async () => {
+    const calls: RecordedCall[] = [];
+    await boot(calls);
+    setLanes(3);
+    chooseLaneEngine(0, 'claude');
+    chooseLaneEngine(1, 'codex', ' gpt-5-codex ');
+    fillAndSubmit();
+
+    const body = await fleetLaunch(calls);
+    expect(body).toEqual({
+      folder: '/srv/projects/checkout-web',
+      laneCount: 3,
+      firings: 1,
+      budgetUsd: 10,
+      laneEngines: [{ engine: 'claude' }, { engine: 'codex', engineModel: 'gpt-5-codex' }, {}],
+    });
+    expect(fleetLaneEnginesFromRequest(body?.['laneEngines'], 3, {})).toEqual({
+      ok: true,
+      laneEngines: [{ engine: 'claude' }, { engine: 'codex', engineModel: 'gpt-5-codex' }, {}],
+    });
+  });
+
+  it('refuses a Codex or Gemini lane with no model, before any request, and focuses its field', async () => {
+    const calls: RecordedCall[] = [];
+    await boot(calls);
+    (document.getElementById('fly-options-toggle') as HTMLButtonElement).click();
+    setLanes(2);
+    chooseLaneEngine(1, 'gemini', '  ');
+    fillAndSubmit();
+    expect(document.activeElement).toBe(laneModel(1));
+
+    await refusedWith(calls, 'Lane fleet-2 flies Codex or Gemini — fill in its engine model.');
+  });
+
+  it('locks while a flight runs, as the Engine select does', async () => {
+    await boot([], { running: true, paused: false, folder: '/srv/projects/checkout-web' });
+    await vi.waitFor(() => {
+      expect(laneEnginesBox().disabled).toBe(true);
+    });
+  });
+
+  it('a fleet Resume flies each lane on the engine it last flew, not what the selects hold', async () => {
+    localStorage.setItem(
+      'ap-fly-settings',
+      JSON.stringify({
+        '/work/mixed-fleet': {
+          mode: 'firings',
+          firings: 1,
+          budget: 10,
+          lanes: 2,
+          laneEngines: [{}, { engine: 'gemini', engineModel: 'gemini-2.5-pro' }],
+        },
+      }),
+    );
+    const calls: RecordedCall[] = [];
+    await boot(calls, pausedFlight('/work/mixed-fleet'));
+    setLanes(2);
+    chooseLaneEngine(0, 'codex', 'gpt-5-codex');
+    chooseLaneEngine(1, 'claude');
+    await resume();
+
+    expect(await fleetLaunch(calls)).toEqual({
+      folder: '/work/mixed-fleet',
+      laneCount: 2,
+      firings: 1,
+      budgetUsd: 10,
+      laneEngines: [{}, { engine: 'gemini', engineModel: 'gemini-2.5-pro' }],
+    });
+    expect(laneSelect(0).value).toBe('');
+    expect(laneModel(0).hidden).toBe(true);
+  });
+
+  it('explains itself on hover/focus, in every locale', async () => {
+    await boot([]);
+    setLanes(2);
+    expect(laneSelect(1).getAttribute('data-tip')).toBe(STRINGS.en.flyLaneEnginesTip);
+    for (const locale of Object.keys(STRINGS) as (keyof typeof STRINGS)[]) {
+      for (const key of [
+        'laneEngines',
+        'laneEngineSame',
+        'laneEngineLabel',
+        'laneEngineModelAria',
+        'flyLaneEnginesTip',
+        'laneEngineModelNeeded',
       ] as const) {
         expect(STRINGS[locale][key], `${locale}.${key}`).toBeTruthy();
       }

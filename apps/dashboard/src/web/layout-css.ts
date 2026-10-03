@@ -405,6 +405,13 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 #fly-budget { width: 76px; }
 #fly-total { width: 76px; }
 #fly-mode { font: inherit; font-size: var(--text-sm); background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: 2px var(--space-1); }
+/* Engine per lane (epic 0036): its own full-width row under the launch
+   settings, one label + select (+ model field) per lane, so a fleet's lanes
+   read as a list instead of crowding the settings row. */
+.fly-lane-engines { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: 0; padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); }
+.fly-lane-engines[hidden], .fly-lane-engine [hidden] { display: none; }
+.fly-lane-engines legend { padding-inline: var(--space-1); font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.fly-lane-engine { display: inline-flex; align-items: center; gap: var(--space-2); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 /* 🍀 I'm-feeling-lucky: a square icon sibling in #fly-go's MX shape-morph
    family, voiced in --color-success (the clover's own semantic green — ≥4.5:1

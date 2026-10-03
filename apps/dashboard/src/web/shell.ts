@@ -5826,6 +5826,7 @@ ${contextRailHtml(project)}
           </select>
           <label for="fly-engine-model" id="fly-engine-model-label" data-i18n="engineModel" hidden>Engine model</label>
           <input type="text" id="fly-engine-model" name="engineModel" maxlength="128" placeholder="gpt-5-codex or gemini-2.5-pro" data-i18n-placeholder="engineModelPlaceholder" autocomplete="off" spellcheck="false" hidden />
+          <fieldset class="fly-lane-engines" id="fly-lane-engines" hidden><legend data-i18n="laneEngines">Engine per lane</legend></fieldset>
       </div>
       <button type="button" id="fly-lucky" aria-label="I'm feeling lucky — probe this machine and fill a calibrated launch" data-i18n-aria="flyLuckyAria">${iconSvg('clover')}</button>
       <button type="submit" id="fly-go" data-i18n="flyIt">Fire</button>
