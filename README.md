@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/actions/workflows/ci.yml"><img src="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/actions/workflows/ci.yml/badge.svg" alt="Continuous integration status"></a>
-  <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/releases"><img src="https://img.shields.io/github/v/release/M-A-S-T-E-R-M-I-N-D/AUTOPILOT?include_prereleases&label=release&color=orange" alt="Latest release (public alpha)"></a>
+  <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/releases"><img src="https://img.shields.io/github/v/release/M-A-S-T-E-R-M-I-N-D/AUTOPILOT?include_prereleases&label=release&color=orange" alt="Latest release (public beta)"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Licence: Apache 2.0"></a>
   <img src="https://img.shields.io/badge/node-%E2%89%A522.23-brightgreen" alt="Requires Node 22.23 or newer">
   <a href="https://github.com/M-A-S-T-E-R-M-I-N-D/AUTOPILOT/discussions"><img src="https://img.shields.io/badge/discussions-welcome-blueviolet" alt="Discussions are open"></a>
@@ -35,7 +35,9 @@ ever. Built on the shoulders of 495 open-source projects — [`THANKS.md`](THANK
 [`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md).
 
 > [!WARNING]
-> **Public alpha, before 1.0 — on purpose.** APIs, the store schema and the flight rituals may
+> **Public beta, before 1.0 — on purpose.** Beta since v0.58.0: the fleet has flown itself,
+> unattended, through its own release ritual, and the evidence is public
+> ([`RELEASING.md`](docs/RELEASING.md) names the bar). APIs, the store schema and the flight rituals may
 > change between `0.x` releases without migration paths. An autonomous agent that edits repos is
 > powerful: run it against code you have backups of. Every commit needs a DCO sign-off, pull
 > requests merge only through the gated review ritual, and dependency- or security-sensitive
@@ -225,7 +227,8 @@ _Living status, as of v0.57.0 (released 2026-10-02): about 860 test files · 130
 
 ## What it is bad at today
 
-- **It is a 0.x alpha**: APIs, schema and rituals change between releases.
+- **It is a 0.x beta**: APIs, schema and rituals still change between releases — beta names the
+  evidence behind the product, not a stability promise; that promise is 1.0's.
 - **Quota-bound, and Pro stalls fast**: a 96-attempt, 3-day sample burned ~524M cache-read
   tokens — ~5.5M/firing, in line with the per-firing average [RESEARCH-LIBRARY's cost
   anatomy](docs/RESEARCH-LIBRARY.md) already measured. A Pro seat's quota refills slower than
