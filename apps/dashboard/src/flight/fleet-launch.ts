@@ -25,6 +25,7 @@
 import { isClaimableTitle } from '@autopilot/store';
 import { partitionBoardScopes } from './scope-partition.js';
 import { WIDE_FLEET_LANES } from './preflight.js';
+import { firingEngineFromRequest, firingEngineRequestFields } from './firing-engine.js';
 
 /** One lane's launch instruction: its identity, and the disjoint slice of the
  *  board reserved for it. An EMPTY scope is not "idle" — under
@@ -64,14 +65,74 @@ export interface FleetCliArgs {
   readonly budgetUsd: number;
 }
 
+/** One lane's engine fields, as `firingEngineRequestFields` writes them: none
+ *  when nothing chose an engine, and no model beside Claude. */
+export interface FleetLaneEngine {
+  readonly engine?: string;
+  readonly engineModel?: string;
+}
+
 /** {@link FleetCliArgs} plus the engine every lane flies on (epic 0036), which
  *  only the dashboard's `POST /api/fleet` takes. Both ride each lane's
  *  `POST /api/fly` body as given, where `FlightRunner.start()` reads them
  *  through `firingEngineFromRequest`. Omitted, every lane inherits the
- *  dashboard's own `AUTOPILOT_ENGINE`, as before. */
-export interface FleetLaunchArgs extends FleetCliArgs {
-  readonly engine?: string;
-  readonly engineModel?: string;
+ *  dashboard's own `AUTOPILOT_ENGINE`, as before. `laneEngines` flies a lane
+ *  on an engine of its own (GitHub #21 slice S-last, a heterogeneous fleet):
+ *  lane `i` in roster order takes entry `i`, and a lane past the list's end
+ *  takes `engine`/`engineModel`. */
+export interface FleetLaunchArgs extends FleetCliArgs, FleetLaneEngine {
+  readonly laneEngines?: readonly FleetLaneEngine[];
+}
+
+export type FleetLaneEnginesRequest =
+  | { readonly ok: true; readonly laneEngines: readonly FleetLaneEngine[] | undefined }
+  | { readonly ok: false; readonly reason: string };
+
+/**
+ * Reads a `POST /api/fleet` body's `laneEngines`, one `{ engine, engineModel }`
+ * per lane in roster order (base, fleet-2, …). Each entry is judged by
+ * `firingEngineFromRequest`, as a single launch's pair is, so a lane no CLI
+ * could fly refuses the whole launch before its first lane starts. An entry
+ * that names no engine takes the launch's own (`fleetEngine`), as a lane past
+ * the list's end does. A list longer than the fleet is refused rather than
+ * dropped unread.
+ */
+export function fleetLaneEnginesFromRequest(
+  raw: unknown,
+  laneCount: number,
+  fleetEngine: FleetLaneEngine,
+): FleetLaneEnginesRequest {
+  if (raw === undefined) return { ok: true, laneEngines: undefined };
+  if (!Array.isArray(raw)) {
+    return {
+      ok: false,
+      reason: 'laneEngines must be a list of { engine, engineModel }, one per lane.',
+    };
+  }
+  if (raw.length > laneCount) {
+    return {
+      ok: false,
+      reason: `laneEngines names ${raw.length} lane(s), but the fleet has ${laneCount}.`,
+    };
+  }
+  const names = raw.length > 0 ? fleetLaneNames(raw.length) : [];
+  const laneEngines: FleetLaneEngine[] = [];
+  for (const [i, entry] of raw.entries()) {
+    const lane = names[i] ?? BASE_LANE_KEY;
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+      return {
+        ok: false,
+        reason: `lane ${lane}: laneEngines entries must be { engine, engineModel }.`,
+      };
+    }
+    const fields = entry as Record<string, unknown>;
+    const choice = firingEngineFromRequest(fields['engine'], fields['engineModel']);
+    if (!choice.ok) return { ok: false, reason: `lane ${lane}: ${choice.reason}` };
+    laneEngines.push(
+      choice.route === undefined ? fleetEngine : firingEngineRequestFields(choice.route),
+    );
+  }
+  return { ok: true, laneEngines };
 }
 
 const FLEET_CLI_USAGE = 'usage: dashboard fleet <folder> <lanes> [firings] [budgetUsd]';
@@ -148,21 +209,33 @@ export interface FleetLaunchPostBody {
   readonly engineModel?: string;
 }
 
-/** The engine keys a lane's body carries: none when the launch chose none,
- *  so the lane's body is the one it always was. */
-function laneEngineFields(
-  args: FleetLaunchArgs,
-): Pick<FleetLaunchPostBody, 'engine' | 'engineModel'> {
+/** The engine keys lane `index`'s body carries: its own entry in
+ *  `laneEngines`, else the launch's; none when nothing chose one, so the
+ *  lane's body is the one it always was. */
+function laneEngineFields(args: FleetLaunchArgs, index: number): FleetLaneEngine {
+  const fields = args.laneEngines?.[index] ?? args;
   return {
-    ...(args.engine !== undefined ? { engine: args.engine } : {}),
-    ...(args.engineModel !== undefined ? { engineModel: args.engineModel } : {}),
+    ...(fields.engine !== undefined ? { engine: fields.engine } : {}),
+    ...(fields.engineModel !== undefined ? { engineModel: fields.engineModel } : {}),
   };
 }
 
-/** The summary line's engine clause: empty when the launch chose none. */
+/** "on codex (gpt-5-codex)", or empty when `fields` name no engine. */
+function engineWords(fields: FleetLaneEngine): string {
+  if (fields.engine === undefined) return '';
+  return `on ${fields.engine}${fields.engineModel !== undefined ? ` (${fields.engineModel})` : ''}`;
+}
+
+function hasLaneEngines(args: FleetLaunchArgs): boolean {
+  return (args.laneEngines?.length ?? 0) > 0;
+}
+
+/** The summary line's engine clause: empty when the launch chose none, and
+ *  "engine per lane" when its lanes name their own on their lines. */
 function engineClause(args: FleetLaunchArgs): string {
-  if (args.engine === undefined) return '';
-  return `, on ${args.engine}${args.engineModel !== undefined ? ` (${args.engineModel})` : ''}`;
+  if (hasLaneEngines(args)) return ', engine per lane';
+  const words = engineWords(args);
+  return words === '' ? '' : `, ${words}`;
 }
 
 /** The bits of `/api/fly`'s response `runFleetLaunch` actually reports. */
@@ -229,11 +302,12 @@ export async function runFleetLaunch(
     );
   }
   let ok = true;
-  let first = true;
-  for (const lane of plan) {
-    if (!first) await deps.sleep(staggerMs);
-    first = false;
-    const name = lane.instanceId ?? 'base';
+  for (const [index, lane] of plan.entries()) {
+    if (index > 0) await deps.sleep(staggerMs);
+    const engine = laneEngineFields(args, index);
+    // A fleet whose lanes chose their own engines names each one on its line.
+    const own = hasLaneEngines(args) ? engineWords(engine) : '';
+    const name = `${lane.instanceId ?? 'base'}${own === '' ? '' : ` ${own}`}`;
     let result: FleetLaunchPostResult;
     try {
       result = await deps.postFly({
@@ -242,7 +316,7 @@ export async function runFleetLaunch(
         budgetUsd: args.budgetUsd,
         ...(lane.instanceId ? { instanceId: lane.instanceId } : {}),
         taskScope: lane.taskScope,
-        ...laneEngineFields(args),
+        ...engine,
       });
     } catch (err) {
       lines.push(`  ${name}: could not reach the dashboard — ${String(err)}`);
