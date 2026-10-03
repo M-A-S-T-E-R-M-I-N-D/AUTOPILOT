@@ -39,8 +39,9 @@ export interface FiringPromptInput {
    * died at an unseen cap with 61 turns of exploration lost and nothing committed.
    * For a project whose SOUL says `Turns: N` this is that lower cap
    * (`config.ts`'s `firingMaxTurns()`), the same number the engine stops at.
+   * Undefined on a lane whose CLI enforces no turn cap (a Codex lane, epic 0036).
    */
-  readonly maxTurns?: number;
+  readonly maxTurns?: number | undefined;
   /**
    * The harness's per-firing WALL-CLOCK ceiling in minutes, when the caller
    * knows it. The turn cap alone left the agent blind to the other cap it
@@ -190,29 +191,31 @@ function failureSection(lastFailure: string | undefined): string {
  * this the cap is invisible: the agent budgets nothing, the harness hard-stops
  * it mid-action, and everything uncommitted (and every unwritten decision) is
  * lost — observed live as firing 47's $3.84, 61-turn, zero-output death.
+ * With no turn cap but a wall clock (a Codex lane: `codex exec` has no turn
+ * limit, epic 0036), only the wall clock is named, never an unenforced cap.
  */
 function turnBudgetSection(maxTurns: number | undefined, wallClockMin: number | undefined): string {
-  if (
+  const hasTurnCap =
     // Stryker disable next-line ConditionalExpression: narrows `maxTurns` from
     // `number | undefined` to `number` for `Number.isFinite` below — TypeScript
     // needs this, but at runtime `maxTurns === undefined` always implies
     // `!Number.isFinite(maxTurns)` (undefined is never finite), so removing the
     // check changes nothing observable. Provably equivalent, not killable.
-    maxTurns === undefined ||
-    !Number.isFinite(maxTurns) ||
-    maxTurns <= 0
-  )
-    return '';
+    maxTurns !== undefined && Number.isFinite(maxTurns) && maxTurns > 0;
+  const hasWallClock =
+    // Stryker disable next-line ConditionalExpression: narrows
+    // `wallClockMin` for `Number.isFinite` exactly as the `maxTurns`
+    // guard above does — at runtime `=== undefined` always implies
+    // `!Number.isFinite(…)`. Provably equivalent, not killable.
+    wallClockMin !== undefined && Number.isFinite(wallClockMin) && wallClockMin > 0;
+  if (!hasTurnCap && !hasWallClock) return '';
+  const wallClockClause = hasWallClock
+    ? `again after ${wallClockMin} minutes of wall clock`
+    : 'at a wall clock';
   return [
-    `## TURN BUDGET — the harness hard-stops you at ${maxTurns} turns${
-      // Stryker disable next-line ConditionalExpression: narrows
-      // `wallClockMin` for `Number.isFinite` exactly as the `maxTurns`
-      // guard above does — at runtime `=== undefined` always implies
-      // `!Number.isFinite(…)`. Provably equivalent, not killable.
-      wallClockMin === undefined || !Number.isFinite(wallClockMin) || wallClockMin <= 0
-        ? ', and at a wall clock'
-        : `, and again after ${wallClockMin} minutes of wall clock`
-    }`,
+    hasTurnCap
+      ? `## TURN BUDGET — the harness hard-stops you at ${maxTurns} turns, and ${wallClockClause}`
+      : `## TURN BUDGET — the harness hard-stops you after ${wallClockMin} minutes of wall clock`,
     'The stop is mid-action and unceremonious: uncommitted work and unwritten decisions',
     'are simply LOST. Deliver or pack — never let the cap catch you mid-unit:',
     '- Size the unit so you can COMMIT well before the cap; commit the verifiable slice EARLY.',
