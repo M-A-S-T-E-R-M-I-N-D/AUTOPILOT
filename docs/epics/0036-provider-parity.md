@@ -337,7 +337,21 @@ and the `engine` line becomes a warning naming `codex login`. It warns rather th
 Codex's own config can route the model to a provider that needs no sign-in, and the preflight
 cannot see that. Nothing is asked while `CODEX_API_KEY` is set: `codex exec` signs in with it
 (`enable_codex_api_key_env`, `codex-rs/exec/src/lib.rs`), and the status verb never reads it. The
-Gemini CLI has no status verb, so a Gemini lane is not asked. A warning shows in `doctor
+Gemini CLI has no status verb, so since 2026-10-03 a Gemini lane's preflight reads where a headless
+run looks, through `geminiAuthProbeFor` (`flight/preflight-facts.ts`). `validateNonInteractiveAuth`
+(`packages/cli/src/validateNonInterActiveAuth.ts`, read that day) takes the merged settings'
+`security.auth.selectedType`, else what `getAuthTypeFromEnv` (`packages/core/src/core/contentGenerator.ts`)
+reads: `GOOGLE_GENAI_USE_GCA` or `GOOGLE_GENAI_USE_VERTEXAI` set to `true`, `GOOGLE_GEMINI_BASE_URL`,
+`GEMINI_API_KEY`, or Cloud Shell's or compute ADC's switch. With none it exits
+`FATAL_AUTHENTICATION_ERROR` before the first turn. The probe reads the lane's env, the user settings
+under `GEMINI_CLI_HOME` or the home folder, the target's `.gemini/settings.json` and a
+`GEMINI_CLI_SYSTEM_DEFAULTS_PATH`, and every `.env` `findEnvFile` (`packages/cli/src/config/settings.ts`)
+might load into the env, from the target up and then the home folder's. The CLI loads only the first
+`.env` it finds, from the lane's worktree up, so counting each can miss an unset method but never
+invents one. A settings file `JSON.parse` cannot read (the CLI strips comments first) counts when it
+still shows a `selectedType`, and otherwise leaves the answer unknown. Finding none turns the `engine`
+line into a warning naming `gemini` and `GEMINI_API_KEY`. It warns rather than blocks, since the lane's
+own `.env` walk starts from a worktree the preflight does not walk. A warning shows in `doctor
 <folder>` and, since 2026-10-03, on a dashboard launch too: a launch that flies past warnings
 names them in its start message (`preflightWarnings`, `flight/preflight.ts`), which the fly bar
 shows, as "flying … — 3 firing(s) — preflight warns: engine: …". Before, the Fly button said only

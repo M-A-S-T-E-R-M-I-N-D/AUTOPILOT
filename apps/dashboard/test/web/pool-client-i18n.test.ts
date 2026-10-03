@@ -42,14 +42,15 @@ describe('the Pool client panel reads its per-entry static text from STRINGS', (
 
   it('translates the Claim button in both states', () => {
     expect(out).toContain("claimBtn.textContent = tr('poolClaim');");
-    expect(out).toContain("b.textContent = tr('poolClaiming');");
+    // The busy words swap through setSweptText() so the leading flag stays.
+    expect(out).toContain("setSweptText(b, tr('poolClaiming'));");
     expect(out).not.toContain("'Claim'");
     expect(out).not.toContain("'Claiming…'");
   });
 
   it('translates the Fly button in both states', () => {
     expect(out).toContain("flyBtn.textContent = tr('poolFly');");
-    expect(out).toContain("flyBtn.textContent = tr('poolStarting');");
+    expect(out).toContain("setSweptText(flyBtn, tr('poolStarting'));");
     expect(out).not.toContain("'Fly'");
     expect(out).not.toContain("'Starting…'");
   });

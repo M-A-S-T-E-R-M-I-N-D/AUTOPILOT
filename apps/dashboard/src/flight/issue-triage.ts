@@ -183,7 +183,10 @@ export const AGENT_OK_LABEL = 'agent-ok';
  *  for a week while the fleet could have shipped them in hours). */
 export const RESERVED_FOR_HUMANS_DAYS = 14;
 /** The label an off-template issue carries while KEEPER waits for the
- *  reporter to add the template's sections. */
+ *  reporter to add the template's sections. Read in any casing ({@link
+ *  carriedMark}): `gh issue edit --add-label` matches a label name in any
+ *  casing, so on a repo whose label reads `Status: Needs-Format` the write
+ *  lands as `Status: Needs-Format`. */
 export const NEEDS_FORMAT_LABEL = 'status: needs-format';
 /** Epics are tracking issues with their own protocol (docs/epics) — never
  *  gated on the bug/feature templates. */
@@ -759,12 +762,13 @@ export function planIssueTriage(
   const gaps = exemptFromTemplate ? null : issueTemplateGaps(issue);
   if (gaps !== null) {
     const named = gaps.missing.map((heading) => `"${heading}"`).join(', ');
-    if (labels.includes(NEEDS_FORMAT_LABEL)) {
+    const asked = carriedMark(labels, [NEEDS_FORMAT_LABEL]);
+    if (asked) {
       return {
         decision: 'skip',
         reasoning:
           `#${issue.number} "${issue.title}" still misses the ${gaps.kind} template's ${named} — ` +
-          `"${NEEDS_FORMAT_LABEL}" is already on it; waiting for the reporter, not repeating the reply.`,
+          `"${asked}" is already on it; waiting for the reporter, not repeating the reply.`,
       };
     }
     return {
@@ -904,9 +908,9 @@ export function planIssueTriageCommands(
   ]);
   // A body that now conforms lifts the protocol label in the SAME edit that
   // accepts it — never a second call that can fail and leave a lie behind.
-  const liftedLabels = (issue.labels ?? []).includes(NEEDS_FORMAT_LABEL)
-    ? [NEEDS_FORMAT_LABEL]
-    : [];
+  // The label is removed as the issue carries it, in any casing.
+  const asked = carriedMark(issue.labels ?? [], [NEEDS_FORMAT_LABEL]);
+  const liftedLabels = asked === undefined ? [] : [asked];
   const openedLabels = decision.releasedFromHumansAfterDays === undefined ? [] : [AGENT_OK_LABEL];
   return [
     {
@@ -936,7 +940,7 @@ export function planIssueTriageCommands(
         (openedLabels.length > 0
           ? ` — reserved-for-humans expired, adding "${AGENT_OK_LABEL}"`
           : '') +
-        (liftedLabels.length > 0 ? ` — body now conforms, removing "${NEEDS_FORMAT_LABEL}"` : ''),
+        (asked === undefined ? '' : ` — body now conforms, removing "${asked}"`),
     },
     comment,
   ];

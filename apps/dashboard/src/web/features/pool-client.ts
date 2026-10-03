@@ -246,6 +246,9 @@ function renderPoolClientPanel(entries) {
         claimBtn.className = 'pool-client-execute pool-client-execute-contest';
         claimBtn.textContent = tr('poolClaimAnyway');
       }
+      // Epic 0025 slice 2 (execute buttons): a claim plants the flag the
+      // contest badge shows on a held issue, decorative beside the words.
+      claimBtn.prepend(iconEl('flag'));
       claimBtn.setAttribute('data-pool-client-execute', String(entry.issue.number));
       var claimTip = poolClaimExecuteTip(entry.issue, entry.decision);
       claimBtn.setAttribute('data-tip', claimTip);
@@ -292,8 +295,9 @@ document.addEventListener('click', function (e) {
   if (!window.confirm(poolClaimConfirmMessage(entry.issue, entry.decision, projectName))) return;
   var resultEl = item && item.querySelector('.pool-client-result');
   b.disabled = true;
+  // setSweptText() swaps the words and keeps the leading icon in place.
   var originalText = b.textContent;
-  b.textContent = tr('poolClaiming');
+  setSweptText(b, tr('poolClaiming'));
   var body = { number: number };
   if (projectId) body.project = projectId;
   ritualFetch('claim', '/api/pool-client/execute', {
@@ -306,7 +310,7 @@ document.addEventListener('click', function (e) {
       var result = poolClaimExecuteResult(r.data);
       if (result.className.indexOf('pool-client-result-fail') !== -1) {
         b.disabled = false;
-        b.textContent = originalText;
+        setSweptText(b, originalText);
         if (resultEl) {
           resultEl.className = result.className;
           resultEl.textContent = result.text;
@@ -342,13 +346,15 @@ document.addEventListener('click', function (e) {
       flyBtn.type = 'button';
       flyBtn.className = 'pool-client-fly';
       flyBtn.textContent = tr('poolFly');
+      // Leads with the send the rail's Fly link draws, decorative.
+      flyBtn.prepend(iconEl('send'));
       var flyTip = poolClaimFlyTip(flyProject.name);
       flyBtn.setAttribute('data-tip', flyTip);
       flyBtn.setAttribute('aria-label', flyTip);
       flyBtn.addEventListener('click', function () {
         flyBtn.disabled = true;
         var flyOriginalText = flyBtn.textContent;
-        flyBtn.textContent = tr('poolStarting');
+        setSweptText(flyBtn, tr('poolStarting'));
         fetch('/api/fly', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -359,7 +365,7 @@ document.addEventListener('click', function (e) {
             var flyResult = poolClaimFlyResult(data);
             var failed = flyResult.className.indexOf('pool-client-result-fail') !== -1;
             flyBtn.disabled = !failed;
-            flyBtn.textContent = flyOriginalText;
+            setSweptText(flyBtn, flyOriginalText);
             if (resultEl) {
               resultEl.className = flyResult.className;
               resultEl.textContent = flyResult.text;
@@ -367,7 +373,7 @@ document.addEventListener('click', function (e) {
           })
           .catch(function () {
             flyBtn.disabled = false;
-            flyBtn.textContent = flyOriginalText;
+            setSweptText(flyBtn, flyOriginalText);
             if (resultEl) {
               resultEl.className = 'pool-client-result pool-client-result-fail';
               resultEl.textContent = tr('poolRequestFailed');
@@ -378,7 +384,7 @@ document.addEventListener('click', function (e) {
     })
     .catch(function () {
       b.disabled = false;
-      b.textContent = originalText;
+      setSweptText(b, originalText);
       if (resultEl) {
         resultEl.className = 'pool-client-result pool-client-result-fail';
         resultEl.textContent = tr('poolRequestFailed');

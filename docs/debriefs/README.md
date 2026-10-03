@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-10-03 | [Closing `ap-mui04ldw-0`: `status: needs-format` already exists on the live repo, but `dossier-posted` is still missing](2026-10-03-verdict-ap-mui04ldw-0-needs-format-already-live.md) |
 | 2026-10-03 | [Closing `docfresh-docs-flight-containment-md-1790945497000`: the doc caught up to its subject four hours later](2026-10-03-docfresh-flight-containment-caught-up-closed.md) |
 | 2026-10-02 | [Closing `web-mtq019rs-7anqrm`: EPIC 0017 slice 3's overflow menu already shipped 2026-09-14 — LTS landed in the status pill instead, same decluttering goal met](2026-10-02-closing-web-mtq019rs-7anqrm-overflow-menu-already-shipped.md) |
 | 2026-10-01 | [Processing `ap-munfszto-0`: "verify whether KEEPER issue triage runs on repos other than AUTOPILOT" — it never does, so the deprioritize stands; the live gap is on the board side](2026-10-01-verdict-ap-munfszto-0-keeper-triage-is-cwd-bound.md) |

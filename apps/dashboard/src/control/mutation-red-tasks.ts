@@ -149,7 +149,7 @@ function staleCheckOf(red: MutationRedConfig, judged: string): string {
     }),
   );
   const paths = [...names].map((name) => ` '*/${name}.*'`).join('');
-  return `The run judged ${judged}. Check \`git log --oneline ${judged}..HEAD${paths === '' ? '' : ` --${paths}`}\` first: a fix listed there is newer than the run's evidence, and the task only waits for the next nightly run to close it.`;
+  return `The run judged ${judged}. Check \`git log --oneline ${judged}..HEAD${paths === '' ? '' : ` --${paths}`}\` first: a fix listed there is newer than the run's evidence, and the task only waits for the next nightly run to close it. Park it then with a \`VERDICT close\` naming this task's id: the board holds it until a later run rules on it.`;
 }
 
 /** The body for a config Stryker never scored: the runner's reason, and how
@@ -201,6 +201,14 @@ function bodyOf(red: MutationRedConfig, judged: string | undefined): string {
  * re-filed nine configs the lanes had just fixed, which the next round could
  * have spent its firings redoing).
  *
+ * A PARKED TASK WAITS FOR THE NEXT RUN (2026-10-03): a firing that finds the
+ * fix landed after the judged head parks the task with a VERDICT, which
+ * defers it. Read as neither open nor done, it was filed again under a new id
+ * from the very run it was parked on, and three firings in a row re-checked
+ * the same six tasks. A task parked at or after `evidenceAt` now holds its
+ * config like a fixed one; a run that no longer lists the config closes it,
+ * and a later run still red on it retires it for the fresh evidence task.
+ *
  * `judged` is the commit that run judged ({@link MutationRun.judged}); a task
  * filed with it names it in its title and body.
  */
@@ -222,17 +230,23 @@ export function syncMutationRedTasks(
     status: string;
     updated_at: number;
   }[];
+  const stillRed = new Set(red.map((r) => r.config));
   const tracked = new Map<string, string>();
-  const fixedSinceRun = new Set<string>();
+  const settledSinceRun = new Set<string>();
+  const ruledOn: string[] = [];
   for (const t of rows) {
     const config = TASK_TITLE_RE.exec(t.title)?.[1];
     if (config === undefined) continue;
+    const sinceRun = t.updated_at >= evidenceAt;
     if (OPEN_STATUSES.has(t.status)) tracked.set(config, t.id);
-    else if (t.status === 'done' && t.updated_at >= evidenceAt) fixedSinceRun.add(config);
+    else if (t.status === 'deferred' && !(sinceRun && stillRed.has(config))) ruledOn.push(t.id);
+    else if ((t.status === 'done' || t.status === 'deferred') && sinceRun) {
+      settledSinceRun.add(config);
+    }
   }
   let filed = 0;
   for (const r of red) {
-    if (tracked.has(r.config) || fixedSinceRun.has(r.config)) continue;
+    if (tracked.has(r.config) || settledSinceRun.has(r.config)) continue;
     const slug = r.config.replace(/^stryker\.|\.config\.mjs$/g, '');
     const created = createTask(store, {
       id: `mutred-${slug}-${now.toString(36)}`,
@@ -246,10 +260,12 @@ export function syncMutationRedTasks(
     });
     if (created) filed += 1;
   }
-  const stillRed = new Set(red.map((r) => r.config));
   let closed = 0;
   for (const [config, id] of tracked) {
     if (!stillRed.has(config) && setTaskStatus(store, id, 'done', now)) closed += 1;
+  }
+  for (const id of ruledOn) {
+    if (setTaskStatus(store, id, 'done', now)) closed += 1;
   }
   return { filed, closed };
 }
