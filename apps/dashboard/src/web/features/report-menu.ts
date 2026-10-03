@@ -547,6 +547,9 @@ function paintReportDialog(pid, capture) {
     execBtn.type = 'button';
     execBtn.className = 'report-execute';
     execBtn.textContent = tr('reportExecute');
+    // Epic 0025 slice 2 (execute buttons): leads with the flag the dialog's
+    // title draws, decorative beside the words.
+    execBtn.prepend(iconEl('flag'));
     var execTip = reportExecuteTip(plan);
     execBtn.setAttribute('data-tip', execTip);
     execBtn.setAttribute('aria-label', execTip);
@@ -554,7 +557,8 @@ function paintReportDialog(pid, capture) {
       if (!previewedPlan) return;
       if (!window.confirm(reportConfirmMessage(previewedPlan, tr))) return;
       execBtn.disabled = true;
-      execBtn.textContent = tr('reportExecuting');
+      // setSweptText() swaps the words and keeps the leading icon in place.
+      setSweptText(execBtn, tr('reportExecuting'));
       ritualFetch('report', '/api/report-from-here/execute', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -566,11 +570,11 @@ function paintReportDialog(pid, capture) {
           resultEl.className = result.className;
           resultEl.textContent = result.text;
           execBtn.disabled = false;
-          execBtn.textContent = tr('reportExecute');
+          setSweptText(execBtn, tr('reportExecute'));
         })
         .catch(function () {
           execBtn.disabled = false;
-          execBtn.textContent = tr('reportExecute');
+          setSweptText(execBtn, tr('reportExecute'));
           resultEl.className = 'report-result report-result-fail';
           resultEl.textContent = tr('reportRequestFailed');
         });

@@ -455,7 +455,16 @@ propagation, and the filled style does not match the nav.
    ("Claiming…", "Starting…") through `setSweptText()`, through a refused
    claim, a refused flight and a failed request, and the execute-icon spacing
    rule covers them (`apps/dashboard/test/web/pool-client-button-icons.test.ts`).
-   Open: the report execute button is still bare words.
+   **Report execute button 2026-10-04 (slice 2):** the right-click "Report
+   from here" dialog's Execute was the last bare-words execute button. It
+   leads with the `flag` the dialog's title and the menu item draw, the way
+   the triage runs take their heading's icon; nothing is newly vendored, and
+   it is decorative, so the button's accessible name stays its tip. The busy
+   "Executing…" and the restored words swap through `setSweptText()`, through
+   a finished run, a refused one and a failed request, and the execute-icon
+   spacing rule covers it
+   (`apps/dashboard/test/web/report-execute-button-icon.test.ts`). Every
+   execute button now leads with an icon.
 
 ## Related
 

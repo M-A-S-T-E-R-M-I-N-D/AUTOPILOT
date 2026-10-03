@@ -90,9 +90,12 @@ describe('the Report-from-here menu + dialog read their static text from STRINGS
   });
 
   it('translates the Execute button in all three states (idle, executing, restored)', () => {
-    const idle = out.match(/execBtn\.textContent = tr\('reportExecute'\);/g) ?? [];
-    expect(idle).toHaveLength(3);
-    expect(out).toContain("execBtn.textContent = tr('reportExecuting');");
+    expect(out).toContain("execBtn.textContent = tr('reportExecute');");
+    // The busy and restored words swap through setSweptText() so the leading
+    // flag stays (epic 0025).
+    const restored = out.match(/setSweptText\(execBtn, tr\('reportExecute'\)\);/g) ?? [];
+    expect(restored).toHaveLength(2);
+    expect(out).toContain("setSweptText(execBtn, tr('reportExecuting'));");
     expect(out).not.toContain("'Execute'");
     expect(out).not.toContain("'Executing…'");
   });
