@@ -199,11 +199,20 @@ export function localLinkTargets(markdown: string): readonly string[] {
  * literally, both named a file that does not exist, and the docs reader
  * painted the working link "(broken link)". Decoding comes last, so an
  * encoded `%23` or `%3F` stays part of the file name.
+ *
+ * A target starting with `/` names the repository root, not the filesystem's
+ * — GitHub: "Links starting with / will be relative to the repository root."
+ * Joined onto `fromFile`'s directory instead, `/README.md` written in
+ * `docs/epics/` named `docs/epics/README.md`. So `fromFile` must be relative
+ * to that root: an absolute `fromFile` would resolve a `/` link against
+ * whatever the working directory is.
  */
 export function resolveLocalLinkPath(fromFile: string, target: string): string | null {
-  const path = decodePath(target.split('#')[0]?.split('?')[0] ?? '');
-  if (path.length === 0) return null;
-  return normalize(join(dirname(fromFile), path));
+  const raw = target.split('#')[0]?.split('?')[0] ?? '';
+  if (raw.length === 0) return null;
+  const isRootRelative = raw.startsWith('/');
+  const path = decodePath(isRootRelative ? raw.replace(/^\/+/, '') : raw);
+  return normalize(join(isRootRelative ? '' : dirname(fromFile), path));
 }
 
 /** `path` with its percent-escapes decoded. A `%` that does not start a valid

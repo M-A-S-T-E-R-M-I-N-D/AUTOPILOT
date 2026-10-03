@@ -136,6 +136,19 @@ describe('resolveLocalLinkPath', () => {
   it('returns null when the target is only a query', () => {
     expect(resolveLocalLinkPath('README.md', '?tab=readme')).toBeNull();
   });
+
+  // GitHub: "Links starting with / will be relative to the repository root."
+  // Joined onto the referring file's directory instead, `/README.md` written
+  // in `docs/epics/` named `docs/epics/README.md`, and the docs reader painted
+  // the working link "(broken link)".
+  it('resolves a root-relative target from the repository root, not the file', () => {
+    expect(resolveLocalLinkPath('docs/epics/0023-docs-reader.md', '/README.md')).toBe(
+      normalizeForPlatform('README.md'),
+    );
+    expect(resolveLocalLinkPath('docs/index.md', '/docs/My%20Notes.md#setup')).toBe(
+      normalizeForPlatform('docs/My Notes.md'),
+    );
+  });
 });
 
 describe('localLinkPaths', () => {
@@ -159,6 +172,12 @@ describe('localLinkPaths', () => {
     expect(localLinkPaths(markdown, 'docs/index.md')).toEqual([
       'docs/My Notes.md',
       'docs/shot.png',
+    ]);
+  });
+
+  it('resolves a root-relative link to the repo-relative path a backlink matches', () => {
+    expect(localLinkPaths('[plan](/docs/PLAN.md)', 'docs/epics/0023-docs-reader.md')).toEqual([
+      'docs/PLAN.md',
     ]);
   });
 });
