@@ -451,6 +451,19 @@ crosses projects because of it, and it opens no cross-project write path. `fligh
 `flight/registry.ts` are unchanged. None of the four locks below changes; all six slices remain
 unchanged and live in production.
 
+Freshness check (2026-10-03, once more again): `flight/runner.ts` gained two more commits since
+the check above — `2c862a84` and `2a496e3c` (epic 0036), which let a dashboard launch and a fleet
+launch each name the preflight warnings they fly past, not only their refusals. The first adds
+`preflightWarnings` (flight/preflight.ts) and appends its text to `FlightRunner.start()`'s started
+message; a launch with no warning keeps its message byte-for-byte. The second carries the same
+text apart from the message on the new `StartFlightResult.warnings` (omitted when there are none)
+so a fleet launch's summary — the fly bar's lane line and `dashboard fleet`'s output — can show it
+too, the way a refused lane's reason already is. Both are per-launch/per-lane display reads of a
+report already computed inside `start()` — no board, SOUL or backlog row crosses projects because
+of them, and neither opens a new write path. `flight/fly.ts` and `flight/registry.ts` are
+unchanged. None of the four locks below changes; all six slices remain unchanged and live in
+production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
