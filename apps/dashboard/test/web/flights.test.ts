@@ -146,6 +146,57 @@ describe('flightRowStatusText', () => {
     ).not.toContain('fleet-watchdog');
   });
 
+  // Epic 0036: a fleet can fly lanes on different CLIs, so a running row names
+  // the engine its launch chose. A launch that chose none flies on the
+  // dashboard's own AUTOPILOT_ENGINE, which the row cannot see and so omits.
+  it('names a non-Claude engine and the model it runs', () => {
+    expect(
+      flightRowStatusText({
+        folder: '/work/a',
+        running: true,
+        firings: 2,
+        engine: 'codex',
+        engineModel: 'gpt-5-codex',
+      }),
+    ).toBe('Flying /work/a — 2 firing(s) · Codex (gpt-5-codex)');
+    expect(
+      flightRowStatusText({
+        folder: '/work/a',
+        running: true,
+        totalBudgetUsd: 25,
+        engine: 'gemini',
+        engineModel: 'gemini-2.5-pro',
+      }),
+    ).toBe('Flying /work/a — up to $25 total · Gemini (gemini-2.5-pro)');
+  });
+
+  it('names a Claude choice without a model', () => {
+    expect(
+      flightRowStatusText({ folder: '/work/a', running: true, firings: 1, engine: 'claude' }),
+    ).toBe('Flying /work/a — 1 firing(s) · Claude Code');
+  });
+
+  it('puts the engine before the fleet-watchdog suffix', () => {
+    expect(
+      flightRowStatusText({
+        folder: '/work/a',
+        running: true,
+        engine: 'codex',
+        engineModel: 'gpt-5-codex',
+        initiatedBy: 'fleet-watchdog',
+      }),
+    ).toBe('Flying /work/a — 1 firing(s) · Codex (gpt-5-codex) (fleet-watchdog)');
+  });
+
+  it('names no engine for a launch that chose none, or one it does not know', () => {
+    expect(flightRowStatusText({ folder: '/work/a', running: true })).toBe(
+      'Flying /work/a — 1 firing(s)',
+    );
+    expect(flightRowStatusText({ folder: '/work/a', running: true, engine: 'copilot' })).toBe(
+      'Flying /work/a — 1 firing(s)',
+    );
+  });
+
   it('describes a queued flight', () => {
     expect(flightRowStatusText({ folder: '/work/b', queued: true })).toBe(
       'Queued: /work/b — waiting for a flight slot',

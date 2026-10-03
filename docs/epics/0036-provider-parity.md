@@ -351,7 +351,12 @@ summary line names the engine. The bar no longer refuses an engine with Lanes ab
 choice on the fleet body, and shows the server's reason when the launch is refused. A lane the
 preflight refuses (the engine's CLI missing from the PATH) now says why in the bar's summary, since
 the in-process fleet launcher forwards the dashboard's message as the CLI's loopback one does.
-Still open: a flight the fleet watchdog starts on its own (`createHttpSpawnFlight` in
+Since 2026-10-03 the bar also shows which engine each running flight is on: `FlightStatus` carries
+the launch's `engine` and, beside Codex or Gemini, its `engineModel` (`flight/runner.ts`), and the
+flight's row reads "Flying … — 3 firing(s) · Codex (gpt-5-codex)" (`flightRowEngineModelSuffix`,
+`flightRowEngineSuffix` for a Claude choice). A fleet flying several CLIs at once can be read at a
+glance. A launch that chose no engine flies on the dashboard's env, which the row cannot see, so its
+row names none. Still open: a flight the fleet watchdog starts on its own (`createHttpSpawnFlight` in
 `control/cli.ts`) sends no engine, so it flies on the dashboard's env.
 
 Since 2026-10-02 `AUTOPILOT_ENGINE=gemini` routes a lane to `GeminiCliModel` the same way, with the

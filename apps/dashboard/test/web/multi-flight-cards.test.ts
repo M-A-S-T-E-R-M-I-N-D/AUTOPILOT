@@ -147,6 +147,57 @@ describe('multi-flight fly bar (epic slice 4/6)', () => {
     expect(rows[1]?.textContent).not.toContain('fleet-watchdog');
   });
 
+  it('names the engine each lane flies on, so a mixed-engine fleet reads at a glance (epic 0036)', async () => {
+    mockFetch(
+      {
+        flights: [
+          {
+            running: true,
+            folder: '/work/a',
+            firings: 1,
+            paused: false,
+            startedAt: NOW,
+            totalBudgetUsd: null,
+            pid: 1,
+            engine: 'codex',
+            engineModel: 'gpt-5-codex',
+          },
+          {
+            running: true,
+            folder: '/work/b',
+            firings: 1,
+            paused: false,
+            startedAt: NOW,
+            totalBudgetUsd: null,
+            pid: 2,
+            engine: 'claude',
+          },
+          {
+            running: true,
+            folder: '/work/c',
+            firings: 1,
+            paused: false,
+            startedAt: NOW,
+            totalBudgetUsd: null,
+            pid: 3,
+          },
+        ],
+      },
+      [],
+    );
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const statuses = Array.from(document.querySelectorAll('.fly-flight-status'));
+    expect(statuses.map((s) => s.textContent)).toEqual([
+      'Flying /work/a — 1 firing(s) · Codex (gpt-5-codex)',
+      'Flying /work/b — 1 firing(s) · Claude Code',
+      'Flying /work/c — 1 firing(s)',
+    ]);
+    // The status span is focusable and named by its own sentence, engine included.
+    expect(statuses[0]?.getAttribute('aria-label')).toBe(statuses[0]?.textContent);
+  });
+
   it('never globally locks the path field — a DIFFERENT folder stays typeable while one flies', async () => {
     mockFetch(
       {

@@ -98,10 +98,33 @@ export interface FlightRowStatusItem extends FlightsListItem {
   readonly totalBudgetUsd?: number;
   readonly firings?: number;
   readonly initiatedBy?: string;
+  /** The engine the launch chose, and the model beside Codex or Gemini
+   *  (`FlightStatus.engine`/`engineModel`, epic 0036). */
+  readonly engine?: string;
+  readonly engineModel?: string;
+}
+
+/** How a running row names each engine — the `engineClaude`/`engineCodex`/
+ *  `engineGemini` STRINGS the fly bar's Engine select already shows. */
+const ENGINE_NAMES: Readonly<Record<string, string>> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  gemini: 'Gemini',
+};
+
+/** The row's engine clause — the `flightRowEngineSuffix`/
+ *  `flightRowEngineModelSuffix` shape, empty for a launch that chose none
+ *  (it flies on the dashboard's own `AUTOPILOT_ENGINE`, which the row cannot
+ *  see) or an engine this build cannot name. */
+function engineClause(f: FlightRowStatusItem): string {
+  const name = f.engine && Object.hasOwn(ENGINE_NAMES, f.engine) ? ENGINE_NAMES[f.engine] : '';
+  if (!name) return '';
+  return f.engineModel ? ` · ${name} (${f.engineModel})` : ` · ${name}`;
 }
 
 /** The fly bar's per-folder status sentence for one live/paused/queued flight
- *  row — running (budget-mode-aware, with a fleet-watchdog suffix when RING-0
+ *  row — running (budget-mode-aware, naming the engine its launch chose
+ *  (epic 0036), with a fleet-watchdog suffix when RING-0
  *  FLEET WATCHDOG (web-msqhh7kh-ptjodv) started it unattended), queued
  *  (waiting for a flight slot), or paused (won't fly until resumed).
  *  Since the i18n slice (board web-msnsndki-dz3vn1) this is the tested
@@ -115,7 +138,7 @@ export function flightRowStatusText(f: FlightRowStatusItem): string {
       ? `up to $${f.totalBudgetUsd} total`
       : `${f.firings || 1} firing(s)`;
     const watchdog = f.initiatedBy === 'fleet-watchdog' ? ' (fleet-watchdog)' : '';
-    return `Flying ${f.folder} — ${budget}${watchdog}`;
+    return `Flying ${f.folder} — ${budget}${engineClause(f)}${watchdog}`;
   }
   if (f.queued) return `Queued: ${f.folder} — waiting for a flight slot`;
   return `Paused ${f.folder} — will not fly until resumed.`;

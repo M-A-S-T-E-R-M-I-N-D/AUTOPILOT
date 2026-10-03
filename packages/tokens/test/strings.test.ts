@@ -33,6 +33,10 @@ const LATIN_SCRIPT_KEYS: ReadonlySet<StringKey> = new Set<StringKey>([
   'engineClaude',
   'engineCodex',
   'engineGemini',
+  // A running flight row's engine clause is punctuation around that name and
+  // the model id (epic 0036).
+  'flightRowEngineSuffix',
+  'flightRowEngineModelSuffix',
 ]);
 
 describe('STRINGS', () => {
