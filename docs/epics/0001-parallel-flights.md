@@ -390,6 +390,18 @@ per-project engine lock, the singleton `FlightRunner`, the shared store, and fli
 serialization are all untouched by which CLI name a firing's commit trailer carries. All six
 slices remain unchanged and live in production.
 
+Freshness check (2026-10-03, later): `fly.ts` gained one more commit since the check above —
+`bb332810` (epic 0036), which holds a Gemini lane to the flight's turn cap. Before it, the Gemini
+CLI ignored the `--max-turns` ceiling a Claude firing gets, so a Gemini run stopped only at the
+wall clock or the idle cap. `fly.ts` now passes `maxTurns` to `buildGeminiFlightSettings`
+(`packages/engine/src/gemini-guard.ts`), which writes it as `model.maxSessionTurns` into the
+lane's own guard settings file. That figure is the same `firingMaxTurns(soulOwn, FLY_MAX_TURNS)`
+a Claude firing gets, read from the flown project's own SOUL row, and the file is named per
+project and lane (`geminiGuardSettingsFileName`). So no board, SOUL or backlog row crosses
+projects because of it, and it opens no shared write path. `flight/runner.ts` and
+`flight/registry.ts` are unchanged since the 2026-10-02 afternoon check. None of the four locks
+below changes; all six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
