@@ -294,6 +294,13 @@ propagation, and the filled style does not match the nav.
    a project shows once two lanes fly printed the same line as bare words.
    It leads with the same decorative `target` now, kept across a locale
    switch; the "probably working: …" guess stays iconless on both cards.
+   **Live phase pill 2026-10-03 (slice 3):** both live cards headed with a
+   bare "orient"/"do"/"gate"/"commit" pill beside the fleet card's iconed
+   status pill. One `livePhasePill()` builds it for both now, led by a
+   decorative phase icon: `compass` (orient, like the orient-drag chip),
+   `pencil` (DO, which counts edit activity), and a newly vendored
+   `shield-check` (gate) and `git-commit-horizontal` (commit). An
+   unclassified phase keeps the bare word.
 
 ## Related
 
