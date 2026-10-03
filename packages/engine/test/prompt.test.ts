@@ -469,14 +469,12 @@ describe('buildFiringPrompt', () => {
   });
 
   it('treats an invalid maxTurns (NaN, zero, negative) the same as "no cap known"', () => {
-    // NaN: distinguishes the `||` clauses from a mutated `&&` — `maxTurns ===
-    // undefined` is false and `!Number.isFinite(NaN)` is true, so only a
-    // genuine three-way OR (not an accidentally-ANDed first pair) omits the
-    // section here.
+    // NaN: defined but not a number, so the section stays out — NaN fails both
+    // `Number.isFinite(maxTurns)` and `maxTurns > 0`.
     expect(buildFiringPrompt({ soul: SOUL, firing: 2, retro: false, maxTurns: NaN })).not.toContain(
       '## TURN BUDGET',
     );
-    // Zero and negative: `maxTurns <= 0` must still gate the section even
+    // Zero and negative: `maxTurns > 0` must still gate the section even
     // though zero/negative values are finite, non-undefined numbers.
     expect(buildFiringPrompt({ soul: SOUL, firing: 2, retro: false, maxTurns: 0 })).not.toContain(
       '## TURN BUDGET',
@@ -484,6 +482,42 @@ describe('buildFiringPrompt', () => {
     expect(buildFiringPrompt({ soul: SOUL, firing: 2, retro: false, maxTurns: -5 })).not.toContain(
       '## TURN BUDGET',
     );
+  });
+
+  it('treats an infinite maxTurns or wallClockMin as "no cap known", never "Infinity" of either', () => {
+    // Infinity is the one value that is defined AND positive but not finite,
+    // so it alone separates each `Number.isFinite` guard from the mutated
+    // `(x !== undefined || Number.isFinite(x)) && x > 0`: NaN, zero and
+    // negative fail `x > 0` either way, and both LogicalOperator mutants
+    // (prompt.ts's maxTurns and wallClockMin guards) survived the 2026-10-03
+    // nightly against exactly those three.
+    for (const caps of [{ maxTurns: Infinity }, { wallClockMin: Infinity }]) {
+      const p = buildFiringPrompt({ soul: SOUL, firing: 2, retro: false, ...caps });
+      expect(p).not.toContain('## TURN BUDGET');
+      expect(p).not.toContain('Infinity');
+    }
+    // Beside a valid cap, the infinite one is dropped, never stated.
+    const turnsOnly = buildFiringPrompt({
+      soul: SOUL,
+      firing: 2,
+      retro: false,
+      maxTurns: 80,
+      wallClockMin: Infinity,
+    });
+    expect(turnsOnly).toContain(
+      '## TURN BUDGET — the harness hard-stops you at 80 turns, and at a wall clock\n',
+    );
+    const clockOnly = buildFiringPrompt({
+      soul: SOUL,
+      firing: 2,
+      retro: false,
+      maxTurns: Infinity,
+      wallClockMin: 90,
+    });
+    expect(clockOnly).toContain(
+      '## TURN BUDGET — the harness hard-stops you after 90 minutes of wall clock\n',
+    );
+    expect(clockOnly).not.toContain('Infinity');
   });
 
   it('bounds huge gate output and omits the section entirely when there is no failure', () => {
