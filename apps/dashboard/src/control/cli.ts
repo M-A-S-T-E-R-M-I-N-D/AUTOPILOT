@@ -21,7 +21,11 @@ import {
   watchFlyBody,
 } from './flight-watchdog.js';
 import { firingEngineRequestFromEnv, type FiringEngineRoute } from '../flight/firing-engine.js';
-import { runTaxonomySeed } from '../flight/taxonomy-seed.js';
+import {
+  parseTaxonomySeedArgs,
+  runTaxonomySeed,
+  summarizeTaxonomySeed,
+} from '../flight/taxonomy-seed.js';
 import {
   reconcileOwnedWork,
   listOwnedWorkTasks,
@@ -236,27 +240,21 @@ async function main(): Promise<void> {
       // board web-mtrh1hjq-760dic): stamps the house label scheme + starter
       // milestones (docs/GOVERNANCE.md) onto the current repo. Role-gated —
       // a guest identity (or one that fails to resolve) writes nothing.
-      const report = await runTaxonomySeed();
-      if (report.plan.skippedReason === 'identity-unresolved') {
-        out('[!!] taxonomy-seed: could not resolve a GitHub identity — nothing seeded');
+      // `--labels-only` skips the starter milestones, `--dry-run` writes
+      // nothing and lists the plan (board ap-musvu2h1-2).
+      const args = parseTaxonomySeedArgs(process.argv.slice(3));
+      if (!args.ok) {
+        out(`unknown option: ${args.unknown}`);
+        out('usage: dashboard taxonomy-seed [--labels-only] [--dry-run]');
         process.exitCode = 1;
         break;
       }
-      if (report.plan.skippedReason === 'guest') {
-        out(
-          `[!!] taxonomy-seed: ${report.plan.identity?.login} is a guest on ` +
-            `${report.plan.identity?.nameWithOwner} — nothing seeded (role honesty, epic 0019 law 1)`,
-        );
-        process.exitCode = 1;
-        break;
-      }
-      const applied = report.result?.applied.length ?? 0;
-      const failed = report.result?.failed.length ?? 0;
-      out(
-        `[${failed === 0 ? 'ok' : '!!'}] taxonomy-seed: ${applied} applied, ${failed} failed ` +
-          `on ${report.plan.identity?.nameWithOwner}`,
+      const summary = summarizeTaxonomySeed(
+        await runTaxonomySeed(ghExec, args.options),
+        args.options,
       );
-      if (failed > 0) process.exitCode = 1;
+      for (const line of summary.lines) out(line);
+      if (!summary.ok) process.exitCode = 1;
       break;
     }
     case 'owned-work-reconcile': {

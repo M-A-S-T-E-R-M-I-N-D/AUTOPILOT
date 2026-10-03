@@ -80,9 +80,15 @@ edited its description.
 
 ```sh
 pnpm dashboard:taxonomy-seed
+pnpm dashboard:taxonomy-seed --dry-run      # list the plan, write nothing
+pnpm dashboard:taxonomy-seed --labels-only  # labels only, no starter milestones
 ```
 
 Reports what it applied (`N applied, M failed`) against the resolved
 `owner/repo`, or why it declined to write (unresolved identity, or a
-guest role) — see `apps/dashboard/src/control/cli.ts`'s `taxonomy-seed`
-case for the exact output shape.
+guest role) — see `apps/dashboard/src/flight/taxonomy-seed.ts`'s
+`summarizeTaxonomySeed` for the exact output shape. `--labels-only` is
+for a repo that already has milestones of its own, where the generic
+starter set would only sit next to them. `--dry-run` lists every label
+and milestone a real run would create or update; an update overwrites
+the live label's color and description. The two combine.

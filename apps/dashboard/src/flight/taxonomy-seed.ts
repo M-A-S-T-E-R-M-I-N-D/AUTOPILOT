@@ -172,17 +172,29 @@ export interface TaxonomySeedPlan {
   readonly skippedReason?: TaxonomySeedSkipReason;
 }
 
+/** How one run is narrowed (board ap-musvu2h1-2). `labelsOnly` leaves the
+ *  starter milestones out of the plan, for a repo that already carries
+ *  milestones of its own: without it a re-seed creates the generic set
+ *  next to them (debrief 2026-10-03-verdict-ap-mui04ldw-0). `dryRun` reads
+ *  the live repo and plans, but writes nothing. */
+export interface TaxonomySeedOptions {
+  readonly labelsOnly?: boolean;
+  readonly dryRun?: boolean;
+}
+
 /** Pure planner (epic law 1, role honesty): a guest identity — or one that
  *  failed to resolve at all — gets a plan with zero actions and a
  *  `skippedReason`, never a write attempt against a repo it does not own.
  *  A maintainer identity gets the full label set every time (labels are
  *  `--force` upserts, so re-planning an already-seeded repo is cheap and
  *  harmless — idempotent per the epic's own wording) plus only the
- *  starter milestones not already present by title. */
+ *  starter milestones not already present by title, unless `labelsOnly`
+ *  asks for none of them. */
 export function planTaxonomySeed(
   identity: SocialIdentity | undefined,
   existingLabelNames: ReadonlySet<string>,
   existingMilestoneTitles: ReadonlySet<string>,
+  options: Pick<TaxonomySeedOptions, 'labelsOnly'> = {},
 ): TaxonomySeedPlan {
   if (identity === undefined) {
     return { identity: undefined, actions: [], skippedReason: 'identity-unresolved' };
@@ -194,10 +206,34 @@ export function planTaxonomySeed(
     kind: existingLabelNames.has(label.name) ? 'update-label' : 'create-label',
     label,
   }));
+  if (options.labelsOnly === true) return { identity, actions: labelActions };
   const milestoneActions: TaxonomySeedAction[] = HOUSE_STARTER_MILESTONES.filter(
     (milestone) => !existingMilestoneTitles.has(milestone.title),
   ).map((milestone) => ({ kind: 'create-milestone' as const, milestone }));
   return { identity, actions: [...labelActions, ...milestoneActions] };
+}
+
+/** The CLI flags `taxonomy-seed` accepts, and the option each one sets. */
+const TAXONOMY_SEED_FLAGS: Readonly<Record<string, keyof TaxonomySeedOptions>> = {
+  '--labels-only': 'labelsOnly',
+  '--dry-run': 'dryRun',
+};
+
+export type TaxonomySeedArgs =
+  | { readonly ok: true; readonly options: TaxonomySeedOptions }
+  | { readonly ok: false; readonly unknown: string };
+
+/** Reads `taxonomy-seed`'s arguments. Anything it does not know is refused
+ *  rather than ignored: a mistyped `--dry-run` must never fall through to a
+ *  run that writes to GitHub. */
+export function parseTaxonomySeedArgs(args: readonly string[]): TaxonomySeedArgs {
+  let options: TaxonomySeedOptions = {};
+  for (const arg of args) {
+    const option = TAXONOMY_SEED_FLAGS[arg];
+    if (option === undefined) return { ok: false, unknown: arg };
+    options = { ...options, [option]: true };
+  }
+  return { ok: true, options };
 }
 
 /** The most labels one `gh label list` read asks for. With no `--limit`, gh
@@ -335,7 +371,8 @@ export async function executeTaxonomySeed(
 export interface TaxonomySeedReport {
   readonly plan: TaxonomySeedPlan;
   /** `undefined` when the plan has zero actions (guest, or unresolved
-   *  identity) — nothing was executed, so there is no result to report. */
+   *  identity) or the run was a dry run — nothing was executed, so there
+   *  is no result to report. */
   readonly result: TaxonomySeedResult | undefined;
 }
 
@@ -344,17 +381,90 @@ export interface TaxonomySeedReport {
  *  `fetchSocialPassReport` already establishes. Skips both existing-state
  *  reads entirely once identity resolution rules out a maintainer write
  *  (unresolved, or a guest) — there is nothing to plan against a repo this
- *  identity cannot act on. */
-export async function runTaxonomySeed(exec: CliExec = ghExec): Promise<TaxonomySeedReport> {
+ *  identity cannot act on — and the milestone read under `labelsOnly`,
+ *  whose plan has no milestone in it. A `dryRun` stops after the plan. */
+export async function runTaxonomySeed(
+  exec: CliExec = ghExec,
+  options: TaxonomySeedOptions = {},
+): Promise<TaxonomySeedReport> {
   const identity = await resolveSocialIdentity(exec);
   if (identity === undefined || identity.role !== 'maintainer') {
     return { plan: planTaxonomySeed(identity, new Set(), new Set()), result: undefined };
   }
   const [existingLabelNames, existingMilestoneTitles] = await Promise.all([
     fetchExistingLabelNames(exec),
-    fetchExistingMilestoneTitles(exec),
+    options.labelsOnly === true
+      ? Promise.resolve<ReadonlySet<string>>(new Set())
+      : fetchExistingMilestoneTitles(exec),
   ]);
-  const plan = planTaxonomySeed(identity, existingLabelNames, existingMilestoneTitles);
+  const plan = planTaxonomySeed(identity, existingLabelNames, existingMilestoneTitles, options);
+  if (options.dryRun === true) return { plan, result: undefined };
   const result = await executeTaxonomySeed(exec, plan);
   return { plan, result };
+}
+
+/** One planned action in words, for the dry run's list. An update says it
+ *  overwrites: `gh label create --force` rewrites the live color and
+ *  description, so a label recolored by hand goes back to the seed's. */
+export function describeTaxonomySeedAction(action: TaxonomySeedAction): string {
+  switch (action.kind) {
+    case 'create-label':
+      return `create label "${action.label.name}"`;
+    case 'update-label':
+      return `update label "${action.label.name}" (overwrites its color and description)`;
+    case 'create-milestone':
+      return `create milestone "${action.milestone.title}"`;
+  }
+}
+
+export interface TaxonomySeedSummary {
+  /** False when the seeder declined to write or any write failed — the
+   *  CLI's exit code. */
+  readonly ok: boolean;
+  readonly lines: readonly string[];
+}
+
+/** What `pnpm dashboard:taxonomy-seed` prints for a report, and whether it
+ *  exits 0. A dry run lists every planned action under its summary line so
+ *  the operator sees, before any write, what a real run would do. */
+export function summarizeTaxonomySeed(
+  report: TaxonomySeedReport,
+  options: TaxonomySeedOptions = {},
+): TaxonomySeedSummary {
+  const { plan, result } = report;
+  if (plan.skippedReason === 'identity-unresolved') {
+    return {
+      ok: false,
+      lines: ['[!!] taxonomy-seed: could not resolve a GitHub identity — nothing seeded'],
+    };
+  }
+  if (plan.skippedReason === 'guest') {
+    return {
+      ok: false,
+      lines: [
+        `[!!] taxonomy-seed: ${plan.identity?.login} is a guest on ` +
+          `${plan.identity?.nameWithOwner} — nothing seeded (role honesty, epic 0019 law 1)`,
+      ],
+    };
+  }
+  const repo = plan.identity?.nameWithOwner;
+  const scope = options.labelsOnly === true ? ' (labels only — starter milestones skipped)' : '';
+  if (options.dryRun === true) {
+    return {
+      ok: true,
+      lines: [
+        `[ok] taxonomy-seed: dry run on ${repo} — ${plan.actions.length} planned, nothing written${scope}`,
+        ...plan.actions.map((action) => `      - ${describeTaxonomySeedAction(action)}`),
+      ],
+    };
+  }
+  const applied = result?.applied.length ?? 0;
+  const failed = result?.failed.length ?? 0;
+  return {
+    ok: failed === 0,
+    lines: [
+      `[${failed === 0 ? 'ok' : '!!'}] taxonomy-seed: ${applied} applied, ${failed} failed ` +
+        `on ${repo}${scope}`,
+    ],
+  };
 }
