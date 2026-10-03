@@ -6,6 +6,7 @@ import {
   evaluatePreflight,
   formatPreflight,
   preflightRefusal,
+  preflightWarnings,
   MIN_FREE_BYTES_BLOCK,
   MIN_FREE_BYTES_WARN,
   WIDE_FLEET_LANES,
@@ -372,7 +373,37 @@ describe('evaluatePreflight — the go/no-go before a flight spends a dollar', (
   });
 });
 
-describe('preflightRefusal / formatPreflight', () => {
+describe('preflightRefusal / preflightWarnings / formatPreflight', () => {
+  it('the warning clause names every warning check with its advice, joined, and nothing else', () => {
+    const report = evaluatePreflight(
+      facts({
+        distOlderThanSource: true,
+        engine: {
+          kind: 'cli',
+          engine: 'codex',
+          model: 'gpt-5-codex',
+          found: true,
+          version: 'codex-cli 0.46.0',
+          signedIn: false,
+        },
+      }),
+    );
+    expect(report.go).toBe(true);
+    expect(preflightWarnings(report)).toBe(
+      "preflight warns: engine: Codex CLI codex-cli 0.46.0 on gpt-5-codex (AUTOPILOT_ENGINE) is not signed in (`codex login status`) — every firing fails unless Codex's own config routes the model to a provider that needs no sign-in; run `codex login`, or set CODEX_API_KEY | build-fresh: the built flight is older than the engine sources — run `pnpm run build` (or `pnpm dashboard:restart`) or this flight runs yesterday's engine",
+    );
+  });
+
+  it('a report with no warning check has no warning clause, however many info lines it carries', () => {
+    expect(preflightWarnings(evaluatePreflight(facts()))).toBeNull();
+    expect(
+      preflightWarnings({
+        go: false,
+        checks: [{ level: 'block', name: 'target-clean', ok: false, detail: '2 changed path(s)' }],
+      }),
+    ).toBeNull();
+  });
+
   it('the refusal names every blocking check with its advice, joined', () => {
     const report = evaluatePreflight(
       facts({ targetDirty: 1, cli: { found: false, version: null } }),
