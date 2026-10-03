@@ -592,7 +592,12 @@ export function classifyIssueMilestone(text: string): MilestoneTitle {
  * (if anyone) it's assigned to — and plans `'dossier'` (an evidence dossier
  * is owed regardless), or `'skip'` when a previous pass already posted one
  * ({@link DOSSIER_POSTED_LABEL} present), so re-runs stay idempotent the
- * same way an already-labeled `pool: *`/`duplicate` issue does below.
+ * same way an already-labeled `pool: *`/`duplicate` issue does below. An
+ * application the maintainer has declined or put on hold ({@link
+ * DECLINED_LABEL}, {@link HOLD_LABELS}) also plans `'skip'`: the maintainer
+ * decides an application, and once they have answered it or held it, a
+ * dossier would land after the decision it exists to inform. The mark holds
+ * the dossier back, it does not send the application to ordinary triage.
  */
 export function planIssueTriage(
   issue: IncomingIssue,
@@ -611,6 +616,16 @@ export function planIssueTriage(
         reasoning:
           `#${issue.number} "${issue.title}" already carries "${DOSSIER_POSTED_LABEL}" from a ` +
           'previous KEEPER pass — skipping so re-runs never post the dossier twice.',
+      };
+    }
+    const mark = [DECLINED_LABEL, ...HOLD_LABELS].find((label) => labels.includes(label));
+    if (mark) {
+      return {
+        decision: 'skip',
+        reasoning:
+          `#${issue.number} "${issue.title}" is a standing application carrying "${mark}" — the ` +
+          'maintainer has answered it or put it on hold by hand, so KEEPER posts no dossier and ' +
+          'adds no label until they lift it.',
       };
     }
     return {
