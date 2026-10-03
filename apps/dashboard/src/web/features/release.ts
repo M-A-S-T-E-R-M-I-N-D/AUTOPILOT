@@ -308,8 +308,10 @@ document.addEventListener('click', function (e) {
   var resultEl = b.parentElement && b.parentElement.nextElementSibling;
   if (!window.confirm(releaseConfirmMessage(milestoneTag, ghRelease, tr))) return;
   b.disabled = true;
+  // The busy and idle words swap through setSweptText(), not textContent,
+  // so the leading rocket stays put (mirror-pass.ts does the same).
   var originalText = b.textContent;
-  b.textContent = tr('releaseExecuting');
+  setSweptText(b, tr('releaseExecuting'));
   var payload = { project: pid };
   if (milestoneTag) payload.milestoneTag = milestoneTag;
   if (ghRelease) payload.ghRelease = true;
@@ -322,7 +324,7 @@ document.addEventListener('click', function (e) {
     .then(function (res) { return res.json().then(function (data) { return { status: res.status, data: data }; }); })
     .then(function (r) {
       b.disabled = false;
-      b.textContent = originalText;
+      setSweptText(b, originalText);
       if (!resultEl) return;
       var result = releaseExecuteResult(r.data);
       resultEl.className = result.className;
@@ -331,7 +333,7 @@ document.addEventListener('click', function (e) {
     })
     .catch(function () {
       b.disabled = false;
-      b.textContent = originalText;
+      setSweptText(b, originalText);
       if (resultEl) {
         resultEl.className = 'release-result release-result-fail';
         resultEl.textContent = tr('releaseRequestFailed');

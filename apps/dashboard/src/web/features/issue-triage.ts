@@ -342,8 +342,10 @@ document.addEventListener('click', function (e) {
   var body = b.closest('.issue-triage-body');
   var resultEl = body && body.querySelector('.issue-triage-result');
   b.disabled = true;
+  // The busy and idle words swap through setSweptText(), not textContent,
+  // so the leading key-round stays put (mirror-pass.ts does the same).
   var originalText = b.textContent;
-  b.textContent = tr('issueTriageExecuting');
+  setSweptText(b, tr('issueTriageExecuting'));
   ritualFetch('issue-triage', '/api/issue-triage/execute', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -354,7 +356,7 @@ document.addEventListener('click', function (e) {
       var result = issueTriageExecuteResult(r.data);
       if (result.className.indexOf('issue-triage-result-fail') !== -1) {
         b.disabled = false;
-        b.textContent = originalText;
+        setSweptText(b, originalText);
         if (resultEl) {
           resultEl.className = result.className;
           resultEl.textContent = result.text;
@@ -378,7 +380,7 @@ document.addEventListener('click', function (e) {
     })
     .catch(function () {
       b.disabled = false;
-      b.textContent = originalText;
+      setSweptText(b, originalText);
       if (resultEl) {
         resultEl.className = 'issue-triage-result issue-triage-result-fail';
         resultEl.textContent = tr('issueTriageRequestFailed');
