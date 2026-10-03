@@ -2130,8 +2130,8 @@ async function handleUpdateCheck(
  *  `{ strategy?: 'stash' }`. Refusals come back 409 with the reason the
  *  client renders (dirty / diverged / flight-live), success 200 with
  *  `restarting: true` when the server is about to bounce onto the new
- *  build. Shares the release limiter — both are heavyweight, operator-rate
- *  actions. */
+ *  build. CSRF-guarded (415 unless `application/json`). Shares the release
+ *  limiter — both are heavyweight, operator-rate actions. */
 async function handleUpdateExecute(
   req: IncomingMessage,
   res: ServerResponse,
@@ -2148,13 +2148,25 @@ async function handleUpdateExecute(
     send(405, { error: 'method not allowed' });
     return;
   }
+  // The CSRF guard every other write endpoint has: a cross-site text/plain
+  // form post needs no preflight, and its body can still parse as JSON.
+  if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+    send(415, { error: 'Content-Type must be application/json' });
+    return;
+  }
   if (!limiter.allow(clientKey(req), Date.now())) {
     send(429, { error: 'Too many update requests — slow down and try again shortly.' });
     return;
   }
+  let raw: string;
+  try {
+    raw = await readBody(req, MAX_BODY_BYTES);
+  } catch {
+    send(413, { error: 'request body too large' });
+    return;
+  }
   let strategy: UpdateStrategy | undefined;
   try {
-    const raw = await readBody(req, MAX_BODY_BYTES);
     if (raw.trim() !== '') {
       const parsed = JSON.parse(raw) as { strategy?: unknown };
       if (parsed.strategy !== undefined) {
