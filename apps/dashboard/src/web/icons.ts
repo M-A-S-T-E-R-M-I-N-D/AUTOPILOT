@@ -625,6 +625,17 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ],
     ['path', { d: 'm7.83 7.83 8.34 8.34' }],
   ],
+  // Epic 0025 slice 3 (status pills): the fleet card's project-status pill
+  // leads with the task row's circle family; a hibernating project, skipped
+  // by the scheduler until it wakes, takes the moon.
+  moon: [
+    [
+      'path',
+      {
+        d: 'M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401',
+      },
+    ],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

@@ -399,7 +399,71 @@ describe('the board row builds its glyphs as icons (no emoji)', () => {
       expect(pill.textContent, status).toBe(STRINGS.he[TASK_STATUS_KEYS[status]!]);
     }
   });
+
+  // Epic 0025 slice 3 (status pills): the fleet card's project-status pill
+  // leads with the same circle family, so "flying" reads like an in-progress
+  // task and "needs you" like one awaiting your decision.
+  it('each project status pill leads with its status glyph, and a locale switch keeps it', async () => {
+    const GLYPHS: Record<string, string> = {
+      registered: 'circle',
+      flying: 'circle-dot',
+      paused: 'circle-pause',
+      hibernating: 'moon',
+      needs_you: 'circle-question-mark',
+    };
+    const projects = Object.keys(GLYPHS).map((status) => ({
+      ...PROJECT,
+      id: 'p-' + status,
+      slug: 'p-' + status,
+      name: 'Project ' + status,
+      status,
+      tasks: [],
+    }));
+    const state = { ...STATE, totals: { ...STATE.totals, projects: projects.length }, projects };
+    // The task-row test above leaves Hebrew saved; start from English.
+    localStorage.clear();
+    document.open();
+    document.write(renderShell());
+    document.close();
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => state,
+    })) as unknown as typeof fetch;
+    new Function(clientJs())();
+
+    const pillOf = (status: string) =>
+      document.querySelector(`.card-head .pill.pill-${status}`) as HTMLElement;
+    await vi.waitFor(() => {
+      for (const status of Object.keys(GLYPHS)) expect(pillOf(status), status).not.toBeNull();
+    });
+    for (const [status, glyph] of Object.entries(GLYPHS)) {
+      expect(ICON_NAMES, glyph).toContain(glyph);
+      const pill = pillOf(status);
+      const icon = pill.firstElementChild as Element;
+      expect(icon.tagName.toLowerCase(), status).toBe('svg');
+      expect(icon.classList.contains('icon-' + glyph), status).toBe(true);
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+      expect(pill.querySelectorAll('svg')).toHaveLength(1);
+      expect(pill.textContent, status).toBe(STRINGS.en[PROJECT_STATUS_KEYS[status]!]);
+    }
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    for (const [status, glyph] of Object.entries(GLYPHS)) {
+      const pill = pillOf(status);
+      expect(pill.firstElementChild?.classList.contains('icon-' + glyph), status).toBe(true);
+      expect(pill.textContent, status).toBe(STRINGS.he[PROJECT_STATUS_KEYS[status]!]);
+    }
+  });
 });
+
+const PROJECT_STATUS_KEYS: Record<string, keyof typeof STRINGS.en> = {
+  registered: 'projectStatusRegistered',
+  flying: 'projectStatusFlying',
+  paused: 'projectStatusPaused',
+  hibernating: 'projectStatusHibernating',
+  needs_you: 'projectStatusNeedsYou',
+};
 
 const TASK_STATUS_KEYS: Record<string, keyof typeof STRINGS.en> = {
   queued: 'taskStatusQueued',
