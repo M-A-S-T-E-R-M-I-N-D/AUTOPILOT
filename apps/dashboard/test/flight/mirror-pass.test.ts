@@ -286,7 +286,7 @@ describe('fetchIssueState', () => {
       'view',
       '42',
       '--json',
-      'number,state,assignees',
+      'number,state,assignees,labels',
     ]);
   });
 
@@ -1432,7 +1432,7 @@ describe('fetchIssueState reads the assignees', () => {
     };
     const state = await fetchIssueState(exec, 27);
     expect(state).toEqual({ number: 27, state: 'open', assignees: ['M-A-S-T-E-R-M-I-N-D'] });
-    expect(calls[0]?.[calls[0].length - 1]).toBe('number,state,assignees');
+    expect(calls[0]?.[calls[0].length - 1]).toBe('number,state,assignees,labels');
   });
 
   it('degrades to no assignees when the field is missing or not a list', async () => {
