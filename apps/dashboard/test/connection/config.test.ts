@@ -42,6 +42,9 @@ describe('isAuthMode', () => {
     expect(isAuthMode('subscription')).toBe(true);
     expect(isAuthMode('api-key')).toBe(true);
     expect(isAuthMode('oauth-token')).toBe(true);
+    expect(isAuthMode('endpoint')).toBe(true);
+    expect(isAuthMode('bedrock')).toBe(true);
+    expect(isAuthMode('vertex')).toBe(true);
   });
 
   it('rejects an unrecognized string', () => {
@@ -97,6 +100,27 @@ describe('readConnectionConfig', () => {
     const result = readConnectionConfig(configPath);
     expect('oauthToken' in result).toBe(false);
     expect(result).toEqual({ mode: 'oauth-token' });
+  });
+
+  // fly.ts reads the lane's auth from this file alone, so a mode it collapsed
+  // to subscription could never fly, however complete auth.ts's env for it is.
+  it('carries an endpoint base URL and its token through', () => {
+    const stored = { mode: 'endpoint', baseUrl: 'http://localhost:11434', authToken: 'ollama' };
+    writeFileSync(configPath, JSON.stringify(stored));
+    expect(readConnectionConfig(configPath)).toEqual(stored);
+  });
+
+  it('carries a Bedrock region and a Vertex project and region through', () => {
+    writeFileSync(configPath, JSON.stringify({ mode: 'bedrock', awsRegion: 'eu-west-1' }));
+    expect(readConnectionConfig(configPath)).toEqual({ mode: 'bedrock', awsRegion: 'eu-west-1' });
+    const vertex = { mode: 'vertex', gcpProjectId: 'my-project', gcpRegion: 'us-east5' };
+    writeFileSync(configPath, JSON.stringify(vertex));
+    expect(readConnectionConfig(configPath)).toEqual(vertex);
+  });
+
+  it('omits an endpoint field that is empty or not a string', () => {
+    writeFileSync(configPath, JSON.stringify({ mode: 'endpoint', baseUrl: 7, authToken: '' }));
+    expect(readConnectionConfig(configPath)).toEqual({ mode: 'endpoint' });
   });
 });
 
