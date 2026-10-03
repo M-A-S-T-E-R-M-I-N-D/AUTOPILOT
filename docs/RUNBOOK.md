@@ -321,7 +321,11 @@ A single dashboard launch can choose its own engine instead: a `POST /api/fly` b
 flies Claude even when the dashboard runs with `AUTOPILOT_ENGINE` set. The launch meets the same
 refusals before its preflight, which then judges that engine's CLI. A model with no engine is
 refused too, as is a model name over 128 characters or holding anything but letters, digits and
-`. _ : / @ -`. The fly bar does not offer the choice yet, and `POST /api/fleet` carries none.
+`. _ : / @ -`. The fly bar offers the choice behind its gear: **Engine** (default, Claude Code,
+Codex, Gemini), and for Codex or Gemini an **Engine model** field, which the bar requires before it
+sends anything. Default sends no engine, so the lane inherits the dashboard's env. The bar remembers
+the choice per folder, so a paused flight's Resume flies the engine it last flew. `POST /api/fleet`
+carries none, so the bar refuses an engine with Lanes above 1 rather than fly the fleet on the default.
 Spec and status:
 [`docs/epics/0036-provider-parity.md`](epics/0036-provider-parity.md).
 
