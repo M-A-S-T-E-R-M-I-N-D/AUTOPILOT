@@ -34,7 +34,6 @@ import { countTurns } from '../shared/turns.js';
 import { narratorLine } from '../shared/narrator.js';
 import { finishedFlightSummaries as sharedFinishedFlightSummaries } from '../shared/flight-summary.js';
 import type { FlightSummary } from '../shared/flight-summary.js';
-import type { LaneEngine } from './lane-engines.js';
 import {
   liveFiringOf as sharedLiveFiring,
   liveFiringsOf as sharedLiveFirings,
@@ -557,11 +556,6 @@ export interface ProjectCard extends ProjectAggregate {
   /** cost-spike / death-cluster / gate-fail-streak rules over `flightLog` — see
    *  {@link detectAnomalies}. Empty (the common case) when nothing is wrong. */
   readonly anomalies: readonly Anomaly[];
-  /** The engine each running lane on a named engine flies, keyed by the
-   *  lane's `firingIdOf` key — see `read/lane-engines.ts`. Never set by
-   *  `buildFleetView`; the server wiring (`server/main.ts`) merges it in from
-   *  the flight registry, and omits it when no lane names an engine. */
-  readonly laneEngines?: Readonly<Record<string, LaneEngine>>;
 }
 
 export interface FleetTotals {
