@@ -65,7 +65,7 @@ import { mineFleetWisdom } from './fleet-wisdom-mining.js';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
 import { resolveSocialIdentity } from './social-pass.js';
-import { fetchPoolIssues, isClaimedPoolIssue } from './pool-client.js';
+import { fetchPoolIssues, isReapablePoolClaim } from './pool-client.js';
 import {
   fetchClaimedIssueClaims,
   planMirrorPassStaleClaimBatch,
@@ -579,7 +579,9 @@ export function runFleetWisdomSweep(store: Store, now: () => number): void {
  * really releases the claims"): once per flight end, every pool claim that
  * has gone quiet past the 14-day window is released — the mirror pass
  * reaper's exact plan (`planMirrorPassStaleClaimBatch`), run on its own
- * instead of waiting for someone to press "Free stale claim(s)". Role
+ * instead of waiting for someone to press "Free stale claim(s)". It skips
+ * the same issues that button does: a claim on an issue the maintainer
+ * declined or put on hold is theirs to settle (`isReapablePoolClaim`). Role
  * honesty first: only this repo's own maintainer identity ever writes; a
  * guest or unresolved identity returns before a single read of the pool.
  * Best-effort and network-bound — never fails the flight, never throws.
@@ -600,7 +602,7 @@ export async function runStaleClaimSweep(
   try {
     const identity = await resolveSocialIdentity(exec);
     if (identity === undefined || identity.role !== 'maintainer') return [];
-    const claimed = (await fetchPoolIssues(exec)).filter(isClaimedPoolIssue);
+    const claimed = (await fetchPoolIssues(exec)).filter(isReapablePoolClaim);
     const activity: MirrorPassClaimedIssue[] = [];
     for (const issue of claimed) {
       activity.push(...(await fetchClaimedIssueClaims(exec, issue.number)));
