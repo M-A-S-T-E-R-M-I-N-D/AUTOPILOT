@@ -403,7 +403,17 @@ propagation, and the filled style does not match the nav.
    `/panels.js`, so core does not grow. The icon is decorative, so the name
    the dialog takes through `aria-labelledby` stays the stop's words and its
    counter, and `paintTour()` builds the title with `tr()` on every stop
-   (`apps/dashboard/test/web/tour-title-icon.test.ts`).
+   (`apps/dashboard/test/web/tour-title-icon.test.ts`). **Empty-state
+   headings 2026-10-03 (slice 2):** the fleet page's "No projects flying
+   yet", the first thing a fresh install shows, and a stale project link's
+   "Project not found" headed with bare words. The empty fleet leads with the
+   `layout-grid` the rail's Fleet link draws, a grid with no cards in it yet,
+   and "Project not found" with a newly vendored `search-x`, Lucide's
+   no-results shape. Each is decorative, so the heading's text stays the
+   words alone, and `setSweptText()` keeps the icon across a locale switch
+   and every later tick (`apps/dashboard/test/web/empty-state-heading-icons.test.ts`).
+   The empty-fleet and project e2e baselines show the bare headings until the
+   landing re-renders them.
 
 ## Related
 
