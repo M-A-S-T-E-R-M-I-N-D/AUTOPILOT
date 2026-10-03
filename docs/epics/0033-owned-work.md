@@ -130,6 +130,21 @@ and the read is scoped to the repo the engine runs in — the cross-repo
 is content-addressed on the issue number alone and two repos' #6 would
 collide on one row; that needs a repo-qualified id first.
 
+Refined 2026-10-03 (board web-mtsylqbd-q2rg8k, epic 0019's additive-only
+law): the read now asks for `labels`, as the design above names. An issue
+assigned to the operator can still be marked `declined`,
+`status: awaiting-human` or `status: blocked`. Issue triage never picks such
+an issue onto the board and the pool claim refuses it, but the ingest read no labels:
+it made the issue a focused task, posted "Picked up" on it and refocused it
+at every takeoff. `planOwnedWorkReconcile` now plans nothing for a marked
+issue: no task, no pickup comment, no refocus. It still counts as assigned,
+so its task is not released either; the mark pauses the claim, it does not
+end it. Once the maintainer lifts the mark, the next pass picks the issue up
+as before. Covered by `apps/dashboard/test/flight/owned-work-reconcile.test.ts`
+(the labels are the seeder's; triage, the pool claim and the ingest refuse
+the same mark; the ingest writes nothing for the marked issue and still picks
+up the unmarked one beside it; a lifted mark is picked up).
+
 ## 4. Slice 2 — SEE IT
 
 **Goal.** The operator can answer "what is mine?" in one glance, from the page

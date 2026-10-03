@@ -17,11 +17,13 @@ import {
 } from '../../src/flight/owned-work-reconcile.js';
 import { HUMAN_CLOSES_MARKER, claimContractBody } from '../../src/flight/claim-contract.js';
 import {
+  DECLINED_LABEL,
   planClaimPoolIssue,
   planPoolIssueTask,
   type PoolIssue,
 } from '../../src/flight/pool-client.js';
-import { MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
+import { HOLD_LABELS, MAX_ISSUE_LIST, planIssueTriage } from '../../src/flight/issue-triage.js';
+import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function project(s: Store, id: string): void {
@@ -76,7 +78,7 @@ describe('fetchAssignedIssues', () => {
       '--limit',
       String(MAX_ISSUE_LIST),
       '--json',
-      'number,title,url',
+      'number,title,url,labels',
     ]);
   });
 
@@ -87,8 +89,29 @@ describe('fetchAssignedIssues', () => {
     );
     const issues = await fetchAssignedIssues(exec);
     expect(issues).toEqual([
-      { number: 6, title: 'Fix the thing', url: 'https://github.com/example/repo/issues/6' },
+      {
+        number: 6,
+        title: 'Fix the thing',
+        url: 'https://github.com/example/repo/issues/6',
+        labels: [],
+      },
     ]);
+  });
+
+  it("parses each issue's labels from gh's { name } objects", async () => {
+    const exec = execFor(
+      [
+        {
+          number: 6,
+          title: 'Fix the thing',
+          url: 'https://github.com/example/repo/issues/6',
+          labels: [{ name: 'bug' }, { name: 'status: blocked' }],
+        },
+      ],
+      'octocat',
+    );
+    const issues = await fetchAssignedIssues(exec);
+    expect(issues[0]?.labels).toEqual(['bug', 'status: blocked']);
   });
 
   it('returns [] on a non-zero exit', async () => {
@@ -125,7 +148,12 @@ describe('fetchAssignedIssues', () => {
     );
     const issues = await fetchAssignedIssues(exec);
     expect(issues).toEqual([
-      { number: 6, title: 'Fix the thing', url: 'https://github.com/example/repo/issues/6' },
+      {
+        number: 6,
+        title: 'Fix the thing',
+        url: 'https://github.com/example/repo/issues/6',
+        labels: [],
+      },
     ]);
   });
 });
@@ -831,5 +859,134 @@ describe('owned work — claim-flow write-layer edges (regression, epic 0019 add
       expect(result).toMatchObject({ created: 0, focused: 0, released: 0, commented: 0 });
       expect(tasks(s, 'p1')).toEqual([]);
       expect(commentCalls(exec)).toHaveLength(0);
+    }));
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the claim flow ×
+// the maintainer's marks. An issue assigned to the operator can still be
+// marked `declined` or put on hold (`status: awaiting-human`,
+// `status: blocked`). Issue triage never picks such an issue onto the board
+// (issue-triage.ts planIssueTriage, law 2) and the pool claim refuses it
+// (pool-client.ts planClaimPoolIssue). The ingest read no labels, so it made
+// the issue a focused task, posted "Picked up" on it, and refocused it on
+// every takeoff.
+describe("owned work × the maintainer's declined and held issues (regression, epic 0019 additive-only law)", () => {
+  const seeded = (name: string) =>
+    HOUSE_TAXONOMY_LABELS.find((label) => label.name === name)?.name ?? '';
+  const marks = [seeded('declined'), seeded('status: awaiting-human'), seeded('status: blocked')];
+  const issueFor = (number: number, labels: readonly string[]) => ({
+    number,
+    title: `Fix the thing ${number}`,
+    url: `https://github.com/example/repo/issues/${number}`,
+    labels,
+  });
+  const ghRow = (number: number, labels: readonly string[]) => ({
+    ...issueFor(number, []),
+    labels: labels.map((name) => ({ name })),
+  });
+
+  function withStore(run: (s: Store) => Promise<void>): Promise<void> {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-work-marks-db-'));
+    const s = openStore(join(dbDir, 'a.db'));
+    migrate(s);
+    project(s, 'p1');
+    return run(s).finally(() => {
+      s.close();
+      cleanupDir(dbDir);
+    });
+  }
+
+  function commentedIssues(exec: CliExec): string[] {
+    return (vi.mocked(exec).mock.calls as [string, readonly string[]][])
+      .filter(([, args]) => args[0] === 'issue' && args[1] === 'comment')
+      .map(([, args]) => args[2] ?? '');
+  }
+
+  it('reads the labels issue triage and the pool claim hold on, as the seeder stamps them', () => {
+    expect([DECLINED_LABEL, ...HOLD_LABELS]).toEqual(marks);
+  });
+
+  it.each(marks)(
+    'plans no task for an assigned issue marked "%s", as triage and the pool claim refuse it',
+    (mark) => {
+      const issue = issueFor(8, [mark]);
+      const triage = planIssueTriage({ ...issue, body: 'Steps to reproduce' }, [], []);
+      const claim = planClaimPoolIssue(
+        { ...issue, labels: ['pool: accessibility', mark], assignees: [] },
+        'octocat',
+      );
+      expect(triage.decision).toBe('skip');
+      expect(triage.reasoning).toContain(`"${mark}"`);
+      expect(claim.decision).toBe('skip');
+      expect(claim.reasoning).toContain(`"${mark}"`);
+
+      const plan = planOwnedWorkReconcile([issue, issueFor(9, [])], [], 'octocat', 'p1', 100);
+
+      expect(plan).toEqual({
+        upserts: [expect.objectContaining({ id: 'github-9' })],
+        refocus: [],
+        release: [],
+      });
+    },
+  );
+
+  it.each(marks)(
+    'neither refocuses nor releases the board task of an assigned issue marked "%s"',
+    (mark) => {
+      const existing: OwnedWorkBoardTask[] = [
+        { id: 'github-7', body: claimContractBody(7), focus: 1, status: 'queued' },
+        { id: 'github-8', body: claimContractBody(8), focus: 0, status: 'queued' },
+      ];
+
+      const plan = planOwnedWorkReconcile(
+        [issueFor(7, [mark]), issueFor(8, [mark])],
+        existing,
+        'octocat',
+        'p1',
+        200,
+      );
+
+      expect(plan).toEqual({ upserts: [], refocus: [], release: [] });
+    },
+  );
+
+  it.each(marks)(
+    'creates no task and posts no pickup comment for an assigned issue marked "%s", while the unmarked one beside it is picked up',
+    (mark) =>
+      withStore(async (s) => {
+        const exec = execFor([ghRow(8, [mark]), ghRow(9, [])], 'octocat');
+
+        const result = await reconcileOwnedWork(exec, s, 'p1', [], () => 100);
+
+        expect(result).toMatchObject({ created: 1, focused: 0, released: 0, commented: 1 });
+        expect(tasks(s, 'p1')).toEqual([expect.objectContaining({ id: 'github-9', focus: 1 })]);
+        expect(commentedIssues(exec)).toEqual(['9']);
+      }),
+  );
+
+  it('picks the issue up as before once the maintainer lifts the mark', () =>
+    withStore(async (s) => {
+      const held = execFor([ghRow(8, ['status: blocked'])], 'octocat');
+      const lifted = execFor([ghRow(8, [])], 'octocat');
+
+      const first = await reconcileOwnedWork(
+        held,
+        s,
+        'p1',
+        ownedWorkCandidates(s, 'p1'),
+        () => 100,
+      );
+      const second = await reconcileOwnedWork(
+        lifted,
+        s,
+        'p1',
+        ownedWorkCandidates(s, 'p1'),
+        () => 200,
+      );
+
+      expect(first).toMatchObject({ created: 0, commented: 0 });
+      expect(second).toMatchObject({ created: 1, commented: 1 });
+      expect(tasks(s, 'p1')).toEqual([expect.objectContaining({ id: 'github-8', focus: 1 })]);
+      expect(commentedIssues(lifted)).toEqual(['8']);
     }));
 });

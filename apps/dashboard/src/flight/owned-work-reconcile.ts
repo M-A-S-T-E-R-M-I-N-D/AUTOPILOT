@@ -39,17 +39,21 @@
 import { createTask, setTaskFocus, type CreateTaskInput, type Store } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
-import { MAX_ISSUE_LIST, issueTaskId } from './issue-triage.js';
+import { HOLD_LABELS, MAX_ISSUE_LIST, issueTaskId, parseIssueLabels } from './issue-triage.js';
 import { issueNumberFromTaskId } from './mirror-pass.js';
 import { claimContractBody, isHumanClosedTask } from './claim-contract.js';
+import { DECLINED_LABEL } from './pool-client.js';
 import { fetchViewerLogin } from './pr-review.js';
 
 /** One open issue GitHub reports as assigned to the viewer — the subset
- *  `gh issue list --assignee @me --json number,title,url` emits. */
+ *  `gh issue list --assignee @me --json number,title,url,labels` emits.
+ *  `labels` is optional so a caller holding only the three identity fields
+ *  still plans; a missing list reads as unmarked. */
 export interface AssignedIssue {
   readonly number: number;
   readonly title: string;
   readonly url: string;
+  readonly labels?: readonly string[];
 }
 
 /** `gh issue list` entries — untrusted process output, parsed defensively
@@ -58,6 +62,19 @@ interface RawAssignedIssue {
   readonly number?: unknown;
   readonly title?: unknown;
   readonly url?: unknown;
+  readonly labels?: unknown;
+}
+
+/** The maintainer's own marks on an issue: answered no, or on hold until they
+ *  lift it by hand. Issue triage never picks such an issue onto the board
+ *  (issue-triage.ts planIssueTriage) and the pool claim refuses it
+ *  (pool-client.ts planClaimPoolIssue), both matching these labels exactly;
+ *  an assignment does not lift the mark (epic 0019 law 2: the maintainer's
+ *  mark outranks a claim). */
+const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS];
+
+function isMaintainerMarked(issue: AssignedIssue): boolean {
+  return (issue.labels ?? []).some((label) => MAINTAINER_MARKS.includes(label));
 }
 
 /** A task board needs a bounded title; capped defensively the same way
@@ -72,7 +89,9 @@ const OWNED_WORK_TITLE_CHARS = 200;
  * `issue-triage.ts`'s `fetchOpenIssues`). Returns `[]` on a non-zero exit or
  * unparseable/non-array stdout rather than throwing. A non-object row (a
  * `null`) and entries missing a numeric `number`, string `title`, or string
- * `url` are dropped rather than passed through malformed.
+ * `url` are dropped rather than passed through malformed. Labels are read so
+ * the plan can tell a maintainer's mark ({@link MAINTAINER_MARKS}); a missing
+ * or malformed list parses to `[]`.
  */
 export async function fetchAssignedIssues(exec: CliExec): Promise<AssignedIssue[]> {
   const { code, stdout } = await exec('gh', [
@@ -85,7 +104,7 @@ export async function fetchAssignedIssues(exec: CliExec): Promise<AssignedIssue[
     '--limit',
     String(MAX_ISSUE_LIST),
     '--json',
-    'number,title,url',
+    'number,title,url,labels',
   ]);
   if (code !== 0) return [];
 
@@ -109,6 +128,7 @@ export async function fetchAssignedIssues(exec: CliExec): Promise<AssignedIssue[
       number: raw.number as number,
       title: raw.title as string,
       url: raw.url as string,
+      labels: parseIssueLabels(raw.labels),
     }));
 }
 
@@ -173,7 +193,12 @@ export interface OwnedWorkReconcilePlan {
  * nothing" acceptance criterion). `release` only ever names a task whose id
  * parses as a GitHub issue task ({@link issueNumberFromTaskId}) and that
  * still carries the claim contract marker — a dashboard/self/inbox/backlog
- * task is never a candidate no matter its focus state.
+ * task is never a candidate no matter its focus state. An assigned issue the
+ * maintainer has declined or put on hold ({@link MAINTAINER_MARKS}) plans
+ * nothing at all: no task, so no pickup comment, and no refocus. It still
+ * counts as assigned, so its task is not released either: the mark pauses
+ * the claim, it does not end it. Once the maintainer lifts the mark, the
+ * next pass picks the issue up as before.
  */
 export function planOwnedWorkReconcile(
   assigned: readonly AssignedIssue[],
@@ -188,6 +213,7 @@ export function planOwnedWorkReconcile(
   const upserts: CreateTaskInput[] = [];
   const refocus: string[] = [];
   for (const issue of assigned) {
+    if (isMaintainerMarked(issue)) continue;
     const id = issueTaskId(issue.number);
     const existing = existingById.get(id);
     if (!existing) {
