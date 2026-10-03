@@ -148,7 +148,10 @@ function evaluationTrendPanel(c) {
     svg.appendChild(rect);
   }
   var wrap = el('div', 'eval-trend-wrap');
+  // Epic 0025 slice 2: a decorative trending-up leads the words, beside the
+  // summary's dna heading; setSweptText() keeps it through a locale switch.
   var trendTitle = el('h2', 'detail-h', 'Evolution — is the agent improving?');
+  trendTitle.prepend(iconEl('trending-up'));
   trendTitle.setAttribute('data-i18n', 'evolutionTrendTitle');
   wrap.appendChild(trendTitle);
   wrap.appendChild(svg);
