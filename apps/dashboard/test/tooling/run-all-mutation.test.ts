@@ -13,7 +13,7 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import {
   discoverConfigs,
   formatFailureSummary,
@@ -22,6 +22,7 @@ import {
   parseShard,
   selectConfigFiles,
   shardConfigFiles,
+  wasScored,
 } from '../../../../scripts/ci/run-all-mutation.mjs';
 
 describe('parseDiffRef', () => {
@@ -102,8 +103,8 @@ describe('parseShard / shardConfigFiles (the nightly sweep split across a CI mat
 
 describe('selectConfigFiles', () => {
   const configs = [
-    { file: 'stryker.a.config.mjs', mutate: ['src/a.ts'] },
-    { file: 'stryker.b.config.mjs', mutate: ['src/b.ts', 'src/b2.ts'] },
+    { file: 'stryker.a.config.mjs', mutate: ['src/a.ts'], report: null },
+    { file: 'stryker.b.config.mjs', mutate: ['src/b.ts', 'src/b2.ts'], report: null },
   ];
 
   it('returns every config file in full-sweep mode (diffRef null)', () => {
@@ -168,6 +169,65 @@ describe('discoverConfigs', () => {
     expect(configs.length).toBeGreaterThanOrEqual(100);
     const found = configs.find((c) => c.file === 'stryker.dashboard-gate-schedule.config.mjs');
     expect(found?.mutate).toEqual(['apps/dashboard/src/flight/gate-schedule.ts']);
+    expect(found?.report).toBe('reports/mutation/dashboard-gate-schedule/mutation.json');
+  });
+
+  it("reads each config's JSON report path, and null when a config declares none", () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-discover-report-'));
+    try {
+      // the html report's fileName comes first and must not be taken for it
+      writeFileSync(
+        join(dir, 'stryker.a.config.mjs'),
+        "export default {\n  htmlReporter: { fileName: 'reports/a/index.html' },\n  jsonReporter:{fileName:'reports/a/mutation.json'},\n};\n",
+      );
+      writeFileSync(join(dir, 'stryker.b.config.mjs'), "export default { mutate: ['b.ts'] };\n");
+      writeFileSync(
+        join(dir, 'stryker.c.config.mjs'),
+        "export default {\n  jsonReporter:  {\n    fileName:  'reports/c/mutation.json',\n  },\n};\n",
+      );
+      expect(discoverConfigs(dir)).toEqual([
+        { file: 'stryker.a.config.mjs', mutate: [], report: 'reports/a/mutation.json' },
+        { file: 'stryker.b.config.mjs', mutate: ['b.ts'], report: null },
+        { file: 'stryker.c.config.mjs', mutate: [], report: 'reports/c/mutation.json' },
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('declares a JSON report on every real config, so every exit 1 can be told apart', () => {
+    expect(discoverConfigs().filter((c) => c.report === null)).toEqual([]);
+  });
+});
+
+/**
+ * AN EXIT 1 THAT NEVER SCORED IS NOT A SURVIVOR (2026-10-03). Stryker exits 1
+ * below its break threshold, and ALSO when it stops before scoring — "No
+ * tests were executed", a failed initial test run. The runner read both as a
+ * surviving mutant, so a broken config was filed as a task asking for tests
+ * that kill mutants nobody had tested. Stryker writes a config's JSON report
+ * only once it has scored, so the report on disk after the run is the tell.
+ */
+describe('wasScored', () => {
+  it('is true when the run left its JSON report, false when it left none', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-scored-'));
+    try {
+      expect(wasScored('reports/x/mutation.json', dir)).toBe(false);
+      mkdirSync(join(dir, 'reports', 'x'), { recursive: true });
+      writeFileSync(join(dir, 'reports', 'x', 'mutation.json'), '{}');
+      expect(wasScored('reports/x/mutation.json', dir)).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps the old reading for a config that declares no report, since nothing can say', () => {
+    expect(wasScored(null, tmpdir())).toBe(true);
+  });
+
+  it('resolves the report against the repo root by default', () => {
+    expect(wasScored('package.json')).toBe(true);
+    expect(wasScored('reports/mutation/no-such-config/mutation.json')).toBe(false);
   });
 });
 
@@ -226,6 +286,29 @@ describe('mutationFailureReason', () => {
     expect(mutationFailureReason({ status: 0, signal: null })).toBe(
       'exit 0 — stryker failed before it could score',
     );
+  });
+
+  it('reads exit 1 with no report as a run that never scored, not a surviving mutant', () => {
+    const reason = mutationFailureReason({ status: 1, signal: null }, false);
+    expect(reason).toBe(
+      'exit 1 with no mutation report — stryker stopped before it could score (a config or test-setup error, such as "No tests were executed" or a failed initial test run), not a surviving mutant',
+    );
+    expect(reason).not.toContain('below the break threshold');
+    // and with the report on disk, exit 1 is the break threshold exactly as before
+    expect(mutationFailureReason({ status: 1, signal: null }, true)).toBe(
+      'exit 1 — below the break threshold: a mutant survived',
+    );
+  });
+
+  it('lets only exit 1 depend on the report: a signal or another code reads the same either way', () => {
+    for (const error of [
+      { status: null, signal: 'SIGKILL' },
+      { status: 137, signal: null },
+      { status: 2, signal: null },
+      {},
+    ]) {
+      expect(mutationFailureReason(error, false)).toBe(mutationFailureReason(error, true));
+    }
   });
 });
 

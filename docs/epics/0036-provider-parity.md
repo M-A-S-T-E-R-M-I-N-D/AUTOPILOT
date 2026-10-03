@@ -328,7 +328,17 @@ row. An unknown engine, a missing model or a Claude model refuses the flight ins
 unasked. Since 2026-10-03 a dashboard launch meets that refusal before the lane starts: the flight
 PREFLIGHT (`flight/preflight.ts`) reads the same `firingEngineFromEnv` as its `engine` check, and
 blocks too when the engine's CLI does not answer `--version` on the PATH, since every firing would
-die on the missing binary and, committing nothing, never reach the demotion count.
+die on the missing binary and, committing nothing, never reach the demotion count. Since 2026-10-03
+it also asks a Codex CLI whether it is signed in (GitHub #21's "login detection"), through
+`codexLoginStatus` (`flight/preflight-facts.ts`). `run_login_status` (`codex-rs/cli/src/login.rs`,
+read that day) answers on stderr: exit 0 behind `Logged in using …`, and exit 1 behind either
+`Not logged in` or `Error checking login status: …`. Only `Not logged in` counts as signed out,
+and the `engine` line becomes a warning naming `codex login`. It warns rather than blocks, since
+Codex's own config can route the model to a provider that needs no sign-in, and the preflight
+cannot see that. Nothing is asked while `CODEX_API_KEY` is set: `codex exec` signs in with it
+(`enable_codex_api_key_env`, `codex-rs/exec/src/lib.rs`), and the status verb never reads it. The
+Gemini CLI has no status verb, so a Gemini lane is not asked. A warning shows in `doctor
+<folder>`, not on a dashboard launch, which reports only a refusal.
 
 Since 2026-10-03 one dashboard launch can choose its engine without the dashboard's env, the
 server half of GitHub #21's slice S-last (per-lane pilot selection in the fly bar). A

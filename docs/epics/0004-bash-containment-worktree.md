@@ -362,6 +362,16 @@ site — not which file is written, where it is written, or how it is verified. 
 `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's
 snapshot/audit calls — no new path into `target`, no worktree wiring change.
 
+Freshness check (2026-10-03, once more): `fly.ts` and `prompt.ts` gained one more commit since the
+check above — `add2d4f7` (epic 0036), which lets a Codex lane's prompt name only the wall clock as
+its turn-budget ceiling instead of a cap `codex exec` never enforces. `fly.ts`'s change is only
+which value it passes as `maxTurns` into the firing prompt — the already-resolved
+`firingEngineTurnCap` (`flight/firing-engine.ts`) output, `undefined` for a Codex lane — and
+`turnBudgetSection` (`packages/engine/src/prompt.ts`) drops the turn-cap clause when that value is
+undefined, naming the wall clock alone. The change is confined to prompt-text construction and
+touches neither `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, nor the containment
+guard's snapshot/audit calls — it adds no new path into `target` and changes no worktree wiring.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a

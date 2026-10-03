@@ -18,6 +18,10 @@ import {
   syncMutationRedTasks,
   type MutationRedConfig,
 } from '../../src/control/mutation-red-tasks.js';
+import {
+  formatFailureSummary,
+  mutationFailureReason,
+} from '../../../../scripts/ci/run-all-mutation.mjs';
 
 const TS = '2026-09-28T17:30:46.8569373Z ';
 
@@ -78,6 +82,60 @@ describe('parseMutationLog', () => {
         ],
       },
     ]);
+  });
+
+  it('keeps the survivor reading for a scored config, so it carries no unscored reason', () => {
+    for (const red of parseMutationLog(shardLog())) expect(red).not.toHaveProperty('unscored');
+  });
+
+  /**
+   * A CONFIG THAT NEVER SCORED IS NOT A SURVIVOR TASK (2026-10-03): Stryker
+   * exits 1 for "No tests were executed" too, and the task that came of it
+   * asked for tests to kill mutants no run had ever tested.
+   */
+  it("carries the runner's reason for a config that never scored, from either of its FAILED lines", () => {
+    const never =
+      'exit 1 with no mutation report — stryker stopped before it could score (a config or test-setup error, such as "No tests were executed" or a failed initial test run), not a surviving mutant';
+    const killed = 'killed by SIGKILL — the process died before scoring';
+    const log = [
+      'ERROR DryRunExecutor No tests were executed. Stryker will exit prematurely.',
+      `run-all-mutation: FAILED — stryker.dashboard-ask.config.mjs: ${never} (continuing; summary at the end)`,
+      `run-all-mutation: FAILED — stryker.engine-claude-cli.config.mjs: ${killed} (continuing; summary at the end)`,
+      'run-all-mutation: 0/2 passed',
+      `run-all-mutation: FAILED stryker.dashboard-ask.config.mjs — ${never}`,
+    ]
+      .map((line) => TS + line)
+      .join('\n');
+    expect(parseMutationLog(log)).toEqual([
+      { config: 'stryker.dashboard-ask.config.mjs', survivors: [], unscored: never },
+      { config: 'stryker.engine-claude-cli.config.mjs', survivors: [], unscored: killed },
+    ]);
+    // the summary line alone says the same
+    expect(parseMutationLog(log.split('\n').slice(3).join('\n'))).toEqual([
+      { config: 'stryker.dashboard-ask.config.mjs', survivors: [], unscored: never },
+    ]);
+  });
+
+  it("reads the runner's own output: only the break-threshold exit is a survivor task", () => {
+    const failures = [
+      { file: 'stryker.a.config.mjs', reason: mutationFailureReason({ status: 1 }, true) },
+      { file: 'stryker.b.config.mjs', reason: mutationFailureReason({ status: 1 }, false) },
+      { file: 'stryker.c.config.mjs', reason: mutationFailureReason({ signal: 'SIGKILL' }) },
+      { file: 'stryker.d.config.mjs', reason: mutationFailureReason({ status: 2 }) },
+    ];
+    const red = parseMutationLog(formatFailureSummary(4, failures).join('\n'));
+    expect(red.map((r) => [r.config, r.unscored])).toEqual([
+      ['stryker.a.config.mjs', undefined],
+      ['stryker.b.config.mjs', failures[1]!.reason],
+      ['stryker.c.config.mjs', failures[2]!.reason],
+      ['stryker.d.config.mjs', failures[3]!.reason],
+    ]);
+  });
+
+  it('reads a FAILED line with no reason the old way, as survivors', () => {
+    expect(
+      parseMutationLog(`${TS}run-all-mutation: FAILED — stryker.engine-gate.config.mjs`),
+    ).toEqual([{ config: 'stryker.engine-gate.config.mjs', survivors: [] }]);
   });
 
   it('reads a green shard as no red configs, and strips colour codes', () => {
@@ -212,6 +270,20 @@ describe('mutationRedTaskTitle', () => {
       'MUTATION RED: stryker.engine-stream.config.mjs: mutants survived the nightly run on 0a2aed739c — make the tests kill them',
     );
   });
+
+  it('says a config that never scored needs its run fixed, not more tests', () => {
+    const never: MutationRedConfig = {
+      config: 'stryker.dashboard-ask.config.mjs',
+      survivors: [],
+      unscored: 'exit 1 with no mutation report',
+    };
+    expect(mutationRedTaskTitle(never)).toBe(
+      'MUTATION RED: stryker.dashboard-ask.config.mjs: the nightly run never scored it — no mutant was tested, so fix the run, not the tests',
+    );
+    expect(mutationRedTaskTitle(never, '0a2aed739c')).toBe(
+      'MUTATION RED: stryker.dashboard-ask.config.mjs: the nightly run on 0a2aed739c never scored it — no mutant was tested, so fix the run, not the tests',
+    );
+  });
 });
 
 describe('syncMutationRedTasks', () => {
@@ -309,6 +381,33 @@ describe('syncMutationRedTasks', () => {
       '0a2aed739c',
     );
     expect(tasks()[0]!.body).toContain('`git log --oneline 0a2aed739c..HEAD` first:');
+  });
+
+  it("files a config that never scored with the runner's reason and the way to debug the run, not a call for tests", () => {
+    const never: MutationRedConfig = {
+      config: 'stryker.dashboard-ask.config.mjs',
+      survivors: [],
+      unscored: 'exit 1 with no mutation report — stryker stopped before it could score',
+    };
+    expect(syncMutationRedTasks(store, 'p1', [never], 10, 5, '0a2aed739c')).toEqual({
+      filed: 1,
+      closed: 0,
+    });
+    const [task] = tasks();
+    expect(task!.title).toBe(mutationRedTaskTitle(never, '0a2aed739c'));
+    expect(task!.body).toContain(
+      "The runner's reason: exit 1 with no mutation report — stryker stopped before it could score.",
+    );
+    expect(task!.body).toContain('`git log --oneline 0a2aed739c..HEAD` first:');
+    expect(task!.body).toContain(
+      'pnpm exec stryker run config/mutation/stryker.dashboard-ask.config.mjs --cleanTempDir false',
+    );
+    expect(task!.body).toContain('docs/MUTATION-DEBT.md');
+    expect(task!.body).not.toContain('Kill each one with a test');
+    expect(task!.body).not.toContain('The survivors are listed in the run log.');
+    expect(task!.body).toContain(
+      'This task closes by itself once the config passes the nightly run.',
+    );
   });
 
   it("does not refile a config fixed after the run's evidence was cut, but does once a later run is still red (2026-09-30)", () => {

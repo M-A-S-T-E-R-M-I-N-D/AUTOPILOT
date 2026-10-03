@@ -439,6 +439,18 @@ holds one runner per folder, keyed the same way; both new fields only widen what
 call's status can report. `flight/fly.ts` and `flight/registry.ts` are unchanged. None of the four
 locks below changes; all six slices remain unchanged and live in production.
 
+Freshness check (2026-10-03, once more): `fly.ts` and `prompt.ts` gained one more commit since the
+check above — `add2d4f7` (epic 0036), which lets a Codex lane's prompt name only the wall clock as
+its turn-budget ceiling. `firingEngineTurnCap` (`flight/firing-engine.ts`) already resolved
+`undefined` for a Codex lane (`codex exec` enforces no turn cap); `fly.ts` now passes that resolved
+value, not the flight's raw `maxTurns`, into the firing prompt, and `turnBudgetSection`
+(`packages/engine/src/prompt.ts`) drops the turn-cap clause entirely when it is undefined, naming
+the wall clock alone. A Claude or Gemini lane's prompt stays byte-identical. This is per-lane
+prompt-text construction, read once inside that lane's own `main()` — no board, SOUL or backlog row
+crosses projects because of it, and it opens no cross-project write path. `flight/runner.ts` and
+`flight/registry.ts` are unchanged. None of the four locks below changes; all six slices remain
+unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this

@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   gatherPreflightFacts,
+  codexLoginStatus,
   defaultEngineCliProbe,
   staleEngineLocks,
   distOlderThanSource,
@@ -40,6 +41,7 @@ describe('gatherPreflightFacts against a real scratch repository', () => {
   const noCli = {
     cliVersion: () => null,
     engineCli: () => ({ found: false, version: null }),
+    codexLogin: () => null,
     freeBytes: () => 7,
   };
 
@@ -110,6 +112,63 @@ describe('gatherPreflightFacts against a real scratch repository', () => {
       version: null,
     });
     expect(asked).toEqual(['codex']);
+  });
+
+  it('asks a Codex CLI that answered whether it is signed in, unless CODEX_API_KEY signs `codex exec` in', () => {
+    let asked = 0;
+    const codexLogin = () => {
+      asked += 1;
+      return false;
+    };
+    const engineCli = () => ({ found: true, version: '0.46.0' });
+    const codexEnv = { AUTOPILOT_ENGINE: 'codex', AUTOPILOT_ENGINE_MODEL: 'gpt-5-codex' };
+    const signedOut = gatherPreflightFacts(repo, dbDir, {
+      ...noCli,
+      engineCli,
+      codexLogin,
+      env: codexEnv,
+    });
+    expect(signedOut.engine).toEqual({
+      kind: 'cli',
+      engine: 'codex',
+      model: 'gpt-5-codex',
+      found: true,
+      version: '0.46.0',
+      signedIn: false,
+    });
+    expect(asked).toBe(1);
+    // `codex login status` never reads the key `codex exec` signs in with.
+    const keyed = gatherPreflightFacts(repo, dbDir, {
+      ...noCli,
+      engineCli,
+      codexLogin,
+      env: { ...codexEnv, CODEX_API_KEY: 'placeholder' },
+    });
+    expect(keyed.engine).not.toHaveProperty('signedIn');
+    // A missing CLI, a Gemini lane and a Claude lane are never asked.
+    gatherPreflightFacts(repo, dbDir, { ...noCli, codexLogin, env: codexEnv });
+    gatherPreflightFacts(repo, dbDir, {
+      ...noCli,
+      engineCli,
+      codexLogin,
+      env: { AUTOPILOT_ENGINE: 'gemini', AUTOPILOT_ENGINE_MODEL: 'gemini-2.5-pro' },
+    });
+    gatherPreflightFacts(repo, dbDir, { ...noCli, engineCli, codexLogin, env: {} });
+    expect(asked).toBe(1);
+    // A blank key signs nothing in, so the CLI is asked; an answer that says
+    // nothing about the login adds nothing.
+    let askedUnknown = 0;
+    const unknown = gatherPreflightFacts(repo, dbDir, {
+      ...noCli,
+      engineCli,
+      codexLogin: () => {
+        askedUnknown += 1;
+        return null;
+      },
+      env: { ...codexEnv, CODEX_API_KEY: '  ' },
+    });
+    expect(askedUnknown).toBe(1);
+    expect(unknown.engine).not.toHaveProperty('signedIn');
   });
 
   it('carries the refusal fly.ts would print for an engine setting it cannot honour', () => {
@@ -203,6 +262,23 @@ describe('defaultEngineCliProbe', () => {
       found: false,
       version: null,
     });
+  });
+});
+
+describe('codexLoginStatus — what `codex login status` answered', () => {
+  it('reads exit 0 as signed in, `Not logged in` on exit 1 as signed out, and anything else as unknown', () => {
+    // `run_login_status` (openai/codex codex-rs/cli/src/login.rs) answers on stderr.
+    expect(codexLoginStatus(0, 'Logged in using ChatGPT\n')).toBe(true);
+    expect(codexLoginStatus(0, '')).toBe(true);
+    expect(codexLoginStatus(1, 'Not logged in\n')).toBe(false);
+    // Windows writes the line through a console with CRLF.
+    expect(codexLoginStatus(1, 'Not logged in\r\n')).toBe(false);
+    // Exit 1 also covers a login it could not read, which says nothing either way.
+    expect(codexLoginStatus(1, 'Error checking login status: bad config.toml\n')).toBeNull();
+    expect(codexLoginStatus(1, '')).toBeNull();
+    // A timeout kill, and a status no version of the verb exits with.
+    expect(codexLoginStatus(null, 'Not logged in\n')).toBeNull();
+    expect(codexLoginStatus(2, 'Not logged in\n')).toBeNull();
   });
 });
 

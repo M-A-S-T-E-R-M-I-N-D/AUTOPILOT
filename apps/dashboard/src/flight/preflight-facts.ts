@@ -5,7 +5,8 @@
  * The FACTS `preflight.ts` judges, gathered from the machine: git state of
  * the target and its lane worktrees, the engine lock files, the rescue refs,
  * the build's freshness, free disk, the `claude` binary and, for a lane
- * `AUTOPILOT_ENGINE` routes off Claude, the Codex or Gemini CLI. Synchronous on
+ * `AUTOPILOT_ENGINE` routes off Claude, the Codex or Gemini CLI (and whether
+ * Codex is signed in). Synchronous on
  * purpose — `FlightRunner.start()` is synchronous and every caller of it
  * (the Fly button, the fleet launcher, the fleet watchdog) gets the same
  * gate — and every probe is injectable so the gatherer itself is testable
@@ -104,16 +105,63 @@ export const defaultEngineCliProbe: EngineCliProbe = (binary) => {
   }
 };
 
+/**
+ * What `codex login status` answered (epic 0036, GitHub #21's login
+ * detection). `run_login_status` (openai/codex `codex-rs/cli/src/login.rs`,
+ * read 2026-10-03) answers on stderr: exit 0 behind `Logged in using …`, and
+ * exit 1 either behind `Not logged in`, when no login is stored, or behind
+ * `Error checking login status: …`, which says nothing about one. So only
+ * that one line reads as signed out; any other answer, or a kill, is unknown.
+ */
+export function codexLoginStatus(exitCode: number | null, stderr: string): boolean | null {
+  if (exitCode === 0) return true;
+  if (exitCode !== 1) return null;
+  return stderr.split('\n').some((line) => line.trim() === 'Not logged in') ? false : null;
+}
+
+/** Whether the Codex CLI is signed in: `codexLoginStatus`'s answer. */
+export type CodexLoginProbe = () => boolean | null;
+
+export const defaultCodexLoginProbe: CodexLoginProbe = () => {
+  try {
+    execFileSync('codex', ['login', 'status'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 15_000,
+      // npm's `codex.cmd` shim needs a shell on Windows, as `--version` does.
+      shell: process.platform === 'win32',
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    return codexLoginStatus(0, '');
+  } catch (err) {
+    // A spawn failure carries no status, and a timeout kill a null one.
+    const { status, stderr } = err as { status?: number | null; stderr?: unknown };
+    return codexLoginStatus(status ?? null, typeof stderr === 'string' ? stderr : '');
+  }
+};
+
 /** What `AUTOPILOT_ENGINE` routes the flight to, read the way `fly.ts` reads
  *  it, so the preflight refuses what the flight itself would. */
-export function gatherEngineFact(env: NodeJS.ProcessEnv, probe: EngineCliProbe): EngineFact {
+export function gatherEngineFact(
+  env: NodeJS.ProcessEnv,
+  probe: EngineCliProbe,
+  codexLogin: CodexLoginProbe,
+): EngineFact {
   const choice = firingEngineFromEnv(env);
   if (!choice.ok) return { kind: 'refused', reason: choice.reason };
   const { route } = choice;
   if (route.engine === 'claude') return { kind: 'claude' };
   // Each adapter's default binary is its engine's name (`CodexCliModel`,
   // `GeminiCliModel`), and fly.ts names no other.
-  return { kind: 'cli', engine: route.engine, model: route.model, ...probe(route.engine) };
+  const cli = probe(route.engine);
+  const fact = { kind: 'cli' as const, engine: route.engine, model: route.model, ...cli };
+  // `codex exec` also signs in with a CODEX_API_KEY the lane inherits
+  // (`enable_codex_api_key_env`, codex-rs/exec/src/lib.rs), which `codex
+  // login status` never reads, so such a key leaves nothing to ask.
+  const keyed = (env['CODEX_API_KEY'] ?? '').trim() !== '';
+  if (route.engine !== 'codex' || !cli.found || keyed) return fact;
+  const signedIn = codexLogin();
+  return signedIn === null ? fact : { ...fact, signedIn };
 }
 
 /** The hot path of every firing, relative to the repository root that ships
@@ -139,6 +187,8 @@ export interface GatherOptions {
   readonly cliVersion?: CliVersionProbe;
   /** Asked only when `AUTOPILOT_ENGINE` routes the flight off Claude. */
   readonly engineCli?: EngineCliProbe;
+  /** Asked only of a Codex CLI that answered, with no `CODEX_API_KEY` set. */
+  readonly codexLogin?: CodexLoginProbe;
   /** Free bytes on the volume holding `target`; injectable for tests. */
   readonly freeBytes?: (target: string) => number | null;
   /** The repository the dashboard itself runs from (for build freshness);
@@ -268,7 +318,11 @@ export function gatherPreflightFacts(
     dirtyLanes,
     parkedHeads,
     cli: { found: version !== null, version },
-    engine: gatherEngineFact(env, opts.engineCli ?? defaultEngineCliProbe),
+    engine: gatherEngineFact(
+      env,
+      opts.engineCli ?? defaultEngineCliProbe,
+      opts.codexLogin ?? defaultCodexLoginProbe,
+    ),
     // `dbDir` is the same directory main.ts and cli.ts each derive their
     // connection.json path from (dirname(dbPath)) — reading the REAL
     // configured mode here means every caller gets an honest answer without

@@ -491,8 +491,12 @@ const selfRestart: SelfRestart = {
     {
       // A fresh boot runs migrations + self-onboard before it can answer —
       // the 5s default window was the last remaining way this swap could
-      // report failure on a healthy replacement.
-      verifyHealth: (url) => waitForHealth(`${url}/api/health`, { timeoutMs: 30_000 }),
+      // report failure on a healthy replacement. Then 30s was: the round-71
+      // landing's replacement answered (the fleet launched against it) after
+      // the old process had already given up and told the operator to start
+      // one by hand. A cold boot off the repo's disk is a long, honest wait;
+      // the listen line below prints how long it actually took.
+      verifyHealth: (url) => waitForHealth(`${url}/api/health`, { timeoutMs: 120_000 }),
       onPending: (pending) => {
         restartGuard.pending = pending;
       },
@@ -1201,7 +1205,10 @@ liveServer.current = server;
 
 server.listen(port, LOOPBACK_HOST, () => {
   const url = `http://${LOOPBACK_HOST}:${port}`;
-  process.stdout.write(`AUTOPILOT dashboard → ${url}  (Ctrl+C to stop)\n`);
+  // The boot time is the number the self-restart's health wait is sized by;
+  // printing it keeps that wait honest instead of guessed.
+  const bootSeconds = process.uptime().toFixed(1);
+  process.stdout.write(`AUTOPILOT dashboard → ${url}  (Ctrl+C to stop; up in ${bootSeconds}s)\n`);
   // Foreground runs (`pnpm dashboard`) open the page; the detached service run by
   // the control CLI sets AUTOPILOT_NO_OPEN=1 so only the CLI opens it (once, after
   // a readiness check), never twice.

@@ -789,6 +789,14 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
       },
     ],
   ],
+  // Epic 0025 slice 2: a project page's "Project not found" heading, Lucide's
+  // no-results shape (lucide-static 1.50.0, whose handle is still 4.3 here).
+  'search-x': [
+    ['path', { d: 'm13.5 8.5-5 5' }],
+    ['path', { d: 'm8.5 8.5 5 5' }],
+    ['circle', { cx: '11', cy: '11', r: '8' }],
+    ['path', { d: 'm21 21-4.3-4.3' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;
