@@ -169,6 +169,16 @@ describe('claudeBackendOf', () => {
     expect(claudeBackendOf({ mode: 'endpoint' })).toBeUndefined();
     expect(claudeBackendOf({ mode: 'vertex' })).toBeUndefined();
   });
+
+  // readConnectionConfig keeps every string field whatever the mode, so a
+  // base URL can outlive the endpoint choice; resolveClaudeEnv sets
+  // ANTHROPIC_BASE_URL in endpoint mode only, so the row must not name it.
+  it('names none for a base URL left beside a mode that is not endpoint', () => {
+    const baseUrl = 'http://localhost:11434';
+    expect(claudeBackendOf({ mode: 'subscription', baseUrl })).toBeUndefined();
+    expect(claudeBackendOf({ mode: 'api-key', apiKey: 'k', baseUrl })).toBeUndefined();
+    expect(claudeBackendOf({ mode: 'oauth-token', oauthToken: 't', baseUrl })).toBeUndefined();
+  });
 });
 
 describe('writeConnectionConfig', () => {
