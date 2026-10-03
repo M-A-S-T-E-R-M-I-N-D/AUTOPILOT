@@ -13,6 +13,7 @@ import {
   mergeFitCandidates,
   parseLuckyAttention,
   parseLuckyLocale,
+  poolFitCandidate,
   LUCKY_FIT_MAX,
   type FitCandidate,
   type FitOperator,
@@ -21,7 +22,11 @@ import {
   DECLINED_LABEL,
   isMaintainerMarked,
   planClaimPoolIssue,
+  planPoolBrowseBatch,
+  type PoolBrowseEntry,
+  type PoolIssue,
 } from '../../src/flight/pool-client.js';
+import { claimLedger, type IssueCommentLike } from '../../src/flight/claim-ledger.js';
 import { HOLD_LABELS } from '../../src/flight/issue-triage.js';
 import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 
@@ -184,13 +189,11 @@ describe("luckyFitLine × the maintainer's declined and held issues (regression,
   });
 });
 
-// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the 🍀 roll × the
-// maintainer's marks in another spelling. The pool claim skips `declined`,
-// `status: awaiting-human` and `status: blocked` in any casing, a hyphen read as
-// a space (pool-client.ts isMaintainerMarked). The scorer folded the casing but
-// not the hyphen, so on a repo whose label reads `status: awaiting human` it
-// still ranked the issue the best work to fly, and the claim refused it.
-describe("luckyFitLine × the maintainer's marks in any spelling (regression, epic 0019 additive-only law)", () => {
+// The pool claim reads a maintainer's mark in any casing AND hyphenation
+// (pool-client.ts isMaintainerMarked: `status: awaiting human` is the hold
+// `status: awaiting-human`). The roll folded casing only, so on a repo whose
+// own hold label is spelled with a space it ranked an issue the claim refuses.
+describe("luckyFitLine × the maintainer's marks in any casing or hyphenation (regression, epic 0019 additive-only law)", () => {
   const variants = [
     'Declined',
     'DECLINED',
@@ -201,39 +204,97 @@ describe("luckyFitLine × the maintainer's marks in any spelling (regression, ep
   ];
   const marked = (mark: string) => candidate({ labels: [...candidate().labels, mark] });
 
-  it('reads variants of the three marks, not the marks themselves', () => {
-    for (const mark of variants) {
-      expect([DECLINED_LABEL, ...HOLD_LABELS]).not.toContain(mark);
-      expect(isMaintainerMarked([mark])).toBe(true);
-    }
-  });
-
-  it.each(variants)('never offers a pool issue marked "%s", as the claim skips it', (mark) => {
+  it.each(variants)('never offers an issue marked "%s", which the claim refuses', (mark) => {
+    expect(isMaintainerMarked([mark])).toBe(true);
     expect(planClaimPoolIssue(marked(mark), 'octocat').decision).toBe('skip');
-    expect(luckyFitLine(candidate(), operator())).toBeDefined();
-
     expect(luckyFitLine(marked(mark), operator())).toBeUndefined();
   });
 
-  it('a roll over four issues offers only the unmarked one', () => {
+  it('drops every variant from the shortlist and keeps the unmarked one', () => {
     const fit = luckyFit(
       [
-        { ...marked('status: awaiting human'), number: 16 },
-        { ...marked('Status: Awaiting-Human'), number: 18 },
-        { ...marked('Declined'), number: 19 },
-        candidate({ number: 17, labels: [] }),
+        ...variants.map((mark, i) => ({ ...marked(mark), number: 20 + i })),
+        candidate({ number: 30 }),
       ],
       operator(),
     );
-    expect(fit.considered).toBe(4);
-    expect(fit.shortlist.map((l) => l.number)).toEqual([17]);
+    expect(fit.considered).toBe(variants.length + 1);
+    expect(fit.shortlist.map((l) => l.number)).toEqual([30]);
   });
 
-  it('a label that only resembles a mark is still offered, as the claim still takes it', () => {
-    const lookalike = marked('status: awaiting review');
-    expect(isMaintainerMarked(lookalike.labels)).toBe(false);
-    expect(planClaimPoolIssue(lookalike, 'octocat').decision).toBe('claim');
-    expect(luckyFitLine(lookalike, operator())).toBeDefined();
+  it('still offers an issue whose label only resembles a mark', () => {
+    for (const label of ['declined-upstream', 'status: blocked on ci', 'awaiting-human']) {
+      expect(isMaintainerMarked([label])).toBe(false);
+      expect(luckyFitLine(marked(label), operator())).toBeDefined();
+    }
+  });
+});
+
+// The claims ledger (claim-ledger.ts) reads a pool-client claim comment as a
+// live claim even when its assign failed: GitHub refuses to assign an outside
+// contributor, so only the comment lands (#27). The claim contests such an
+// issue and the Pool panel paints it held. The roll read the assignees alone,
+// so it offered that issue as free work to fly.
+describe('poolFitCandidate × a claim the ledger reads from a comment (regression, #27)', () => {
+  const NOW = Date.parse('2026-10-03T12:00:00Z');
+  const DAY = 24 * 60 * 60 * 1000;
+  const claimedBy = (login: string, daysAgo: number) => ({
+    author: login,
+    createdAt: NOW - daysAgo * DAY,
+    body: `Claimed by ${login} via the pool client.`,
+  });
+  const entryFor = (
+    number: number,
+    comments: readonly IssueCommentLike[],
+    assignees: readonly string[] = [],
+  ) => {
+    const issue: PoolIssue = {
+      number,
+      title: `pool issue ${number}`,
+      url: `https://github.com/o/r/issues/${number}`,
+      labels: candidate().labels,
+      assignees,
+      claims: claimLedger(assignees, comments),
+    };
+    const [entry] = planPoolBrowseBatch([issue], 'octocat', NOW);
+    return entry as PoolBrowseEntry;
+  };
+
+  it('carries the issue through as a pool candidate', () => {
+    expect(poolFitCandidate(entryFor(16, []))).toEqual({
+      number: 16,
+      title: 'pool issue 16',
+      url: 'https://github.com/o/r/issues/16',
+      labels: candidate().labels,
+      assignees: [],
+      source: 'pool',
+    });
+  });
+
+  it('never offers an issue held only by a live claim comment, which the claim contests', () => {
+    const held = entryFor(16, [claimedBy('gabibi555', 2)]);
+    expect(held.issue.assignees).toEqual([]);
+    expect(held.decision.decision).toBe('contest');
+    expect(luckyFitLine(poolFitCandidate(held), operator())).toBeUndefined();
+  });
+
+  it('still offers an issue whose comment claim went stale, which the claim releases', () => {
+    const stale = entryFor(16, [claimedBy('gabibi555', 20)]);
+    expect(stale.decision.decision).toBe('claim');
+    expect(luckyFitLine(poolFitCandidate(stale), operator())).toBeDefined();
+  });
+
+  it('drops the held and the assigned from the shortlist and still counts them as considered', () => {
+    const fit = luckyFit(
+      [
+        entryFor(16, [claimedBy('gabibi555', 2)]),
+        entryFor(17, [], ['someone']),
+        entryFor(18, []),
+      ].map(poolFitCandidate),
+      operator(),
+    );
+    expect(fit.considered).toBe(3);
+    expect(fit.shortlist.map((l) => l.number)).toEqual([18]);
   });
 });
 
