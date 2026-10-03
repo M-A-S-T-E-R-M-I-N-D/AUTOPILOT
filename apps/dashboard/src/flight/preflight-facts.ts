@@ -6,7 +6,7 @@
  * the target and its lane worktrees, the engine lock files, the rescue refs,
  * the build's freshness, free disk, the `claude` binary and, for a lane
  * `AUTOPILOT_ENGINE` routes off Claude, the Codex or Gemini CLI (and whether
- * Codex is signed in). Synchronous on
+ * Codex is signed in, or Gemini has an auth method set). Synchronous on
  * purpose — `FlightRunner.start()` is synchronous and every caller of it
  * (the Fly button, the fleet launcher, the fleet watchdog) gets the same
  * gate — and every probe is injectable so the gatherer itself is testable
@@ -15,7 +15,8 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statfsSync } from 'node:fs';
-import { join } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import {
   parseLockInfo,
   isProcessAlive,
@@ -140,12 +141,168 @@ export const defaultCodexLoginProbe: CodexLoginProbe = () => {
   }
 };
 
+/** Whether an env names an auth type as gemini-cli's `getAuthTypeFromEnv`
+ *  (`packages/core/src/core/contentGenerator.ts`, read 2026-10-03) picks
+ *  one: Google login, Vertex AI, a gateway base URL, an API key, or the
+ *  machine's own Google credentials. */
+function geminiEnvNamesAuth(env: Readonly<Record<string, string | undefined>>): boolean {
+  return (
+    env['GOOGLE_GENAI_USE_GCA'] === 'true' ||
+    env['GOOGLE_GENAI_USE_VERTEXAI'] === 'true' ||
+    Boolean(env['GOOGLE_GEMINI_BASE_URL']) ||
+    Boolean(env['GEMINI_API_KEY']) ||
+    env['CLOUD_SHELL'] === 'true' ||
+    env['GEMINI_CLI_USE_COMPUTE_ADC'] === 'true'
+  );
+}
+
+const DOT_ENV_LINE = /^\s*(?:export\s+)?([\w.-]+)\s*=(.*)$/;
+const DOT_ENV_QUOTED = /^(['"`])([\s\S]*?)\1/;
+
+/** A `.env` file's values as dotenv's `parse`, which gemini-cli's
+ *  `loadEnvironment` uses, reads them: an optional `export`, a quoted value
+ *  whole, an unquoted one up to its first `#`. */
+function dotEnvValues(text: string): Record<string, string> {
+  const entries: [string, string][] = [];
+  for (const line of text.split(/\r?\n/)) {
+    const match = DOT_ENV_LINE.exec(line);
+    if (match === null) continue;
+    const raw = (match[2] ?? '').trim();
+    const quoted = DOT_ENV_QUOTED.exec(raw);
+    entries.push([match[1] ?? '', quoted ? (quoted[2] ?? '') : (raw.split('#')[0] ?? '').trim()]);
+  }
+  return Object.fromEntries(entries);
+}
+
+function ownField(value: unknown, key: string): unknown {
+  return value !== null && typeof value === 'object' && Object.hasOwn(value, key)
+    ? (value as Record<string, unknown>)[key]
+    : undefined;
+}
+
+const SELECTED_TYPE_TEXT = /"selectedType"\s*:\s*"[^"\s]/;
+
+/** Whether one settings file selects an auth type
+ *  (`security.auth.selectedType`). gemini-cli strips comments before it
+ *  parses (`loadSettings`, `packages/cli/src/config/settings.ts`), which
+ *  `JSON.parse` cannot: a file it cannot parse that still shows a selected
+ *  type selects one, and one that shows none is unknown. */
+function geminiSettingsSelectAuth(text: string): boolean | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return SELECTED_TYPE_TEXT.test(text) ? true : null;
+  }
+  const selected = ownField(ownField(ownField(parsed, 'security'), 'auth'), 'selectedType');
+  return typeof selected === 'string' && selected.trim() !== '';
+}
+
+/** The files {@link geminiAuthConfigured} reads, as text, null for one that
+ *  is not there. */
+export interface GeminiAuthFiles {
+  /** The settings files gemini-cli merges. */
+  readonly settings: readonly (string | null)[];
+  /** The `.env` files it may load. */
+  readonly dotEnvs: readonly (string | null)[];
+}
+
+/**
+ * Whether a headless `gemini` run would find an auth method (epic 0036,
+ * GitHub #21's login detection). The CLI has no status verb, so this reads
+ * where `validateNonInteractiveAuth` (`packages/cli/src/validateNonInterActiveAuth.ts`,
+ * read 2026-10-03) looks: the merged settings' `security.auth.selectedType`,
+ * else an auth type the env names, a `.env` file's included, since
+ * `loadEnvironment` loads one into the env first. With neither the run exits
+ * `FATAL_AUTHENTICATION_ERROR` before its first turn. True when any source
+ * names one, false when every source was read and none did, and null when a
+ * settings file could not be parsed.
+ */
+export function geminiAuthConfigured(
+  env: Readonly<Record<string, string | undefined>>,
+  files: GeminiAuthFiles,
+): boolean | null {
+  if (geminiEnvNamesAuth(env)) return true;
+  if (files.dotEnvs.some((text) => text !== null && geminiEnvNamesAuth(dotEnvValues(text)))) {
+    return true;
+  }
+  let unknown = false;
+  for (const text of files.settings) {
+    if (text === null) continue;
+    const selects = geminiSettingsSelectAuth(text);
+    if (selects === true) return true;
+    if (selects === null) unknown = true;
+  }
+  return unknown ? null : false;
+}
+
+/** Whether the Gemini CLI a lane inherits `env` for has an auth method set:
+ *  {@link geminiAuthConfigured}'s answer. */
+export type GeminiAuthProbe = (env: NodeJS.ProcessEnv) => boolean | null;
+
+/** A file's text, or null when nothing is there; one that is there but
+ *  cannot be read throws. */
+export type ReadTextIfPresent = (path: string) => string | null;
+
+const readTextIfPresent: ReadTextIfPresent = (path) =>
+  existsSync(path) ? readFileSync(path, 'utf8') : null;
+
+/** `dir` and every folder above it, nearest first. */
+function selfAndAncestors(dir: string): string[] {
+  const parent = dirname(dir);
+  return parent === dir ? [dir] : [dir, ...selfAndAncestors(parent)];
+}
+
+/**
+ * The {@link GeminiAuthProbe} for a lane flying `target`. It reads the user
+ * settings under `GEMINI_CLI_HOME` or the home folder (gemini-cli's own
+ * `homedir()`), the target's `.gemini/settings.json`, which a lane's
+ * worktree checks out, and `GEMINI_CLI_SYSTEM_DEFAULTS_PATH` when set. The
+ * machine's own system settings never merge: a lane's system settings file
+ * is its guard file. Every `.env` that `findEnvFile` might load counts, from
+ * the target up, then the home folder's. The CLI loads only the first it
+ * finds, from the lane's worktree up, so counting each can miss an unset
+ * method but never invents one. A file it cannot read answers null.
+ */
+export function geminiAuthProbeFor(
+  target: string,
+  readText: ReadTextIfPresent = readTextIfPresent,
+): GeminiAuthProbe {
+  return (env) => {
+    if (geminiEnvNamesAuth(env)) return true;
+    const home = env['GEMINI_CLI_HOME'] || homedir();
+    const defaults = env['GEMINI_CLI_SYSTEM_DEFAULTS_PATH'];
+    const settingsPaths = [
+      join(home, '.gemini', 'settings.json'),
+      join(target, '.gemini', 'settings.json'),
+      ...(defaults ? [defaults] : []),
+    ];
+    const dotEnvPaths = [
+      ...selfAndAncestors(resolve(target)).flatMap((dir) => [
+        join(dir, '.gemini', '.env'),
+        join(dir, '.env'),
+      ]),
+      join(home, '.gemini', '.env'),
+      join(home, '.env'),
+    ];
+    try {
+      return geminiAuthConfigured(env, {
+        settings: settingsPaths.map((path) => readText(path)),
+        dotEnvs: dotEnvPaths.map((path) => readText(path)),
+      });
+    } catch {
+      return null;
+    }
+  };
+}
+
 /** What `AUTOPILOT_ENGINE` routes the flight to, read the way `fly.ts` reads
  *  it, so the preflight refuses what the flight itself would. */
 export function gatherEngineFact(
   env: NodeJS.ProcessEnv,
   probe: EngineCliProbe,
   codexLogin: CodexLoginProbe,
+  geminiAuth: GeminiAuthProbe,
 ): EngineFact {
   const choice = firingEngineFromEnv(env);
   if (!choice.ok) return { kind: 'refused', reason: choice.reason };
@@ -155,11 +312,15 @@ export function gatherEngineFact(
   // `GeminiCliModel`), and fly.ts names no other.
   const cli = probe(route.engine);
   const fact = { kind: 'cli' as const, engine: route.engine, model: route.model, ...cli };
+  if (!cli.found) return fact;
+  if (route.engine === 'gemini') {
+    const authConfigured = geminiAuth(env);
+    return authConfigured === null ? fact : { ...fact, authConfigured };
+  }
   // `codex exec` also signs in with a CODEX_API_KEY the lane inherits
   // (`enable_codex_api_key_env`, codex-rs/exec/src/lib.rs), which `codex
   // login status` never reads, so such a key leaves nothing to ask.
-  const keyed = (env['CODEX_API_KEY'] ?? '').trim() !== '';
-  if (route.engine !== 'codex' || !cli.found || keyed) return fact;
+  if ((env['CODEX_API_KEY'] ?? '').trim() !== '') return fact;
   const signedIn = codexLogin();
   return signedIn === null ? fact : { ...fact, signedIn };
 }
@@ -189,6 +350,9 @@ export interface GatherOptions {
   readonly engineCli?: EngineCliProbe;
   /** Asked only of a Codex CLI that answered, with no `CODEX_API_KEY` set. */
   readonly codexLogin?: CodexLoginProbe;
+  /** Asked only of a Gemini CLI that answered; reads the files
+   *  {@link geminiAuthProbeFor} names for the target when omitted. */
+  readonly geminiAuth?: GeminiAuthProbe;
   /** Free bytes on the volume holding `target`; injectable for tests. */
   readonly freeBytes?: (target: string) => number | null;
   /** The repository the dashboard itself runs from (for build freshness);
@@ -322,6 +486,7 @@ export function gatherPreflightFacts(
       env,
       opts.engineCli ?? defaultEngineCliProbe,
       opts.codexLogin ?? defaultCodexLoginProbe,
+      opts.geminiAuth ?? geminiAuthProbeFor(target),
     ),
     // `dbDir` is the same directory main.ts and cli.ts each derive their
     // connection.json path from (dirname(dbPath)) — reading the REAL

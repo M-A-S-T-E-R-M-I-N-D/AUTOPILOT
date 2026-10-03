@@ -40,6 +40,11 @@ export type EngineFact =
        *  Codex alone has the verb, and a `CODEX_API_KEY` leaves nothing to
        *  ask (`preflight-facts.ts`'s `codexLoginStatus`). */
       readonly signedIn?: boolean;
+      /** Whether gemini-cli would find an auth method, present only when the
+       *  preflight could tell: Gemini has no status verb, so it reads where
+       *  `validateNonInteractiveAuth` looks (`preflight-facts.ts`'s
+       *  `geminiAuthConfigured`). */
+      readonly authConfigured?: boolean;
     };
 
 export interface PreflightCheck extends DoctorCheck {
@@ -94,7 +99,10 @@ function gib(bytes: number): string {
  *  either miss fails every firing, and a firing that commits nothing gives
  *  the demotion count nothing to judge. A Codex CLI that is not signed in
  *  only warns: its own config can route the model to a provider that needs
- *  no sign-in, which no answer here can see. A Claude lane adds no line. */
+ *  no sign-in, which no answer here can see. A Gemini CLI with no auth
+ *  method set only warns too: the lane looks for a `.env` from its own
+ *  worktree up, and the preflight walks up from the target instead. A Claude
+ *  lane adds no line. */
 function engineCheck(engine: EngineFact): PreflightCheck | null {
   if (engine.kind === 'claude') return null;
   if (engine.kind === 'refused') {
@@ -116,6 +124,14 @@ function engineCheck(engine: EngineFact): PreflightCheck | null {
       name: 'engine',
       ok: true,
       detail: `${running} is not signed in (\`codex login status\`) — every firing fails unless ${cli}'s own config routes the model to a provider that needs no sign-in; run \`codex login\`, or set CODEX_API_KEY`,
+    };
+  }
+  if (engine.authConfigured === false) {
+    return {
+      level: 'warn',
+      name: 'engine',
+      ok: true,
+      detail: `${running} has no auth method set (\`security.auth.selectedType\` in its settings, or GEMINI_API_KEY, GOOGLE_GENAI_USE_VERTEXAI or GOOGLE_GENAI_USE_GCA in the env or a .env file) — every firing exits before its first turn; run \`gemini\` once and sign in, or set GEMINI_API_KEY`,
     };
   }
   return {
