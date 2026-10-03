@@ -20,6 +20,16 @@ main-version bug reports upstream, contribute fixes/features, and can sync ANY
 autopiloted project to GitHub with one action. The maintainer (founder) additionally
 needs the first-push capability — main version to a private repo, for testing, now.
 
+Freshness check (2026-10-03): `connect-panel.ts` gained one more commit since this doc's
+2026-10-02 slice-5 refresh — `42df2d51` (epic 0036), which adds the endpoint, Bedrock and
+Vertex AI-model connection modes to the CONNECT form (`connectModeMeta`'s three new
+branches, plus the new `connectRequestBody`). That change is confined to the AI-provider
+credential functions; the GitHub-facing functions this epic documents — `ghStatusMeta`
+(slice 1) and `ghLtsMeta` (slice 4) — are untouched, and no `gh`-related POST body,
+route, or markup changed. None of the six acceptance criteria above change; the
+"no token ever persisted" constraint still holds by the same grep-provable construction;
+all five slices remain unchanged and live in production.
+
 ## Doctrine fit (why this design)
 
 The product already refuses to hold model credentials — it rides the operator's own
