@@ -141,10 +141,10 @@ function carriedMark(labels: readonly string[], marks: readonly string[]): strin
  *  ({@link DECLINED_LABEL}) or on hold until they lift it by hand ({@link
  *  HOLD_LABELS}), in any casing or hyphenation. The claim and the stale-claim
  *  reaper here, the Good-first list (contributor-issue-list.ts, which
- *  re-exports it), the Collaboration panel's help-wanted and roadmap groups and
- *  the mirror pass all read this one predicate, so no listing offers an issue
- *  the claim refuses (epic 0019 law 2: the maintainer's mark outranks a
- *  listing). */
+ *  re-exports it), the Collaboration panel's help-wanted and roadmap groups,
+ *  the mirror pass and the owned-work ingest (owned-work-reconcile.ts) all read
+ *  this one predicate, so no listing offers an issue the claim refuses (epic
+ *  0019 law 2: the maintainer's mark outranks a listing). */
 export function isMaintainerMarked(labels: readonly string[]): boolean {
   return carriedMark(labels, [DECLINED_LABEL, ...HOLD_LABELS]) !== undefined;
 }
