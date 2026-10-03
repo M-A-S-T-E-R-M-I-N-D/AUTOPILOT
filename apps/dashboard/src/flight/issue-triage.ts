@@ -201,6 +201,19 @@ const DECLINED_LABEL = 'declined';
  *  pool claim (pool-client.ts) holds on the same labels. */
 export const HOLD_LABELS = ['status: awaiting-human', 'status: blocked'] as const;
 
+/** The first of `labels` that is one of `marks` in any casing, a hyphen read
+ *  as a space, spelled as the issue carries it, or `undefined` when none is.
+ *  A repo's own label may read `Declined` or `Status: Blocked` rather than the
+ *  seeder's spelling, and it is still the maintainer's mark: the pool claim,
+ *  the stale-claim reaper and the lists already read it so (pool-client.ts
+ *  isMaintainerMarked). That module imports this one, so the comparison is
+ *  restated here rather than imported back into a cycle. */
+function carriedMark(labels: readonly string[], marks: readonly string[]): string | undefined {
+  const fold = (label: string): string => label.toLowerCase().replace(/-/g, ' ').trim();
+  const wanted = marks.map(fold);
+  return labels.find((label) => wanted.includes(fold(label)));
+}
+
 /**
  * Is this issue the maintainer's own?
  *
@@ -579,7 +592,7 @@ export function classifyIssueMilestone(text: string): MilestoneTitle {
  * firing, no matter how it would otherwise classify. Nor may one the
  * maintainer has declined ({@link DECLINED_LABEL}) or put on hold by hand
  * ({@link HOLD_LABELS} — epic 0019 law 2: a maintainer's mark outranks
- * triage). An issue a previous
+ * triage), either mark read in any casing ({@link carriedMark}). An issue a previous
  * pass already handled — one carrying a `pool: *` or `duplicate` label, or
  * whose own {@link issueTaskId} task is already on the board (the labeling
  * half may have failed) — also plans a `'skip'`: without that, an accepted
@@ -618,7 +631,7 @@ export function planIssueTriage(
           'previous KEEPER pass — skipping so re-runs never post the dossier twice.',
       };
     }
-    const mark = [DECLINED_LABEL, ...HOLD_LABELS].find((label) => labels.includes(label));
+    const mark = carriedMark(labels, [DECLINED_LABEL, ...HOLD_LABELS]);
     if (mark) {
       return {
         decision: 'skip',
@@ -646,15 +659,16 @@ export function planIssueTriage(
         'a human has claimed it, so the fleet must not pick it onto the board.',
     };
   }
-  if (labels.includes(DECLINED_LABEL)) {
+  const declined = carriedMark(labels, [DECLINED_LABEL]);
+  if (declined) {
     return {
       decision: 'skip',
       reasoning:
-        `#${issue.number} "${issue.title}" carries "${DECLINED_LABEL}" — the maintainer has ` +
+        `#${issue.number} "${issue.title}" carries "${declined}" — the maintainer has ` +
         'answered it, so the fleet must not pick it onto the board.',
     };
   }
-  const holdLabel = HOLD_LABELS.find((label) => labels.includes(label));
+  const holdLabel = carriedMark(labels, HOLD_LABELS);
   if (holdLabel) {
     return {
       decision: 'skip',
