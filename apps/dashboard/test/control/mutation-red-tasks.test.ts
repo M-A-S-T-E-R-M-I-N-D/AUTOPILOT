@@ -360,6 +360,10 @@ describe('syncMutationRedTasks', () => {
     expect(task!.body).toContain(
       "The run judged 2cf6e9195c. Check `git log --oneline 2cf6e9195c..HEAD -- '*/rate-limit.*' '*/window.*'` first:",
     );
+    // …and how to park it when one has, so the next firing does not re-check it.
+    expect(task!.body).toContain(
+      "Park it then with a `VERDICT close` naming this task's id: the board holds it until a later run rules on it.",
+    );
     // A later run judging another head is the same config's task, not a second one.
     expect(syncMutationRedTasks(store, 'p1', [rateLimit], 20, 15, 'aaaaaaaaaa')).toEqual({
       filed: 0,
@@ -421,6 +425,43 @@ describe('syncMutationRedTasks', () => {
     expect(syncMutationRedTasks(store, 'p1', run, 100, 5)).toEqual({ filed: 0, closed: 0 });
     // The next nightly run judged a head cut at 200, after the fix, and is still red.
     expect(syncMutationRedTasks(store, 'p1', run, 300, 200)).toEqual({ filed: 1, closed: 0 });
+  });
+
+  describe('a parked task (2026-10-03)', () => {
+    // A firing that finds the fix landed after the judged head parks the task
+    // with a VERDICT, which defers it. The sync read only open and done rows,
+    // so the next landing re-read the same run and filed the config again
+    // under a new id: three firings in a row re-checked the same six tasks.
+    const run = [red('stryker.engine-gate.config.mjs')];
+    const parkAt = (updatedAt: number): void => {
+      syncMutationRedTasks(store, 'p1', run, 10, 5);
+      store.db.prepare("UPDATE tasks SET status = 'deferred', updated_at = ?").run(updatedAt);
+    };
+    const statuses = (): string[] =>
+      (
+        store.db.prepare('SELECT status FROM tasks ORDER BY created_at').all() as {
+          status: string;
+        }[]
+      ).map((t) => t.status);
+
+    it('is not filed again from the evidence it was parked on', () => {
+      parkAt(50);
+      // A landing at 100 reads the run whose evidence was cut at 5, before the park at 50.
+      expect(syncMutationRedTasks(store, 'p1', run, 100, 5)).toEqual({ filed: 0, closed: 0 });
+      expect(statuses()).toEqual(['deferred']);
+    });
+
+    it('is retired for the fresh evidence when a later run is still red', () => {
+      parkAt(50);
+      expect(syncMutationRedTasks(store, 'p1', run, 300, 200)).toEqual({ filed: 1, closed: 1 });
+      expect(statuses()).toEqual(['done', 'needs_approval']);
+    });
+
+    it('closes once the latest run no longer lists its config as red', () => {
+      parkAt(50);
+      expect(syncMutationRedTasks(store, 'p1', [], 100, 5)).toEqual({ filed: 0, closed: 1 });
+      expect(statuses()).toEqual(['done']);
+    });
   });
 
   it('closes the task of a config the latest run no longer lists as red', () => {
