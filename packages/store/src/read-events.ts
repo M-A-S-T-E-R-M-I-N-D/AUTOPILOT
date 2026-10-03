@@ -615,6 +615,13 @@ const DIRTY_TREE_REFUSAL = /^refused: uncommitted/;
  * refusal (or a row with no reason at all) is `no-checks`. A thrown port goes
  * through the same error-text patterns as any other row, and lands on `crash`
  * when none of them match: it ran and crashed, so `unparsable` would hide it.
+ *
+ * Only the first line of `gateError` is read. A crashed GateRunner's details
+ * are its verdict line with the command's raw output tail beneath it, and
+ * that tail is the tool's own text: vitest's "Timeout waiting for worker to
+ * respond" under a workers-never-started crash is not a timeout. The revert
+ * check comes first because `firing.ts` writes that prefix itself and then
+ * appends git's own message, which can name a timeout of its own.
  */
 export function classifyUnverifiableCause(record: {
   readonly gateChecks?: unknown;
@@ -626,9 +633,10 @@ export function classifyUnverifiableCause(record: {
     return 'no-checks';
   }
   if (error === null) return 'unparsable';
-  if (/timeout|timed out/i.test(error)) return 'timeout';
-  if (/revert failed/i.test(error)) return 'revert-failed';
-  if (/crash/i.test(error) || checks.length === 0) return 'crash';
+  const verdict = error.split('\n', 1)[0] ?? '';
+  if (/revert failed/i.test(verdict)) return 'revert-failed';
+  if (/timeout|timed out/i.test(verdict)) return 'timeout';
+  if (/crash/i.test(verdict) || checks.length === 0) return 'crash';
   return 'unparsable';
 }
 
