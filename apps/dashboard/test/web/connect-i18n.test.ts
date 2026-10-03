@@ -111,6 +111,9 @@ describe('the spliced connect-panel helpers compose their sentences through the 
     expect(out).toMatch(reads('connectTokenPlaceholder'));
     expect(out).toMatch(reads('connectOauthTokenHint'));
     expect(out).toMatch(reads('connectSubscriptionHint'));
+    expect(out).toMatch(reads('connectEndpointHint'));
+    expect(out).toMatch(reads('connectBedrockHint'));
+    expect(out).toMatch(reads('connectVertexHint'));
     expect(out).not.toMatch(/["']Stored locally \(0600\)/);
     expect(out).not.toMatch(/["']Subscription OAuth token["']/);
   });

@@ -194,8 +194,15 @@ refuses a base URL carrying userinfo, a query or a fragment: `describeAuth` name
 URL in the status the dashboard renders, and a credential belongs in the token field, which the
 status never returns. The status counts an endpoint ready on its base URL alone, since a local
 server takes no token, and Bedrock ready as soon as the CLI is, since its AWS credentials are
-ambient. The connect panel offers none of the three yet (GitHub #21's slice S1); until it does, a
-`POST /api/connection` with the mode's fields is the route.
+ambient. Since 2026-10-03 the connect panel offers all three too (GitHub #21's slice S1). Each
+has a fieldset of its own in `shell.ts`'s connect form: the endpoint's base URL (required, `type="url"`)
+and optional token, Bedrock's optional AWS region, and Vertex's required project and optional
+region. `features/connect.ts` shows only the chosen mode's fieldset and disables the rest, so a
+hidden required field never blocks a Save, and it clears a token whose mode is left. The POST body
+is `connectRequestBody`'s (`web/connect-panel.ts`): the mode and its own fields only. Before, a
+stored endpoint, Bedrock or Vertex mode left the select blank, and a Save then posted an empty mode
+that `validateConnect` refused. The fields are not filled back in from the stored config, since the
+status DTO carries only the mode's description.
 
 **3. OpenAI Codex CLI** (Apache-2.0, local) — `codex exec --json` is the non-interactive mode
 (no TUI), returning newline-delimited JSON events
@@ -427,8 +434,8 @@ disconnected reference doc that can drift out of sync with it.
 | --- | --- | --- | --- | --- |
 | Claude Code CLI (`ClaudeCliModel`/streaming) | Yes — `--resume`, envelope carries `session_id` | Yes — full loop | Real, from CLI envelope | **Shipped** |
 | Ollama (`OllamaModel`) | No | No — single-turn only | Real `$0` (local compute) | **Shipped**, triage-only lane |
-| Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`); since 2026-10-03 a lane flies on it from `connection.json` (`readConnectionConfig`, `validateConnect`); no connect-panel option yet |
-| Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`); since 2026-10-03 a lane flies on it from `connection.json`, as Bedrock does; no connect-panel option yet |
+| Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`); since 2026-10-03 a lane flies on it from `connection.json` (`readConnectionConfig`, `validateConnect`), chosen in the connect panel |
+| Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`); since 2026-10-03 a lane flies on it from `connection.json`, chosen in the connect panel, as Bedrock is |
 | OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Routed** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); since 2026-10-02 a lane flies on it under `AUTOPILOT_ENGINE=codex` + `AUTOPILOT_ENGINE_MODEL` (`flight/firing-engine.ts`), demoted after two reverted firings in a row; since 2026-10-02 it runs the containment guard as its `PreToolUse` hook on every shell call and `apply_patch` (`codexGuardArgs`, `codex-guard.ts`, finding 3), and reports the calls it denied from a per-run deny log (`codexGuardDenialsFromLog`) |
 | Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed); a stale id retries cold | Yes — full loop | **None** — token counts only, no price | **Routed** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); since 2026-10-02 a lane flies on it under `AUTOPILOT_ENGINE=gemini` + `AUTOPILOT_ENGINE_MODEL` (`flight/firing-engine.ts`), its `BeforeTool` guard written and verified per instance (`geminiGuardSettingsFileName`), the worktree trusted per session, each run held to the flight's turn cap (`model.maxSessionTurns`, since 2026-10-03), demoted after two reverted firings in a row |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | `--output-format=json` exists but its wire schema is undocumented and unverifiable (closed-source binary) | **Blocked** — needs a real captured output sample before an adapter can be fixture-tested |
