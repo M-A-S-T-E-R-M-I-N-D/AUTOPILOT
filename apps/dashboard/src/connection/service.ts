@@ -120,7 +120,10 @@ const CLOUD_NAME = /^[A-Za-z0-9._:-]+$/;
 
 function cloudName(value: unknown, what: string): string | undefined {
   const name = trimmed(value);
-  if (name !== undefined && !CLOUD_NAME.test(name)) {
+  // An absent name stays `undefined` through `?.`; only a present name that
+  // fails to match yields `null`. (A `name !== undefined` guard here changed
+  // nothing: `CLOUD_NAME.test(undefined)` tests the word "undefined", a match.)
+  if (name?.match(CLOUD_NAME) === null) {
     throw new Error(`${what} must be one word of letters, digits, '.', ':', '_' or '-'`);
   }
   return name;
