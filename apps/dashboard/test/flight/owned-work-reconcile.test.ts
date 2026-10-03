@@ -990,3 +990,101 @@ describe("owned work × the maintainer's declined and held issues (regression, e
       expect(commentedIssues(lifted)).toEqual(['8']);
     }));
 });
+
+// Epic 0019 additive-only law, the owned-work ingest × the maintainer's marks
+// in another casing. The pool claim skips `declined`, `status: awaiting-human`
+// and `status: blocked` in any casing or hyphenation (pool-client.ts
+// isMaintainerMarked), and so do the contributor lists and the mirror pass.
+// The ingest matched them exactly, so on a repo whose label reads `Declined`
+// the claim refused the issue while the ingest still made it a focused task,
+// posted "Picked up" on it, and refocused it on every takeoff.
+describe("owned work × the maintainer's marks in any casing (regression, epic 0019 additive-only law)", () => {
+  const variants = [
+    'Declined',
+    'DECLINED',
+    'Status: Awaiting-Human',
+    'status: awaiting human',
+    'Status: Blocked',
+  ];
+  const issueFor = (number: number, labels: readonly string[]) => ({
+    number,
+    title: `Fix the thing ${number}`,
+    url: `https://github.com/example/repo/issues/${number}`,
+    labels,
+  });
+  const ghRow = (number: number, labels: readonly string[]) => ({
+    ...issueFor(number, []),
+    labels: labels.map((name) => ({ name })),
+  });
+
+  function withStore(run: (s: Store) => Promise<void>): Promise<void> {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-owned-work-casing-db-'));
+    const s = openStore(join(dbDir, 'a.db'));
+    migrate(s);
+    project(s, 'p1');
+    return run(s).finally(() => {
+      s.close();
+      cleanupDir(dbDir);
+    });
+  }
+
+  function commentedIssues(exec: CliExec): string[] {
+    return (vi.mocked(exec).mock.calls as [string, readonly string[]][])
+      .filter(([, args]) => args[0] === 'issue' && args[1] === 'comment')
+      .map(([, args]) => args[2] ?? '');
+  }
+
+  it('reads variants the pool claim skips, not the marks themselves', () => {
+    for (const mark of variants) {
+      expect([DECLINED_LABEL, ...HOLD_LABELS]).not.toContain(mark);
+      const claim = planClaimPoolIssue(
+        { ...issueFor(8, ['pool: ux', mark]), assignees: [] },
+        'octocat',
+      );
+      expect(claim.decision).toBe('skip');
+    }
+  });
+
+  it.each(variants)(
+    'plans no task, refocus or release for an assigned issue marked "%s"',
+    (mark) => {
+      const existing: OwnedWorkBoardTask[] = [
+        { id: 'github-7', body: claimContractBody(7), focus: 1, status: 'queued' },
+        { id: 'github-8', body: claimContractBody(8), focus: 0, status: 'queued' },
+      ];
+
+      const fresh = planOwnedWorkReconcile([issueFor(6, [mark])], [], 'octocat', 'p1', 100);
+      const known = planOwnedWorkReconcile(
+        [issueFor(7, [mark]), issueFor(8, [mark])],
+        existing,
+        'octocat',
+        'p1',
+        200,
+      );
+
+      expect(fresh).toEqual({ upserts: [], refocus: [], release: [] });
+      expect(known).toEqual({ upserts: [], refocus: [], release: [] });
+    },
+  );
+
+  it.each(variants)(
+    'creates no task and posts no pickup comment for an assigned issue marked "%s"',
+    (mark) =>
+      withStore(async (s) => {
+        const exec = execFor([ghRow(8, [mark]), ghRow(9, [])], 'octocat');
+
+        const result = await reconcileOwnedWork(exec, s, 'p1', [], () => 100);
+
+        expect(result).toMatchObject({ created: 1, focused: 0, released: 0, commented: 1 });
+        expect(tasks(s, 'p1')).toEqual([expect.objectContaining({ id: 'github-9', focus: 1 })]);
+        expect(commentedIssues(exec)).toEqual(['9']);
+      }),
+  );
+
+  it('still picks up an assigned issue whose label only resembles a mark', () => {
+    for (const label of ['declined later', 'status: unblocked', 'not declined']) {
+      const plan = planOwnedWorkReconcile([issueFor(8, [label])], [], 'octocat', 'p1', 100);
+      expect(plan.upserts).toEqual([expect.objectContaining({ id: 'github-8' })]);
+    }
+  });
+});

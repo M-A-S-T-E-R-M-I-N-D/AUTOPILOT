@@ -413,7 +413,15 @@ propagation, and the filled style does not match the nav.
    words alone, and `setSweptText()` keeps the icon across a locale switch
    and every later tick (`apps/dashboard/test/web/empty-state-heading-icons.test.ts`).
    The empty-fleet and project e2e baselines show the bare headings until the
-   landing re-renders them.
+   landing re-renders them. **Keeper queue heading 2026-10-03 (slice 2):** the
+   queue leads the Keeper subject above the PR review, Pool and triage panels,
+   each headed with a stroke icon, yet "Waiting on you · N" and its cleared
+   "Nothing waiting on you · N settled this session" headed with bare words.
+   One `keeperQueueHeading()` builds both now, led by the `inbox` the rail's
+   Keeper link draws, decorative, so the heading's text and the section's
+   aria-label stay the words alone. `subject-nav.ts` rides `/panels.js`, so
+   core does not grow; `iconEl` is typeof-guarded like `tr`, since the module
+   also runs on its own (`apps/dashboard/test/web/keeper-queue-heading-icon.test.ts`).
 
 ## Related
 

@@ -757,11 +757,13 @@ async function main(): Promise<void> {
             const json = (await res.json().catch(() => ({}))) as {
               started?: boolean;
               message?: string;
+              warnings?: string;
             };
             return {
               status: res.status,
               ...(json.started !== undefined ? { started: json.started } : {}),
               ...(json.message !== undefined ? { message: json.message } : {}),
+              ...(json.warnings !== undefined ? { warnings: json.warnings } : {}),
             };
           },
           sleep: (ms) => new Promise((r) => setTimeout(r, ms)),

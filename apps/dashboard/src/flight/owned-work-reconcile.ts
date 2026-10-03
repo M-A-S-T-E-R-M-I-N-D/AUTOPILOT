@@ -39,10 +39,10 @@
 import { createTask, setTaskFocus, type CreateTaskInput, type Store } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
-import { HOLD_LABELS, MAX_ISSUE_LIST, issueTaskId, parseIssueLabels } from './issue-triage.js';
+import { MAX_ISSUE_LIST, issueTaskId, parseIssueLabels } from './issue-triage.js';
 import { issueNumberFromTaskId } from './mirror-pass.js';
 import { claimContractBody, isHumanClosedTask } from './claim-contract.js';
-import { DECLINED_LABEL } from './pool-client.js';
+import { isMaintainerMarked } from './pool-client.js';
 import { fetchViewerLogin } from './pr-review.js';
 
 /** One open issue GitHub reports as assigned to the viewer — the subset
@@ -65,16 +65,16 @@ interface RawAssignedIssue {
   readonly labels?: unknown;
 }
 
-/** The maintainer's own marks on an issue: answered no, or on hold until they
- *  lift it by hand. Issue triage never picks such an issue onto the board
- *  (issue-triage.ts planIssueTriage) and the pool claim refuses it
- *  (pool-client.ts planClaimPoolIssue), both matching these labels exactly;
- *  an assignment does not lift the mark (epic 0019 law 2: the maintainer's
- *  mark outranks a claim). */
-const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS];
-
-function isMaintainerMarked(issue: AssignedIssue): boolean {
-  return (issue.labels ?? []).some((label) => MAINTAINER_MARKS.includes(label));
+/** True when the issue carries one of the maintainer's own marks: answered no,
+ *  or on hold until they lift it by hand. Read through pool-client.ts
+ *  isMaintainerMarked, in any casing or hyphenation, the same check the pool
+ *  claim (planClaimPoolIssue) and the contributor lists make. Issue triage
+ *  never picks such an issue onto the board either (issue-triage.ts
+ *  planIssueTriage, which still matches the labels exactly). An assignment
+ *  does not lift the mark (epic 0019 law 2: the maintainer's mark outranks a
+ *  claim). */
+function isMarkedIssue(issue: AssignedIssue): boolean {
+  return isMaintainerMarked(issue.labels ?? []);
 }
 
 /** A task board needs a bounded title; capped defensively the same way
@@ -90,7 +90,7 @@ const OWNED_WORK_TITLE_CHARS = 200;
  * unparseable/non-array stdout rather than throwing. A non-object row (a
  * `null`) and entries missing a numeric `number`, string `title`, or string
  * `url` are dropped rather than passed through malformed. Labels are read so
- * the plan can tell a maintainer's mark ({@link MAINTAINER_MARKS}); a missing
+ * the plan can tell a maintainer's mark ({@link isMarkedIssue}); a missing
  * or malformed list parses to `[]`.
  */
 export async function fetchAssignedIssues(exec: CliExec): Promise<AssignedIssue[]> {
@@ -194,7 +194,7 @@ export interface OwnedWorkReconcilePlan {
  * parses as a GitHub issue task ({@link issueNumberFromTaskId}) and that
  * still carries the claim contract marker — a dashboard/self/inbox/backlog
  * task is never a candidate no matter its focus state. An assigned issue the
- * maintainer has declined or put on hold ({@link MAINTAINER_MARKS}) plans
+ * maintainer has declined or put on hold ({@link isMarkedIssue}) plans
  * nothing at all: no task, so no pickup comment, and no refocus. It still
  * counts as assigned, so its task is not released either: the mark pauses
  * the claim, it does not end it. Once the maintainer lifts the mark, the
@@ -213,7 +213,7 @@ export function planOwnedWorkReconcile(
   const upserts: CreateTaskInput[] = [];
   const refocus: string[] = [];
   for (const issue of assigned) {
-    if (isMaintainerMarked(issue)) continue;
+    if (isMarkedIssue(issue)) continue;
     const id = issueTaskId(issue.number);
     const existing = existingById.get(id);
     if (!existing) {

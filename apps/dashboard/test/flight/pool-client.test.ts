@@ -20,9 +20,15 @@ import {
   planPoolIssueTask,
   claimAndQueuePoolIssueTask,
   queueClaimedPoolIssueTask,
+  isReapablePoolClaim,
+  DECLINED_LABEL,
   type PoolIssue,
 } from '../../src/flight/pool-client.js';
-import { MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
+import { HOLD_LABELS, MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
+import {
+  isMaintainerMarked,
+  planContributorIssueList,
+} from '../../src/flight/contributor-issue-list.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function project(s: Store, id: string): void {
@@ -1023,6 +1029,87 @@ describe('queueClaimedPoolIssueTask', () => {
       s.close();
     } finally {
       cleanupDir(dbDir);
+    }
+  });
+});
+
+// Epic 0019 additive-only law, the pool claim × the maintainer's marks in
+// another casing. The Good-first list matches `declined`, `status:
+// awaiting-human` and `status: blocked` in any casing or hyphenation
+// (contributor-issue-list.ts isMaintainerMarked), and so do the help-wanted and
+// roadmap groups and the mirror pass. The claim and the stale-claim reaper
+// matched them exactly, so on a repo whose label reads `Declined` every list
+// hid the issue while the pool still claimed it and the reaper still freed its
+// claims.
+describe("planClaimPoolIssue × the maintainer's marks in any casing (regression, epic 0019 additive-only law)", () => {
+  const answered = 'the maintainer has answered it';
+  const held = 'the maintainer has put it on hold';
+  const variants = [
+    ['Declined', answered],
+    ['DECLINED', answered],
+    ['Status: Awaiting-Human', held],
+    ['status: awaiting human', held],
+    ['Status: Blocked', held],
+  ] as const;
+  const issue = (labels: readonly string[], assignees: readonly string[] = []): PoolIssue => ({
+    number: 7,
+    title: 'Fix the thing',
+    url: 'https://github.com/example/repo/issues/7',
+    labels,
+    assignees,
+  });
+
+  it('reads variants of the three marks the claim skips, not the marks themselves', () => {
+    for (const [mark] of variants) {
+      expect([DECLINED_LABEL, ...HOLD_LABELS]).not.toContain(mark);
+      expect(isMaintainerMarked([mark])).toBe(true);
+    }
+  });
+
+  it.each(variants)('skips a pool issue marked "%s", as the Good-first list does', (mark, why) => {
+    const open = issue(['pool: ux', 'good first issue']);
+    const marked = issue(['pool: ux', 'good first issue', mark]);
+
+    expect(planContributorIssueList([open])).toHaveLength(1);
+    expect(planClaimPoolIssue(open, 'octocat').decision).toBe('claim');
+
+    expect(planContributorIssueList([marked])).toEqual([]);
+    const decision = planClaimPoolIssue(marked, 'octocat');
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain(`"${mark}" — ${why}`);
+    expect(planPoolIssueTask(marked, decision, 'p1', 100)).toBeNull();
+  });
+
+  it.each(variants)('leaves the claims on a pool issue marked "%s" to the maintainer', (mark) => {
+    expect(isReapablePoolClaim(issue(['pool: ux'], ['quiet-one']))).toBe(true);
+    expect(isReapablePoolClaim(issue(['pool: ux', mark], ['quiet-one']))).toBe(false);
+  });
+
+  it('spends no gh write on a claim for one', async () => {
+    const exec: CliExec = vi.fn(async (_bin, args) => {
+      if (args[0] === 'issue' && args[1] === 'list') {
+        const listed = { ...issue([]), labels: [{ name: 'pool: ux' }, { name: 'Declined' }] };
+        return { code: 0, stdout: JSON.stringify([listed]) };
+      }
+      if (args[0] === 'api' && args[1] === 'user') {
+        return { code: 0, stdout: JSON.stringify({ login: 'octocat' }) };
+      }
+      return { code: 0, stdout: '' };
+    });
+
+    const result = await claimPoolIssue(7, exec);
+
+    expect(result.decision.decision).toBe('skip');
+    expect(result.commandResults).toEqual([]);
+    const ran = vi.mocked(exec).mock.calls.map(([, args]) => args.slice(0, 2).join(' '));
+    expect(ran.sort()).toEqual(['api user', 'issue list']);
+  });
+
+  it('still claims and reaps an issue whose label only resembles a mark', () => {
+    for (const label of ['declined later', 'status: unblocked', 'not declined']) {
+      expect(isMaintainerMarked([label])).toBe(false);
+      expect(planClaimPoolIssue(issue(['pool: ux', label]), 'octocat').decision).toBe('claim');
+      expect(isReapablePoolClaim(issue(['pool: ux', label], ['quiet-one']))).toBe(true);
     }
   });
 });

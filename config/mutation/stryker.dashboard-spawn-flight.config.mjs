@@ -7,10 +7,12 @@
  * ruled out (it imports `createTask` from `@autopilot/store` as a real
  * value, not a type, so it hits the same documented better-sqlite3
  * sandbox-resolution gap as packages/store's own widening — see
- * stryker.store.config.mjs's header). spawn-flight.ts's only imports are
- * `node:child_process`, `node:fs`, and `node:path`; its test mocks
- * `node:child_process` entirely (same pattern as connection/login.test.ts),
- * so nothing native ever needs to load inside Stryker's sandbox.
+ * stryker.store.config.mjs's header). spawn-flight.ts imports `node:`
+ * built-ins plus ./firing-engine.ts, whose one workspace import
+ * (@autopilot/engine) the scoped vitest config aliases to its source file;
+ * its test mocks `node:child_process` entirely (same pattern as
+ * connection/login.test.ts), so nothing native ever needs to load inside
+ * Stryker's sandbox.
  *
  * createSpawnFlight decides HOW a flight's detached child process is
  * spawned — the FLIGHT PROCESS DECOUPLING fix (web-msp5g6lw-cvmr8n) that

@@ -56,13 +56,15 @@ export function createFleetLaunchApi(
       },
       // The dashboard's own words ride along, as the CLI's loopback postFly
       // forwards them: a lane refused at preflight (an engine CLI missing from
-      // PATH) otherwise reads as a mute "409 not started".
+      // PATH) otherwise reads as a mute "409 not started", and a started one
+      // would fly past its preflight's warnings unnamed.
       postFly: (body) => {
         const result = startFlight(body);
         return Promise.resolve({
           status: result.started ? 200 : result.queued ? 202 : 409,
           started: result.started,
           message: result.message,
+          ...(result.warnings !== undefined ? { warnings: result.warnings } : {}),
         });
       },
       sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),

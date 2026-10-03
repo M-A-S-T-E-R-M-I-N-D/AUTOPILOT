@@ -282,6 +282,16 @@ export function preflightRefusal(report: PreflightReport): string {
   return `preflight refused: ${blocking.map((c) => `${c.name}: ${c.detail}`).join(' | ')}`;
 }
 
+/** The clause a flight that flies past warnings adds to its start message:
+ *  every warning check's advice, joined, or null when none warned. A
+ *  dashboard launch shows only its start message, so without it the `[--]`
+ *  lines reached `doctor` alone (a Codex CLI not signed in among them). */
+export function preflightWarnings(report: PreflightReport): string | null {
+  const warning = report.checks.filter((c) => c.level === 'warn');
+  if (warning.length === 0) return null;
+  return `preflight warns: ${warning.map((c) => `${c.name}: ${c.detail}`).join(' | ')}`;
+}
+
 /** `[ok]`/`[!!]`/`[--]` lines for the doctor command. */
 export function formatPreflight(report: PreflightReport): readonly string[] {
   const tag = (c: PreflightCheck): string =>
