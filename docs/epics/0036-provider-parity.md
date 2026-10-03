@@ -338,7 +338,11 @@ Codex's own config can route the model to a provider that needs no sign-in, and 
 cannot see that. Nothing is asked while `CODEX_API_KEY` is set: `codex exec` signs in with it
 (`enable_codex_api_key_env`, `codex-rs/exec/src/lib.rs`), and the status verb never reads it. The
 Gemini CLI has no status verb, so a Gemini lane is not asked. A warning shows in `doctor
-<folder>`, not on a dashboard launch, which reports only a refusal.
+<folder>` and, since 2026-10-03, on a dashboard launch too: a launch that flies past warnings
+names them in its start message (`preflightWarnings`, `flight/preflight.ts`), which the fly bar
+shows, as "flying … — 3 firing(s) — preflight warns: engine: …". Before, the Fly button said only
+"flying", and a launch reported its preflight only when it was refused. A fleet launch's summary
+still names a lane's preflight only when it refuses the lane.
 
 Since 2026-10-03 one dashboard launch can choose its engine without the dashboard's env, the
 server half of GitHub #21's slice S-last (per-lane pilot selection in the fly bar). A

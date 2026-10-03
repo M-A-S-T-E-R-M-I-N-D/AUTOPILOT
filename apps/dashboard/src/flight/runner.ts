@@ -3,7 +3,7 @@
 
 import type { ClaudeBackend } from '../connection/config.js';
 import { firingEngineFromRequest, type FiringEngineRoute } from './firing-engine.js';
-import { preflightRefusal, type PreflightReport } from './preflight.js';
+import { preflightRefusal, preflightWarnings, type PreflightReport } from './preflight.js';
 import { parseSocialFlightToggle, type SocialFlightToggle } from './social-flight-trigger.js';
 
 /**
@@ -122,7 +122,8 @@ export interface FlightRunnerDeps {
   /** PREFLIGHT (flight/preflight.ts): the go/no-go every launch path
    *  shares — the Fly button, the fleet launcher, the fleet watchdog all
    *  come through `start()`. A report that is not GO refuses the flight
-   *  with the blocking checks' advice as the message. Optional so the
+   *  with the blocking checks' advice as the message; a GO report's
+   *  warnings ride the started message instead. Optional so the
    *  demo runner and older callers keep their contract. `engine` is the
    *  launch's own engine choice, which the `engine` check judges instead of
    *  this process's env; undefined when the launch chose none. */
@@ -497,11 +498,13 @@ export class FlightRunner {
       return { started: false, message: engineRequest.reason, status: IDLE };
     }
     const engine = engineRequest.route;
+    let warnings: string | null = null;
     if (this.deps.preflight) {
       const report = this.deps.preflight(folder, input.instanceId?.trim() || undefined, engine);
       if (!report.go) {
         return { started: false, message: preflightRefusal(report), status: IDLE };
       }
+      warnings = preflightWarnings(report);
     }
 
     const budgetUsd = clampBudget(input.budgetUsd);
@@ -565,12 +568,13 @@ export class FlightRunner {
     // like `folder` already does.
     this.#wireExit(child, folder, instanceId);
 
+    const flying =
+      totalBudgetUsd !== undefined
+        ? `flying ${folder} — up to $${totalBudgetUsd} total`
+        : `flying ${folder} — ${firings} firing(s)`;
     return {
       started: true,
-      message:
-        totalBudgetUsd !== undefined
-          ? `flying ${folder} — up to $${totalBudgetUsd} total`
-          : `flying ${folder} — ${firings} firing(s)`,
+      message: warnings === null ? flying : `${flying} — ${warnings}`,
       status: this.#status,
     };
   }

@@ -153,8 +153,35 @@ describe('FlightRunner', () => {
     });
     const result = new FlightRunner(deps).start({ folder: '/work/sandbox', firings: 1 });
     expect(result.started).toBe(true);
+    expect(result.message).toBe('flying /work/sandbox — 1 firing(s)');
     expect(seen).toEqual([undefined]);
     expect(spawns).toHaveLength(1);
+  });
+
+  it('PREFLIGHT: a GO report with warnings flies, and its start message names every warning', () => {
+    const { deps, spawns } = makeDeps({
+      preflight: () => ({
+        go: true,
+        checks: [
+          { level: 'info', name: 'claude-cli', ok: true, detail: 'claude 2.1' },
+          { level: 'warn', name: 'engine', ok: true, detail: 'Codex CLI is not signed in' },
+          { level: 'warn', name: 'disk-space', ok: true, detail: '3.0 GiB free' },
+        ],
+      }),
+    });
+    const runner = new FlightRunner(deps);
+
+    const fixed = runner.start({ folder: '/work/sandbox', firings: 2 });
+
+    expect(fixed.started).toBe(true);
+    expect(fixed.message).toBe(
+      'flying /work/sandbox — 2 firing(s) — preflight warns: engine: Codex CLI is not signed in | disk-space: 3.0 GiB free',
+    );
+    expect(spawns).toHaveLength(1);
+    const total = new FlightRunner(deps).start({ folder: '/work/sandbox', totalBudgetUsd: 30 });
+    expect(total.message).toBe(
+      'flying /work/sandbox — up to $30 total — preflight warns: engine: Codex CLI is not signed in | disk-space: 3.0 GiB free',
+    );
   });
 
   it('resolves a relative folder to an absolute path (spawn, status, and message)', () => {
