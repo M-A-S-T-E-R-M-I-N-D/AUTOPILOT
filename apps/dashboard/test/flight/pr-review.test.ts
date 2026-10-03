@@ -675,11 +675,6 @@ const BENIGN_READ = new Set([
   // read-only SELECTs that feed them. Neither writes nor decides anything.
   'fleet-report.ts',
   'fleet-report-source.ts',
-  // Epic 0036 (GitHub #21 slice S1): a pure merge of the registry's running
-  // flights' engine/backend into the fleet view's project cards, so a lane
-  // card can name its engine. No I/O, no store write, and it decides nothing
-  // a flight does: the chip is display-only.
-  'lane-engines.ts',
   // Read-only facts for the what's-new message: the CHANGELOG section, the
   // round, GitHub counts via `gh api` GETs, CI via the cached run list. It
   // writes nothing and decides nothing.

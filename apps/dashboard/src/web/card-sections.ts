@@ -43,9 +43,6 @@ export interface CardSectionInput {
   readonly openFindings: number;
   readonly lastActivityAt: number | null;
   readonly gauge: CardSectionGauge;
-  /** The engine each running lane flies (`ProjectCard.laneEngines`, epic
-   *  0036), which the live worker section's lane cards name. */
-  readonly laneEngines?: unknown;
 }
 
 /** {@link cardSectionSigs}'s result: one diff signature per card section. */
@@ -67,7 +64,7 @@ export interface CardSectionSigs {
  *  entire card every ~1.5s tick, so an open Details panel a reader had scrolled into lost
  *  its scroll position, focus, and selection every tick a firing was in progress. */
 export function cardSectionSigs(c: CardSectionInput): CardSectionSigs {
-  const liveSig = JSON.stringify([c.status, c.activity, c.flightLog, c.tasks, c.laneEngines]);
+  const liveSig = JSON.stringify([c.status, c.activity, c.flightLog, c.tasks]);
   return {
     head: JSON.stringify([c.id, c.name, c.status, c.anomalies, c.soulReviewed]),
     meta: JSON.stringify([c.primaryLanguage, c.fileCount, c.totalBytes]),

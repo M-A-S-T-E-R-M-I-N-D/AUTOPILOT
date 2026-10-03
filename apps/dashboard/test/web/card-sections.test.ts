@@ -98,20 +98,6 @@ describe('cardSectionSigs', () => {
     expect(after.stats).toBe(before.stats);
   });
 
-  // Epic 0036: a lane card names its engine, so a lane starting on one (or a
-  // backend change between flights) must rebuild the worker section.
-  it('changes only worker/office when a lane names its engine (laneEngines)', () => {
-    const before = cardSectionSigs(BASE);
-    const after = cardSectionSigs({ ...BASE, laneEngines: { 'p1--fleet-2': { engine: 'codex' } } });
-    expect(after.worker).not.toBe(before.worker);
-    expect(after.worker).toBe(after.office);
-    expect(after.head).toBe(before.head);
-    expect(after.meta).toBe(before.meta);
-    expect(after.stats).toBe(before.stats);
-    expect(after.gauge).toBe(before.gauge);
-    expect(after.actions).toBe(before.actions);
-  });
-
   it('changes only worker/office when live-firing fields move (activity/flightLog/tasks/status)', () => {
     const before = cardSectionSigs(BASE);
     const after = cardSectionSigs({ ...BASE, activity: [{ tool: 'Edit' }] });
