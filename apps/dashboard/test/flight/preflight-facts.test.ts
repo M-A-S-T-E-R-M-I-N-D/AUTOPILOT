@@ -6,10 +6,12 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import {
   gatherPreflightFacts,
   codexLoginStatus,
+  geminiAuthConfigured,
+  geminiAuthProbeFor,
   defaultEngineCliProbe,
   staleEngineLocks,
   distOlderThanSource,
@@ -42,6 +44,7 @@ describe('gatherPreflightFacts against a real scratch repository', () => {
     cliVersion: () => null,
     engineCli: () => ({ found: false, version: null }),
     codexLogin: () => null,
+    geminiAuth: () => null,
     freeBytes: () => 7,
   };
 
@@ -171,6 +174,70 @@ describe('gatherPreflightFacts against a real scratch repository', () => {
     expect(unknown.engine).not.toHaveProperty('signedIn');
   });
 
+  it('asks whether a Gemini CLI that answered has an auth method set, and carries only a known answer', () => {
+    const asked: NodeJS.ProcessEnv[] = [];
+    const geminiAuth = (env: NodeJS.ProcessEnv) => {
+      asked.push(env);
+      return false;
+    };
+    const engineCli = () => ({ found: true, version: '0.8.2' });
+    const geminiEnv = { AUTOPILOT_ENGINE: 'gemini', AUTOPILOT_ENGINE_MODEL: 'gemini-2.5-pro' };
+    const unset = gatherPreflightFacts(repo, dbDir, {
+      ...noCli,
+      engineCli,
+      geminiAuth,
+      env: geminiEnv,
+    });
+    expect(unset.engine).toEqual({
+      kind: 'cli',
+      engine: 'gemini',
+      model: 'gemini-2.5-pro',
+      found: true,
+      version: '0.8.2',
+      authConfigured: false,
+    });
+    // It judges the env the lane's child inherits.
+    expect(asked).toEqual([geminiEnv]);
+    const unknown = gatherPreflightFacts(repo, dbDir, {
+      ...noCli,
+      engineCli,
+      geminiAuth: () => null,
+      env: geminiEnv,
+    });
+    expect(unknown.engine).not.toHaveProperty('authConfigured');
+    // A missing CLI, a Codex lane and a Claude lane are never asked.
+    gatherPreflightFacts(repo, dbDir, { ...noCli, geminiAuth, env: geminiEnv });
+    gatherPreflightFacts(repo, dbDir, {
+      ...noCli,
+      engineCli,
+      geminiAuth,
+      env: { AUTOPILOT_ENGINE: 'codex', AUTOPILOT_ENGINE_MODEL: 'gpt-5-codex' },
+    });
+    gatherPreflightFacts(repo, dbDir, { ...noCli, engineCli, geminiAuth, env: {} });
+    expect(asked).toHaveLength(1);
+  });
+
+  it('without an override, finds the auth type selected in the target .gemini/settings.json', () => {
+    mkdirSync(join(repo, '.gemini'));
+    writeFileSync(
+      join(repo, '.gemini', 'settings.json'),
+      JSON.stringify({ security: { auth: { selectedType: 'gemini-api-key' } } }),
+    );
+    const { cliVersion, codexLogin, freeBytes } = noCli;
+    const facts = gatherPreflightFacts(repo, dbDir, {
+      cliVersion,
+      codexLogin,
+      freeBytes,
+      engineCli: () => ({ found: true, version: '0.8.2' }),
+      env: {
+        AUTOPILOT_ENGINE: 'gemini',
+        AUTOPILOT_ENGINE_MODEL: 'gemini-2.5-pro',
+        GEMINI_CLI_HOME: join(scratch, 'home'),
+      },
+    });
+    expect(facts.engine).toMatchObject({ engine: 'gemini', authConfigured: true });
+  });
+
   it('carries the refusal fly.ts would print for an engine setting it cannot honour', () => {
     const refused = gatherPreflightFacts(repo, dbDir, {
       ...noCli,
@@ -279,6 +346,123 @@ describe('codexLoginStatus — what `codex login status` answered', () => {
     // A timeout kill, and a status no version of the verb exits with.
     expect(codexLoginStatus(null, 'Not logged in\n')).toBeNull();
     expect(codexLoginStatus(2, 'Not logged in\n')).toBeNull();
+  });
+});
+
+describe('geminiAuthConfigured — what validateNonInteractiveAuth would find', () => {
+  const none = { settings: [], dotEnvs: [] };
+
+  it('takes an auth type from the env by getAuthTypeFromEnv rules', () => {
+    // gemini-cli packages/core/src/core/contentGenerator.ts, getAuthTypeFromEnv.
+    const fromEnv = (env: Record<string, string>) => geminiAuthConfigured(env, none);
+    expect(fromEnv({ GEMINI_API_KEY: 'placeholder' })).toBe(true);
+    expect(fromEnv({ GOOGLE_GENAI_USE_VERTEXAI: 'true' })).toBe(true);
+    expect(fromEnv({ GOOGLE_GENAI_USE_GCA: 'true' })).toBe(true);
+    expect(fromEnv({ GOOGLE_GEMINI_BASE_URL: 'http://localhost:8080' })).toBe(true);
+    expect(fromEnv({ CLOUD_SHELL: 'true' })).toBe(true);
+    expect(fromEnv({ GEMINI_CLI_USE_COMPUTE_ADC: 'true' })).toBe(true);
+    // The switches are exact `=== 'true'` checks, and an empty key names nothing.
+    expect(
+      fromEnv({ GOOGLE_GENAI_USE_VERTEXAI: '1', GOOGLE_GENAI_USE_GCA: 'TRUE', GEMINI_API_KEY: '' }),
+    ).toBe(false);
+    // GOOGLE_API_KEY selects no auth type of its own.
+    expect(fromEnv({ GOOGLE_API_KEY: 'placeholder' })).toBe(false);
+  });
+
+  it('reads the same variables out of a .env file, quoted, exported or commented', () => {
+    const withDotEnv = (text: string) =>
+      geminiAuthConfigured({}, { settings: [], dotEnvs: [null, text] });
+    expect(withDotEnv('# keys\nexport GEMINI_API_KEY="placeholder" # personal\n')).toBe(true);
+    expect(withDotEnv("GOOGLE_GENAI_USE_VERTEXAI='true'\r\n")).toBe(true);
+    expect(withDotEnv('GOOGLE_GENAI_USE_GCA=true # sign in with Google\n')).toBe(true);
+    expect(
+      withDotEnv('GEMINI_API_KEY=\nGOOGLE_GENAI_USE_GCA=false\n# GEMINI_API_KEY=placeholder\n'),
+    ).toBe(false);
+  });
+
+  it('takes security.auth.selectedType from any settings file, and cannot tell past one it cannot read', () => {
+    const withSettings = (...settings: (string | null)[]) =>
+      geminiAuthConfigured({}, { settings, dotEnvs: [] });
+    expect(withSettings(null, '{"security":{"auth":{"selectedType":"oauth-personal"}}}')).toBe(
+      true,
+    );
+    expect(
+      withSettings('{"security":{"auth":{"selectedType":""}}}', '{"ui":{"theme":"Default"}}', '[]'),
+    ).toBe(false);
+    // gemini-cli strips comments before it parses; a selected type still shows through them.
+    expect(
+      withSettings(
+        '{\n  // signed in once\n  "security": { "auth": { "selectedType": "gemini-api-key" } }\n}',
+      ),
+    ).toBe(true);
+    // One that shows none could still hide one, so the answer is unknown, not "unset".
+    expect(withSettings('{"ui":{}}', '{\n  // no auth here\n  "ui": {}\n}')).toBeNull();
+    // An auth type found anywhere else still answers.
+    expect(
+      geminiAuthConfigured(
+        { GEMINI_API_KEY: 'placeholder' },
+        { settings: ['not json'], dotEnvs: [] },
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('geminiAuthProbeFor — where gemini-cli looks for an auth method', () => {
+  const target = resolve('/work/repo');
+  const home = resolve('/operator-home');
+
+  it('reads the user, workspace and system-defaults settings, each .env from the target up, and the home .env files', () => {
+    const read: string[] = [];
+    const probe = geminiAuthProbeFor(target, (path) => {
+      read.push(path);
+      return null;
+    });
+    const defaults = resolve('/etc/gemini/system-defaults.json');
+    expect(probe({ GEMINI_CLI_HOME: home, GEMINI_CLI_SYSTEM_DEFAULTS_PATH: defaults })).toBe(false);
+    const root = resolve('/');
+    expect(read).toEqual(
+      expect.arrayContaining([
+        join(home, '.gemini', 'settings.json'),
+        join(target, '.gemini', 'settings.json'),
+        defaults,
+        join(target, '.gemini', '.env'),
+        join(target, '.env'),
+        join(dirname(target), '.env'),
+        join(root, '.env'),
+        join(home, '.gemini', '.env'),
+        join(home, '.env'),
+      ]),
+    );
+    // No system-defaults path of its own: a lane's system settings are its
+    // guard file, so the machine's own system files are never merged.
+    read.length = 0;
+    probe({ GEMINI_CLI_HOME: home });
+    expect(read).not.toContain(defaults);
+  });
+
+  it('finds a key in a .env above the target, or a type selected in the user settings', () => {
+    const probeWith = (files: Record<string, string>) =>
+      geminiAuthProbeFor(target, (p) => files[p] ?? null)({ GEMINI_CLI_HOME: home });
+    const keyFile = { [join(dirname(target), '.env')]: 'GEMINI_API_KEY=placeholder\n' };
+    expect(probeWith(keyFile)).toBe(true);
+    const selected = '{"security":{"auth":{"selectedType":"oauth-personal"}}}';
+    expect(probeWith({ [join(home, '.gemini', 'settings.json')]: selected })).toBe(true);
+    // An env that names one is answered without reading a file.
+    const read: string[] = [];
+    const keyed = geminiAuthProbeFor(target, (p) => {
+      read.push(p);
+      return null;
+    })({ GEMINI_CLI_HOME: home, GEMINI_API_KEY: 'placeholder' });
+    expect(keyed).toBe(true);
+    expect(read).toEqual([]);
+  });
+
+  it('reads a file that is there but cannot be read as unknown, never as absent', () => {
+    const probe = geminiAuthProbeFor(target, (path) => {
+      if (path === join(target, '.env')) throw new Error('EACCES: permission denied');
+      return null;
+    });
+    expect(probe({ GEMINI_CLI_HOME: home })).toBeNull();
   });
 });
 
