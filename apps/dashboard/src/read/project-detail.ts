@@ -562,7 +562,13 @@ export function readProjectDoc(dbPath: string, projectId: string, path: string):
  *  an empty list (never a thrown read failure) the same way every other read
  *  in this file does — the caller (server.ts's `handleDocs`) treats "checked,
  *  found none" and "couldn't check" as the same harmless outcome, same as
- *  `listProjectDocs`/`readProjectDoc` already do for their own failures. */
+ *  `listProjectDocs`/`readProjectDoc` already do for their own failures.
+ *
+ *  A target exists when the onboarding walk listed it (`project_index`, every
+ *  file) or listed a file under it (a directory link), not only when the
+ *  full-text index holds it: `project_search` skips binary and oversized
+ *  files, so README's own screenshots were each painted "(broken link)" while
+ *  `ci:doc-links` passed them. */
 export function brokenDocLinks(
   dbPath: string,
   projectId: string,
@@ -577,11 +583,23 @@ export function brokenDocLinks(
     const placeholders = targets.map(() => '?').join(',');
     const rows = store.db
       .prepare(
-        `SELECT DISTINCT path FROM project_search WHERE project_id = ? AND path IN (${placeholders})`,
+        `SELECT path FROM project_search WHERE project_id = ? AND path IN (${placeholders})
+         UNION
+         SELECT path FROM project_index WHERE project_id = ? AND path IN (${placeholders})`,
       )
-      .all(projectId, ...targets) as { path: string }[];
+      .all(projectId, ...targets, projectId, ...targets) as { path: string }[];
     const existing = new Set(rows.map((r) => r.path));
-    return targets.filter((target) => !existing.has(target));
+    // Every path under `dir/` sorts in [`dir/`, `dir0`) — '0' is the code
+    // point after '/' — so the primary key answers it as one range seek, with
+    // no LIKE wildcard for a `_` or `%` in a path name to trip.
+    const fileUnder = store.db.prepare(
+      'SELECT 1 FROM project_index WHERE project_id = ? AND path > ? AND path < ? LIMIT 1',
+    );
+    const isDirectory = (target: string): boolean => {
+      const dir = target.replace(/\/$/, '');
+      return fileUnder.get(projectId, `${dir}/`, `${dir}0`) !== undefined;
+    };
+    return targets.filter((target) => !existing.has(target) && !isDirectory(target));
   } catch {
     return [];
   } finally {
