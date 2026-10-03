@@ -18,7 +18,7 @@
  * operator's clicks.
  */
 
-import { isMaintainerMarked } from './pool-client.js';
+import { isMaintainerMarked, type PoolBrowseEntry } from './pool-client.js';
 
 /** How much attention the operator says they have — the input #44 names as
  *  the one that matters most, and the one nothing else could infer. */
@@ -185,6 +185,24 @@ export function luckyFit(candidates: readonly FitCandidate[], op: FitOperator): 
     .sort((a, b) => b.fit - a.fit || a.number - b.number)
     .slice(0, LUCKY_FIT_MAX);
   return { attention: op.attention, considered: candidates.length, shortlist };
+}
+
+/** One row of the Pool panel's browse read as a roll candidate. Its holders
+ *  are its assignees plus every live claim in the claims ledger
+ *  (claim-ledger.ts). An outside contributor's assign fails and only their
+ *  claim comment lands (#27): the claim contests that issue and the Pool panel
+ *  paints it held, so the roll must not offer it as free. A stale claim adds
+ *  no holder: the next claim releases it. */
+export function poolFitCandidate(entry: PoolBrowseEntry): FitCandidate {
+  const liveClaims = entry.claims.filter((standing) => !standing.stale);
+  return {
+    number: entry.issue.number,
+    title: entry.issue.title,
+    url: entry.issue.url,
+    labels: entry.issue.labels,
+    assignees: [...new Set([...entry.issue.assignees, ...liveClaims.map((s) => s.claim.login)])],
+    source: 'pool',
+  };
 }
 
 /** One issue can sit in both lists (`pool: ux` + `help wanted`); the pool

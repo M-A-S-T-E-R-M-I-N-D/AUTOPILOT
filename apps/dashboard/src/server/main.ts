@@ -157,6 +157,7 @@ import { detectDiskClass, DISK_PROBE_TIMEOUT_MS, type DiskClass } from '../fligh
 import {
   luckyFit,
   mergeFitCandidates,
+  poolFitCandidate,
   type FitCandidate,
   type LuckyFit,
 } from '../flight/lucky-fit.js';
@@ -623,14 +624,7 @@ async function rollLuckyFit(
       return h && h.firings > 0 ? { ...c, history: h } : c;
     };
     const candidates = mergeFitCandidates(
-      pool.map((e) => ({
-        number: e.issue.number,
-        title: e.issue.title,
-        url: e.issue.url,
-        labels: e.issue.labels,
-        assignees: e.issue.assignees,
-        source: 'pool' as const,
-      })),
+      pool.map(poolFitCandidate),
       people.map((e) => ({
         number: e.number,
         title: e.title,
