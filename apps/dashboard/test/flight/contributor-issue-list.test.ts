@@ -8,7 +8,9 @@ import {
   createContributorIssueListPreviewApi,
   type ContributorFacingIssue,
 } from '../../src/flight/contributor-issue-list.js';
-import { MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
+import { HOLD_LABELS, MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
+import { DECLINED_LABEL, planClaimPoolIssue } from '../../src/flight/pool-client.js';
+import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function issue(overrides: Partial<ContributorFacingIssue> = {}): ContributorFacingIssue {
@@ -90,6 +92,47 @@ describe('planContributorIssueList', () => {
       issue({ number: 3, labels: ['good first issue'] }),
     ]);
     expect(result.map((e) => e.number)).toEqual([3, 9]);
+  });
+});
+
+// Epic 0019 additive-only law, the Good-first list × the maintainer's marks. A
+// declined or held issue stays open for its reporter to reply to
+// (CONTRIBUTING.md), tier label and all. The pool claim skips it
+// (pool-client.ts planClaimPoolIssue), but this list read only the assignees,
+// so it steered a visiting contributor, and the 🍀 roll that ranks its
+// entries, at work the maintainer had already answered.
+describe("planContributorIssueList × the maintainer's declined and held issues (regression, epic 0019 additive-only law)", () => {
+  const seeded = (name: string) =>
+    HOUSE_TAXONOMY_LABELS.find((label) => label.name === name)?.name ?? '';
+  const marks = [seeded('declined'), seeded('status: awaiting-human'), seeded('status: blocked')];
+  const tiers = ['good first issue', 'help wanted'];
+  const open = (tier: string) => issue({ labels: ['pool: ux', tier] });
+  const marked = (tier: string, mark: string) => issue({ labels: ['pool: ux', tier, mark] });
+
+  it('reads the labels the pool claim skips on, as the seeder stamps them', () => {
+    expect([DECLINED_LABEL, ...HOLD_LABELS]).toEqual(marks);
+  });
+
+  it.each(marks)('never lists an issue marked "%s", which the claim would refuse', (mark) => {
+    for (const tier of tiers) {
+      expect(planClaimPoolIssue(open(tier), 'octocat').decision).toBe('claim');
+      expect(planContributorIssueList([open(tier)])).toHaveLength(1);
+
+      expect(planClaimPoolIssue(marked(tier, mark), 'octocat').decision).toBe('skip');
+      expect(planContributorIssueList([marked(tier, mark)])).toEqual([]);
+    }
+  });
+
+  it('drops only the marked issue and keeps the rest of the list in order', () => {
+    const result = planContributorIssueList([
+      issue({ number: 4, labels: ['help wanted'] }),
+      issue({ number: 2, labels: ['good first issue', DECLINED_LABEL] }),
+      issue({ number: 3, labels: ['good first issue'] }),
+    ]);
+    expect(result.map((e) => [e.number, e.tier])).toEqual([
+      [3, 'good first issue'],
+      [4, 'help wanted'],
+    ]);
   });
 });
 

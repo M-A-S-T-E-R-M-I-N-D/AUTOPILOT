@@ -210,6 +210,11 @@ h2 > .icon, h3 > .icon, summary > .icon:not(:only-child) { margin-inline-end: va
 .connect-form select, .connect-form input { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .connect-form button { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); position: relative; overflow: hidden; box-shadow: var(--elevation-level-1); transition: box-shadow var(--duration-short4) var(--easing-standard); }
 .connect-hint { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
+/* The endpoint/Bedrock/Vertex field groups (epic 0036) sit in the form's own
+   column, without the UA fieldset's border and padding. display:flex would
+   override the UA's [hidden]{display:none}, so the hidden groups say so. */
+.connect-fields { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; border: 0; min-width: 0; }
+.connect-fields[hidden] { display: none; }
 /* TEXT FIELDS (2026-09-13, operator: "the resize grip looks awfully old in every
    theme"): the browser's diagonal grip is gone. Every textarea sizes itself to
    its content (field-sizing: content — Baseline 2026: Chrome 123, Safari 26.2,

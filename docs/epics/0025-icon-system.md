@@ -288,7 +288,19 @@ propagation, and the filled style does not match the nav.
    `circle-pause` (paused), `circle-question-mark` (needs you, like a task
    awaiting approval) and a newly vendored `moon` (hibernating). Both pills
    take their icon map through one `statusPill()`, decorative beside the
-   word, which `setSweptText()` keeps across a locale switch.
+   word, which `setSweptText()` keeps across a locale switch. **Lane card
+   focus line 2026-10-03 (slice 3):** the single-lane live worker card's
+   "working: …" line led with the `target` icon, but the compact lane card
+   a project shows once two lanes fly printed the same line as bare words.
+   It leads with the same decorative `target` now, kept across a locale
+   switch; the "probably working: …" guess stays iconless on both cards.
+   **Live phase pill 2026-10-03 (slice 3):** both live cards headed with a
+   bare "orient"/"do"/"gate"/"commit" pill beside the fleet card's iconed
+   status pill. One `livePhasePill()` builds it for both now, led by a
+   decorative phase icon: `compass` (orient, like the orient-drag chip),
+   `pencil` (DO, which counts edit activity), and a newly vendored
+   `shield-check` (gate) and `git-commit-horizontal` (commit). An
+   unclassified phase keeps the bare word.
 
 ## Related
 

@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   tomlHasSection,
+  iniHasSection,
   safeJsonParse,
   packageScripts,
   scriptCommand,
@@ -155,5 +156,33 @@ describe('tomlHasSection', () => {
 
   it('returns false when the section is absent', () => {
     expect(tomlHasSection('[build-system]\nrequires = ["setuptools"]\n', 'tool.mypy')).toBe(false);
+  });
+});
+
+describe('iniHasSection', () => {
+  it('matches an exact section header among others', () => {
+    expect(iniHasSection('[metadata]\nname = x\n\n[tool:pytest]\n', 'tool:pytest')).toBe(true);
+  });
+
+  it('matches an indented header with a CRLF line ending', () => {
+    expect(iniHasSection('  [mypy]\r\nstrict = True\r\n', 'mypy')).toBe(true);
+  });
+
+  it('matches a header followed by trailing text, as configparser does', () => {
+    const cfg = '[flake8]  # lint settings\nmax-line-length = 100\n';
+    expect(iniHasSection(cfg, 'flake8')).toBe(true);
+  });
+
+  it('does NOT match a per-module section that merely shares the prefix', () => {
+    // mypy's `[mypy-requests.*]` only refines a global `[mypy]` section.
+    expect(iniHasSection('[mypy-requests.*]\n', 'mypy')).toBe(false);
+  });
+
+  it('does NOT match the name outside a section header', () => {
+    expect(iniHasSection('# see [flake8] below\nflake8 = true\n', 'flake8')).toBe(false);
+  });
+
+  it('returns false for null text', () => {
+    expect(iniHasSection(null, 'flake8')).toBe(false);
   });
 });

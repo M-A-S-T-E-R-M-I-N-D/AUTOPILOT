@@ -18,6 +18,9 @@
  * operator's clicks.
  */
 
+import { HOLD_LABELS } from './issue-triage.js';
+import { DECLINED_LABEL } from './pool-client.js';
+
 /** How much attention the operator says they have — the input #44 names as
  *  the one that matters most, and the one nothing else could infer. */
 export type LuckyAttention = 'evening' | 'day' | 'week';
@@ -97,9 +100,17 @@ function language(locale: string): string {
   return locale.trim().toLowerCase().split('-')[0] ?? 'en';
 }
 
-/** Scores one candidate, or `undefined` when it is already someone else's. */
+/** The maintainer's own marks on an issue: answered no, or on hold until they
+ *  lift it by hand. The pool client still lists such an issue and the pool
+ *  claim skips it on the same labels (pool-client.ts), so the roll must not
+ *  offer it either (epic 0019 law 2: the maintainer's mark outranks a score). */
+const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS];
+
+/** Scores one candidate, or `undefined` when it is already someone else's or
+ *  the maintainer has declined it or put it on hold. */
 export function luckyFitLine(c: FitCandidate, op: FitOperator): FitLine | undefined {
   if (c.assignees.length > 0) return undefined;
+  if (MAINTAINER_MARKS.some((mark) => hasLabel(c.labels, mark))) return undefined;
   const signals: string[] = [];
   let score = BASELINE;
   const lang = language(op.locale);

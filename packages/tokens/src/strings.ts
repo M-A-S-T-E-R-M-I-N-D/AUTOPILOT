@@ -577,6 +577,16 @@ const EN_STRINGS = {
   authModeSubscription: 'Subscription (default)',
   authModeApiKey: 'API key',
   authModeOauthToken: 'Subscription token (headless)',
+  // Epic 0036: three modes that route the same claude CLI to another backend.
+  // The cloud names are products, so every locale keeps them as written.
+  authModeEndpoint: 'Compatible endpoint (gateway or local server)',
+  authModeBedrock: 'Amazon Bedrock',
+  authModeVertex: 'Google Vertex AI',
+  connectBaseUrlLabel: 'Endpoint base URL',
+  connectAuthTokenLabel: 'Endpoint token (optional)',
+  connectAwsRegionLabel: 'AWS region (optional)',
+  connectGcpProjectLabel: 'Google Cloud project',
+  connectGcpRegionLabel: 'Region (optional)',
   credentialLabel: 'Credential',
   saveVerify: 'Save & verify',
   themeNav: 'Theme',
@@ -1910,6 +1920,12 @@ const EN_STRINGS = {
   connectTokenPlaceholder: 'paste token',
   connectOauthTokenHint: 'Generate with: claude setup-token',
   connectSubscriptionHint: 'Log in once in a terminal: run claude, then /login.',
+  connectEndpointHint:
+    'Runs claude against this Anthropic-compatible URL. Put a token in its own field, never in the URL.',
+  connectBedrockHint:
+    'AWS credentials come from your environment or AWS profile. Test connection checks them.',
+  connectVertexHint:
+    'Google Cloud credentials come from gcloud auth application-default login. Test connection checks them.',
   connectDotTipUnavailable: 'Claude connection status unavailable',
   connectHeadUnavailable: 'unavailable',
   connectDotAria: 'Claude connection: {head}',
@@ -2420,6 +2436,14 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     authModeSubscription: 'מנוי (ברירת מחדל)',
     authModeApiKey: 'מפתח API',
     authModeOauthToken: 'אסימון מנוי (ללא ממשק)',
+    authModeEndpoint: 'נקודת קצה תואמת (שער או שרת מקומי)',
+    authModeBedrock: 'Amazon Bedrock',
+    authModeVertex: 'Google Vertex AI',
+    connectBaseUrlLabel: 'כתובת הבסיס של נקודת הקצה',
+    connectAuthTokenLabel: 'אסימון לנקודת הקצה (לא חובה)',
+    connectAwsRegionLabel: 'אזור AWS (לא חובה)',
+    connectGcpProjectLabel: 'פרויקט Google Cloud',
+    connectGcpRegionLabel: 'אזור (לא חובה)',
     credentialLabel: 'פרטי גישה',
     saveVerify: 'שמור ואמת',
     themeNav: 'ערכת נושא',
@@ -3374,6 +3398,11 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     connectTokenPlaceholder: 'הדביקו אסימון',
     connectOauthTokenHint: 'יצירה באמצעות: claude setup-token',
     connectSubscriptionHint: 'התחברו פעם אחת בטרמינל: הריצו claude ואז /login.',
+    connectEndpointHint:
+      'מריץ את claude מול הכתובת התואמת ל-Anthropic הזו. אסימון נכנס לשדה משלו, לעולם לא לכתובת.',
+    connectBedrockHint: 'פרטי הגישה ל-AWS נלקחים מהסביבה או מפרופיל AWS. בדיקת החיבור מאמתת אותם.',
+    connectVertexHint:
+      'פרטי הגישה ל-Google Cloud נלקחים מ-gcloud auth application-default login. בדיקת החיבור מאמתת אותם.',
     connectDotTipUnavailable: 'מצב החיבור ל-Claude אינו זמין',
     connectHeadUnavailable: 'לא זמין',
     connectDotAria: 'חיבור Claude: {head}',

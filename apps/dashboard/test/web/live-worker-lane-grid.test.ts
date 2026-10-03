@@ -14,6 +14,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { STRINGS } from '@autopilot/tokens';
 import { renderShell, clientJs } from '../../src/web/shell.js';
 
 const BASE_PROJECT = {
@@ -66,6 +67,8 @@ describe('the many-lanes grid', () => {
   let current: ReturnType<typeof stateWith>;
 
   beforeEach(() => {
+    // The locale switch below saves 'ap-locale'; never let it reach a later test.
+    localStorage.clear();
     vi.useFakeTimers();
     document.open();
     document.write(renderShell());
@@ -184,6 +187,129 @@ describe('the many-lanes grid', () => {
     const grid = document.querySelector('.lane-grid');
     expect(grid?.getAttribute('role')).toBe('group');
     expect(grid?.getAttribute('aria-label')).toBe("Who's flying now");
+  });
+
+  // Epic 0025 slice 3 (the live-worker cards): the single-lane card's focus
+  // line led with the target icon, but the lane card printed the same line as
+  // bare words — and a fleet shows lane cards whenever two lanes fly.
+  it("leads each lane card's focus line with the target icon, kept across a locale switch", async () => {
+    current = stateWith({
+      activity: [
+        { tool: 'Read', target: 'src/b.ts', kind: 'file', phase: 'do', at: 2, firingId: 'f2' },
+        { tool: 'Read', target: 'src/c.ts', kind: 'file', phase: 'gate', at: 1, firingId: 'f1' },
+      ],
+      tasks: [{ id: 't1', title: 'Add docs', status: 'queued', focus: true }],
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const focusLines = () =>
+      Array.from(
+        document.querySelectorAll(
+          '.lane-card .live-worker-line[data-i18n-template="liveFocusTask"]',
+        ),
+      );
+    expect(focusLines()).toHaveLength(2);
+    for (const line of focusLines()) {
+      const icon = line.firstElementChild;
+      expect(icon?.matches('svg.icon-target')).toBe(true);
+      expect(icon?.getAttribute('aria-hidden')).toBe('true');
+      expect(line.textContent).toBe('working: Add docs');
+      expect(line.getAttribute('aria-label')).toBe('working: Add docs');
+    }
+
+    (document.querySelector('[data-lang-btn="he"]') as HTMLButtonElement).click();
+
+    for (const line of focusLines()) {
+      expect(line.querySelector('svg.icon-target')).not.toBeNull();
+      expect(line.textContent).toBe(STRINGS.he.liveFocusTask.replaceAll('{name}', 'Add docs'));
+      expect(line.getAttribute('aria-label')).toBe(line.textContent);
+    }
+  });
+
+  it("leaves a lane card's probable-task guess line without an icon, like the single-lane card's", async () => {
+    current = stateWith({
+      activity: [
+        { tool: 'Read', target: 'src/b.ts', kind: 'file', phase: 'do', at: 2, firingId: 'f2' },
+        { tool: 'Read', target: 'src/c.ts', kind: 'file', phase: 'gate', at: 1, firingId: 'f1' },
+      ],
+      tasks: [{ id: 't1', title: 'Harden the guard hook', status: 'queued', focus: false }],
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const guesses = Array.from(document.querySelectorAll('.lane-card .live-worker-guess'));
+    expect(guesses).toHaveLength(2);
+    for (const guess of guesses) {
+      expect(guess.querySelector('svg')).toBeNull();
+      expect(guess.textContent).toBe('probably working: Harden the guard hook');
+    }
+  });
+
+  // Epic 0025 slice 3 (status pills on the live-worker cards): the phase pill
+  // was a bare word on both cards while the fleet card's status pill beside it
+  // led with an icon. Orient takes the orient-drag chip's compass, and DO,
+  // which counts edit activity, the pencil.
+  const PHASE_GLYPHS: Record<string, string> = {
+    orient: 'compass',
+    do: 'pencil',
+    gate: 'shield-check',
+    commit: 'git-commit-horizontal',
+  };
+
+  function expectPhaseGlyph(pill: Element | null, phase: string) {
+    const icon = pill?.firstElementChild;
+    expect(icon?.matches('svg.icon-' + PHASE_GLYPHS[phase]), phase).toBe(true);
+    expect(icon?.getAttribute('aria-hidden'), phase).toBe('true');
+    expect(pill?.querySelectorAll('svg'), phase).toHaveLength(1);
+    expect(pill?.textContent, phase).toBe(phase);
+    expect(pill?.getAttribute('aria-label'), phase).toBe(
+      STRINGS.en.livePhaseAria.replaceAll('{name}', phase),
+    );
+  }
+
+  it("leads the single-lane card's phase pill with its phase icon", async () => {
+    current = {
+      ...stateWith({}),
+      projects: Object.keys(PHASE_GLYPHS).map((phase) => ({
+        ...BASE_PROJECT,
+        id: 'p-' + phase,
+        slug: 'p-' + phase,
+        name: 'Project ' + phase,
+        activity: [
+          { tool: 'Read', target: 'src/a.ts', kind: 'file', phase, at: 1, firingId: 'f-' + phase },
+        ],
+      })),
+    };
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    for (const phase of Object.keys(PHASE_GLYPHS)) {
+      expectPhaseGlyph(document.querySelector('.live-worker .pill.live-phase-' + phase), phase);
+    }
+  });
+
+  it("leads each lane card's phase pill with its phase icon, and leaves an unclassified phase bare", async () => {
+    current = stateWith({
+      activity: ['orient', 'do', 'gate', 'commit', 'other'].map((phase, i) => ({
+        tool: 'Read',
+        target: 'src/' + phase + '.ts',
+        kind: 'file',
+        phase,
+        at: 5 - i,
+        firingId: 'f-' + phase,
+      })),
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(document.querySelectorAll('.lane-card')).toHaveLength(5);
+    for (const phase of Object.keys(PHASE_GLYPHS)) {
+      expectPhaseGlyph(document.querySelector('.lane-card .pill.live-phase-' + phase), phase);
+    }
+    const other = document.querySelector('.lane-card .pill.live-phase-other');
+    expect(other?.querySelector('svg')).toBeNull();
+    expect(other?.textContent).toBe('other');
   });
 
   it('every focusable line in a lane card is keyboard-reachable (roving tabindex seeded)', async () => {

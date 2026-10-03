@@ -300,6 +300,10 @@ authenticated with — your Claude subscription by default, no API key, no per-t
 - **Subscription (default)** — Pro / Max / Team / Enterprise. Run `claude` and complete `/login`.
 - **Subscription, headless** — `claude setup-token`, then export `CLAUDE_CODE_OAUTH_TOKEN`.
 - **API key** (pay-per-token) — export `ANTHROPIC_API_KEY`.
+- **Compatible endpoint, Amazon Bedrock or Google Vertex AI** — the same CLI, sent to another
+  backend: an Anthropic-compatible gateway or local server (its base URL, and a token if it needs
+  one), your AWS account (your AWS credentials; the region is optional) or your Google Cloud
+  project (`gcloud auth application-default login`). Choose one in the Connect popover.
 
 AUTOPILOT strips a stray `ANTHROPIC_API_KEY` from the spawned environment in subscription mode,
 so a key left in your shell cannot silently bill your account. The dashboard's Connect popover

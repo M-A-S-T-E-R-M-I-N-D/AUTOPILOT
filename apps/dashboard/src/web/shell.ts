@@ -899,6 +899,33 @@ ${sharedOrientFixationChipMeta.toString()}
 function laneAnchorId(projectId, callsign) {
   return 'lane-' + (projectId + '-' + callsign).replace(/[^a-zA-Z0-9_-]+/g, '-');
 }
+// The live phase pill's leading glyph (epic 0025 slice 3): orient takes the
+// orient-drag chip's compass, and DO, which counts edit activity, the pencil.
+// An unclassified phase ('other') keeps the bare word.
+var LIVE_PHASE_ICONS = {
+  orient: 'compass',
+  do: 'pencil',
+  gate: 'shield-check',
+  commit: 'git-commit-horizontal',
+};
+// The phase pill both live cards head with — liveWorkerCard and laneCard.
+function livePhasePill(phase) {
+  var phaseTip = OFFICE_TIPS[phase] || 'phase not yet classified from recent activity';
+  var phasePill = el('span', 'pill live-phase-' + phase, phase);
+  // Decorative beside the word, which stays the pill's text and its name.
+  if (LIVE_PHASE_ICONS[phase]) phasePill.insertBefore(iconEl(LIVE_PHASE_ICONS[phase]), phasePill.firstChild);
+  phasePill.setAttribute('tabindex', '0');
+  phasePill.setAttribute('data-tip', phaseTip + ' (current)');
+  // D1 ATTRIBUTE PAYLOAD (epic 0015): the pill's own text already shows the
+  // phase name, so aria-label states only the essential "this is the current
+  // one" fact — it must not also duplicate data-tip's full descriptive
+  // sentence verbatim, the same class of duplication 189137e0/f8779d15/
+  // c3c57f5d fixed for the task-chip/search-hit/task-title aria-labels.
+  phasePill.setAttribute('aria-label', tr('livePhaseAria', phase));
+  phasePill.setAttribute('data-i18n-aria-template', 'livePhaseAria');
+  phasePill.setAttribute('data-i18n-name', phase);
+  return phasePill;
+}
 function liveWorkerCard(c) {
   var lives = liveFirings(c);
   if (lives.length > 1) return laneGridCard(lives, c.id);
@@ -930,19 +957,7 @@ function liveWorkerCard(c) {
     headMeta.callsign.ariaLabel,
     'live-callsign'
   ));
-  var phaseTip = OFFICE_TIPS[live.phase] || 'phase not yet classified from recent activity';
-  var phasePill = el('span', 'pill live-phase-' + live.phase, live.phase);
-  phasePill.setAttribute('tabindex', '0');
-  phasePill.setAttribute('data-tip', phaseTip + ' (current)');
-  // D1 ATTRIBUTE PAYLOAD (epic 0015): the pill's own text already shows the
-  // phase name, so aria-label states only the essential "this is the current
-  // one" fact — it must not also duplicate data-tip's full descriptive
-  // sentence verbatim, the same class of duplication 189137e0/f8779d15/
-  // c3c57f5d fixed for the task-chip/search-hit/task-title aria-labels.
-  phasePill.setAttribute('aria-label', tr('livePhaseAria', live.phase));
-  phasePill.setAttribute('data-i18n-aria-template', 'livePhaseAria');
-  phasePill.setAttribute('data-i18n-name', live.phase);
-  head.appendChild(phasePill);
+  head.appendChild(livePhasePill(live.phase));
   if (headMeta.model) {
     head.appendChild(tipChip(
       live.model,
@@ -1153,14 +1168,7 @@ function laneCard(live, projectId) {
     headMeta.callsign.ariaLabel,
     'live-callsign'
   ));
-  var phaseTip = OFFICE_TIPS[live.phase] || 'phase not yet classified from recent activity';
-  var phasePill = el('span', 'pill live-phase-' + live.phase, live.phase);
-  phasePill.setAttribute('tabindex', '0');
-  phasePill.setAttribute('data-tip', phaseTip + ' (current)');
-  phasePill.setAttribute('aria-label', tr('livePhaseAria', live.phase));
-  phasePill.setAttribute('data-i18n-aria-template', 'livePhaseAria');
-  phasePill.setAttribute('data-i18n-name', live.phase);
-  head.appendChild(phasePill);
+  head.appendChild(livePhasePill(live.phase));
   if (headMeta.model) {
     head.appendChild(tipChip(
       live.model,
@@ -1178,6 +1186,9 @@ function laneCard(live, projectId) {
       'live-worker-line' + (taskKey === 'liveProbableTask' ? ' live-worker-guess' : ''),
       tr(taskKey, taskName),
     );
+    // Epic 0025 slice 3: a confirmed focus leads with the same target icon as
+    // liveWorkerCard's line; setSweptText() keeps it across a locale switch.
+    if (taskKey === 'liveFocusTask') taskEl.insertBefore(iconEl('target'), taskEl.firstChild);
     taskEl.setAttribute('tabindex', '0');
     taskEl.setAttribute('data-i18n-template', taskKey);
     taskEl.setAttribute('data-i18n-aria-template', taskKey);
@@ -5641,9 +5652,28 @@ ${versionMenuHtml()}
               <option value="subscription" data-i18n="authModeSubscription">Subscription (default)</option>
               <option value="api-key" data-i18n="authModeApiKey">API key</option>
               <option value="oauth-token" data-i18n="authModeOauthToken">Subscription token (headless)</option>
+              <option value="endpoint" data-i18n="authModeEndpoint">Compatible endpoint (gateway or local server)</option>
+              <option value="bedrock" data-i18n="authModeBedrock">Amazon Bedrock</option>
+              <option value="vertex" data-i18n="authModeVertex">Google Vertex AI</option>
             </select>
             <label for="connect-secret" id="connect-secret-label" data-i18n="credentialLabel" hidden>Credential</label>
             <input type="password" id="connect-secret" name="secret" autocomplete="off" spellcheck="false" hidden />
+            <fieldset class="connect-fields" data-connect-fields="endpoint" hidden disabled>
+              <label for="connect-base-url" data-i18n="connectBaseUrlLabel">Endpoint base URL</label>
+              <input type="url" id="connect-base-url" name="baseUrl" placeholder="https://" autocomplete="off" spellcheck="false" dir="ltr" required />
+              <label for="connect-auth-token" data-i18n="connectAuthTokenLabel">Endpoint token (optional)</label>
+              <input type="password" id="connect-auth-token" name="authToken" autocomplete="off" spellcheck="false" />
+            </fieldset>
+            <fieldset class="connect-fields" data-connect-fields="bedrock" hidden disabled>
+              <label for="connect-aws-region" data-i18n="connectAwsRegionLabel">AWS region (optional)</label>
+              <input type="text" id="connect-aws-region" name="awsRegion" placeholder="us-east-1" autocomplete="off" spellcheck="false" dir="ltr" />
+            </fieldset>
+            <fieldset class="connect-fields" data-connect-fields="vertex" hidden disabled>
+              <label for="connect-gcp-project" data-i18n="connectGcpProjectLabel">Google Cloud project</label>
+              <input type="text" id="connect-gcp-project" name="gcpProjectId" autocomplete="off" spellcheck="false" dir="ltr" required />
+              <label for="connect-gcp-region" data-i18n="connectGcpRegionLabel">Region (optional)</label>
+              <input type="text" id="connect-gcp-region" name="gcpRegion" placeholder="us-east5" autocomplete="off" spellcheck="false" dir="ltr" />
+            </fieldset>
             <button type="submit" data-i18n="saveVerify">Save &amp; verify</button>
             <p class="connect-hint" id="connect-hint"></p>
           </form>

@@ -11,6 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   connectModeMeta,
+  connectRequestBody,
   connectStatusMeta,
   connectTestResultMeta,
   ghStatusMeta,
@@ -30,6 +31,7 @@ describe('connectJs', () => {
   it('embeds connectModeMeta/connectStatusMeta/connectTestResultMeta/ghStatusMeta real compiled source via .toString()', () => {
     const out = connectJs();
     expect(out).toContain(connectModeMeta.toString());
+    expect(out).toContain(connectRequestBody.toString());
     expect(out).toContain(connectStatusMeta.toString());
     expect(out).toContain(connectTestResultMeta.toString());
     expect(out).toContain(ghStatusMeta.toString());
