@@ -300,7 +300,15 @@ propagation, and the filled style does not match the nav.
    decorative phase icon: `compass` (orient, like the orient-drag chip),
    `pencil` (DO, which counts edit activity), and a newly vendored
    `shield-check` (gate) and `git-commit-horizontal` (commit). An
-   unclassified phase keeps the bare word.
+   unclassified phase keeps the bare word. **Keeper group chevron
+   2026-10-03 (law 1):** a project page's Rituals and Community groups
+   drew their disclosure chevron by hand, a CSS `::after` box with
+   `border-inline-end` and `border-block-end` turned 45°. Those are logical
+   sides, so under `dir="rtl"` the box drew its left and bottom borders
+   and the same turn pointed it left while closed and right once open. Each
+   summary ends with the existing `chevron-right` now, turned down while
+   closed and up once open; a rotation reads the same in both directions
+   (`apps/dashboard/test/web/keeper-group-chevron.test.ts`).
 
 ## Related
 

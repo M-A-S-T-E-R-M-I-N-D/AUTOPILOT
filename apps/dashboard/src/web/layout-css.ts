@@ -2379,8 +2379,10 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 .keeper-rituals { margin: var(--space-3) var(--page-inline); border: 1px solid var(--color-border); border-radius: var(--shape-medium); background: var(--color-surface); }
 .keeper-rituals-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title chevron" "hint chevron"; align-items: center; column-gap: var(--space-2); padding: var(--space-3) var(--space-4); cursor: pointer; list-style: none; }
 .keeper-rituals-summary::-webkit-details-marker { display: none; }
-.keeper-rituals-summary::after { content: ''; grid-area: chevron; inline-size: 0.5rem; block-size: 0.5rem; border-inline-end: 2px solid var(--color-text-muted); border-block-end: 2px solid var(--color-text-muted); transform: rotate(45deg); transition: transform var(--duration-fast, 150ms) ease-out; }
-.keeper-rituals[open] > .keeper-rituals-summary::after { transform: rotate(-135deg); }
+/* The chevron is the vendored chevron-right (epic 0025), turned down while
+   closed and up once open; a rotation reads the same under dir=rtl. */
+.keeper-rituals-chevron { grid-area: chevron; inline-size: 1.25rem; block-size: 1.25rem; color: var(--color-text-muted); transform: rotate(90deg); transition: transform var(--duration-fast, 150ms) ease-out; }
+.keeper-rituals[open] > .keeper-rituals-summary .keeper-rituals-chevron { transform: rotate(-90deg); }
 .keeper-rituals-summary:hover .keeper-rituals-title, .keeper-rituals-summary:focus-visible .keeper-rituals-title { color: var(--color-accent); }
 .keeper-rituals-summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: var(--shape-medium); }
 .keeper-rituals-title { grid-area: title; font-size: var(--text-lg); font-weight: 600; }
@@ -2390,7 +2392,7 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 .project-mode > .keeper-queue, .project-mode > .keeper-rituals { margin-inline: 0; }
 .discussions-triage-skipped { margin-block-start: var(--space-2); color: var(--color-text-muted); font-size: var(--text-sm); }
 .discussions-triage-skipped > summary { cursor: pointer; }
-@media (prefers-reduced-motion: reduce) { .keeper-rituals-summary::after { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .keeper-rituals-chevron { transition: none; } }
 /* FLIGHT PLAN EDITOR (epic 0021 slice 3, second cut): the gate as a chain of
    step nodes, the selected one editable in a properties pane; a draft line
    that says so, Publish and Discard. */

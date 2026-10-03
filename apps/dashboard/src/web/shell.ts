@@ -4428,7 +4428,11 @@ function keeperGroup(key, hintKey) {
   title.setAttribute('data-i18n', key);
   var hint = el('span', 'keeper-rituals-hint', tr(hintKey));
   hint.setAttribute('data-i18n', hintKey);
-  summary.append(title, hint);
+  // Epic 0025: the vendored chevron, turned by CSS (a rotation reads the same
+  // under dir=rtl, where the old logical-border box pointed sideways).
+  var chevron = iconEl('chevron-right');
+  chevron.classList.add('keeper-rituals-chevron');
+  summary.append(title, hint, chevron);
   group.append(summary, el('div', 'keeper-rituals-body'));
   return group;
 }
