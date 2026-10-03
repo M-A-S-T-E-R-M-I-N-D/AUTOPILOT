@@ -94,9 +94,9 @@ describe('issueTriageJs', () => {
 
   it('paints its two transient states via tr() rather than a literal (board web-msnsndki-dz3vn1)', () => {
     const out = issueTriageJs();
-    expect(out).toContain("b.textContent = tr('issueTriageExecuting');");
+    expect(out).toContain("setSweptText(b, tr('issueTriageExecuting'));");
     expect(out).toContain("resultEl.textContent = tr('issueTriageRequestFailed');");
-    expect(out).not.toContain("b.textContent = 'Triaging…';");
+    expect(out).not.toContain("'Triaging…'");
     expect(out).not.toContain("resultEl.textContent = '✗ Request failed — try again shortly.';");
   });
 

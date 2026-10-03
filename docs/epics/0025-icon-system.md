@@ -437,9 +437,16 @@ propagation, and the filled style does not match the nav.
    its words; one rule spaces them
    (`apps/dashboard/test/web/keeper-execute-button-icons.test.ts`). The
    `/project.js` gzip line rose 34→35KB for it (34886B; HEAD had 26 bytes of
-   margin). Open: the pool claim and the report execute buttons are still
-   bare words, and the issue triage and release runs still swap
-   `textContent`, dropping their icon on the first run.
+   margin). **Issue triage and release runs 2026-10-03 (slice 2):** both
+   buttons led with their panel's icon from the start, `key-round` and
+   `rocket`, but a click swapped `textContent` to "Triaging…"/"Releasing…"
+   and back, so the first run deleted the icon for good. Both swap through
+   `setSweptText()` now, through the busy words, a refused run and a failed
+   request, as the mirror pass runs do. The test file now removes each test's
+   document click delegates afterwards, since a stale bundle's delegate
+   answered a later click and restored the busy words
+   (`apps/dashboard/test/web/keeper-execute-button-icons.test.ts`). Open: the
+   pool claim and the report execute buttons are still bare words.
 
 ## Related
 

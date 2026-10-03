@@ -202,6 +202,8 @@ ${flyHintText.toString()}
     if (engineEl) engineEl.value = typeof settings.engine === 'string' ? settings.engine : '';
     if (engineModelEl) engineModelEl.value = typeof settings.engineModel === 'string' ? settings.engineModel : '';
     applyEngine();
+    // Same for each lane's engine: a fleet's Resume flies the lanes it last flew.
+    restoreLaneEngines(settings.laneEngines);
     applyMode();
   }
   if (folderEl) folderEl.addEventListener('change', function () { restoreFlySettingsFor(folderEl.value.trim()); });
@@ -587,6 +589,7 @@ ${flyHintText.toString()}
         }
         if (modeEl) modeEl.value = 'firings';
         if (lanesEl) lanesEl.value = String(data.plan.lanes);
+        applyLanes();
         if (firingsEl) firingsEl.value = String(data.plan.firings);
         if (budgetEl) budgetEl.value = String(data.plan.budgetUsd);
         updateFlyHint();
@@ -635,6 +638,100 @@ ${flyHintText.toString()}
   applyEngine();
   setTip(engineEl, 'flyEngineTip');
   setTip(engineModelEl, 'flyEngineModelTip');
+  // ENGINE PER LANE (epic 0036, GitHub #21 slice S-last's heterogeneous
+  // fleet): with Lanes above 1, one select per lane in roster order (base,
+  // fleet-2, … as fleetLaneNames mints them), sent as POST /api/fleet's
+  // laneEngines, which fleetLaneEnginesFromRequest judges lane by lane. A lane
+  // left on "same as Engine" sends {}, so it flies the Engine above, and a
+  // launch that leaves every lane so sends no laneEngines at all. Rows are
+  // built only from applyLanes(), never during init: tr() is not safe yet.
+  var laneEnginesEl = document.getElementById('fly-lane-engines');
+  var LANE_ENGINE_OPTIONS = [['', 'laneEngineSame'], ['claude', 'engineClaude'], ['codex', 'engineCodex'], ['gemini', 'engineGemini']];
+  function laneEngineNeedsModel(value) { return value === 'codex' || value === 'gemini'; }
+  function laneEngineName(i) { return i === 0 ? 'base' : 'fleet-' + (i + 1); }
+  function laneEngineRow(i) {
+    var name = laneEngineName(i);
+    var row = el('div', 'fly-lane-engine');
+    var label = el('label', '', tr('laneEngineLabel', name));
+    label.htmlFor = 'fly-lane-engine-' + i;
+    label.setAttribute('data-i18n-template', 'laneEngineLabel');
+    label.setAttribute('data-i18n-name', name);
+    var select = document.createElement('select');
+    select.id = 'fly-lane-engine-' + i;
+    setTip(select, 'flyLaneEnginesTip');
+    LANE_ENGINE_OPTIONS.forEach(function (o) {
+      var option = el('option', '', tr(o[1]));
+      option.value = o[0];
+      option.setAttribute('data-i18n', o[1]);
+      select.appendChild(option);
+    });
+    var model = document.createElement('input');
+    model.type = 'text';
+    model.id = 'fly-lane-engine-model-' + i;
+    model.maxLength = 128;
+    model.autocomplete = 'off';
+    model.spellcheck = false;
+    model.placeholder = tr('engineModelPlaceholder');
+    model.setAttribute('data-i18n-placeholder', 'engineModelPlaceholder');
+    model.setAttribute('aria-label', tr('laneEngineModelAria', name));
+    model.setAttribute('data-i18n-aria-template', 'laneEngineModelAria');
+    model.setAttribute('data-i18n-name', name);
+    model.hidden = true;
+    select.addEventListener('change', function () { model.hidden = !laneEngineNeedsModel(select.value); });
+    row.appendChild(label);
+    row.appendChild(select);
+    row.appendChild(model);
+    return row;
+  }
+  // One row per lane while Lanes is above 1, capped at the field's own max; a
+  // lane past the last row flies the Engine above, as the server reads a
+  // short list. Rows already there keep their choice when Lanes changes.
+  function applyLanes() {
+    if (!laneEnginesEl) return;
+    var cap = lanesEl ? (Number(lanesEl.max) || 8) : 8;
+    var lanes = Math.min(Math.floor(lanesEl ? (Number(lanesEl.value) || 1) : 1), cap);
+    var want = lanes > 1 ? lanes : 0;
+    var rows = laneEnginesEl.querySelectorAll('.fly-lane-engine');
+    for (var i = rows.length; i < want; i++) laneEnginesEl.appendChild(laneEngineRow(i));
+    for (var j = rows.length - 1; j >= want; j--) rows[j].remove();
+    laneEnginesEl.hidden = want === 0;
+  }
+  // Writes a folder's remembered per-lane choice back into the rows — every
+  // row, so a lane the folder saved none for returns to "same as Engine".
+  function restoreLaneEngines(saved) {
+    applyLanes();
+    if (!laneEnginesEl) return;
+    var selects = laneEnginesEl.querySelectorAll('select');
+    for (var i = 0; i < selects.length; i++) {
+      var entry = (Array.isArray(saved) && saved[i]) || {};
+      var model = document.getElementById('fly-lane-engine-model-' + i);
+      selects[i].value = typeof entry.engine === 'string' ? entry.engine : '';
+      if (model) {
+        model.value = typeof entry.engineModel === 'string' ? entry.engineModel : '';
+        model.hidden = !laneEngineNeedsModel(selects[i].value);
+      }
+    }
+  }
+  // { list } — the laneEngines body, or null when no lane names its own
+  // engine — or { lane, input } for the first Codex/Gemini lane with no model.
+  function laneEnginesChoice() {
+    applyLanes();
+    var selects = laneEnginesEl ? laneEnginesEl.querySelectorAll('select') : [];
+    var list = [];
+    var named = false;
+    for (var i = 0; i < selects.length; i++) {
+      var value = selects[i].value;
+      var model = document.getElementById('fly-lane-engine-model-' + i);
+      var modelName = model ? model.value.trim() : '';
+      if (!value) { list.push({}); continue; }
+      named = true;
+      if (!laneEngineNeedsModel(value)) { list.push({ engine: value }); continue; }
+      if (!modelName) return { lane: laneEngineName(i), input: model };
+      list.push({ engine: value, engineModel: modelName });
+    }
+    return { list: named ? list : null };
+  }
+  if (lanesEl) lanesEl.addEventListener('input', applyLanes);
   var lastMsg = '';
   var lastKind = ''; // '' | 'ok' | 'err' — drives the status colour
   var lastFlightsSig = null; // dedupes renderFlights rebuilds — a stop/pause click mid-poll must survive
@@ -874,6 +971,7 @@ ${sessionFlightDataFor.toString()}
       if (socialEl) socialEl.disabled = false;
       if (engineEl) engineEl.disabled = false;
       if (engineModelEl) engineModelEl.disabled = false;
+      if (laneEnginesEl) laneEnginesEl.disabled = false;
       if (statusEl) {
         if (statusEl.textContent !== lastMsg) statusEl.textContent = lastMsg;
         var multiStatusClass = 'fly-status' + (lastKind ? ' fly-' + lastKind : '');
@@ -909,6 +1007,7 @@ ${sessionFlightDataFor.toString()}
     if (socialEl) socialEl.disabled = running;
     if (engineEl) engineEl.disabled = running;
     if (engineModelEl) engineModelEl.disabled = running;
+    if (laneEnginesEl) laneEnginesEl.disabled = running;
     // Client-generated status text goes through tr() (board web-msnsndki-dz3vn1)
     // — the folder name is {name}-templated so each locale's grammar decides
     // where it lands, not English word order. Re-evaluated on every 3s poll's
@@ -996,13 +1095,25 @@ ${sessionFlightDataFor.toString()}
       setMsg(tr('socialPassSingleLane'), 'err');
       return;
     }
-    // The engine does ride /api/fleet: every lane flies on it.
+    // The engine does ride /api/fleet: every lane without its own flies on it.
     var engineChoice = engineEl ? engineEl.value : '';
     var engineModel = engineModelEl ? engineModelEl.value.trim() : '';
     if (engineNeedsModel() && !engineModel) {
       setMsg(tr('engineModelNeeded'), 'err');
       if (engineModelEl) engineModelEl.focus();
       return;
+    }
+    // Each lane's own engine rides /api/fleet as laneEngines, refused the same
+    // way when a Codex or Gemini lane names no model.
+    var laneEngines = null;
+    if (lanes > 1) {
+      var laneChoice = laneEnginesChoice();
+      if (laneChoice.input) {
+        setMsg(tr('laneEngineModelNeeded', laneChoice.lane), 'err');
+        laneChoice.input.focus();
+        return;
+      }
+      laneEngines = laneChoice.list;
     }
     rememberFlyFolder(folder);
     var totalUsd = totalEl ? (Number(totalEl.value) || budgetUsd) : budgetUsd;
@@ -1014,6 +1125,7 @@ ${sessionFlightDataFor.toString()}
       lanes: lanes,
       engine: engineChoice || undefined,
       engineModel: engineNeedsModel() ? engineModel : undefined,
+      laneEngines: laneEngines || undefined,
     });
     operatorActionLog = recordOperatorAction(
       operatorActionLog,
@@ -1025,6 +1137,7 @@ ${sessionFlightDataFor.toString()}
       var fleetBody = { folder: folder, laneCount: lanes, firings: firings, budgetUsd: budgetUsd };
       if (engineChoice) fleetBody.engine = engineChoice;
       if (engineNeedsModel()) fleetBody.engineModel = engineModel;
+      if (laneEngines) fleetBody.laneEngines = laneEngines;
       fetch('/api/fleet', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },

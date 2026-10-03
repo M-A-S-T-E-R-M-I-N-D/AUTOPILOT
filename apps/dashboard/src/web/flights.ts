@@ -205,6 +205,10 @@ export interface FlySettings {
    *  folder saved without one never inherits another launch's choice. */
   readonly engine?: string;
   readonly engineModel?: string;
+  /** Engine per lane (epic 0036): one `{ engine, engineModel }` per lane in
+   *  roster order, `{}` for a lane on the Engine above — the `laneEngines` a
+   *  multi-lane launch last sent. Omitted when no lane named its own. */
+  readonly laneEngines?: readonly { readonly engine?: string; readonly engineModel?: string }[];
 }
 
 /** The full remembered-settings blob: one {@link FlySettings} per folder the

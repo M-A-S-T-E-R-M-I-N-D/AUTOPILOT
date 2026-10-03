@@ -99,9 +99,9 @@ describe('releaseJs', () => {
     );
     // Neither transient state is a DOM attribute a sweep can reach — both
     // paint via tr() at the moment they're set, never a bare literal.
-    expect(out).toContain("b.textContent = tr('releaseExecuting');");
+    expect(out).toContain("setSweptText(b, tr('releaseExecuting'));");
     expect(out).toContain("resultEl.textContent = tr('releaseRequestFailed');");
-    expect(out).not.toContain("b.textContent = 'Releasing…';");
+    expect(out).not.toContain("'Releasing…'");
     expect(out).not.toContain("resultEl.textContent = '✗ Request failed — try again shortly.';");
   });
 

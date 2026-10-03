@@ -349,7 +349,9 @@ export const POOL_LABEL_PREFIX = 'pool: ';
 
 /** GitHub's stock `duplicate` label marks an issue a previous pass already
  *  answered as a duplicate, so later passes skip it instead of posting the
- *  same reasoning comment again. */
+ *  same reasoning comment again. Read in any casing ({@link carriedMark}):
+ *  `gh issue edit --add-label` matches a label name in any casing, so on a
+ *  repo whose label reads `Duplicate` the write lands as `Duplicate`. */
 const DUPLICATE_LABEL = 'duplicate';
 
 /** GitHub's community-onboarding label (its own default repo template
@@ -706,12 +708,13 @@ export function planIssueTriage(
         'KEEPER pass — skipping so re-runs stay idempotent.',
     };
   }
-  if (labels.includes(DUPLICATE_LABEL)) {
+  const duplicate = carriedMark(labels, [DUPLICATE_LABEL]);
+  if (duplicate) {
     return {
       decision: 'skip',
       reasoning:
         `#${issue.number} "${issue.title}" was already answered as a duplicate ` +
-        `("${DUPLICATE_LABEL}" label) by a previous KEEPER pass — skipping.`,
+        `("${duplicate}" label) by a previous KEEPER pass — skipping.`,
     };
   }
   const ownTaskId = issueTaskId(issue.number);

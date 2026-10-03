@@ -81,13 +81,19 @@ describe('validateConnect — the modes that route the same claude CLI elsewhere
     expect(
       validateConnect({ mode: 'endpoint', baseUrl: ' http://localhost:11434 ', authToken: ' t ' }),
     ).toEqual({ mode: 'endpoint', baseUrl: 'http://localhost:11434', authToken: 't' });
+    // toStrictEqual, not toEqual: toEqual passes an `authToken: undefined`
+    // key, so it cannot tell "no token stored" from "a token key left empty".
     expect(
       validateConnect({ mode: 'endpoint', baseUrl: 'https://gw.example', authToken: ' ' }),
-    ).toEqual({ mode: 'endpoint', baseUrl: 'https://gw.example' });
+    ).toStrictEqual({ mode: 'endpoint', baseUrl: 'https://gw.example' });
   });
 
   it('requires an endpoint base URL that is http(s)', () => {
     expect(() => validateConnect({ mode: 'endpoint' })).toThrow(/base URL is required/);
+    // A blank URL is an absent one, not an unparseable one.
+    expect(() => validateConnect({ mode: 'endpoint', baseUrl: '   ' })).toThrow(
+      /base URL is required/,
+    );
     expect(() => validateConnect({ mode: 'endpoint', baseUrl: 'not a url' })).toThrow(/http/);
     expect(() => validateConnect({ mode: 'endpoint', baseUrl: 'file:///etc/passwd' })).toThrow(
       /http/,
@@ -108,7 +114,11 @@ describe('validateConnect — the modes that route the same claude CLI elsewhere
   });
 
   it('takes Bedrock with or without a region', () => {
-    expect(validateConnect({ mode: 'bedrock' })).toEqual({ mode: 'bedrock' });
+    expect(validateConnect({ mode: 'bedrock' })).toStrictEqual({ mode: 'bedrock' });
+    // A blank region is no region, never a malformed one.
+    expect(validateConnect({ mode: 'bedrock', awsRegion: '  ' })).toStrictEqual({
+      mode: 'bedrock',
+    });
     expect(validateConnect({ mode: 'bedrock', awsRegion: ' eu-west-1 ' })).toEqual({
       mode: 'bedrock',
       awsRegion: 'eu-west-1',
@@ -117,7 +127,7 @@ describe('validateConnect — the modes that route the same claude CLI elsewhere
   });
 
   it('requires a Vertex project, the region optional', () => {
-    expect(validateConnect({ mode: 'vertex', gcpProjectId: ' my-project ' })).toEqual({
+    expect(validateConnect({ mode: 'vertex', gcpProjectId: ' my-project ' })).toStrictEqual({
       mode: 'vertex',
       gcpProjectId: 'my-project',
     });
@@ -126,10 +136,14 @@ describe('validateConnect — the modes that route the same claude CLI elsewhere
     ).toEqual({ mode: 'vertex', gcpProjectId: 'example.com:proj', gcpRegion: 'global' });
     expect(() => validateConnect({ mode: 'vertex', gcpRegion: 'global' })).toThrow(/project/);
     expect(() => validateConnect({ mode: 'vertex', gcpProjectId: 'a b' })).toThrow(/project/);
+    // The region is checked too, and the error names which field was wrong.
+    expect(() =>
+      validateConnect({ mode: 'vertex', gcpProjectId: 'p', gcpRegion: 'us central1' }),
+    ).toThrow(/GCP region/);
   });
 
   it('never carries another mode’s fields into the stored config', () => {
-    expect(validateConnect({ mode: 'bedrock', apiKey: KEY, baseUrl: 'http://x' })).toEqual({
+    expect(validateConnect({ mode: 'bedrock', apiKey: KEY, baseUrl: 'http://x' })).toStrictEqual({
       mode: 'bedrock',
     });
   });
@@ -181,6 +195,7 @@ describe('getConnectionStatus', () => {
         mode: 'subscription',
         apiKey: 'leftover-key',
         oauthToken: 'leftover-token',
+        authToken: 'leftover-endpoint-token',
       }),
     );
     const status = await getConnectionStatus(deps(cliPresent));

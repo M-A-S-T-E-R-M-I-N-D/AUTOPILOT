@@ -18,8 +18,7 @@
  * operator's clicks.
  */
 
-import { HOLD_LABELS } from './issue-triage.js';
-import { DECLINED_LABEL } from './pool-client.js';
+import { isMaintainerMarked, type PoolBrowseEntry } from './pool-client.js';
 
 /** How much attention the operator says they have — the input #44 names as
  *  the one that matters most, and the one nothing else could infer. */
@@ -100,17 +99,15 @@ function language(locale: string): string {
   return locale.trim().toLowerCase().split('-')[0] ?? 'en';
 }
 
-/** The maintainer's own marks on an issue: answered no, or on hold until they
- *  lift it by hand. The pool client still lists such an issue and the pool
- *  claim skips it on the same labels (pool-client.ts), so the roll must not
- *  offer it either (epic 0019 law 2: the maintainer's mark outranks a score). */
-const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS];
-
 /** Scores one candidate, or `undefined` when it is already someone else's or
- *  the maintainer has declined it or put it on hold. */
+ *  the maintainer has declined it or put it on hold. The pool client still
+ *  lists such an issue and the pool claim skips it, so the roll must not offer
+ *  it either (epic 0019 law 2: the maintainer's mark outranks a score). The
+ *  mark is read through the claim's own {@link isMaintainerMarked}: any casing,
+ *  a hyphen read as a space. */
 export function luckyFitLine(c: FitCandidate, op: FitOperator): FitLine | undefined {
   if (c.assignees.length > 0) return undefined;
-  if (MAINTAINER_MARKS.some((mark) => hasLabel(c.labels, mark))) return undefined;
+  if (isMaintainerMarked(c.labels)) return undefined;
   const signals: string[] = [];
   let score = BASELINE;
   const lang = language(op.locale);
@@ -188,6 +185,24 @@ export function luckyFit(candidates: readonly FitCandidate[], op: FitOperator): 
     .sort((a, b) => b.fit - a.fit || a.number - b.number)
     .slice(0, LUCKY_FIT_MAX);
   return { attention: op.attention, considered: candidates.length, shortlist };
+}
+
+/** One row of the Pool panel's browse read as a roll candidate. Its holders
+ *  are its assignees plus every live claim in the claims ledger
+ *  (claim-ledger.ts). An outside contributor's assign fails and only their
+ *  claim comment lands (#27): the claim contests that issue and the Pool panel
+ *  paints it held, so the roll must not offer it as free. A stale claim adds
+ *  no holder: the next claim releases it. */
+export function poolFitCandidate(entry: PoolBrowseEntry): FitCandidate {
+  const liveClaims = entry.claims.filter((standing) => !standing.stale);
+  return {
+    number: entry.issue.number,
+    title: entry.issue.title,
+    url: entry.issue.url,
+    labels: entry.issue.labels,
+    assignees: [...new Set([...entry.issue.assignees, ...liveClaims.map((s) => s.claim.login)])],
+    source: 'pool',
+  };
 }
 
 /** One issue can sit in both lists (`pool: ux` + `help wanted`); the pool

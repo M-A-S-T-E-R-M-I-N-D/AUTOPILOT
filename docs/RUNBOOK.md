@@ -341,6 +341,10 @@ row also names the backend the connect panel routes it to, an endpoint by its ho
 (`· Claude Code (Amazon Bedrock)`, `· Claude Code (localhost:11434)`). The bar remembers
 the choice per folder, so a paused flight's Resume flies the engine it last flew. With Lanes above 1
 the bar sends the choice on `POST /api/fleet`, which judges it once and puts it on every lane's body.
+The bar also shows **Engine per lane** then: one select per lane in roster order (base, fleet-2, …),
+each on "same as Engine" until changed, and a model field beside a Codex or Gemini lane, which the
+bar requires before it sends anything. A lane given its own engine rides the body's `laneEngines`; a
+launch that gives none sends no `laneEngines`, and every lane flies the Engine above.
 
 `dashboard watch` flies on its own `AUTOPILOT_ENGINE` and `AUTOPILOT_ENGINE_MODEL`: a watched
 folder's flight inherits them as its env, and a fleet-mode watch (no folder) sends them with every
