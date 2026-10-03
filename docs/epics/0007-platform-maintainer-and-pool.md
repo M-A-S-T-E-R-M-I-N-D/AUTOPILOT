@@ -1221,6 +1221,20 @@ standalone board item. ap-mtlvusoi-0 closes on this evidence.
    and drafts the reasoning alone when it is not. Covered by
    `test/flight/discussions-triage.test.ts` (the draft and the posted
    mutation body, under the lever set to off, set to on and unset).
+   Refined 2026-10-03 (board web-mtsylqbd-q2rg8k, epic 0019's additive-only
+   law, the twin of slice 3's `declined` and hold skips): a discussion takes
+   the repo's labels, so the maintainer can mark one `declined`,
+   `status: awaiting-human` or `status: blocked` exactly as on an issue.
+   Issue triage never scores, labels or answers an issue so marked; this
+   ritual checked only locked, answered and its own `pool: *` label, so it
+   posted a reply and a pool label on it. `planDiscussionTriage` now plans a
+   skip for any of the three, matched exactly as triage matches them, after
+   the locked and answered checks and before the pool-label check. No label
+   read, reply or label write is spent on it. The execute confirm now names
+   the new skip reason. Covered by `test/flight/discussions-triage.test.ts`
+   (the labels are the seeder's; issue triage and this ritual skip the same
+   mark; the ritual sends nothing for the marked discussion and still
+   answers the unmarked one beside it).
 
 ## The claims ledger (2026-09-13)
 

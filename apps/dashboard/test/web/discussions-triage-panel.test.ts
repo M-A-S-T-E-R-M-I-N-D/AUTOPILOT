@@ -92,7 +92,8 @@ describe('discussionsTriageConfirmMessage', () => {
       '2 discussions will get a signed reply posted and a pool label applied',
     );
     expect(message).toContain(
-      '1 discussion (already answered, locked, or already labeled) will be skipped',
+      '1 discussion (already answered, locked, already labeled, or declined or on hold by ' +
+        'the maintainer) will be skipped',
     );
     expect(message).toContain('re-fetched fresh from gh at execute time');
   });
