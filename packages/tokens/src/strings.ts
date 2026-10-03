@@ -1841,6 +1841,11 @@ const EN_STRINGS = {
   flightRowFlyingTotal: 'Flying {name} — up to ${total} total',
   flightRowFlyingFirings: 'Flying {name} — {count} firing(s)',
   flightRowWatchdogSuffix: ' (fleet-watchdog)',
+  // The engine a running row's launch chose (epic 0036): `{engine}` is the
+  // Engine select's own `engineClaude`/`engineCodex`/`engineGemini` name, and
+  // `{model}` the model a Codex or Gemini lane runs.
+  flightRowEngineSuffix: ' · {engine}',
+  flightRowEngineModelSuffix: ' · {engine} ({model})',
   flightRowQueued: 'Queued: {name} — waiting for a flight slot',
   pauseFlightOn: 'Pause the flight on {name}',
   stopFlightOn: 'Stop the flight on {name}',
@@ -3353,6 +3358,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightRowFlyingTotal: 'בטיסה על {name} — עד ${total} בסך הכול',
     flightRowFlyingFirings: 'בטיסה על {name} — {count} הפעלות',
     flightRowWatchdogSuffix: ' (fleet-watchdog)',
+    flightRowEngineSuffix: ' · {engine}',
+    flightRowEngineModelSuffix: ' · {engine} ({model})',
     flightRowQueued: 'בתור: {name} — ממתין למקום טיסה פנוי',
     pauseFlightOn: 'השהיית הטיסה על {name}',
     stopFlightOn: 'עצירת הטיסה על {name}',

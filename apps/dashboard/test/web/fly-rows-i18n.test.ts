@@ -38,6 +38,10 @@ describe('the fly bar reads its per-row status sentence from STRINGS', () => {
       "tr('flightRowFlyingFirings', { name: f.folder, count: f.firings || 1 })",
     );
     expect(out).toContain("statusText += tr('flightRowWatchdogSuffix');");
+    expect(out).toContain(
+      "tr('flightRowEngineModelSuffix', { engine: engineName, model: f.engineModel })",
+    );
+    expect(out).toContain("tr('flightRowEngineSuffix', { engine: engineName })");
     expect(out).toContain("tr('flightRowQueued', f.folder)");
     expect(out).toContain("tr('pausedUntilResumed', f.folder)");
     expect(out).not.toContain('flightRowStatusText');
@@ -56,6 +60,25 @@ describe('the fly bar reads its per-row status sentence from STRINGS', () => {
     ).toBe(
       flightRowStatusText({ folder: '/work/a', running: true, initiatedBy: 'fleet-watchdog' }),
     );
+    expect(
+      sub(STRINGS.en.flightRowFlyingFirings, { name: '/work/a', count: 2 }) +
+        sub(STRINGS.en.flightRowEngineModelSuffix, {
+          engine: STRINGS.en.engineCodex,
+          model: 'gpt-5-codex',
+        }),
+    ).toBe(
+      flightRowStatusText({
+        folder: '/work/a',
+        running: true,
+        firings: 2,
+        engine: 'codex',
+        engineModel: 'gpt-5-codex',
+      }),
+    );
+    expect(
+      sub(STRINGS.en.flightRowFlyingFirings, { name: '/work/a', count: 1 }) +
+        sub(STRINGS.en.flightRowEngineSuffix, { engine: STRINGS.en.engineClaude }),
+    ).toBe(flightRowStatusText({ folder: '/work/a', running: true, engine: 'claude' }));
     expect(sub(STRINGS.en.flightRowQueued, { name: '/work/b' })).toBe(
       flightRowStatusText({ folder: '/work/b', queued: true }),
     );

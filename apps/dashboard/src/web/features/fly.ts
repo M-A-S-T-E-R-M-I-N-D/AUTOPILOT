@@ -740,6 +740,17 @@ ${sessionFlightDataFor.toString()}
       statusText = f.totalBudgetUsd
         ? tr('flightRowFlyingTotal', { name: f.folder, total: f.totalBudgetUsd })
         : tr('flightRowFlyingFirings', { name: f.folder, count: f.firings || 1 });
+      // Epic 0036: the engine this lane's launch chose, so a fleet flying
+      // several CLIs reads at a glance. A launch that chose none flies on the
+      // dashboard's own AUTOPILOT_ENGINE and names none here.
+      var engineName = f.engine === 'codex' ? tr('engineCodex')
+        : f.engine === 'gemini' ? tr('engineGemini')
+          : f.engine === 'claude' ? tr('engineClaude') : '';
+      if (engineName) {
+        statusText += f.engineModel
+          ? tr('flightRowEngineModelSuffix', { engine: engineName, model: f.engineModel })
+          : tr('flightRowEngineSuffix', { engine: engineName });
+      }
       if (f.initiatedBy === 'fleet-watchdog') statusText += tr('flightRowWatchdogSuffix');
     } else if (f.queued) {
       statusText = tr('flightRowQueued', f.folder);

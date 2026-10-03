@@ -178,6 +178,15 @@ export interface FlightStatus {
    * just now also records what that lineage was called.
    */
   readonly instanceId: string | null;
+  /**
+   * Epic 0036: the engine this flight's launch chose, read through
+   * `firingEngineFromRequest`, so the fly bar's row can name the CLI each
+   * lane flies on. `engineModel` is set beside `codex` or `gemini` only.
+   * Both are omitted when the launch chose none (the child flies on this
+   * process's own `AUTOPILOT_ENGINE`), and once the flight is no longer running.
+   */
+  readonly engine?: FiringEngineRoute['engine'];
+  readonly engineModel?: string;
 }
 
 export interface StartFlightInput {
@@ -298,6 +307,16 @@ function clampFirings(requested: number | undefined): number {
   // Provably unobservable.
   if (!Number.isFinite(n) || n < 1) return 1;
   return Math.min(n, MAX_DASHBOARD_FIRINGS);
+}
+
+/** The `FlightStatus` fields naming a launch's chosen engine — none when it
+ *  chose none, and no model beside Claude, which reads none. */
+function engineStatus(
+  route: FiringEngineRoute | undefined,
+): Pick<FlightStatus, 'engine' | 'engineModel'> {
+  if (!route) return {};
+  if (route.engine === 'claude') return { engine: 'claude' };
+  return { engine: route.engine, engineModel: route.model };
 }
 
 /** Floored at `budgetUsd` — a total target below one firing's cost is nonsense. */
@@ -503,6 +522,7 @@ export class FlightRunner {
       queued: false,
       initiatedBy,
       instanceId,
+      ...engineStatus(engine),
     };
     // When the child exits (done, crashed, or killed) the runner is free again —
     // UNLESS it honored a pause request, in which case `folder`/`paused` survive
