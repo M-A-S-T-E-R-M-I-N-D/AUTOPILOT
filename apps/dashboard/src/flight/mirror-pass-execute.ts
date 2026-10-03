@@ -84,7 +84,7 @@ import {
 } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
-import { fetchPoolIssues, isClaimedPoolIssue } from './pool-client.js';
+import { fetchPoolIssues, isReapablePoolClaim } from './pool-client.js';
 import { isHumanClosedTask } from './claim-contract.js';
 import { repoFromRemoteUrl, sameRepo } from './project-repo.js';
 import {
@@ -839,7 +839,9 @@ export type MirrorPassStaleClaimPreviewApi = (
  * `projectId`, the same "unknown project ⇒ null" convention every other
  * preview API in this file uses, never to scope the `gh` reads. Read-only:
  * fetches every currently-claimed pool issue's live activity and plans a
- * reap finding for each, never unassigns or comments.
+ * reap finding for each, never unassigns or comments. A claimed issue the
+ * maintainer declined or put on hold is left out ({@link
+ * isReapablePoolClaim}): the claim skips it, so nobody could pick it back up.
  */
 export function createMirrorPassStaleClaimPreviewApi(
   dbPath: string,
@@ -851,7 +853,7 @@ export function createMirrorPassStaleClaimPreviewApi(
     try {
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
-      const claimedPoolIssues = (await fetchPoolIssues(exec)).filter(isClaimedPoolIssue);
+      const claimedPoolIssues = (await fetchPoolIssues(exec)).filter(isReapablePoolClaim);
       // One entry per CLAIM (claims ledger): a comment-only claimant and a
       // contested issue's second holder each get their own quiet clock.
       const activity: MirrorPassClaimedIssue[] = [];
@@ -920,7 +922,7 @@ export function createMirrorPassStaleClaimExecuteApi(
         return { identity: gate.identity, outcomes: [], skippedReason: gate.skippedReason };
       }
       const { identity } = gate;
-      const claimedPoolIssues = (await fetchPoolIssues(exec)).filter(isClaimedPoolIssue);
+      const claimedPoolIssues = (await fetchPoolIssues(exec)).filter(isReapablePoolClaim);
       // One entry per CLAIM (claims ledger): a comment-only claimant and a
       // contested issue's second holder each get their own quiet clock.
       const activity: MirrorPassClaimedIssue[] = [];
