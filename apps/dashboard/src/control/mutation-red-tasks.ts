@@ -30,13 +30,25 @@ export interface SurvivingMutant {
 export interface MutationRedConfig {
   readonly config: string;
   readonly survivors: readonly SurvivingMutant[];
+  /**
+   * The runner's reason when the config failed WITHOUT Stryker scoring it —
+   * "No tests were executed", a failed initial test run, a killed process —
+   * so there is no survivor to kill (2026-10-03: those were filed as survivor
+   * tasks). Absent when the run scored below the break threshold, and for a
+   * FAILED line that gives no reason at all.
+   */
+  readonly unscored?: string;
 }
 
 const TITLE_PREFIX = 'MUTATION RED: ';
 /** Printed by run-all-mutation.mjs right after a config's own Stryker output
- *  ("FAILED — <config>: …"), and again in the end-of-shard summary
- *  ("FAILED <config> — …"). */
-const FAILED_RE = /^run-all-mutation: FAILED(?: —)? (stryker\.[a-z0-9-]+\.config\.mjs)/;
+ *  ("FAILED — <config>: <reason> (continuing; …)"), and again in the
+ *  end-of-shard summary ("FAILED <config> — <reason>"). */
+const FAILED_RE = /^run-all-mutation: FAILED(?: —)? (stryker\.[a-z0-9-]+\.config\.mjs)(.*)$/;
+const REASON_RE = /^(?::| —) (.+?)(?: \(continuing; summary at the end\))?$/;
+/** The runner's words for the one failure that leaves survivors (its
+ *  `mutationFailureReason`); every other reason it gives never scored. */
+const SCORED_MARK = 'below the break threshold';
 // Stryker's clear-text block: "[Survived] Mutator", then "path:line:col",
 // then "-  original" and "+  mutated".
 const SURVIVED_RE = /^\[Survived\] (\S+)/;
@@ -64,6 +76,13 @@ function clean(line: string): string {
     .trimEnd();
 }
 
+/** The reason after a FAILED line's config when it says the run never
+ *  scored; undefined for a survivor, and for a line that gives no reason. */
+function unscoredReason(afterConfig: string): string | undefined {
+  const reason = REASON_RE.exec(afterConfig)?.[1];
+  return reason === undefined || reason.includes(SCORED_MARK) ? undefined : reason;
+}
+
 /**
  * The failing configs of one mutation job log, each with the survivors its
  * Stryker run printed. The runner runs configs one after another and prints
@@ -72,13 +91,18 @@ function clean(line: string): string {
  */
 export function parseMutationLog(log: string): MutationRedConfig[] {
   const lines = log.split('\n').map(clean);
-  const byConfig = new Map<string, SurvivingMutant[]>();
+  const byConfig = new Map<string, MutationRedConfig>();
   let pending: SurvivingMutant[] = [];
   for (let i = 0; i < lines.length; i += 1) {
     const failed = FAILED_RE.exec(lines[i]!);
     if (failed) {
       const config = failed[1]!;
-      byConfig.set(config, [...(byConfig.get(config) ?? []), ...pending]);
+      const unscored = unscoredReason(failed[2]!);
+      byConfig.set(config, {
+        config,
+        survivors: [...(byConfig.get(config)?.survivors ?? []), ...pending],
+        ...(unscored === undefined ? {} : { unscored }),
+      });
       pending = [];
       continue;
     }
@@ -94,9 +118,7 @@ export function parseMutationLog(log: string): MutationRedConfig[] {
       },
     ];
   }
-  return [...byConfig.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([config, survivors]) => ({ config, survivors }));
+  return [...byConfig.values()].sort((a, b) => a.config.localeCompare(b.config));
 }
 
 /**
@@ -107,9 +129,12 @@ export function parseMutationLog(log: string): MutationRedConfig[] {
  * turns.
  */
 export function mutationRedTaskTitle(red: MutationRedConfig, judged?: string): string {
+  const run = judged === undefined ? 'the nightly run' : `the nightly run on ${judged}`;
+  if (red.unscored !== undefined) {
+    return `${TITLE_PREFIX}${red.config}: ${run} never scored it — no mutant was tested, so fix the run, not the tests`;
+  }
   const n = red.survivors.length;
   const what = n === 0 ? 'mutants' : `${n} mutant(s)`;
-  const run = judged === undefined ? 'the nightly run' : `the nightly run on ${judged}`;
   return `${TITLE_PREFIX}${red.config}: ${what} survived ${run} — make the tests kill them`;
 }
 
@@ -127,7 +152,25 @@ function staleCheckOf(red: MutationRedConfig, judged: string): string {
   return `The run judged ${judged}. Check \`git log --oneline ${judged}..HEAD${paths === '' ? '' : ` --${paths}`}\` first: a fix listed there is newer than the run's evidence, and the task only waits for the next nightly run to close it.`;
 }
 
+/** The body for a config Stryker never scored: the runner's reason, and how
+ *  to debug the run, since no test can kill a mutant no run has tested. */
+function unscoredBodyOf(
+  red: MutationRedConfig,
+  reason: string,
+  judged: string | undefined,
+): string {
+  return [
+    `The nightly mutation run (mutation.yml) is red on ${red.config}, but not because a mutant survived: Stryker stopped before it scored one. The runner's reason: ${reason}.`,
+    ...(judged === undefined ? [] : ['', staleCheckOf(red, judged)]),
+    '',
+    'No test can kill a mutant no run has tested, so the work is the run itself. "No tests were executed" or a failed initial test run usually means a test file cannot load inside the Stryker sandbox (a workspace import with no alias, or `related: true` finding nothing); docs/MUTATION-DEBT.md, "Six configs were testing nothing at all", works those cases through. A killed process is the environment (memory), not the config.',
+    `Run it locally and keep the sandbox to look inside: pnpm exec stryker run config/mutation/${red.config} --cleanTempDir false`,
+    'This task closes by itself once the config passes the nightly run.',
+  ].join('\n');
+}
+
 function bodyOf(red: MutationRedConfig, judged: string | undefined): string {
+  if (red.unscored !== undefined) return unscoredBodyOf(red, red.unscored, judged);
   const shown = red.survivors.slice(0, SHOWN_SURVIVORS);
   const rest = red.survivors.length - shown.length;
   return [
