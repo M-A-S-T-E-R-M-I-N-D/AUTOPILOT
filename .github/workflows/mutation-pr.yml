@@ -38,6 +38,12 @@ concurrency:
 jobs:
   mutation-changed:
     name: mutation testing (changed modules)
+    # The landing ritual opens a draft PR from autopilot/visual-baselines on
+    # every round, only so CI renders the screenshot baselines (never merged).
+    # Judging the whole round's diff here put a red "PR" chip on the CI strip
+    # after each landing (2026-10-03); the nightly sweep already judges the
+    # same commits once they are on main, and files a board task per red.
+    if: github.head_ref != 'autopilot/visual-baselines'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
