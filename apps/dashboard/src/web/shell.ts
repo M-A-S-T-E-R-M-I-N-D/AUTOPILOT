@@ -186,7 +186,7 @@ import {
   contextRailHtml,
   benchmarkSubjectHtml,
 } from './shell-html.js';
-import { ACT_ICON_SHAPES, actIconShapes as sharedActIconShapes } from './activity-icon.js';
+import { ACT_ICONS, actIconName as sharedActIconName } from './activity-icon.js';
 import { tipPosition as sharedTipPosition } from './tip-position.js';
 import { dragBeforeIndex as sharedDragBeforeIndex } from './drag-reorder.js';
 import {
@@ -694,32 +694,18 @@ ${sharedNarratorTarget.toString()}
 ${sharedNarratorKind.toString()}
 ${sharedNarratorPhrase.toString()}
 ${sharedNarratorLine.toString()}
-// Vendored inline SVG icons for the activity feed — hand-authored 16x16 line
-// glyphs (no external font/icon CDN, so the CSP stays default-src 'self').
-// Keyed by narratorKind() so the icon always matches the sentence next to it.
-// ACT_ICON_SHAPES/actIconShapes are generated FROM web/activity-icon.ts below
-// (epic 0002 "shell decomposition") — their real compiled source via
+// The activity feed's row icons — vendored Lucide strokes from icons.ts (epic
+// 0025 law 1), keyed by narratorKind() so the icon always matches the sentence
+// next to it; decorative, since the sentence carries the meaning.
+// ACT_ICONS/actIconName are generated FROM web/activity-icon.ts below (epic
+// 0002 "shell decomposition") — their real compiled source via
 // .toString()/JSON.stringify(), not a hand-retyped copy. They can no longer
 // drift apart.
-var ACT_ICON_SHAPES = ${JSON.stringify(ACT_ICON_SHAPES)};
-${sharedActIconShapes.toString()}
+var ACT_ICONS = ${JSON.stringify(ACT_ICONS)};
+${sharedActIconName.toString()}
 function actIcon(kind) {
-  var NS = 'http://www.w3.org/2000/svg';
-  var svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 16 16');
-  svg.setAttribute('class', 'act-icon');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('focusable', 'false');
-  var shapes = actIconShapes(kind);
-  for (var i = 0; i < shapes.length; i++) {
-    var shape = shapes[i];
-    var node = document.createElementNS(NS, shape.t);
-    for (var key in shape) {
-      if (key === 't') continue;
-      node.setAttribute(key, String(shape[key]));
-    }
-    svg.appendChild(node);
-  }
+  var svg = iconEl(actIconName(kind));
+  svg.setAttribute('class', svg.getAttribute('class') + ' act-icon');
   return svg;
 }
 // One row of the humanized activity feed — an icon plus a plain-language

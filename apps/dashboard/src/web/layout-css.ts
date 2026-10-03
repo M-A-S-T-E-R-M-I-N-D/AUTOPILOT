@@ -1769,8 +1769,10 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .act-file { color: var(--color-sev-low); border-color: var(--color-sev-low); }
 .act-search { color: var(--color-sev-medium); border-color: var(--color-sev-medium); }
 .act-target { font-family: var(--font-mono); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.act-icon { width: 14px; height: 14px; flex: none; color: var(--color-text-muted); }
-.act-icon path, .act-icon circle, .act-icon rect { fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+/* The vendored icon (epic 0025 law 1) keeps the 14px box the hand-authored
+   glyph had, so .act-reason/.act-meta's 22px indent still clears it; its
+   stroke comes from iconEl()'s attributes like every other icon. */
+.act-icon { inline-size: 14px; block-size: 14px; flex: none; color: var(--color-text-muted); }
 .act-sentence { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .act-wrap-row { display: flex; flex-direction: column; gap: 2px; }
 .act-reason { margin: 0; padding-inline-start: 22px; font-style: italic; white-space: normal; }

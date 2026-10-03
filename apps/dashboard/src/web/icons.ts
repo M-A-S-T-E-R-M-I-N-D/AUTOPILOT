@@ -653,6 +653,28 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['line', { x1: '3', x2: '9', y1: '12', y2: '12' }],
     ['line', { x1: '15', x2: '21', y1: '12', y2: '12' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9, law 1): the activity
+  // feed drops its hand-authored 16-unit glyphs. Edit, search and the phase
+  // kinds reuse pencil, search and the phase pill's shapes above; a file read,
+  // a plain command and any other tool take these three.
+  'file-text': [
+    [
+      'path',
+      {
+        d: 'M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z',
+      },
+    ],
+    ['path', { d: 'M14 2v5a1 1 0 0 0 1 1h5' }],
+    ['path', { d: 'M10 9H8' }],
+    ['path', { d: 'M16 13H8' }],
+    ['path', { d: 'M16 17H8' }],
+  ],
+  'square-terminal': [
+    ['path', { d: 'm7 11 2-2-2-2' }],
+    ['path', { d: 'M11 13h4' }],
+    ['rect', { width: '18', height: '18', x: '3', y: '3', rx: '2', ry: '2' }],
+  ],
+  dot: [['circle', { cx: '12', cy: '12', r: '1' }]],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;
