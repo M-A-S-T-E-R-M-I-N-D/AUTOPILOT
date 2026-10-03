@@ -1336,6 +1336,9 @@ const BENIGN_SCRIPTS = new Set([
   // measure-only, no-gh/no-store class as the parent script above.
   'cockpit-metrics-interaction.d.mts',
   'cockpit-metrics-interaction.mjs',
+  // Doc GENERATOR's pure fold (string in, string out) + stub; cockpit-metrics.mjs writes.
+  'cockpit-baseline-doc.d.mts',
+  'cockpit-baseline-doc.mjs',
   'codemod/generate-splice-manifest.d.mts',
   'codemod/generate-splice-manifest.mjs',
   'codemod/split-top-level-regions.d.mts',
