@@ -240,6 +240,15 @@ ${flyHintText.toString()}
       .then(function (data) { if (data) paintBrowse(data); else paintBrowseError(); })
       .catch(function () { paintBrowseError(); });
   }
+  // Both paints' title (epic 0025): a decorative folder-open leads the words,
+  // so the name the dialog takes through aria-labelledby stays the words.
+  function browseTitle() {
+    var h = el('h2', '');
+    h.id = 'browse-title';
+    h.appendChild(iconEl('folder-open'));
+    h.appendChild(document.createTextNode(tr('browseFolderTitle')));
+    return h;
+  }
   // A failed/non-ok fetch used to leave browseEl empty: a full-screen
   // darkened overlay with no dialog inside it, so nothing was focused into
   // it and Escape/Tab (bound to browseEl, reached only by bubbling from
@@ -251,9 +260,7 @@ ${flyHintText.toString()}
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
     dialog.setAttribute('aria-labelledby', 'browse-title');
-    var h = el('h2', '', tr('browseFolderTitle'));
-    h.id = 'browse-title';
-    dialog.appendChild(h);
+    dialog.appendChild(browseTitle());
     dialog.appendChild(el('p', 'browse-path', tr('browseError')));
     var actions = el('div', 'browse-actions');
     var close = document.createElement('button');
@@ -272,9 +279,7 @@ ${flyHintText.toString()}
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
     dialog.setAttribute('aria-labelledby', 'browse-title');
-    var h = el('h2', '', tr('browseFolderTitle'));
-    h.id = 'browse-title';
-    dialog.appendChild(h);
+    dialog.appendChild(browseTitle());
     dialog.appendChild(el('p', 'browse-path', data.path));
     if ((data.drives || []).length > 1) {
       var drivesRow = el('div', 'browse-drives', null);
