@@ -79,18 +79,18 @@ export function discussionsTriageDecisionLabel(decision: string): string {
  *  `comment` already relies on. */
 export interface DiscussionsTriageItem {
   readonly text: string;
-  /** A skip (already labeled, answered or locked): the panel folds these
-   *  into one line, since a re-run skips every discussion a previous pass
-   *  handled and they buried the ones it will act on (2026-09-30: fifteen
-   *  skip lines, no accept). */
+  /** A skip (already labeled, answered, locked, or marked by the maintainer):
+   *  the panel folds these into one line, since a re-run skips every
+   *  discussion a previous pass handled and they buried the ones it will act
+   *  on (2026-09-30: fifteen skip lines, no accept). */
   readonly skip: boolean;
 }
 
 /** Every open discussion's plan as one preview line, `accept` and `skip`
  *  both included (unlike `mirror-pass-panel.ts`'s finding-only filtering) —
  *  an operator reviewing a triage preview needs to see what will be SKIPPED
- *  too (already answered, locked, already labeled), the same full-list shape
- *  `issue-triage.ts`'s own per-item panel renders. */
+ *  too (already answered, locked, already labeled, declined or on hold), the
+ *  same full-list shape `issue-triage.ts`'s own per-item panel renders. */
 export function discussionsTriageItems(
   plans: readonly DiscussionsTriagePlanLike[],
 ): readonly DiscussionsTriageItem[] {
@@ -141,7 +141,8 @@ export function discussionsTriageConfirmMessage(
     ' will get a signed reply posted and a pool label applied; ' +
     skipCount +
     (skipCount === 1 ? ' discussion' : ' discussions') +
-    ' (already answered, locked, or already labeled) will be skipped.\n\n' +
+    ' (already answered, locked, already labeled, or declined or on hold by the maintainer) ' +
+    'will be skipped.\n\n' +
     'Discussions are re-fetched fresh from gh at execute time — this will not blindly ' +
     'trust the preview shown here if discussions changed.'
   );
