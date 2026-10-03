@@ -29,6 +29,10 @@ const LATIN_SCRIPT_KEYS: ReadonlySet<StringKey> = new Set<StringKey>([
   // (epic 0036), as the providers write them in every language.
   'authModeBedrock',
   'authModeVertex',
+  // The fly bar's Engine select names the CLIs themselves (epic 0036).
+  'engineClaude',
+  'engineCodex',
+  'engineGemini',
 ]);
 
 describe('STRINGS', () => {

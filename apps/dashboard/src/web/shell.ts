@@ -5810,10 +5810,19 @@ ${contextRailHtml(project)}
             <option value="end" data-i18n="socialPassEnd">at landing</option>
             <option value="full" data-i18n="socialPassFull">takeoff, between firings, landing</option>
           </select>
+          <label for="fly-engine" data-i18n="engine">Engine</label>
+          <select id="fly-engine" name="engine">
+            <option value="" selected data-i18n="engineDefault">default</option>
+            <option value="claude" data-i18n="engineClaude">Claude Code</option>
+            <option value="codex" data-i18n="engineCodex">Codex</option>
+            <option value="gemini" data-i18n="engineGemini">Gemini</option>
+          </select>
+          <label for="fly-engine-model" id="fly-engine-model-label" data-i18n="engineModel" hidden>Engine model</label>
+          <input type="text" id="fly-engine-model" name="engineModel" maxlength="128" placeholder="gpt-5-codex or gemini-2.5-pro" data-i18n-placeholder="engineModelPlaceholder" autocomplete="off" spellcheck="false" hidden />
       </div>
       <button type="button" id="fly-lucky" aria-label="I'm feeling lucky — probe this machine and fill a calibrated launch" data-i18n-aria="flyLuckyAria">${iconSvg('clover')}</button>
       <button type="submit" id="fly-go" data-i18n="flyIt">Fire</button>
-      <button type="button" class="fly-options-toggle" id="fly-options-toggle" aria-expanded="false" aria-controls="fly-options" aria-label="Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes, social pass" data-i18n-aria="flyOptionsAria" data-tip="Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes, social pass" data-i18n-tip="flyOptionsTip">${iconSvg('settings')}</button>
+      <button type="button" class="fly-options-toggle" id="fly-options-toggle" aria-expanded="false" aria-controls="fly-options" aria-label="Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes, social pass, engine" data-i18n-aria="flyOptionsAria" data-tip="Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes, social pass, engine" data-i18n-tip="flyOptionsTip">${iconSvg('settings')}</button>
       <button type="button" id="fly-pause" data-i18n="pause" hidden>Pause</button>
       <button type="button" id="fly-stop" data-i18n="stop" hidden>Stop</button>
       <span class="fly-status" id="fly-status" role="status" aria-live="polite"></span>

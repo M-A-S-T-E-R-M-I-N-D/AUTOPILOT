@@ -134,6 +134,9 @@ function flyInit() {
   var totalEl = document.getElementById('fly-total');
   var lanesEl = document.getElementById('fly-lanes');
   var socialEl = document.getElementById('fly-social');
+  var engineEl = document.getElementById('fly-engine');
+  var engineModelEl = document.getElementById('fly-engine-model');
+  var engineModelLabel = document.getElementById('fly-engine-model-label');
   var firingsLabel = document.getElementById('fly-firings-label');
   var totalLabel = document.getElementById('fly-total-label');
   // The budget TOGGLE (operator's ask): choose N-firings mode or a total-$
@@ -193,6 +196,12 @@ ${flyHintText.toString()}
     if (typeof settings.total === 'number' && totalEl) totalEl.value = String(settings.total);
     if (typeof settings.budget === 'number' && budgetEl) budgetEl.value = String(settings.budget);
     if (typeof settings.lanes === 'number' && lanesEl) lanesEl.value = String(settings.lanes);
+    // The engine is restored even when the folder saved none: Resume relaunches
+    // through this, and a folder last flown on the default must not take on
+    // whatever engine another launch left in the select.
+    if (engineEl) engineEl.value = typeof settings.engine === 'string' ? settings.engine : '';
+    if (engineModelEl) engineModelEl.value = typeof settings.engineModel === 'string' ? settings.engineModel : '';
+    applyEngine();
     applyMode();
   }
   if (folderEl) folderEl.addEventListener('change', function () { restoreFlySettingsFor(folderEl.value.trim()); });
@@ -604,6 +613,23 @@ ${flyHintText.toString()}
   // StartFlightInput.socialFlight. The empty default sends nothing, so the
   // child inherits the dashboard's own env exactly as before this control.
   setTip(socialEl, 'flySocialTip');
+  // ENGINE (epic 0036, GitHub #21 slice S-last): the CLI this one flight's
+  // firings fly on, sent as StartFlightInput.engine/engineModel, which the
+  // server reads through firingEngineFromRequest. The empty default sends
+  // nothing, so the child inherits the dashboard's own AUTOPILOT_ENGINE. Only
+  // Codex and Gemini run a model named here, so only they show the field.
+  function engineNeedsModel() {
+    return !!(engineEl && (engineEl.value === 'codex' || engineEl.value === 'gemini'));
+  }
+  function applyEngine() {
+    var hide = !engineNeedsModel();
+    if (engineModelEl) engineModelEl.hidden = hide;
+    if (engineModelLabel) engineModelLabel.hidden = hide;
+  }
+  if (engineEl) engineEl.addEventListener('change', applyEngine);
+  applyEngine();
+  setTip(engineEl, 'flyEngineTip');
+  setTip(engineModelEl, 'flyEngineModelTip');
   var lastMsg = '';
   var lastKind = ''; // '' | 'ok' | 'err' — drives the status colour
   var lastFlightsSig = null; // dedupes renderFlights rebuilds — a stop/pause click mid-poll must survive
@@ -824,6 +850,8 @@ ${sessionFlightDataFor.toString()}
       if (budgetEl) budgetEl.disabled = false;
       if (lanesEl) lanesEl.disabled = false;
       if (socialEl) socialEl.disabled = false;
+      if (engineEl) engineEl.disabled = false;
+      if (engineModelEl) engineModelEl.disabled = false;
       if (statusEl) {
         if (statusEl.textContent !== lastMsg) statusEl.textContent = lastMsg;
         var multiStatusClass = 'fly-status' + (lastKind ? ' fly-' + lastKind : '');
@@ -857,6 +885,8 @@ ${sessionFlightDataFor.toString()}
     if (budgetEl) budgetEl.disabled = running;
     if (lanesEl) lanesEl.disabled = running;
     if (socialEl) socialEl.disabled = running;
+    if (engineEl) engineEl.disabled = running;
+    if (engineModelEl) engineModelEl.disabled = running;
     // Client-generated status text goes through tr() (board web-msnsndki-dz3vn1)
     // — the folder name is {name}-templated so each locale's grammar decides
     // where it lands, not English word order. Re-evaluated on every 3s poll's
@@ -944,6 +974,18 @@ ${sessionFlightDataFor.toString()}
       setMsg(tr('socialPassSingleLane'), 'err');
       return;
     }
+    // /api/fleet carries no engine either, so the same refusal holds for it.
+    var engineChoice = engineEl ? engineEl.value : '';
+    if (lanes > 1 && engineChoice) {
+      setMsg(tr('engineSingleLane'), 'err');
+      return;
+    }
+    var engineModel = engineModelEl ? engineModelEl.value.trim() : '';
+    if (engineNeedsModel() && !engineModel) {
+      setMsg(tr('engineModelNeeded'), 'err');
+      if (engineModelEl) engineModelEl.focus();
+      return;
+    }
     rememberFlyFolder(folder);
     var totalUsd = totalEl ? (Number(totalEl.value) || budgetUsd) : budgetUsd;
     saveFlySettingsFor(folder, {
@@ -952,6 +994,8 @@ ${sessionFlightDataFor.toString()}
       total: totalUsd,
       budget: budgetUsd,
       lanes: lanes,
+      engine: engineChoice || undefined,
+      engineModel: engineNeedsModel() ? engineModel : undefined,
     });
     operatorActionLog = recordOperatorAction(
       operatorActionLog,
@@ -979,6 +1023,8 @@ ${sessionFlightDataFor.toString()}
       payload = { folder: folder, budgetUsd: budgetUsd, totalBudgetUsd: totalUsd };
     }
     if (socialFlight) payload.socialFlight = socialFlight;
+    if (engineChoice) payload.engine = engineChoice;
+    if (engineNeedsModel()) payload.engineModel = engineModel;
     fetch('/api/fly', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
