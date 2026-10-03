@@ -172,6 +172,9 @@ export interface FleetLaunchPostResult {
   /** The dashboard's own words for a lane it did not start — a preflight
    *  refusal names what to fix; without it a `409 not started` is mute. */
   readonly message?: string;
+  /** The preflight warnings a started lane flies past (`StartFlightResult.warnings`),
+   *  named on its line as a single launch's start message names them. */
+  readonly warnings?: string;
 }
 
 /** {@link runFleetLaunch}'s injected seams — real callers wire the live store,
@@ -246,7 +249,10 @@ export async function runFleetLaunch(
       ok = false;
       continue;
     }
-    const why = !result.started && result.message !== undefined ? ` — ${result.message}` : '';
+    // A refused lane says why; a started one names what its preflight warned
+    // of, since the bar shows these lines and never the lane's own message.
+    const said = result.started ? result.warnings : result.message;
+    const why = said !== undefined ? ` — ${said}` : '';
     lines.push(
       `  ${name}: ${result.status} ${result.started ? 'started' : 'not started'} — ` +
         `${lane.taskScope.length} task(s) reserved${why}`,

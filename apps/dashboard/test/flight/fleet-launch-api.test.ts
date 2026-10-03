@@ -132,6 +132,32 @@ describe('createFleetLaunchApi', () => {
     );
   });
 
+  it('names the preflight warnings a started lane flew past, as the bar shows a single launch’s', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'fleet-launch-api-'));
+    const dbPath = join(dir, 'store.db');
+    const store = openStore(dbPath);
+    migrate(store);
+    store.close();
+
+    const api = createFleetLaunchApi(
+      dbPath,
+      () =>
+        ({
+          started: true,
+          message:
+            'flying /repo — 1 firing(s) — preflight warns: engine: Codex CLI is not signed in',
+          warnings: 'preflight warns: engine: Codex CLI is not signed in',
+          status: IDLE_STATUS,
+        }) satisfies StartFlightResult,
+      0,
+    );
+
+    const result = await api({ folder: join(dir, 'repo'), laneCount: 1, firings: 1, budgetUsd: 5 });
+    expect(result.lines[1]).toBe(
+      '  base: 200 started — 0 task(s) reserved — preflight warns: engine: Codex CLI is not signed in',
+    );
+  });
+
   it('empty board still launches every lane with an empty scope (partition-then-pull, not idle)', async () => {
     dir = mkdtempSync(join(tmpdir(), 'fleet-launch-api-'));
     const dbPath = join(dir, 'store.db');
