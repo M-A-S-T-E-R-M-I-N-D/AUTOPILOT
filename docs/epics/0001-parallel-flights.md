@@ -424,6 +424,21 @@ already computed per-launch and displaying it — with no new write path and no 
 or trigger a flight. `flight/fly.ts` and `flight/registry.ts` are unchanged. None of the four locks
 below changes; all six slices remain unchanged and live in production.
 
+Freshness check (2026-10-03, yet later): `flight/runner.ts` gained two more commits since the
+check above — `2ed12686` and `103f2c5b` (epic 0036, GitHub #21 slice S1). The first lets the
+fly-bar row name the engine a launch that chose none still flies on — the dashboard process's own
+`AUTOPILOT_ENGINE` — through a new optional `FlightRunnerDeps.inheritedEngine`, read for the status
+alone; the child and preflight still get no engine of their own, so routing itself is unchanged.
+The second lets a Claude flight's row name the backend its `claude` CLI is routed to (Bedrock,
+Vertex, or a custom endpoint by host), through a new optional `FlightRunnerDeps.claudeBackend` that
+reads `connection.json` the same way the child does, for the status alone; a Codex or Gemini lane
+never reads it. Both are per-launch display reads inside that flight's own `start()` call — no
+board, SOUL or backlog row crosses projects because of them, and neither opens a new write path,
+cross-project or otherwise. Lock 2 (singleton `FlightRunner`) is unchanged: the registry still
+holds one runner per folder, keyed the same way; both new fields only widen what a single spawn
+call's status can report. `flight/fly.ts` and `flight/registry.ts` are unchanged. None of the four
+locks below changes; all six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
