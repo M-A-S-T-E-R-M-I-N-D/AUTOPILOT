@@ -256,8 +256,9 @@ describe('computeDocDrift', () => {
         doc: 'docs/epics/0006-github-connected-mode.md',
         subjects: [
           'apps/dashboard/src/github/',
-          'apps/dashboard/src/connection/',
-          'apps/dashboard/src/web/connect-panel.ts',
+          'apps/dashboard/src/connection/gh-probe.ts',
+          'apps/dashboard/src/connection/gh-login.ts',
+          'apps/dashboard/src/connection/gh-lts.ts',
         ],
       },
       {
