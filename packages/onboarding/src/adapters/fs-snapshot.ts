@@ -14,6 +14,7 @@ const READ_ROOT_FILES = new Set([
   'Cargo.toml',
   'go.mod',
   'setup.cfg',
+  'tox.ini',
 ]);
 
 const DEFAULT_MAX_DEPTH = 6;

@@ -12,6 +12,7 @@ import { tomlHasSection, iniHasSection, directCommand } from '../manifests.js';
  * A tool's config is looked for in its own file, in `pyproject.toml`, and in
  * `setup.cfg` — the last is where flake8 reads natively (it has no pyproject
  * support) and the section names differ there (`[tool:pytest]`, `[mypy]`).
+ * flake8 also reads a `[flake8]` section in `tox.ini`; mypy never reads tox.ini.
  */
 
 /** The tool-owned config files pytest and mypy search before any shared
@@ -24,6 +25,7 @@ export const pythonDetector: EcosystemDetector = {
   detect(snap) {
     const pyproject = snap.read('pyproject.toml');
     const setupCfg = snap.read('setup.cfg');
+    const toxIni = snap.read('tox.ini');
     const hasManifest =
       pyproject !== null ||
       snap.has('setup.py') ||
@@ -66,7 +68,8 @@ export const pythonDetector: EcosystemDetector = {
     } else if (
       snap.has('.flake8') ||
       tomlHasSection(pyproject, 'tool.flake8') ||
-      iniHasSection(setupCfg, 'flake8')
+      iniHasSection(setupCfg, 'flake8') ||
+      iniHasSection(toxIni, 'flake8')
     ) {
       gate.lint = directCommand('flake8', []);
       evidence.push('flake8');
