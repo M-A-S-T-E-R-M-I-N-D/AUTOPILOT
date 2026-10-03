@@ -260,6 +260,16 @@ function keeperQueueKeydown(e) {
   opens.forEach(function (b, i) { b.setAttribute('tabindex', i === next ? '0' : '-1'); });
   opens[next].focus();
 }
+/** Both headings lead with the inbox the rail's Keeper link draws (epic
+ *  0025), decorative, so the text stays the words alone. iconEl is core's;
+ *  typeof-guarded like tr, since this module also runs on its own. */
+function keeperQueueHeading(text) {
+  var h = document.createElement('h2');
+  h.className = 'keeper-queue-title';
+  if (typeof iconEl === 'function') h.appendChild(iconEl('inbox'));
+  h.appendChild(document.createTextNode(text));
+  return h;
+}
 function renderKeeperQueue() {
   var items = keeperQueueItems();
   var host = keeperQueueHost(items.length > 0);
@@ -277,16 +287,11 @@ function renderKeeperQueue() {
   if (!items.length && settled === 0) { if (!host.hidden) host.hidden = true; return; }
   if (!items.length) {
     // Everything the session listed has settled: say so once, quietly.
-    var doneH = document.createElement('h2');
-    doneH.className = 'keeper-queue-title';
-    doneH.textContent = trOr('keeperQueueClear', 'Nothing waiting on you') + ' · ' + trOr('keeperQueueSettled', settled + ' settled this session', { n: String(settled) });
-    host.appendChild(doneH);
+    host.appendChild(keeperQueueHeading(trOr('keeperQueueClear', 'Nothing waiting on you') + ' · ' + trOr('keeperQueueSettled', settled + ' settled this session', { n: String(settled) })));
     if (host.hidden) host.hidden = false;
     return;
   }
-  var h = document.createElement('h2');
-  h.className = 'keeper-queue-title';
-  h.textContent = trOr('keeperQueueTitle', 'Waiting on you') + ' · ' + items.length;
+  var h = keeperQueueHeading(trOr('keeperQueueTitle', 'Waiting on you') + ' · ' + items.length);
   if (settled > 0) {
     var settledEl = document.createElement('span');
     settledEl.className = 'keeper-queue-settled';
