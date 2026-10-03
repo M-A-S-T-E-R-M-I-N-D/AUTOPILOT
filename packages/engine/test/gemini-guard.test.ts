@@ -249,4 +249,20 @@ describe('buildGeminiFlightSettings', () => {
     expect(matcher.test('glob2')).toBe(false);
     expect(matcher.test('save_memory')).toBe(false);
   });
+
+  it("caps each run's turns at the flight's ceiling, as --max-turns caps a Claude run", () => {
+    const capped = buildGeminiFlightSettings(winRoot, winScript, 120);
+    expect(capped.model).toEqual({ maxSessionTurns: 120 });
+    // The cap rides beside the hook, never in its place.
+    expect(capped.hooks).toEqual(settings.hooks);
+    expect(capped.hooksConfig).toEqual(settings.hooksConfig);
+  });
+
+  it('writes no cap without a positive whole ceiling: 0 would end every run at its first turn', () => {
+    expect(settings).not.toHaveProperty('model');
+    for (const ceiling of [0, -1, 2.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const uncapped = buildGeminiFlightSettings(winRoot, winScript, ceiling);
+      expect(uncapped, String(ceiling)).not.toHaveProperty('model');
+    }
+  });
 });

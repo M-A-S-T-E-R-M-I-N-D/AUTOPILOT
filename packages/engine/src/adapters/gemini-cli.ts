@@ -157,6 +157,21 @@ export function geminiActivityReader(): (event: Record<string, unknown>) => Acti
 }
 
 /**
+ * The two ways a run meets its `model.maxSessionTurns` cap (`gemini-guard.ts`),
+ * read from google-gemini/gemini-cli on 2026-10-03. The run loop
+ * (`packages/cli/src/nonInteractiveCli.ts`) counts each model request and
+ * ends the run through `handleMaxTurnsExceededError` (`utils/errors.ts`): a
+ * `result` whose `error.type` is `getErrorType`'s name for the
+ * `FatalTurnLimitedError` it throws, exit 53. `GeminiClient.processTurn`
+ * (`packages/core/src/core/client.ts`) counts next-speaker and retry turns
+ * too, so it can reach the cap first; the run loop then writes this message
+ * as a `severity: 'error'` event and the run ends as a `success`, with no tool
+ * call left to run.
+ */
+const GEMINI_TURN_LIMIT_ERROR_TYPE = 'FatalTurnLimitedError';
+const GEMINI_CLIENT_TURN_LIMIT_MESSAGE = 'Maximum session turns exceeded';
+
+/**
  * Parse one `gemini --output-format stream-json` run: the `JsonStreamEvent`s in
  * gemini-cli `packages/core/src/output/types.ts`, one compact object per line,
  * all on stdout (`StreamJsonFormatter.emitEvent`). A fatal error comes there too,
@@ -178,9 +193,12 @@ export function geminiActivityReader(): (event: Record<string, unknown>) => Acti
  * Tokens are the CLI's own `convertToStreamStats` totals: `input` (prompt −
  * cached) to `tokensIn`, `output_tokens` to `tokensOut`, `cached` to
  * `cacheRead`, and `duration_ms` is the CLI's own run time. An error carries
- * only `type` and `message`, so `apiErrorStatus` is `null`; cost, turns and
- * stop reason are never on the wire, so they are `null` too. `modelUsed` is
- * the one model `stats.models` names, else the model the engine requested.
+ * only `type` and `message`, so `apiErrorStatus` is `null`; cost and turns are
+ * never on the wire, so they are `null` too. The stop reason is `max_turns`
+ * when the run met its `model.maxSessionTurns` cap, by either of the CLI's two
+ * checks (see {@link GEMINI_TURN_LIMIT_ERROR_TYPE}), and `null` otherwise.
+ * `modelUsed` is the one model `stats.models` names, else the model the
+ * engine requested.
  *
  * Every tool call the containment guard's BeforeTool hook denied rides out as
  * `guardDenials`/`guardDenialDetails`, as `StreamingClaudeCliModel`'s do, with
@@ -195,6 +213,7 @@ export function parseGeminiStreamJsonOutput(
   let sessionId: string | null = null;
   let finalTurnText = '';
   let lastErrorMessage: string | null = null;
+  let clientTurnLimit = false;
   let result: Record<string, unknown> | null = null;
   const guardDenialDetails: GuardDenialDetail[] = [];
 
@@ -213,6 +232,7 @@ export function parseGeminiStreamJsonOutput(
       if (denial !== null) guardDenialDetails.push(denial);
     } else if (type === 'error' && event['severity'] === 'error') {
       lastErrorMessage = strOrNull(event['message']) ?? lastErrorMessage;
+      clientTurnLimit ||= event['message'] === GEMINI_CLIENT_TURN_LIMIT_MESSAGE;
     } else if (type === 'result') {
       result = event;
     }
@@ -224,6 +244,8 @@ export function parseGeminiStreamJsonOutput(
 
   const failed = result['status'] !== 'success';
   const stats = recordOrNull(result['stats']);
+  const turnLimited =
+    clientTurnLimit || recordOrNull(result['error'])?.['type'] === GEMINI_TURN_LIMIT_ERROR_TYPE;
   const envelope: ModelEnvelope = {
     result: failed
       ? (strOrNull(recordOrNull(result['error'])?.['message']) ?? lastErrorMessage)
@@ -233,7 +255,7 @@ export function parseGeminiStreamJsonOutput(
     costUsd: null,
     numTurns: null,
     durationMs: numOrNull(stats?.['duration_ms']),
-    stopReason: null,
+    stopReason: turnLimited ? 'max_turns' : null,
     modelUsed: modelUsedFrom(recordOrNull(stats?.['models']) ?? {}, requestedModel),
     tokensIn: numOrNull(stats?.['input']),
     tokensOut: numOrNull(stats?.['output_tokens']),

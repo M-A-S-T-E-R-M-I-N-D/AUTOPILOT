@@ -168,8 +168,9 @@ export function toGeminiDenyDecision(claudeDecision: string): string {
   });
 }
 
-/** The generated Gemini settings payload (the hooks part of its `settings.json` schema). */
+/** The generated Gemini settings payload (the hooks and turn-cap parts of its `settings.json` schema). */
 export interface GeminiFlightSettings {
+  readonly model?: { readonly maxSessionTurns: number };
   readonly hooksConfig: { readonly enabled: true };
   readonly hooks: {
     readonly BeforeTool: readonly {
@@ -189,12 +190,24 @@ export interface GeminiFlightSettings {
  * `BeforeTool` hook over {@link GEMINI_GUARDED_TOOLS} that runs the same guard
  * command `buildFlightSettings` gives Claude, and `hooksConfig.enabled` set
  * here, where it outranks a user or workspace file that turns hooks off.
+ *
+ * `maxTurns`, the flight's turn ceiling, becomes `model.maxSessionTurns`, the
+ * one turn cap the CLI has (no flag sets it, `packages/cli/src/config/config.ts`),
+ * so a run stops where `--max-turns` stops a Claude one. Read from gemini-cli
+ * on 2026-10-03: `nonInteractiveCli.ts` counts each model request of a run and
+ * exits `FatalTurnLimitedError` (53) past the cap, restarting the count for
+ * every run, a resumed one included. Merged last like the hook, it outranks a
+ * repo's own setting. Only a positive whole number is written: `-1` is
+ * unlimited, and `0` would end every run before its first turn.
  */
 export function buildGeminiFlightSettings(
   targetRoot: string,
   guardScriptPath: string,
+  maxTurns?: number,
 ): GeminiFlightSettings {
+  const capsTurns = maxTurns !== undefined && Number.isInteger(maxTurns) && maxTurns > 0;
   return {
+    ...(capsTurns ? { model: { maxSessionTurns: maxTurns } } : {}),
     hooksConfig: { enabled: true },
     hooks: {
       BeforeTool: [

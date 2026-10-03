@@ -221,6 +221,67 @@ describe('parseGeminiStreamJsonOutput', () => {
     });
   });
 
+  it("reads the CLI's turn-limit exit as a max_turns stop, so the firing records it hit the cap", () => {
+    // handleMaxTurnsExceededError (packages/cli/src/utils/errors.ts): the run
+    // loop's own model.maxSessionTurns check, exit 53.
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(INIT, {
+        type: 'result',
+        status: 'error',
+        error: { type: 'FatalTurnLimitedError', message: 'Reached max session turns' },
+        stats: streamStats({}),
+      }),
+      53,
+      'gemini-2.5-pro',
+    );
+    expect(response.envelope).toMatchObject({ isError: true, stopReason: 'max_turns' });
+  });
+
+  it("reads the client's own turn-limit stop as max_turns, though the run then ends as a success", () => {
+    // GeminiClient.processTurn counts next-speaker and retry turns too, so it
+    // can reach the cap first: nonInteractiveCli.ts writes its warning as an
+    // error event and the run ends with no tool call left to run.
+    const response = parseGeminiStreamJsonOutput(
+      jsonl(
+        INIT,
+        { type: 'message', role: 'assistant', content: 'Half done', delta: true },
+        { type: 'error', severity: 'error', message: 'Maximum session turns exceeded' },
+        { type: 'result', status: 'success', stats: streamStats({}) },
+      ),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(response.envelope).toMatchObject({
+      isError: false,
+      result: 'Half done',
+      stopReason: 'max_turns',
+    });
+  });
+
+  it('keeps every other ending free of a stop reason the wire never gave', () => {
+    const otherFatal = parseGeminiStreamJsonOutput(
+      jsonl(INIT, {
+        type: 'result',
+        status: 'error',
+        error: { type: 'FatalToolExecutionError', message: 'Reached max session turns' },
+      }),
+      54,
+      'gemini-2.5-pro',
+    );
+    const warnedOnly = parseGeminiStreamJsonOutput(
+      jsonl(
+        INIT,
+        { type: 'error', severity: 'warning', message: 'Maximum session turns exceeded' },
+        { type: 'message', role: 'assistant', content: 'Maximum session turns exceeded' },
+        { type: 'result', status: 'success' },
+      ),
+      0,
+      'gemini-2.5-pro',
+    );
+    expect(otherFatal.envelope?.stopReason).toBeNull();
+    expect(warnedOnly.envelope?.stopReason).toBeNull();
+  });
+
   it("falls back to the last error event's message for a failed result that carries none (the invalid-stream case)", () => {
     const response = parseGeminiStreamJsonOutput(
       jsonl(
