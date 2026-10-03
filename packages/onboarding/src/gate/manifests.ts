@@ -44,7 +44,7 @@ export function tomlHasSection(text: string | null, section: string): boolean {
   return text.split('\n').some((line) => pattern.test(line.trimStart()));
 }
 
-/** INI-section presence check (`setup.cfg`) — the exact `[section]` header only,
+/** INI-section presence check (`setup.cfg`, `tox.ini`) — the exact `[section]` header only,
  *  read the way Python's configparser does (line stripped, header at its start).
  *  INI has no sub-tables, so unlike {@link tomlHasSection} a shared prefix never
  *  counts: mypy's per-module `[mypy-requests.*]` is not its global `[mypy]`. */

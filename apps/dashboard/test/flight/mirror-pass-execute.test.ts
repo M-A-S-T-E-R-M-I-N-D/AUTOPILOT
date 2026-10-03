@@ -27,6 +27,9 @@ import {
   createMirrorPassPriorityFollowExecuteApi,
 } from '../../src/flight/mirror-pass-execute.js';
 import { claimContractBody } from '../../src/flight/claim-contract.js';
+import { HOLD_LABELS } from '../../src/flight/issue-triage.js';
+import { DECLINED_LABEL, planClaimPoolIssue } from '../../src/flight/pool-client.js';
+import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 vi.mock('@autopilot/store', async (importOriginal) => {
@@ -1912,6 +1915,96 @@ describe('createMirrorPassStaleClaimExecuteApi', () => {
       cleanupDir(dir);
     }
   });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the stale-claim
+// reaper × the marks the pool claim skips. The maintainer may decline an
+// accepted pool issue (`declined`) or put it on hold by hand (`status:
+// awaiting-human`, `status: blocked`). It stays open with its pool label and
+// its holder. The claim skips all three (pool-client.ts planClaimPoolIssue),
+// and triage never answers a held issue (issue-triage.ts HOLD_LABELS). The
+// reaper read none of them: once the holder went quiet 14 days it posted
+// "Freeing it up so anyone can pick it back up" and unassigned them, on an
+// issue nobody can claim.
+describe('the stale-claim reaper × the marks the pool claim skips (regression, epic 0019 additive-only law)', () => {
+  const NOW = Date.UTC(2026, 8, 9, 12, 0, 0);
+  const now = (): number => NOW;
+  const seeded = (name: string): string =>
+    HOUSE_TAXONOMY_LABELS.find((label) => label.name === name)?.name ?? '';
+  const marks = [seeded('declined'), seeded('status: awaiting-human'), seeded('status: blocked')];
+  const pool = 'pool: web';
+  const quiet = { state: 'OPEN', assignee: 'someone', updatedAt: '2026-08-01T00:00:00Z' } as const;
+  /** #5 carries the mark, #6 does not; both claims went quiet in August. */
+  const poolIssues = (mark: string) => [
+    { number: 5, labels: [pool, mark], assignees: ['someone'] },
+    { number: 6, labels: [pool], assignees: ['someone'] },
+  ];
+
+  async function withProject(run: (dbPath: string) => Promise<void>): Promise<void> {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-stale-claim-marked-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project(s, 'p1', dir);
+      s.close();
+      await run(dbPath);
+    } finally {
+      cleanupDir(dir);
+    }
+  }
+
+  it('reads the labels the seeder stamps', () => {
+    expect([DECLINED_LABEL, ...HOLD_LABELS]).toEqual(marks);
+  });
+
+  it.each(marks)(
+    'the preview plans no reap on a pool issue marked "%s", which the claim skips',
+    async (mark) => {
+      const unclaimed = { number: 5, title: 't', url: 'u', assignees: [] };
+      expect(planClaimPoolIssue({ ...unclaimed, labels: [pool] }, 'newcomer').decision).toBe(
+        'claim',
+      );
+      expect(planClaimPoolIssue({ ...unclaimed, labels: [pool, mark] }, 'newcomer').decision).toBe(
+        'skip',
+      );
+
+      await withProject(async (dbPath) => {
+        const exec = poolListAndActivityExec(poolIssues(mark), { 5: quiet, 6: quiet });
+
+        const plans = await createMirrorPassStaleClaimPreviewApi(dbPath, exec, now)('p1');
+
+        expect(plans?.map((plan) => plan.finding?.issueNumber)).toEqual([6]);
+      });
+    },
+  );
+
+  it.each(marks)(
+    'the execute sends no note or unassign on a pool issue marked "%s"',
+    async (mark) => {
+      await withProject(async (dbPath) => {
+        const calls: Array<readonly [string, readonly string[]]> = [];
+        const exec = identityAndPoolListAndActivityExec(
+          'octocat',
+          'octocat',
+          poolIssues(mark),
+          { 5: quiet, 6: quiet },
+          calls,
+        );
+
+        const report = await createMirrorPassStaleClaimExecuteApi(dbPath, exec, now)('p1');
+
+        expect(report?.outcomes.map((outcome) => outcome.plan.finding?.issueNumber)).toEqual([6]);
+        const writes = calls
+          .map(([, args]) => args)
+          .filter((args) => args[0] === 'issue' && (args[1] === 'comment' || args[1] === 'edit'));
+        expect(writes.map((args) => args.slice(0, 3))).toEqual([
+          ['issue', 'comment', '6'],
+          ['issue', 'edit', '6'],
+        ]);
+      });
+    },
+  );
 });
 
 /**

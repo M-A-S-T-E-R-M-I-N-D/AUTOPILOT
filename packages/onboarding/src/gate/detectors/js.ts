@@ -123,7 +123,13 @@ export const jsDetector: EcosystemDetector = {
     // After the score: the install leg is environment hygiene, not evidence
     // of what this repo checks, so it never tips a detection tie. Only with a
     // lockfile — without one an install could rewrite the tree's own record.
-    const lockfile = ['pnpm-lock.yaml', 'yarn.lock', 'package-lock.json'].find((f) => snap.has(f));
+    // npm-shrinkwrap.json is npm's other lockfile, and the one npm prefers when both exist.
+    const lockfile = [
+      'pnpm-lock.yaml',
+      'yarn.lock',
+      'npm-shrinkwrap.json',
+      'package-lock.json',
+    ].find((f) => snap.has(f));
     if (lockfile !== undefined) {
       gate.install = installCommand(pm);
       evidence.push(`lockfile.${lockfile}`);

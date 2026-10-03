@@ -119,6 +119,7 @@ describe('readFsSnapshot', () => {
     writeFileSync(join(dir, 'Cargo.toml'), 'cargo');
     writeFileSync(join(dir, 'go.mod'), 'gomod');
     writeFileSync(join(dir, 'setup.cfg'), 'cfg');
+    writeFileSync(join(dir, 'tox.ini'), 'tox');
 
     const snap = readFsSnapshot(dir);
 
@@ -126,5 +127,6 @@ describe('readFsSnapshot', () => {
     expect(snap.read('Cargo.toml')).toBe('cargo');
     expect(snap.read('go.mod')).toBe('gomod');
     expect(snap.read('setup.cfg')).toBe('cfg');
+    expect(snap.read('tox.ini')).toBe('tox');
   });
 });

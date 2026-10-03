@@ -603,9 +603,9 @@ const EN_STRINGS = {
   browse: 'Browse…',
   flyOptions: 'Options',
   flyOptionsAria:
-    'Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes, social pass',
+    'Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes, social pass, engine',
   flyOptionsTip:
-    'Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes, social pass',
+    'Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes, social pass, engine',
   byCount: 'by count',
   byTotal: 'by total $',
   firings: 'Firings',
@@ -618,6 +618,13 @@ const EN_STRINGS = {
   socialPassStart: 'at takeoff',
   socialPassEnd: 'at landing',
   socialPassFull: 'takeoff, between firings, landing',
+  engine: 'Engine',
+  engineDefault: 'default',
+  engineClaude: 'Claude Code',
+  engineCodex: 'Codex',
+  engineGemini: 'Gemini',
+  engineModel: 'Engine model',
+  engineModelPlaceholder: 'gpt-5-codex or gemini-2.5-pro',
   flyIt: 'Fire',
   flying: 'Flying…',
   queued: 'Queued…',
@@ -1817,6 +1824,10 @@ const EN_STRINGS = {
     'More than 1 splits the open board across that many parallel lanes with disjoint task scopes (the same hub-aware partitioner dashboard fleet uses) instead of flying a single lane.',
   flySocialTip:
     "When this flight runs the read-only GitHub social pass: at takeoff, at landing, or both plus between firings. Default follows the dashboard's AUTOPILOT_SOCIAL_FLIGHT; the pass skips itself when gh is not connected.",
+  flyEngineTip:
+    "Which CLI this flight's firings fly on. Default follows the dashboard's AUTOPILOT_ENGINE. A Codex or Gemini lane records no cost, skips model routing, and is demoted after two reverted firings in a row.",
+  flyEngineModelTip:
+    'The model the chosen CLI runs (AUTOPILOT_ENGINE_MODEL): gpt-5-codex for Codex, gemini-2.5-pro for Gemini. Never a Claude model.',
   flyProgressTip:
     "Progress for the whole flight — elapsed time, spend or firing count against its target, and an ETA from this flight's own average firing duration",
   flightRunningTip: 'This flight is running now — Stop ends it, Pause suspends it until Resume.',
@@ -1856,6 +1867,9 @@ const EN_STRINGS = {
     'Lanes launch with a fixed firing count — switch off total-spend mode first.',
   socialPassSingleLane:
     'The social pass choice applies to a single-lane flight — set Lanes to 1 or the social pass to default.',
+  engineSingleLane:
+    'The engine choice applies to a single-lane flight — set Lanes to 1 or the engine to default.',
+  engineModelNeeded: 'Codex and Gemini need the model that CLI runs — fill in Engine model.',
   fleetLaunched: 'Fleet launched.',
   fleetLaunchFailed: 'Fleet launch failed.',
   fleetLaunchDashboardDown: 'Fleet launch failed — is the dashboard still running?',
@@ -2460,9 +2474,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     browse: 'עיון…',
     flyOptions: 'אפשרויות',
     flyOptionsAria:
-      'הצגה או הסתרה של הגדרות השיגור: עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים, מעבר חברתי',
+      'הצגה או הסתרה של הגדרות השיגור: עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים, מעבר חברתי, מנוע',
     flyOptionsTip:
-      'הצגה או הסתרה של הגדרות השיגור — עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים, מעבר חברתי',
+      'הצגה או הסתרה של הגדרות השיגור — עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים, מעבר חברתי, מנוע',
     byCount: 'לפי כמות',
     byTotal: 'לפי סכום כולל',
     firings: 'הפעלות',
@@ -2475,6 +2489,13 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     socialPassStart: 'בהמראה',
     socialPassEnd: 'בנחיתה',
     socialPassFull: 'המראה, בין הפעלות, נחיתה',
+    engine: 'מנוע',
+    engineDefault: 'ברירת מחדל',
+    engineClaude: 'Claude Code',
+    engineCodex: 'Codex',
+    engineGemini: 'Gemini',
+    engineModel: 'מודל המנוע',
+    engineModelPlaceholder: 'gpt-5-codex או gemini-2.5-pro',
     flyIt: 'שגר!',
     flying: 'בטיסה…',
     queued: 'בתור…',
@@ -3317,6 +3338,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'יותר מ-1 מפצל את הלוח הפתוח למספר הזה של נתיבים מקבילים עם תחומי משימות נפרדים (אותו מחלק המודע למרכז שבו משתמש "dashboard fleet"), במקום לטוס בנתיב בודד.',
     flySocialTip:
       'מתי הטיסה הזו מריצה את המעבר החברתי ב-GitHub (קריאה בלבד): בהמראה, בנחיתה, או בשתיהן וגם בין הפעלות. ברירת המחדל עוקבת אחרי AUTOPILOT_SOCIAL_FLIGHT של לוח הבקרה; המעבר מדלג על עצמו כש-gh אינו מחובר.',
+    flyEngineTip:
+      'על איזה CLI טסות ההפעלות של הטיסה הזו. ברירת המחדל עוקבת אחרי AUTOPILOT_ENGINE של לוח הבקרה. נתיב של Codex או Gemini לא רושם עלות, מדלג על ניתוב המודלים, ומורד אחרי שתי הפעלות ברצף שבוטלו (revert).',
+    flyEngineModelTip:
+      'המודל שה-CLI שנבחר מריץ (AUTOPILOT_ENGINE_MODEL): gpt-5-codex ל-Codex, gemini-2.5-pro ל-Gemini. לעולם לא מודל של Claude.',
     flyProgressTip:
       'התקדמות הטיסה כולה — זמן שחלף, הוצאה או מספר הפעלות מול היעד, והערכת סיום לפי משך ההפעלה הממוצע של הטיסה הזו',
     flightRunningTip: 'הטיסה הזו פעילה כעת — "עצור" מסיים אותה, "השהה" משהה אותה עד לחידוש.',
@@ -3355,6 +3380,9 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     lanesFixedFiringCount: 'נתיבים משוגרים עם מספר הפעלות קבוע — כבו קודם את מצב ההוצאה הכוללת.',
     socialPassSingleLane:
       'בחירת המעבר החברתי חלה על טיסה בנתיב בודד — הגדירו נתיבים ל-1 או את המעבר החברתי לברירת מחדל.',
+    engineSingleLane:
+      'בחירת המנוע חלה על טיסה בנתיב בודד — הגדירו נתיבים ל-1 או את המנוע לברירת מחדל.',
+    engineModelNeeded: 'Codex ו-Gemini צריכים את המודל שה-CLI מריץ — מלאו את מודל המנוע.',
     fleetLaunched: 'הצי שוגר.',
     fleetLaunchFailed: 'שיגור הצי נכשל.',
     fleetLaunchDashboardDown: 'שיגור הצי נכשל — האם לוח הבקרה עדיין פועל?',

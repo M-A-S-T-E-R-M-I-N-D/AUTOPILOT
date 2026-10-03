@@ -135,6 +135,18 @@ export function isClaimedPoolIssue(issue: PoolIssue): boolean {
   return issueClaims(issue).length > 0;
 }
 
+/** True when the stale-claim reaper may free this pool issue's claims: it is
+ *  held ({@link isClaimedPoolIssue}), and the maintainer has neither declined
+ *  it ({@link DECLINED_LABEL}) nor put it on hold ({@link HOLD_LABELS}). The
+ *  claim skips both marks ({@link planClaimPoolIssue}), so a released claim
+ *  there would tell its holder "anyone can pick it back up" about an issue
+ *  nobody can claim, and a hold is the maintainer's to lift (epic 0019 law 2).
+ *  Exact label match, the same check the claim makes. */
+export function isReapablePoolClaim(issue: PoolIssue): boolean {
+  if (!isClaimedPoolIssue(issue) || issue.labels.includes(DECLINED_LABEL)) return false;
+  return !HOLD_LABELS.some((label) => issue.labels.includes(label));
+}
+
 /** One issue entry as `gh issue list --json number,title,url,labels,
  *  assignees` emits it — untrusted process output, parsed defensively
  *  rather than trusted as already shaped like {@link PoolIssue}. */

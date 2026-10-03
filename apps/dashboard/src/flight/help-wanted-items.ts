@@ -36,6 +36,7 @@
 
 import type { CliExec } from '../connection/cli-probe.js';
 import { MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
+import { isMaintainerMarked } from './contributor-issue-list.js';
 
 /** GitHub's default "help wanted" label — the only label this module reads
  *  by. Not seeded by this repo's own `taxonomy-seed.ts` (a GitHub default,
@@ -68,6 +69,17 @@ export function isHelpWantedItem(labels: readonly string[]): boolean {
   return labels.some((label) => normalizeLabel(label) === HELP_WANTED_LABEL);
 }
 
+/** True when nobody holds the item and the maintainer has declined it or put
+ *  it on hold. Such an issue stays open, label and all, for its reporter to
+ *  reply to (CONTRIBUTING.md). The panel would show it as "Unclaimed", that
+ *  is open to claim, while the pool claim and the Good-first list both skip
+ *  it (epic 0019 law 2: the maintainer's mark outranks a listing). A marked
+ *  issue someone holds stays listed: "Claimed by" is still true, and the
+ *  holder's My claims filter still finds it. */
+function isMarkedAndUnclaimed(item: HelpWantedItem): boolean {
+  return item.assignees.length === 0 && isMaintainerMarked(item.labels);
+}
+
 /** One issue entry as `gh issue list --json number,title,url,labels,
  *  assignees` emits it — untrusted process output, parsed defensively
  *  rather than trusted as already shaped like {@link HelpWantedItem}. */
@@ -94,7 +106,8 @@ interface RawHelpWantedItem {
  * `fetchRoadmapItems` uses. Assignees are carried
  * through as-is (including empty) rather than filtered — the caller's claim
  * state, unlike `contributor-issue-list.ts`'s pick list, which drops
- * already-assigned issues instead.
+ * already-assigned issues instead. An unassigned issue the maintainer has
+ * declined or put on hold is dropped ({@link isMarkedAndUnclaimed}).
  */
 export async function fetchHelpWantedItems(exec: CliExec): Promise<HelpWantedItem[]> {
   const { code, stdout } = await exec('gh', [
@@ -134,5 +147,5 @@ export async function fetchHelpWantedItems(exec: CliExec): Promise<HelpWantedIte
       labels: parseIssueLabels(raw.labels),
       assignees: parseAssignees(raw.assignees),
     }))
-    .filter((item) => isHelpWantedItem(item.labels));
+    .filter((item) => isHelpWantedItem(item.labels) && !isMarkedAndUnclaimed(item));
 }

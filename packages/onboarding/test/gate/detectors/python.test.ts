@@ -75,6 +75,33 @@ describe('pythonDetector', () => {
     expect(d?.evidence).toEqual(['setup.cfg']);
   });
 
+  it('maps flake8 from a [flake8] section in tox.ini', () => {
+    // flake8 reads its config from setup.cfg, tox.ini or .flake8 (its own
+    // configuration docs), so a project that keeps it in tox.ini gets a lint.
+    const d = pythonDetector.detect(
+      snap(['setup.py', 'tox.ini'], {
+        'tox.ini':
+          '[tox]\r\nenvlist = py312\r\n\r\n[testenv]\r\ncommands = pytest\r\n\r\n' +
+          '[flake8]\r\nmax-line-length = 100\r\n',
+      }),
+    );
+    expect(d?.gate.lint).toEqual({ bin: 'flake8', args: [], label: 'flake8' });
+    expect(d?.evidence).toEqual(['setup.py', 'pytest', 'flake8']);
+  });
+
+  it('reads no lint or typecheck from a tox.ini that does not configure flake8', () => {
+    // mypy never reads tox.ini (mypy.ini, .mypy.ini, pyproject.toml and
+    // setup.cfg only), so its section there is not mypy's config.
+    const d = pythonDetector.detect(
+      snap(['setup.py', 'tox.ini'], {
+        'tox.ini': '[tox]\nenvlist = py312\n[testenv]\ncommands = pytest\n[mypy]\nstrict = True\n',
+      }),
+    );
+    expect(d?.gate.lint).toBeUndefined();
+    expect(d?.gate.typecheck).toBeUndefined();
+    expect(d?.evidence).toEqual(['setup.py', 'pytest']);
+  });
+
   it.each(['pytest.ini', '.pytest.ini', 'pytest.toml', '.pytest.toml'])(
     'detects pytest from its own config file %s alone',
     (file) => {

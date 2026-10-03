@@ -323,6 +323,29 @@ PREFLIGHT (`flight/preflight.ts`) reads the same `firingEngineFromEnv` as its `e
 blocks too when the engine's CLI does not answer `--version` on the PATH, since every firing would
 die on the missing binary and, committing nothing, never reach the demotion count.
 
+Since 2026-10-03 one dashboard launch can choose its engine without the dashboard's env, the
+server half of GitHub #21's slice S-last (per-lane pilot selection in the fly bar). A
+`POST /api/fly` body's `engine` and `engineModel` ride `StartFlightInput` and are read by
+`firingEngineFromRequest` (`flight/firing-engine.ts`), which hands the pair to `firingEngineFromEnv`.
+So a chosen engine meets every refusal above, in `FlightRunner.start()`, before the preflight runs.
+It also refuses a model with no engine, which it would otherwise drop unread, and a model name over
+128 characters or outside `[A-Za-z0-9._:/@-]`, since the name rides an adapter's argv. The route
+then reaches the preflight, whose `engine` check reads it as the child's env would, and the spawn,
+where `firingEngineEnv` sets `AUTOPILOT_ENGINE` and `AUTOPILOT_ENGINE_MODEL` over the inherited
+ones. A Claude choice is written out as `AUTOPILOT_ENGINE=claude`, so it beats an inherited engine.
+A launch that chose none passes nothing, and the child inherits the dashboard's env as before.
+Since 2026-10-03 the fly bar offers the choice too (the UI half): an **Engine** select in its launch
+settings (`fly-engine` in `shell.ts`: default, Claude Code, Codex, Gemini) and, while Codex or
+Gemini is chosen, an **Engine model** field. `features/fly.ts` sends `engine` only when one is
+chosen, and `engineModel` only beside Codex or Gemini, so a default launch's body is the one it
+always was and a Claude choice carries no model it would never read. An empty model is refused in
+the bar, the field focused, before any request. The choice is remembered with the folder, as its
+budget is (`FlySettings` in `web/flights.ts`), and restored whenever that folder is picked again, so
+Resume relaunches a paused folder on the engine it last flew, and one saved without an engine on
+the default, never on what another launch left in the select. Still open: `POST /api/fleet`, which takes no
+engine, so a multi-lane launch still flies every lane on the dashboard's env; the bar refuses an
+engine with Lanes above 1 instead of dropping it, as it does a social pass choice.
+
 Since 2026-10-02 `AUTOPILOT_ENGINE=gemini` routes a lane to `GeminiCliModel` the same way, with the
 same model slots, routing skip and demotion. Since 2026-10-03 it also refuses a model
 `resolveModelVendor` places with any publisher but Google, or one served locally: the Gemini CLI
@@ -436,8 +459,8 @@ disconnected reference doc that can drift out of sync with it.
 | Ollama (`OllamaModel`) | No | No — single-turn only | Real `$0` (local compute) | **Shipped**, triage-only lane |
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`); since 2026-10-03 a lane flies on it from `connection.json` (`readConnectionConfig`, `validateConnect`), chosen in the connect panel |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`); since 2026-10-03 a lane flies on it from `connection.json`, chosen in the connect panel, as Bedrock is |
-| OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Routed** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); since 2026-10-02 a lane flies on it under `AUTOPILOT_ENGINE=codex` + `AUTOPILOT_ENGINE_MODEL` (`flight/firing-engine.ts`), demoted after two reverted firings in a row; since 2026-10-02 it runs the containment guard as its `PreToolUse` hook on every shell call and `apply_patch` (`codexGuardArgs`, `codex-guard.ts`, finding 3), and reports the calls it denied from a per-run deny log (`codexGuardDenialsFromLog`) |
-| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed); a stale id retries cold | Yes — full loop | **None** — token counts only, no price | **Routed** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); since 2026-10-02 a lane flies on it under `AUTOPILOT_ENGINE=gemini` + `AUTOPILOT_ENGINE_MODEL` (`flight/firing-engine.ts`), its `BeforeTool` guard written and verified per instance (`geminiGuardSettingsFileName`), the worktree trusted per session, each run held to the flight's turn cap (`model.maxSessionTurns`, since 2026-10-03), demoted after two reverted firings in a row |
+| OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Routed** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); since 2026-10-02 a lane flies on it under `AUTOPILOT_ENGINE=codex` + `AUTOPILOT_ENGINE_MODEL` (`flight/firing-engine.ts`), or since 2026-10-03 from the fly bar's Engine select, demoted after two reverted firings in a row; since 2026-10-02 it runs the containment guard as its `PreToolUse` hook on every shell call and `apply_patch` (`codexGuardArgs`, `codex-guard.ts`, finding 3), and reports the calls it denied from a per-run deny log (`codexGuardDenialsFromLog`) |
+| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed); a stale id retries cold | Yes — full loop | **None** — token counts only, no price | **Routed** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); since 2026-10-02 a lane flies on it under `AUTOPILOT_ENGINE=gemini` + `AUTOPILOT_ENGINE_MODEL` (`flight/firing-engine.ts`), or since 2026-10-03 from the fly bar's Engine select, its `BeforeTool` guard written and verified per instance (`geminiGuardSettingsFileName`), the worktree trusted per session, each run held to the flight's turn cap (`model.maxSessionTurns`, since 2026-10-03), demoted after two reverted firings in a row |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | `--output-format=json` exists but its wire schema is undocumented and unverifiable (closed-source binary) | **Blocked** — needs a real captured output sample before an adapter can be fixture-tested |
 
 ## Acceptance criteria

@@ -23,6 +23,8 @@ import { DOC_SUBJECTS } from '../../src/flight/doc-freshness.js';
 import type { AuditVcs } from '../../src/flight/closed-task-audit.js';
 import { extractDeliverable } from '../../src/flight/deliverable.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
+import { HOLD_LABELS } from '../../src/flight/issue-triage.js';
+import { DECLINED_LABEL } from '../../src/flight/pool-client.js';
 import { RUNAWAY_SPEND_USD, RUNAWAY_FIRINGS } from '../../src/flight/triage-factors.js';
 import {
   CHECKPOINT_SOUL_AMENDMENT_MARKER,
@@ -427,6 +429,8 @@ describe('runStaleClaimSweep', () => {
       number: number;
       assignees: readonly string[];
       comments: ReadonlyArray<{ author: string; createdAt: string; body: string }>;
+      /** Defaults to the pool label alone. */
+      labels?: readonly string[];
     }>,
     calls: Array<readonly string[]>,
   ): CliExec {
@@ -448,7 +452,7 @@ describe('runStaleClaimSweep', () => {
         number: issue.number,
         title: `issue #${issue.number}`,
         url: `https://github.com/${ownerLogin}/hello-world/issues/${issue.number}`,
-        labels: [{ name: 'pool: ux' }],
+        labels: (issue.labels ?? ['pool: ux']).map((name) => ({ name })),
         assignees: issue.assignees.map((l) => ({ login: l })),
         comments: issue.comments.map((c) => ({
           author: { login: c.author },
@@ -570,6 +574,37 @@ describe('runStaleClaimSweep', () => {
     });
     expect(await runStaleClaimSweep(() => NOW, exec)).toEqual([]);
   });
+
+  // Epic 0019 additive-only law (board web-mtsylqbd-q2rg8k): the pool claim
+  // skips an issue the maintainer declined or put on hold, so the sweep must
+  // not release a claim there as "back in the pool".
+  it.each([DECLINED_LABEL, ...HOLD_LABELS])(
+    'leaves a quiet claim alone on a pool issue marked "%s"',
+    async (mark) => {
+      const calls: Array<readonly string[]> = [];
+      const claim = (login: string) => [
+        {
+          author: login,
+          createdAt: '2026-08-01T00:00:00Z',
+          body: `Claimed by ${login} via the pool client.`,
+        },
+      ];
+      const exec = poolExec(
+        'owner',
+        'owner',
+        [
+          { number: 5, assignees: ['held'], comments: claim('held'), labels: ['pool: ux', mark] },
+          { number: 6, assignees: ['quiet-one'], comments: claim('quiet-one') },
+        ],
+        calls,
+      );
+
+      const released = await runStaleClaimSweep(() => NOW, exec);
+
+      expect(released.map((r) => r.number)).toEqual([6]);
+      expect(calls.some((a) => a[0] === 'issue' && a[2] === '5')).toBe(false);
+    },
+  );
 });
 
 /**

@@ -154,6 +154,11 @@ export interface FlySettings {
    *  partitioned multi-lane fleet (`POST /api/fleet`) instead of a single
    *  flight — omitted/1 is the ordinary single-lane launch, unchanged. */
   readonly lanes?: number;
+  /** Engine select (epic 0036): the CLI this folder last flew on, and the
+   *  model beside Codex or Gemini. Omitted means the default, so Resume of a
+   *  folder saved without one never inherits another launch's choice. */
+  readonly engine?: string;
+  readonly engineModel?: string;
 }
 
 /** The full remembered-settings blob: one {@link FlySettings} per folder the

@@ -189,6 +189,22 @@ function officeDot(svg, NS, key, target, tip, first) {
   }
   return dot;
 }
+// Each zone leads with its phase icon (epic 0025 slice 3) — the live phase
+// pill's LIVE_PHASE_ICONS (web/shell.ts), so the pill and the map draw a phase
+// with one shape. Inset from the zone's left edge and centred in its height,
+// it clears the dot parked at the zone's centre and two lanes spread around
+// it. Decorative like the label beneath: the zone rect keeps the name and the
+// tip (CSS lets pointer events through to it).
+var OFFICE_ZONE_ICON = 12, OFFICE_ZONE_ICON_INSET = 6;
+function officeZoneIcon(name, zoneX, active) {
+  var icon = iconEl(name);
+  icon.setAttribute('x', String(zoneX + OFFICE_ZONE_ICON_INSET));
+  icon.setAttribute('y', String(OFFICE_ZONE_Y + (OFFICE_ZONE_H - OFFICE_ZONE_ICON) / 2));
+  icon.setAttribute('width', String(OFFICE_ZONE_ICON));
+  icon.setAttribute('height', String(OFFICE_ZONE_ICON));
+  icon.setAttribute('class', icon.getAttribute('class') + ' office-zone-icon' + (active ? ' office-zone-icon-active' : ''));
+  return icon;
+}
 function officeMapSection(c) {
   var NS = 'http://www.w3.org/2000/svg';
   var lanes = liveFirings(c);
@@ -229,6 +245,7 @@ function officeMapSection(c) {
     rect.setAttribute('aria-label', OFFICE_TIPS[phase] + (active ? ' — current phase' : ''));
     rect.setAttribute('data-tip', OFFICE_TIPS[phase] + (active ? ' (current)' : ''));
     svg.appendChild(rect);
+    if (LIVE_PHASE_ICONS[phase]) svg.appendChild(officeZoneIcon(LIVE_PHASE_ICONS[phase], x, active));
     var label = document.createElementNS(NS, 'text');
     label.setAttribute('x', String(x + OFFICE_ZONE_W / 2));
     label.setAttribute('y', String(OFFICE_ZONE_Y + OFFICE_ZONE_H + 12));

@@ -1255,6 +1255,17 @@ Laws, all shipped:
    runs the reaper's exact plan at every flight end under the maintainer identity
    only — one clock per claim, comment-only claimants included — so a claim that
    goes quiet releases on its own, without anyone pressing "Free stale claim(s)".
+   Refined 2026-10-03 (board web-mtsylqbd-q2rg8k, epic 0019's additive-only
+   law): the reaper left out none of the marks the claim skips. On a pool issue
+   the maintainer had declined or put on hold (`declined`, `status:
+   awaiting-human`, `status: blocked`), a holder quiet for 14 days was
+   unassigned with "Freeing it up so anyone can pick it back up", though nobody
+   can claim it. The button, its preview and the sweep now read the pool
+   through `isReapablePoolClaim`, which drops those three labels, so such a
+   claim stays until the maintainer settles it. Covered by
+   `test/flight/mirror-pass-execute.test.ts` (the labels are the seeder's; the
+   claim and the reaper skip the same issue; no note or unassign is sent) and
+   `test/flight/post-flight-sweeps.test.ts`.
 5. **Two solutions are welcome.** A contested claim's board task names the holder it
    contests; when two PRs arrive for one issue the review is to compare them side by
    side and land the stronger (or combine them) — the PR-review awareness is the

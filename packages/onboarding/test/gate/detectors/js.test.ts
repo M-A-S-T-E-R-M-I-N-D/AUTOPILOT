@@ -83,6 +83,27 @@ describe('jsDetector', () => {
     expect(bare?.gate.install).toBeUndefined();
   });
 
+  // docs.npmjs.com/cli/commands/npm-ci: "The project must have an existing
+  // package-lock.json or npm-shrinkwrap.json." — the shrinkwrap is an npm lockfile too.
+  it('detects the npm ci install leg from an npm-shrinkwrap.json alone', () => {
+    const d = jsDetector.detect(
+      snap(['package.json', 'npm-shrinkwrap.json'], { 'package.json': '{}' }),
+    );
+    expect(d?.gate.install).toEqual({ bin: 'npm', args: ['ci'], label: 'npm ci' });
+    expect(d?.evidence).toContain('lockfile.npm-shrinkwrap.json');
+  });
+
+  // docs.npmjs.com/cli/configuring-npm/npm-shrinkwrap-json: with both present,
+  // "npm-shrinkwrap.json will be preferred over the package-lock.json file".
+  it('names npm-shrinkwrap.json as the lockfile evidence when package-lock.json is also present', () => {
+    const d = jsDetector.detect(
+      snap(['package.json', 'npm-shrinkwrap.json', 'package-lock.json'], { 'package.json': '{}' }),
+    );
+    expect(d?.gate.install).toEqual({ bin: 'npm', args: ['ci'], label: 'npm ci' });
+    expect(d?.evidence).toContain('lockfile.npm-shrinkwrap.json');
+    expect(d?.evidence).not.toContain('lockfile.package-lock.json');
+  });
+
   it('the install leg never counts toward the detection score — it is hygiene, not evidence of what the repo checks', () => {
     const withLock = jsDetector.detect(
       snap(['package.json', 'pnpm-lock.yaml'], {
