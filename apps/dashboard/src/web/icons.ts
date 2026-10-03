@@ -779,6 +779,16 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'm12 14 4-4' }],
     ['path', { d: 'M3.34 19a10 10 0 1 1 17.32 0' }],
   ],
+  // Epic 0025 slice 2: the Fly bar's "Browse a folder" dialog title, which
+  // opens a folder and lists what is inside it (lucide-static 1.50.0).
+  'folder-open': [
+    [
+      'path',
+      {
+        d: 'm6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2',
+      },
+    ],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;
