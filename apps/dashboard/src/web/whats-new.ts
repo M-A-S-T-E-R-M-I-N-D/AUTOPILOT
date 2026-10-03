@@ -23,6 +23,8 @@
  * backslashes, because a template string would eat them.
  */
 
+import { ICON_SHAPES } from './icons.js';
+
 /** localStorage keys — exported so the e2e helper and the tests seed the same names. */
 export const WHATS_NEW_SEEN_KEY = 'ap-motd-seen';
 export const WHATS_NEW_NEVER_KEY = 'ap-motd-never';
@@ -94,6 +96,25 @@ const STRINGS = {
 export const WHATS_NEW_STRINGS = STRINGS;
 
 /**
+ * Each heading's leading icon (epic 0025), keyed by its string: the title
+ * takes the release panel's rocket, "What you can do now" the sparkles of
+ * something new, "This round" the round panel's refresh-cw and "On GitHub"
+ * the GitHub PR summary's git-pull-request. Decorative beside the words.
+ */
+const HEADING_ICONS = {
+  title: 'rocket',
+  nowYouCan: 'sparkles',
+  round: 'refresh-cw',
+  github: 'git-pull-request',
+} as const;
+
+/** Only the shapes the headings draw, spliced from the vendored set — the
+ *  way the onboarding ladder ships its own, never the whole registry. */
+const HEADING_SHAPES = Object.fromEntries(
+  Object.values(HEADING_ICONS).map((name) => [name, ICON_SHAPES[name] ?? []]),
+);
+
+/**
  * The message's styles. Served inside `/tokens.css`, never injected: the
  * dashboard's CSP is `default-src 'self'`, which blocks an inline `<style>`
  * element — the first cut injected one, and in a real browser the dialog
@@ -162,6 +183,29 @@ function el(tag, cls, text) {
 function fmtNum(n) {
   try { return Number(n).toLocaleString(document.documentElement.lang || 'en'); } catch (e) { return String(n); }
 }
+// A heading leads with its vendored icon, decorative beside the words, built
+// with createElementNS from the spliced shapes — never innerHTML.
+var SVG_NS = 'http://www.w3.org/2000/svg';
+function svgAttrs(node, attrs) {
+  for (var k in attrs) node.setAttribute(k, attrs[k]);
+  return node;
+}
+function icon(name) {
+  var svg = svgAttrs(document.createElementNS(SVG_NS, 'svg'), {
+    'class': 'icon icon-' + name, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+    'stroke-width': '1.75', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+    'aria-hidden': 'true', focusable: 'false',
+  });
+  var shapes = WI[name] || [];
+  for (var i = 0; i < shapes.length; i++) svg.appendChild(svgAttrs(document.createElementNS(SVG_NS, shapes[i][0]), shapes[i][1]));
+  return svg;
+}
+function heading(tag, key, subs) {
+  var h = el(tag, null);
+  h.appendChild(icon(WH[key]));
+  h.appendChild(document.createTextNode(wt(key, subs)));
+  return h;
+}
 var overlay = null;
 var lastFocus = null;
 function tile(label, value) {
@@ -217,7 +261,7 @@ function releaseSection(rel) {
   }
   if (added.length > 0) {
     var now = el('section', 'wn-section');
-    now.appendChild(el('h3', null, wt('nowYouCan')));
+    now.appendChild(heading('h3', 'nowYouCan'));
     now.appendChild(itemList(added, 8));
     sec.appendChild(now);
   }
@@ -244,7 +288,7 @@ function itemList(items, cap) {
 }
 function roundSection(r) {
   var sec = el('section', 'wn-section');
-  sec.appendChild(el('h3', null, wt('round')));
+  sec.appendChild(heading('h3', 'round'));
   var tiles = el('dl', 'wn-tiles');
   tiles.appendChild(tile(wt('firings'), fmtNum(r.firings)));
   tiles.appendChild(tile(wt('shipped'), fmtNum(r.shipped)));
@@ -266,7 +310,7 @@ function roundSection(r) {
 }
 function githubSection(gh, ci) {
   var sec = el('section', 'wn-section');
-  sec.appendChild(el('h3', null, wt('github')));
+  sec.appendChild(heading('h3', 'github'));
   var tiles = el('dl', 'wn-tiles');
   if (gh) {
     tiles.appendChild(tile(wt('issues'), gh.openIssues === null ? wt('unknown') : fmtNum(gh.openIssues)));
@@ -339,7 +383,7 @@ function openWhatsNew() {
   dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-labelledby', 'wn-title');
   var head = el('header', 'wn-head');
-  var h = el('h2', null, wt('title', { v: V }));
+  var h = heading('h2', 'title', { v: V });
   h.id = 'wn-title';
   head.appendChild(h);
   head.appendChild(el('p', 'wn-sub', wt('loading')));
@@ -413,6 +457,10 @@ export function whatsNewClientJs(version: string): string {
     JSON.stringify(WHATS_NEW_NEVER_KEY) +
     '; var WN = ' +
     JSON.stringify(STRINGS) +
+    '; var WH = ' +
+    JSON.stringify(HEADING_ICONS) +
+    '; var WI = ' +
+    JSON.stringify(HEADING_SHAPES) +
     ';' +
     CHUNK_BODY +
     '})();'
