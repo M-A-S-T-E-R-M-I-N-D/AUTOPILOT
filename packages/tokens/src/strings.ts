@@ -625,6 +625,10 @@ const EN_STRINGS = {
   engineGemini: 'Gemini',
   engineModel: 'Engine model',
   engineModelPlaceholder: 'gpt-5-codex or gemini-2.5-pro',
+  laneEngines: 'Engine per lane',
+  laneEngineSame: 'same as Engine',
+  laneEngineLabel: 'Lane {name}',
+  laneEngineModelAria: 'Engine model for lane {name}',
   flyIt: 'Fire',
   flying: 'Flying…',
   queued: 'Queued…',
@@ -1832,6 +1836,8 @@ const EN_STRINGS = {
     "Which CLI this flight's firings fly on. Default follows the dashboard's AUTOPILOT_ENGINE. A Codex or Gemini lane records no cost, skips model routing, and is demoted after two reverted firings in a row.",
   flyEngineModelTip:
     'The model the chosen CLI runs (AUTOPILOT_ENGINE_MODEL): gpt-5-codex for Codex, gemini-2.5-pro for Gemini. Never a Claude model.',
+  flyLaneEnginesTip:
+    'With more than one lane, flies each lane on its own CLI, in roster order: base, fleet-2, fleet-3 and on. A lane left on "same as Engine" flies the Engine above.',
   flyProgressTip:
     "Progress for the whole flight — elapsed time, spend or firing count against its target, and an ETA from this flight's own average firing duration",
   flightRunningTip: 'This flight is running now — Stop ends it, Pause suspends it until Resume.',
@@ -1877,6 +1883,7 @@ const EN_STRINGS = {
   socialPassSingleLane:
     'The social pass choice applies to a single-lane flight — set Lanes to 1 or the social pass to default.',
   engineModelNeeded: 'Codex and Gemini need the model that CLI runs — fill in Engine model.',
+  laneEngineModelNeeded: 'Lane {name} flies Codex or Gemini — fill in its engine model.',
   fleetLaunched: 'Fleet launched.',
   fleetLaunchFailed: 'Fleet launch failed.',
   fleetLaunchDashboardDown: 'Fleet launch failed — is the dashboard still running?',
@@ -2503,6 +2510,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     engineGemini: 'Gemini',
     engineModel: 'מודל המנוע',
     engineModelPlaceholder: 'gpt-5-codex או gemini-2.5-pro',
+    laneEngines: 'מנוע לכל נתיב',
+    laneEngineSame: 'כמו המנוע',
+    laneEngineLabel: 'נתיב {name}',
+    laneEngineModelAria: 'מודל המנוע לנתיב {name}',
     flyIt: 'שגר!',
     flying: 'בטיסה…',
     queued: 'בתור…',
@@ -3351,6 +3362,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'על איזה CLI טסות ההפעלות של הטיסה הזו. ברירת המחדל עוקבת אחרי AUTOPILOT_ENGINE של לוח הבקרה. נתיב של Codex או Gemini לא רושם עלות, מדלג על ניתוב המודלים, ומורד אחרי שתי הפעלות ברצף שבוטלו (revert).',
     flyEngineModelTip:
       'המודל שה-CLI שנבחר מריץ (AUTOPILOT_ENGINE_MODEL): gpt-5-codex ל-Codex, gemini-2.5-pro ל-Gemini. לעולם לא מודל של Claude.',
+    flyLaneEnginesTip:
+      'כשיש יותר מנתיב אחד, מטיס כל נתיב על ה-CLI שלו, לפי סדר הסגל: base, fleet-2, fleet-3 וכן הלאה. נתיב שנשאר על "כמו המנוע" טס על המנוע שלמעלה.',
     flyProgressTip:
       'התקדמות הטיסה כולה — זמן שחלף, הוצאה או מספר הפעלות מול היעד, והערכת סיום לפי משך ההפעלה הממוצע של הטיסה הזו',
     flightRunningTip: 'הטיסה הזו פעילה כעת — "עצור" מסיים אותה, "השהה" משהה אותה עד לחידוש.',
@@ -3392,6 +3405,7 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     socialPassSingleLane:
       'בחירת המעבר החברתי חלה על טיסה בנתיב בודד — הגדירו נתיבים ל-1 או את המעבר החברתי לברירת מחדל.',
     engineModelNeeded: 'Codex ו-Gemini צריכים את המודל שה-CLI מריץ — מלאו את מודל המנוע.',
+    laneEngineModelNeeded: 'נתיב {name} טס על Codex או Gemini — מלאו את מודל המנוע שלו.',
     fleetLaunched: 'הצי שוגר.',
     fleetLaunchFailed: 'שיגור הצי נכשל.',
     fleetLaunchDashboardDown: 'שיגור הצי נכשל — האם לוח הבקרה עדיין פועל?',

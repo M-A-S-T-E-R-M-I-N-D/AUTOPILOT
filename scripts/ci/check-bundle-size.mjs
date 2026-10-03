@@ -249,7 +249,12 @@ import { gzipSync } from 'node:zlib';
 // guard, one English key -- measured 255696B raw against the old 254976B
 // line, 720 bytes over. Two KB, for the margin the entries above keep: a
 // 250KB line would leave 304 bytes. Gzip (75370B) stays under.
-const CORE_RAW_BUDGET = 251 * 1024;
+// Then core raw 251->253KB (2026-10-03), epic 0036's Engine per lane in the
+// fly bar (GitHub #21 slice S-last): one select and model field per lane,
+// their restore, the submit's laneEngines and four English keys -- measured
+// 256791B raw, 233 bytes UNDER the old 257024B line. Two KB, for the margin
+// the entries above keep.
+const CORE_RAW_BUDGET = 253 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
@@ -290,7 +295,10 @@ const CORE_RAW_BUDGET = 251 * 1024;
 // entry above -- measured 74284B, 468 bytes UNDER the old 74752B line,
 // bumped for the reason the entry above gives, with eight sibling lanes
 // flying beside it.
-const CORE_GZIP_BUDGET = 74 * 1024;
+// Then core gzip 74->75KB (2026-10-03), the same Engine per lane slice as the
+// raw entry above -- measured 76251B against the old 75776B line, 475 bytes
+// over.
+const CORE_GZIP_BUDGET = 75 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
