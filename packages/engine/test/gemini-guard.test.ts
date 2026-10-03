@@ -6,6 +6,7 @@ import {
   GEMINI_GUARD_HOOK_NAME,
   GEMINI_GUARDED_TOOLS,
   buildGeminiFlightSettings,
+  geminiSettingsWithTurnCap,
   geminiToClaudeHookPayloads,
   toGeminiDenyDecision,
 } from '../src/gemini-guard.js';
@@ -264,5 +265,52 @@ describe('buildGeminiFlightSettings', () => {
       const uncapped = buildGeminiFlightSettings(winRoot, winScript, ceiling);
       expect(uncapped, String(ceiling)).not.toHaveProperty('model');
     }
+  });
+});
+
+describe("geminiSettingsWithTurnCap — the finish-line extension's smaller tap (InvokeCaps.maxTurns)", () => {
+  const script = `${ROOT}/dist/guard-hook.js`;
+  const flight = buildGeminiFlightSettings(ROOT, script, 120);
+
+  function capped(settings: unknown, maxTurns: number): Record<string, unknown> | null {
+    const text = geminiSettingsWithTurnCap(JSON.stringify(settings), maxTurns);
+    return text === null ? null : (JSON.parse(text) as Record<string, unknown>);
+  }
+
+  it("lowers the flight's cap for one run and keeps the guard hook as written", () => {
+    const run = capped(flight, 48);
+    expect(run?.['model']).toEqual({ maxSessionTurns: 48 });
+    expect(run?.['hooks']).toEqual(flight.hooks);
+    expect(run?.['hooksConfig']).toEqual(flight.hooksConfig);
+  });
+
+  it('never raises a lower cap the file already holds', () => {
+    expect(capped(flight, 500)?.['model']).toEqual({ maxSessionTurns: 120 });
+  });
+
+  it('caps a file written with no cap, and keeps any other model setting beside it', () => {
+    const uncapped = buildGeminiFlightSettings(ROOT, script);
+    expect(capped(uncapped, 48)?.['model']).toEqual({ maxSessionTurns: 48 });
+    const named = { ...flight, model: { name: 'gemini-2.5-pro', maxSessionTurns: -1 } };
+    expect(capped(named, 48)?.['model']).toEqual({ name: 'gemini-2.5-pro', maxSessionTurns: 48 });
+  });
+
+  it('refuses a cap that is not a positive whole number: 0 would end the run at its first turn', () => {
+    for (const maxTurns of [0, -1, 2.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const text = geminiSettingsWithTurnCap(JSON.stringify(flight), maxTurns);
+      expect(text, String(maxTurns)).toBeNull();
+    }
+  });
+
+  it('refuses text that is not a settings object rather than write one without the hook', () => {
+    const notSettings = [
+      '',
+      'not json',
+      '[]',
+      'null',
+      '42',
+      JSON.stringify({ ...flight, model: 'x' }),
+    ];
+    for (const text of notSettings) expect(geminiSettingsWithTurnCap(text, 48), text).toBeNull();
   });
 });

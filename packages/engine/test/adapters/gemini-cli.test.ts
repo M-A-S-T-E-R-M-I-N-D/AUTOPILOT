@@ -4,6 +4,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { execFile, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   parseGeminiStreamJsonOutput,
   isGeminiResumeFailure,
@@ -1081,6 +1084,134 @@ describe('GeminiCliModel', () => {
     expect(
       (execFileMock.mock.calls[0] as [string, string[], Record<string, unknown>])[2]['env'],
     ).toBe(env);
+  });
+
+  describe("InvokeCaps.maxTurns — a finish-line extension runs under its smaller turn cap (ClaudeCliModel's --max-turns parity)", () => {
+    const GUARD = {
+      model: { maxSessionTurns: 120 },
+      hooksConfig: { enabled: true },
+      hooks: {
+        BeforeTool: [
+          {
+            matcher: '^(?:run_shell_command)$',
+            hooks: [
+              { type: 'command', name: 'guard', command: 'node guard-hook.js', timeout: 10_000 },
+            ],
+          },
+        ],
+      },
+    };
+    let dir: string;
+    let guardPath: string;
+
+    beforeEach(() => {
+      dir = mkdtempSync(join(tmpdir(), 'gemini-caps-test-'));
+      guardPath = join(dir, 'flight-guard.gemini-settings.json');
+      writeFileSync(guardPath, JSON.stringify(GUARD));
+    });
+
+    afterEach(() => {
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    interface SeenSettings {
+      readonly path: string | undefined;
+      readonly text: string | null;
+    }
+
+    /** One exit per spawn, in order, the last repeating; each spawn records
+     *  the settings file its env names, read while the run still holds it. */
+    function mockRunsReadingSettings(
+      seen: SeenSettings[],
+      ...exits: readonly ((Error & { code?: unknown }) | null)[]
+    ): void {
+      execFileMock.mockImplementation((...args: unknown[]) => {
+        const env = (args[2] as { env: Record<string, string | undefined> }).env;
+        const path = env['GEMINI_CLI_SYSTEM_SETTINGS_PATH'];
+        const text = path !== undefined && existsSync(path) ? readFileSync(path, 'utf8') : null;
+        const exit = exits[Math.min(seen.length, exits.length - 1)] ?? null;
+        seen.push({ path, text });
+        const cb = args[args.length - 1] as ExecFileCallback;
+        queueMicrotask(() => cb(exit, '', ''));
+        return { pid: 4321, stdin: Object.assign(new EventEmitter(), { end: stdinEnd }) };
+      });
+    }
+
+    function invokeWith(
+      opts: { guardSettingsPath?: string; env?: NodeJS.ProcessEnv },
+      caps: { maxTurns?: number; maxBudgetUsd?: number },
+      resumeSessionId?: string,
+    ): Promise<unknown> {
+      return new GeminiCliModel({ repo: dir, platform: 'linux', env: {}, ...opts }).invoke(
+        'gemini-2.5-pro',
+        'finish it',
+        resumeSessionId,
+        caps,
+      );
+    }
+
+    it('hands the child a copy of the guard settings with the smaller cap, removed once the run settles', async () => {
+      const seen: SeenSettings[] = [];
+      mockRunsReadingSettings(seen, null);
+
+      await invokeWith({ guardSettingsPath: guardPath }, { maxTurns: 48, maxBudgetUsd: 2 });
+
+      expect(seen).toHaveLength(1);
+      const run = seen[0]!;
+      expect(run.path).toBeDefined();
+      expect(run.path).not.toBe(guardPath);
+      const settings = JSON.parse(run.text ?? '{}') as typeof GUARD;
+      expect(settings.model).toEqual({ maxSessionTurns: 48 });
+      expect(settings.hooks).toEqual(GUARD.hooks);
+      expect(settings.hooksConfig).toEqual(GUARD.hooksConfig);
+      expect(existsSync(run.path!)).toBe(false);
+      expect(JSON.parse(readFileSync(guardPath, 'utf8'))).toEqual(GUARD);
+    });
+
+    it('gives the cold retry of a rejected session the smaller cap too', async () => {
+      const seen: SeenSettings[] = [];
+      mockRunsReadingSettings(seen, Object.assign(new Error('exit 42'), { code: 42 }), null);
+
+      await invokeWith({ guardSettingsPath: guardPath }, { maxTurns: 48 }, SESSION);
+
+      expect(seen).toHaveLength(2);
+      for (const run of seen) {
+        expect(run.path).not.toBe(guardPath);
+        expect((JSON.parse(run.text ?? '{}') as typeof GUARD).model).toEqual({
+          maxSessionTurns: 48,
+        });
+        expect(existsSync(run.path!)).toBe(false);
+      }
+    });
+
+    it('hands the guard file as given when the caps name no turn cap', async () => {
+      const seen: SeenSettings[] = [];
+      mockRunsReadingSettings(seen, null);
+
+      await invokeWith({ guardSettingsPath: guardPath }, { maxBudgetUsd: 2 });
+
+      expect(seen[0]?.path).toBe(guardPath);
+    });
+
+    it('keeps the guard file, its hook and the whole cap, when it cannot be copied with a smaller one', async () => {
+      const missing = join(dir, 'gone.gemini-settings.json');
+      const seen: SeenSettings[] = [];
+      mockRunsReadingSettings(seen, null);
+
+      await invokeWith({ guardSettingsPath: missing }, { maxTurns: 48 });
+
+      expect(seen[0]?.path).toBe(missing);
+    });
+
+    it('writes no settings file of its own without a guard file, so the env passes through unchanged', async () => {
+      const env = { PATH: '/opt/bin' };
+      const seen: SeenSettings[] = [];
+      mockRunsReadingSettings(seen, null);
+
+      await invokeWith({ env }, { maxTurns: 48 });
+
+      expect((execFileMock.mock.calls[0] as [string, string[], { env: unknown }])[2].env).toBe(env);
+    });
   });
 
   it('reads a fatal error off its stdout result event, never the feedback text on stderr, and keeps the numeric exit code', async () => {
