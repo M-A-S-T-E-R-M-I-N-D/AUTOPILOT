@@ -1091,6 +1091,38 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    `test/flight/taxonomy-seed.test.ts` (the labels are the ones the seeder
    stamps; a held pool issue skips with no board task; the composed claim
    runs only its two reads).
+   Refined 2026-10-03 (board web-mtsylqbd-q2rg8k, the same law 2 line as the
+   two skips above): both skips matched `declined`/`status: awaiting-human`/
+   `status: blocked` by exact string only, so a repo whose own label read
+   `Declined` or `Status: Blocked` — a different casing, or a hyphen where
+   the seeder uses a space — slipped past the claim and the reaper (and past
+   `owned-work-reconcile.ts`'s ingest, below) while the Good-first list, the
+   Collaboration panel's help-wanted/roadmap groups, and the mirror pass
+   already matched loosely. `isMaintainerMarked` and a new `normalizeLabel`
+   (lower-cases, reads a hyphen as a space) now live in `pool-client.ts`;
+   `planClaimPoolIssue` and `isReapablePoolClaim` read it directly, and
+   `contributor-issue-list.ts` re-exports it unchanged for its three existing
+   readers (help-wanted, roadmap, the mirror pass) — one predicate now serves
+   the claim, the reaper, and the four listings. Narrowing-only: nothing any
+   of them skipped before is claimed or reaped now, and the seeder's own
+   spellings still skip exactly as before. Covered by
+   `test/flight/pool-client.test.ts` (five casing/hyphenation variants —
+   `Declined`, `DECLINED`, `Status: Awaiting-Human`, `status: awaiting
+   human`, `Status: Blocked` — against a label that only resembles a mark;
+   written first, it failed 11 of its 13 checks against the old exact-match
+   code). Not in this slice: issue triage, the lucky shortlist, and
+   discussions triage still match the marks exactly. The same-day follow-up
+   (board web-mtsylqbd-q2rg8k, a06d2923) carried the fix to
+   `owned-work-reconcile.ts`'s `planOwnedWorkReconcile`, which matched the
+   same three labels with its own exact-match list
+   (`MAINTAINER_MARKS`/`DECLINED_LABEL`/`HOLD_LABELS` imports) instead of
+   reading the predicate above — so the operator's own assigned issues still
+   became a focused board task and a public "Picked up" comment under a
+   loosely-spelled mark the pool claim had already started refusing.
+   `planOwnedWorkReconcile` now reads `isMaintainerMarked` through a one-line
+   `isMarkedIssue` wrapper and the local exact-match list is gone. Covered by
+   `test/flight/owned-work-reconcile.test.ts` (the same five variants;
+   written first, it failed 10 of its 12 checks against the old code).
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable
