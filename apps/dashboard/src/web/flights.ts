@@ -113,9 +113,9 @@ const ENGINE_NAMES: Readonly<Record<string, string>> = {
 };
 
 /** The row's engine clause — the `flightRowEngineSuffix`/
- *  `flightRowEngineModelSuffix` shape, empty for a launch that chose none
- *  (it flies on the dashboard's own `AUTOPILOT_ENGINE`, which the row cannot
- *  see) or an engine this build cannot name. */
+ *  `flightRowEngineModelSuffix` shape, empty when the status names no engine
+ *  (neither the launch nor the dashboard's own `AUTOPILOT_ENGINE` chose one)
+ *  or one this build cannot name. */
 function engineClause(f: FlightRowStatusItem): string {
   const name = f.engine && Object.hasOwn(ENGINE_NAMES, f.engine) ? ENGINE_NAMES[f.engine] : '';
   if (!name) return '';

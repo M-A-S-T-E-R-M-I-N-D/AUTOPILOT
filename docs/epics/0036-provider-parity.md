@@ -355,8 +355,11 @@ Since 2026-10-03 the bar also shows which engine each running flight is on: `Fli
 the launch's `engine` and, beside Codex or Gemini, its `engineModel` (`flight/runner.ts`), and the
 flight's row reads "Flying … — 3 firing(s) · Codex (gpt-5-codex)" (`flightRowEngineModelSuffix`,
 `flightRowEngineSuffix` for a Claude choice). A fleet flying several CLIs at once can be read at a
-glance. A launch that chose no engine flies on the dashboard's env, which the row cannot see, so its
-row names none. Since 2026-10-03 a flight the watchdog starts on its own flies on the watch's own
+glance. A launch that chose no engine flies on the dashboard's env, and since 2026-10-03 its row
+names that engine too: `FlightRunnerDeps.inheritedEngine` reads the dashboard's own
+`AUTOPILOT_ENGINE` through `firingEngineRequestFromEnv` (`server/main.ts`), for the status only, so
+the child and the preflight still get no engine of their own. Unset, the row names none, as before.
+Since 2026-10-03 a flight the watchdog starts on its own flies on the watch's own
 engine. A single-folder `watch` always did, since its flight is a child that inherits the watch's
 env, but a fleet-mode spawn (`createHttpSpawnFlight` in `control/cli.ts`) rides the dashboard's
 `POST /api/fly` and flew on the dashboard's env. `watch` now reads `AUTOPILOT_ENGINE` and

@@ -130,6 +130,12 @@ export interface FlightRunnerDeps {
     instanceId?: string,
     engine?: FiringEngineRoute,
   ) => PreflightReport;
+  /** Epic 0036: the engine a launch that chose none flies on, which its
+   *  child inherits from this process's own `AUTOPILOT_ENGINE`; undefined
+   *  while that names none. Read for the status only, so the fly bar's row
+   *  names it too: the child and the preflight still get no engine of their
+   *  own. Optional so the demo runner and older callers keep their contract. */
+  readonly inheritedEngine?: () => FiringEngineRoute | undefined;
   readonly now: () => number;
   /**
    * Record a graceful-PAUSE request against `folder` (persisted — the running
@@ -182,8 +188,10 @@ export interface FlightStatus {
    * Epic 0036: the engine this flight's launch chose, read through
    * `firingEngineFromRequest`, so the fly bar's row can name the CLI each
    * lane flies on. `engineModel` is set beside `codex` or `gemini` only.
-   * Both are omitted when the launch chose none (the child flies on this
-   * process's own `AUTOPILOT_ENGINE`), and once the flight is no longer running.
+   * A launch that chose none reports the engine its child inherits from this
+   * process's own `AUTOPILOT_ENGINE` (`FlightRunnerDeps.inheritedEngine`).
+   * Both are omitted when neither names one, and once the flight is no
+   * longer running.
    */
   readonly engine?: FiringEngineRoute['engine'];
   readonly engineModel?: string;
@@ -309,8 +317,8 @@ function clampFirings(requested: number | undefined): number {
   return Math.min(n, MAX_DASHBOARD_FIRINGS);
 }
 
-/** The `FlightStatus` fields naming a launch's chosen engine — none when it
- *  chose none, and no model beside Claude, which reads none. */
+/** The `FlightStatus` fields naming the engine a launch flies on — none when
+ *  nothing names one, and no model beside Claude, which reads none. */
 function engineStatus(
   route: FiringEngineRoute | undefined,
 ): Pick<FlightStatus, 'engine' | 'engineModel'> {
@@ -522,7 +530,7 @@ export class FlightRunner {
       queued: false,
       initiatedBy,
       instanceId,
-      ...engineStatus(engine),
+      ...engineStatus(engine ?? this.deps.inheritedEngine?.()),
     };
     // When the child exits (done, crashed, or killed) the runner is free again —
     // UNLESS it honored a pause request, in which case `folder`/`paused` survive
