@@ -69,10 +69,11 @@ function main() {
     const text = readFileSync(file, 'utf8');
     for (const raw of localLinkTargets(text)) {
       // An `#anchor` suffix names a heading inside the target, not a file.
-      const resolved = resolveLocalLinkPath(file, raw);
+      // Repo-relative in, so a `/`-rooted link resolves from ROOT, not from `/`.
+      const resolved = resolveLocalLinkPath(relative(ROOT, file), raw);
       if (resolved === null) continue;
       checked += 1;
-      if (!existsSync(resolved)) {
+      if (!existsSync(join(ROOT, resolved))) {
         broken.push({ file: relative(ROOT, file), target: raw });
       }
     }
