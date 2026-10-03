@@ -123,7 +123,7 @@ import {
 import { createPublicityPreviewApi } from '../flight/publicity.js';
 import { evaluatePreflight } from '../flight/preflight.js';
 import { gatherPreflightFacts } from '../flight/preflight-facts.js';
-import { firingEngineEnv } from '../flight/firing-engine.js';
+import { firingEngineEnv, firingEngineRequestFromEnv } from '../flight/firing-engine.js';
 import { createContributorIssueListPreviewApi } from '../flight/contributor-issue-list.js';
 import { createSocialIdentityApi } from '../flight/social-pass.js';
 import { createCollaborationApi } from '../flight/collaboration.js';
@@ -287,6 +287,13 @@ const flightRegistry = new FlightRunnerRegistry(
           ...(engine !== undefined ? { env: { ...process.env, ...firingEngineEnv(engine) } } : {}),
         }),
       ),
+    // A launch that chose no engine flies on this process's AUTOPILOT_ENGINE,
+    // so its fly-bar row names that one. A setting the flight would refuse
+    // names none: the preflight has already refused that launch.
+    inheritedEngine: () => {
+      const inherited = firingEngineRequestFromEnv(process.env);
+      return inherited.ok ? inherited.route : undefined;
+    },
     now: Date.now,
     // Graceful PAUSE: the running flight is a separate process, so the request
     // (and its eventual honoring) round-trips through the shared store rather

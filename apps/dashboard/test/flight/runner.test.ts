@@ -734,6 +734,42 @@ describe('FlightRunner', () => {
       expect(runner.status()).not.toHaveProperty('engineModel');
     });
 
+    // A launch that chose none flies on the dashboard's own AUTOPILOT_ENGINE,
+    // so the row names that one, while the child still only inherits it.
+    it('reports the engine the dashboard env names for a launch that chose none', () => {
+      const { deps, spawned, judged } = spyDeps();
+      const runner = new FlightRunner({
+        ...deps,
+        inheritedEngine: () => ({ engine: 'codex', model: 'gpt-5-codex' }),
+      });
+      runner.start({ folder: '/work/a' });
+
+      expect(runner.status()).toMatchObject({ engine: 'codex', engineModel: 'gpt-5-codex' });
+      expect(judged).toEqual([undefined]);
+      expect(spawned).toEqual([undefined]);
+    });
+
+    it("reports a launch's own choice over the engine the dashboard env names", () => {
+      const { deps } = spyDeps();
+      const runner = new FlightRunner({
+        ...deps,
+        inheritedEngine: () => ({ engine: 'codex', model: 'gpt-5-codex' }),
+      });
+      runner.start({ folder: '/work/a', engine: 'claude' });
+
+      expect(runner.status().engine).toBe('claude');
+      expect(runner.status()).not.toHaveProperty('engineModel');
+    });
+
+    it('reports no engine when the dashboard env names none either', () => {
+      const { deps } = spyDeps();
+      const runner = new FlightRunner({ ...deps, inheritedEngine: () => undefined });
+      runner.start({ folder: '/work/a' });
+
+      expect(runner.status().running).toBe(true);
+      expect(runner.status()).not.toHaveProperty('engine');
+    });
+
     it('drops the engine once the chosen flight exits', () => {
       const { deps, child } = makeDeps();
       const runner = new FlightRunner(deps);
