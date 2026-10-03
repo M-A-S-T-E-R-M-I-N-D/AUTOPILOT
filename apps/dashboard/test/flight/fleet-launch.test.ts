@@ -272,6 +272,52 @@ describe('runFleetLaunch', () => {
     expect(started.lines[1]).toBe('  base: 200 started — 0 task(s) reserved');
   });
 
+  it('flies every lane on the chosen engine and names it in the summary (epic 0036)', async () => {
+    const postFly = vi
+      .fn<(body: FleetLaunchPostBody) => Promise<FleetLaunchPostResult>>()
+      .mockResolvedValue({ status: 200, started: true });
+    const result = await runFleetLaunch(
+      { ...baseArgs, engine: 'codex', engineModel: 'gpt-5-codex' },
+      0,
+      { loadOpenTasks: () => [], postFly, sleep: async () => {} },
+    );
+    expect(postFly.mock.calls.map((c) => [c[0].engine, c[0].engineModel])).toEqual([
+      ['codex', 'gpt-5-codex'],
+      ['codex', 'gpt-5-codex'],
+    ]);
+    expect(result.lines[0]).toBe(
+      'fleet: 2 lane(s) over 0 open task(s) — 1 firing(s) each at $5/firing, on codex (gpt-5-codex)',
+    );
+
+    postFly.mockClear();
+    const claude = await runFleetLaunch({ ...baseArgs, engine: 'claude' }, 0, {
+      loadOpenTasks: () => [],
+      postFly,
+      sleep: async () => {},
+    });
+    expect(postFly.mock.calls[0]?.[0]).toMatchObject({ engine: 'claude' });
+    expect(postFly.mock.calls[0]?.[0]).not.toHaveProperty('engineModel');
+    expect(claude.lines[0]).toMatch(/, on claude$/);
+  });
+
+  it('sends no engine keys and names none when the launch chose none', async () => {
+    const postFly = vi
+      .fn<(body: FleetLaunchPostBody) => Promise<FleetLaunchPostResult>>()
+      .mockResolvedValue({ status: 200, started: true });
+    const result = await runFleetLaunch(baseArgs, 0, {
+      loadOpenTasks: () => [],
+      postFly,
+      sleep: async () => {},
+    });
+    for (const [body] of postFly.mock.calls) {
+      expect(body).not.toHaveProperty('engine');
+      expect(body).not.toHaveProperty('engineModel');
+    }
+    expect(result.lines[0]).toBe(
+      'fleet: 2 lane(s) over 0 open task(s) — 1 firing(s) each at $5/firing',
+    );
+  });
+
   it('warns about a wide fleet before the first lane, at the boundary it does not', async () => {
     const postFly = vi
       .fn<(body: FleetLaunchPostBody) => Promise<FleetLaunchPostResult>>()

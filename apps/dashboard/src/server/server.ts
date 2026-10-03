@@ -31,6 +31,7 @@ import {
 } from '../flight/runner.js';
 import { parseFleetCliArgs } from '../flight/fleet-launch.js';
 import type { FleetLaunchApi } from '../flight/fleet-launch-api.js';
+import { firingEngineFromRequest } from '../flight/firing-engine.js';
 import type { LuckyPlan, LuckyProbe } from '../flight/lucky-plan.js';
 import {
   parseLuckyAttention,
@@ -1217,7 +1218,9 @@ async function handleFly(
  * and shares its limiter so a lane multiplier can't dodge the single-flight
  * spend cap by hitting a different route. Body validation reuses
  * `parseFleetCliArgs` (the exact same checks `dashboard fleet`'s argv
- * parsing already has), fed with each field's string form.
+ * parsing already has), fed with each field's string form. An `engine` and
+ * `engineModel` (epic 0036) fly every lane on that CLI, as they fly one
+ * `POST /api/fly` flight.
  */
 async function handleFleetLaunch(
   req: IncomingMessage,
@@ -1276,8 +1279,24 @@ async function handleFleetLaunch(
     send(400, { error: parsed.usage });
     return;
   }
+  // Epic 0036: the engine every lane flies on, judged once here, so a choice
+  // no lane could fly refuses the launch before its first lane starts. What
+  // rides on is the parse's own reading (trimmed, lower-cased), which each
+  // lane's `FlightRunner.start()` reads again.
+  const engineRequest = firingEngineFromRequest(body['engine'], body['engineModel']);
+  if (!engineRequest.ok) {
+    send(400, { error: engineRequest.reason });
+    return;
+  }
+  const route = engineRequest.route;
+  const engine =
+    route === undefined
+      ? {}
+      : route.engine === 'claude'
+        ? { engine: route.engine }
+        : { engine: route.engine, engineModel: route.model };
 
-  const result = await api({ ...parsed.args, folder: resolve(parsed.args.folder) });
+  const result = await api({ ...parsed.args, folder: resolve(parsed.args.folder), ...engine });
   send(result.ok ? 200 : 502, result);
 }
 

@@ -64,6 +64,16 @@ export interface FleetCliArgs {
   readonly budgetUsd: number;
 }
 
+/** {@link FleetCliArgs} plus the engine every lane flies on (epic 0036), which
+ *  only the dashboard's `POST /api/fleet` takes. Both ride each lane's
+ *  `POST /api/fly` body as given, where `FlightRunner.start()` reads them
+ *  through `firingEngineFromRequest`. Omitted, every lane inherits the
+ *  dashboard's own `AUTOPILOT_ENGINE`, as before. */
+export interface FleetLaunchArgs extends FleetCliArgs {
+  readonly engine?: string;
+  readonly engineModel?: string;
+}
+
 const FLEET_CLI_USAGE = 'usage: dashboard fleet <folder> <lanes> [firings] [budgetUsd]';
 
 /**
@@ -127,13 +137,32 @@ export function buildFleetLaunchPlan(
 }
 
 /** One lane's `POST /api/fly` body — {@link FleetLanePlan} plus the shared
- *  folder/firings/budget every lane launches with. */
+ *  folder/firings/budget/engine every lane launches with. */
 export interface FleetLaunchPostBody {
   readonly folder: string;
   readonly firings: number;
   readonly budgetUsd: number;
   readonly instanceId?: string;
   readonly taskScope: readonly string[];
+  readonly engine?: string;
+  readonly engineModel?: string;
+}
+
+/** The engine keys a lane's body carries: none when the launch chose none,
+ *  so the lane's body is the one it always was. */
+function laneEngineFields(
+  args: FleetLaunchArgs,
+): Pick<FleetLaunchPostBody, 'engine' | 'engineModel'> {
+  return {
+    ...(args.engine !== undefined ? { engine: args.engine } : {}),
+    ...(args.engineModel !== undefined ? { engineModel: args.engineModel } : {}),
+  };
+}
+
+/** The summary line's engine clause: empty when the launch chose none. */
+function engineClause(args: FleetLaunchArgs): string {
+  if (args.engine === undefined) return '';
+  return `, on ${args.engine}${args.engineModel !== undefined ? ` (${args.engineModel})` : ''}`;
 }
 
 /** The bits of `/api/fly`'s response `runFleetLaunch` actually reports. */
@@ -181,7 +210,7 @@ export interface FleetLaunchResult {
  * own worktrees as intended.
  */
 export async function runFleetLaunch(
-  args: FleetCliArgs,
+  args: FleetLaunchArgs,
   staggerMs: number,
   deps: FleetLaunchDeps,
 ): Promise<FleetLaunchResult> {
@@ -189,7 +218,7 @@ export async function runFleetLaunch(
   const plan = buildFleetLaunchPlan(open, args.laneCount);
   const lines: string[] = [
     `fleet: ${args.laneCount} lane(s) over ${open.length} open task(s) — ` +
-      `${args.firings} firing(s) each at $${args.budgetUsd}/firing`,
+      `${args.firings} firing(s) each at $${args.budgetUsd}/firing${engineClause(args)}`,
   ];
   if (args.laneCount > WIDE_FLEET_LANES) {
     lines.push(
@@ -210,6 +239,7 @@ export async function runFleetLaunch(
         budgetUsd: args.budgetUsd,
         ...(lane.instanceId ? { instanceId: lane.instanceId } : {}),
         taskScope: lane.taskScope,
+        ...laneEngineFields(args),
       });
     } catch (err) {
       lines.push(`  ${name}: could not reach the dashboard — ${String(err)}`);

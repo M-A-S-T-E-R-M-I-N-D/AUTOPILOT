@@ -349,14 +349,72 @@ describe('FLY-BAR Engine select (epic 0036, GitHub #21 slice S-last)', () => {
     expect(modelInput().hidden).toBe(true);
   });
 
-  it('refuses a chosen engine with lanes above 1 instead of silently launching the fleet on the default', async () => {
+  it('a chosen engine and its model ride the multi-lane fleet launch body, for every lane', async () => {
     const calls: RecordedCall[] = [];
     await boot(calls);
     (document.getElementById('fly-lanes') as HTMLInputElement).value = '2';
-    chooseEngine('claude');
+    chooseEngine('gemini');
+    modelInput().value = ' gemini-2.5-pro ';
     fillAndSubmit();
 
-    await refusedWith(calls, STRINGS.en.engineSingleLane);
+    await vi.waitFor(() => {
+      expect(calls.some((c) => c.href.endsWith('/api/fleet'))).toBe(true);
+    });
+    expect(calls.find((c) => c.href.endsWith('/api/fleet'))?.body).toEqual({
+      folder: '/srv/projects/checkout-web',
+      laneCount: 2,
+      firings: 1,
+      budgetUsd: 10,
+      engine: 'gemini',
+      engineModel: 'gemini-2.5-pro',
+    });
+    expect(calls.some((c) => c.href.endsWith('/api/fly'))).toBe(false);
+  });
+
+  it('a fleet on the default or on Claude sends no model, and the default no engine', async () => {
+    const calls: RecordedCall[] = [];
+    await boot(calls);
+    (document.getElementById('fly-lanes') as HTMLInputElement).value = '2';
+    chooseEngine('codex');
+    modelInput().value = 'gpt-5-codex';
+    chooseEngine('claude');
+    fillAndSubmit();
+    await vi.waitFor(() => {
+      expect(calls.some((c) => c.href.endsWith('/api/fleet'))).toBe(true);
+    });
+    expect(calls.find((c) => c.href.endsWith('/api/fleet'))?.body).toEqual({
+      folder: '/srv/projects/checkout-web',
+      laneCount: 2,
+      firings: 1,
+      budgetUsd: 10,
+      engine: 'claude',
+    });
+  });
+
+  it("shows the server's own reason when it refuses a fleet's engine, not a bare failure", async () => {
+    const calls: RecordedCall[] = [];
+    await boot(calls);
+    const reason =
+      'AUTOPILOT_ENGINE_MODEL=claude-sonnet-5 names a Claude model, which the Codex CLI cannot run.';
+    const served = globalThis.fetch;
+    globalThis.fetch = ((input: unknown, init?: RequestInit) => {
+      const href = typeof input === 'string' ? input : (input as Request).url;
+      if (href.endsWith('/api/fleet')) {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: reason }),
+        } as unknown as Response);
+      }
+      return served(input as RequestInfo, init);
+    }) as unknown as typeof fetch;
+    (document.getElementById('fly-lanes') as HTMLInputElement).value = '2';
+    chooseEngine('codex');
+    modelInput().value = 'claude-sonnet-5';
+    fillAndSubmit();
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('fly-status')?.textContent).toBe(reason);
+    });
   });
 
   it('explains itself on hover/focus, in every locale', () => {
@@ -375,7 +433,6 @@ describe('FLY-BAR Engine select (epic 0036, GitHub #21 slice S-last)', () => {
         'engineModelPlaceholder',
         'flyEngineTip',
         'flyEngineModelTip',
-        'engineSingleLane',
         'engineModelNeeded',
       ] as const) {
         expect(STRINGS[locale][key], `${locale}.${key}`).toBeTruthy();
