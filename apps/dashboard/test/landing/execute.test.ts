@@ -1695,6 +1695,37 @@ describe('implicatedFilesFromFailedLog — the shapes beyond vitest (gap G)', ()
     ].join('\n');
     expect(implicatedFilesFromFailedLog(log)).toEqual(['apps/dashboard/e2e/dashboard.spec.ts']);
   });
+
+  it("reads a checker's one-line `FAILED: a, b/c` list — the docs-status red of 2026-10-03 that refused the landing carrying its own remedy", () => {
+    // The exact shape scripts/docs/refresh-status.mjs --check printed on run
+    // d2196765 (v0.58.0's cut bumped the version AFTER the blocks were
+    // refreshed): no line numbers, a bare README.md first, the fix named in
+    // the same breath. Nothing else in the guard's scan sees such a line.
+    const log = [
+      `${PREFIX}> autopilot@0.58.0 docs:status-check /srv/ci/work/AUTOPILOT/AUTOPILOT`,
+      `${PREFIX}check-docs-status FAILED: README.md, docs/ROADMAP.md, docs/ACTION-PLAN.md, .github/CONTRIBUTING.md — run \`pnpm docs:status\` and commit the result`,
+      `${PREFIX} ELIFECYCLE  Command failed with exit code 1.`,
+    ].join('\n');
+    expect(implicatedFilesFromFailedLog(log)).toEqual([
+      'README.md',
+      'docs/ROADMAP.md',
+      'docs/ACTION-PLAN.md',
+      '.github/CONTRIBUTING.md',
+    ]);
+    // …and the landing that regenerates those blocks is the remedy.
+    expect(
+      remedyFilesOf(
+        ['README.md', 'docs/ROADMAP.md', 'apps/dashboard/src/x.ts'],
+        implicatedFilesFromFailedLog(log),
+      ),
+    ).toEqual(['README.md', 'docs/ROADMAP.md']);
+  });
+
+  it('a `FAILED:` followed by prose, not paths, implicates nothing', () => {
+    expect(
+      implicatedFilesFromFailedLog(`${PREFIX}check-bundle-size FAILED: budget exceeded by 2 KB`),
+    ).toEqual([]);
+  });
 });
 
 describe('remedyFilesOf — package-relative and absolute spellings match by suffix (gap G)', () => {

@@ -381,6 +381,16 @@ const FAILED_FILE_RE =
  *  nothing and are dropped before the path scan. */
 const PASSING_LINE_RE = /(?:^|\s)ok\s+\d+\s+\[/;
 
+/** A checker that names every drifted file in ONE line — `check-docs-status
+ *  FAILED: README.md, docs/ROADMAP.md, … — run \`pnpm docs:status\``. The
+ *  paths carry no line numbers and the first has no directory, so none of
+ *  the shapes above sees them: on 2026-10-03 the landing that regenerated
+ *  those very blocks was refused into the red they caused (v0.58.0's cut had
+ *  bumped the version after the refresh), a deadlock this escape exists to
+ *  break. A `FAILED:` followed by a comma-separated list of extensioned paths. */
+const FAILED_LIST_RE =
+  /\bFAILED:\s+((?:[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)*\.[A-Za-z0-9]+)(?:,\s*[A-Za-z0-9_.@-]+(?:\/[A-Za-z0-9_.@-]+)*\.[A-Za-z0-9]+)*)/g;
+
 export function implicatedFilesFromFailedLog(log: string): readonly string[] {
   const files = new Set<string>();
   // Backslashes are normalised BEFORE the scan, not after: the windows-latest
@@ -406,6 +416,13 @@ export function implicatedFilesFromFailedLog(log: string): readonly string[] {
     // matched by suffix in remedyFilesOf.
     const file = match[1] ?? match[2] ?? match[3] ?? match[4];
     if (file !== undefined) files.add(file.replace(/\\/g, '/'));
+  }
+  // Group 5, separately: a checker's one-line list of every drifted file.
+  for (const match of text.matchAll(FAILED_LIST_RE)) {
+    for (const file of (match[1] ?? '').split(',')) {
+      const trimmed = file.trim();
+      if (trimmed !== '') files.add(trimmed);
+    }
   }
   return [...files];
 }
