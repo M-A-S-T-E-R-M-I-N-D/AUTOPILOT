@@ -158,6 +158,8 @@ export async function runLoop(
       `demoteAfterGateFailures must be a positive integer, got ${String(demoteAfter)}`,
     );
   }
+  // Omitted, no run of reverts ever reaches it, so the lane is never demoted.
+  const demoteAt = demoteAfter ?? Number.POSITIVE_INFINITY;
 
   let state = await deps.loadState();
   let consecBad = 0;
@@ -285,7 +287,7 @@ export async function runLoop(
     // waited out above still counts here when the gate reverted its commit:
     // it is not one of the flight's firings, but its work was bad all the same.
     consecReverted = outcome.gateResult === 'reverted' ? consecReverted + 1 : 0;
-    if (demoteAfter !== undefined && consecReverted >= demoteAfter) {
+    if (consecReverted >= demoteAt) {
       deps.log(
         `DEMOTED: the gate reverted ${consecReverted} firing${consecReverted === 1 ? '' : 's'} in a row — this lane takes no more work`,
       );
