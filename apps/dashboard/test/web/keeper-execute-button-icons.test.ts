@@ -9,7 +9,10 @@
  * were bare words. Each leads with a decorative icon now, the busy and idle
  * words swap through `setSweptText()` so the icon stays put through a run (a
  * `textContent` swap would drop it), and one rule spaces every execute
- * button's icon from its words. Executes the ACTUAL client bundle (`clientJs()`) in jsdom, the
+ * button's icon from its words. The issue triage and release runs led with
+ * their icon from the start but swapped `textContent` on a click, so the
+ * first run dropped it; they swap through `setSweptText()` now too.
+ * Executes the ACTUAL client bundle (`clientJs()`) in jsdom, the
  * convention `pr-review-maintainer-icons.test.ts` uses.
  */
 
@@ -70,6 +73,19 @@ const DISCUSSION_PLANS = [
   },
 ];
 
+const ISSUE_PLANS = [
+  {
+    issue: { number: 7, title: 'Keyboard nav is broken in the fleet table' },
+    decision: { decision: 'accept', reasoning: 'No matching open task.' },
+  },
+];
+
+const RELEASE = {
+  tagName: 'v1.2.0',
+  currentVersion: '1.2.0',
+  plan: { ok: true, bump: 'minor', version: '1.3.0', changelog: '# Changelog' },
+};
+
 const PR_PLAN = {
   pr: {
     number: 42,
@@ -80,13 +96,42 @@ const PR_PLAN = {
   decision: { decision: 'merge', reasoning: 'green and approved' },
 };
 
+// Each test evals the client bundle afresh and re-registers its top-level
+// click delegates; document.open()/close() resets the DOM but not those
+// listeners, so without this an earlier test's delegate would also answer a
+// later click, capture the busy words as the label to restore, and restore
+// them (execute-result-live-regions.test.ts carries the same guard).
+let restoreListeners: () => void = () => {};
+
+function trackDocumentListeners(): void {
+  const added: Array<
+    [string, EventListenerOrEventListenerObject, boolean | AddEventListenerOptions | undefined]
+  > = [];
+  const original = document.addEventListener.bind(document);
+  document.addEventListener = ((
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ) => {
+    added.push([type, listener, options]);
+    return original(type, listener, options);
+  }) as typeof document.addEventListener;
+  restoreListeners = () => {
+    for (const [type, listener, options] of added) {
+      document.removeEventListener(type, listener, options);
+    }
+    document.addEventListener = original;
+  };
+}
+
 function json(body: unknown): Response {
   return { ok: true, status: 200, json: async () => body } as unknown as Response;
 }
 
-/** The project page with every mirror pass preview carrying a finding and an
- *  open discussion to accept, so all six execute buttons render. Each
- *  execute POST fails, so a click walks the busy-then-restore path. */
+/** The project page with every mirror pass preview carrying a finding, an
+ *  open discussion and an open issue to accept, and a release to cut, so
+ *  every execute button renders. Each execute POST fails, so a click walks
+ *  the busy-then-restore path. */
 function bootProjectPage(): void {
   document.open();
   document.write(renderShell('p1'));
@@ -97,6 +142,8 @@ function bootProjectPage(): void {
     if (url.includes('/execute')) throw new Error('network down');
     if (url.includes('/api/discussions-triage'))
       return json({ triage: { plans: DISCUSSION_PLANS } });
+    if (url.includes('/api/issue-triage')) return json({ triage: ISSUE_PLANS });
+    if (url.includes('/api/release')) return json({ release: RELEASE });
     // Most specific mirror-pass paths first — each contains `/api/mirror-pass`.
     if (url.includes('/api/mirror-pass/landing-note')) return json({ landingNote: FINDING });
     if (url.includes('/api/mirror-pass/drift')) {
@@ -138,8 +185,14 @@ function expectLeadingIcon(b: Element, name: string): void {
 }
 
 describe('the KEEPER execute buttons lead with a stroke icon (epic 0025)', () => {
-  beforeEach(() => localStorage.removeItem('ap-locale'));
-  afterEach(() => vi.restoreAllMocks());
+  beforeEach(() => {
+    localStorage.removeItem('ap-locale');
+    trackDocumentListeners();
+  });
+  afterEach(() => {
+    restoreListeners();
+    vi.restoreAllMocks();
+  });
 
   it('each of the mirror pass execute buttons leads with the icon of what it does, its words unchanged', async () => {
     bootProjectPage();
@@ -193,6 +246,70 @@ describe('the KEEPER execute buttons lead with a stroke icon (epic 0025)', () =>
     });
     expectLeadingIcon(b, 'message-circle');
     expect(b.textContent).toBe('Run KEEPER Discussions triage');
+  });
+
+  it('the issue triage run keeps its KEEPER key through the busy words and a failed run', async () => {
+    bootProjectPage();
+    const b = await button('[data-issue-triage-execute]');
+    expectLeadingIcon(b, 'key-round');
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    b.click();
+
+    expect(b.disabled).toBe(true);
+    expect(b.textContent).toBe('Triaging…');
+    expectLeadingIcon(b, 'key-round');
+    await vi.waitFor(() => {
+      expect(document.querySelector('.issue-triage-result')?.textContent).toBe(
+        '✗ Request failed — try again shortly.',
+      );
+    });
+    expect(b.disabled).toBe(false);
+    expectLeadingIcon(b, 'key-round');
+    expect(b.textContent).toBe('Run KEEPER triage');
+  });
+
+  it('the release run keeps its rocket through the busy words and a failed run', async () => {
+    bootProjectPage();
+    const b = await button('[data-release-execute]');
+    expectLeadingIcon(b, 'rocket');
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    b.click();
+
+    expect(b.disabled).toBe(true);
+    expect(b.textContent).toBe('Releasing…');
+    expectLeadingIcon(b, 'rocket');
+    await vi.waitFor(() => {
+      expect(document.querySelector('.release-result')?.textContent).toBe(
+        '✗ Request failed — try again shortly.',
+      );
+    });
+    expect(b.disabled).toBe(false);
+    expectLeadingIcon(b, 'rocket');
+    expect(b.textContent).toBe('Cut release v1.3.0');
+  });
+
+  it('the release run keeps its rocket when the ritual answers with a refusal', async () => {
+    bootProjectPage();
+    const b = await button('[data-release-execute]');
+    const pageFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes('/api/release/execute')) {
+        return json({ ok: false, error: 'working tree is dirty' });
+      }
+      return pageFetch(input, init);
+    }) as unknown as typeof fetch;
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    b.click();
+
+    expectLeadingIcon(b, 'rocket');
+    await vi.waitFor(() => {
+      expect(b.disabled).toBe(false);
+    });
+    expectLeadingIcon(b, 'rocket');
+    expect(b.textContent).toBe('Cut release v1.3.0');
   });
 
   it('the PR review Apply leads with the KEEPER key, as the issue triage run does', async () => {
