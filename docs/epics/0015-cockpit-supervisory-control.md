@@ -136,6 +136,16 @@ one selection model), process (baseline doc closed out, §14 empty).
    implementation), with the interaction-latency fold math unit-tested in
    `scripts/cockpit-metrics-interaction.mjs`. Still open from the table: INP p75
    (the full metric, not the proxy).
+
+   **Freshness check (2026-10-03):** `scripts/cockpit-metrics.mjs` picked up a newer commit
+   (`07a03fe9`) that changes how `docs/COCKPIT-BASELINE.md` stays current, not what it
+   measures. Each run used to write a fresh `docs/EVALUATION-<date>-cockpit-baseline.md` for
+   someone to fold into the living doc by hand; `pnpm run cockpit-metrics` now folds the run
+   directly into that doc's `<!-- COCKPIT:<name>:START/END -->` blocks in place via the new
+   `scripts/cockpit-baseline-doc.mjs`, and a `--check` flag measures without writing and exits
+   1 naming any block the tree no longer reproduces. The rows shipped so far and the still-open
+   INP p75 row above are unchanged — this is the automation the epic's own "proven by
+   `scripts/cockpit-metrics.mjs` and the gate, not by assertion" acceptance criterion wanted.
 1. **DESIGN SYSTEM RECON** (brief §6) — authority map, css-analyzer baseline,
    computed-style census (covered/drifted/uncovered), interface inventory
    (chips/pills/badges/tiles first — this product's plural categories),
