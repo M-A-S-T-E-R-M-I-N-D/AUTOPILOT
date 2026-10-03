@@ -6,7 +6,8 @@
  * carry by hand — nine of them had drifted (a version two releases behind,
  * "11 anomaly kinds" against fifteen, "110 Stryker configs" against 130).
  * The generator reads each count from its source of truth and rewrites one
- * STATUS:FACTS block per page; `ci:docs-status` fails when a block drifts.
+ * STATUS:FACTS block per page; `docs:status-check` fails CI when a block drifts
+ * (not a ci:* script, so the firing gate never reverts a lane over a count).
  */
 
 import { describe, it, expect } from 'vitest';
