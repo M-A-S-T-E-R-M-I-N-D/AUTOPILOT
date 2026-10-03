@@ -37,6 +37,9 @@ const LATIN_SCRIPT_KEYS: ReadonlySet<StringKey> = new Set<StringKey>([
   // the model id (epic 0036).
   'flightRowEngineSuffix',
   'flightRowEngineModelSuffix',
+  // A lane card's engine chip is the same punctuation around the engine name
+  // and its backend (epic 0036).
+  'laneEngineChip',
 ]);
 
 describe('STRINGS', () => {
