@@ -899,6 +899,33 @@ ${sharedOrientFixationChipMeta.toString()}
 function laneAnchorId(projectId, callsign) {
   return 'lane-' + (projectId + '-' + callsign).replace(/[^a-zA-Z0-9_-]+/g, '-');
 }
+// The live phase pill's leading glyph (epic 0025 slice 3): orient takes the
+// orient-drag chip's compass, and DO, which counts edit activity, the pencil.
+// An unclassified phase ('other') keeps the bare word.
+var LIVE_PHASE_ICONS = {
+  orient: 'compass',
+  do: 'pencil',
+  gate: 'shield-check',
+  commit: 'git-commit-horizontal',
+};
+// The phase pill both live cards head with — liveWorkerCard and laneCard.
+function livePhasePill(phase) {
+  var phaseTip = OFFICE_TIPS[phase] || 'phase not yet classified from recent activity';
+  var phasePill = el('span', 'pill live-phase-' + phase, phase);
+  // Decorative beside the word, which stays the pill's text and its name.
+  if (LIVE_PHASE_ICONS[phase]) phasePill.insertBefore(iconEl(LIVE_PHASE_ICONS[phase]), phasePill.firstChild);
+  phasePill.setAttribute('tabindex', '0');
+  phasePill.setAttribute('data-tip', phaseTip + ' (current)');
+  // D1 ATTRIBUTE PAYLOAD (epic 0015): the pill's own text already shows the
+  // phase name, so aria-label states only the essential "this is the current
+  // one" fact — it must not also duplicate data-tip's full descriptive
+  // sentence verbatim, the same class of duplication 189137e0/f8779d15/
+  // c3c57f5d fixed for the task-chip/search-hit/task-title aria-labels.
+  phasePill.setAttribute('aria-label', tr('livePhaseAria', phase));
+  phasePill.setAttribute('data-i18n-aria-template', 'livePhaseAria');
+  phasePill.setAttribute('data-i18n-name', phase);
+  return phasePill;
+}
 function liveWorkerCard(c) {
   var lives = liveFirings(c);
   if (lives.length > 1) return laneGridCard(lives, c.id);
@@ -930,19 +957,7 @@ function liveWorkerCard(c) {
     headMeta.callsign.ariaLabel,
     'live-callsign'
   ));
-  var phaseTip = OFFICE_TIPS[live.phase] || 'phase not yet classified from recent activity';
-  var phasePill = el('span', 'pill live-phase-' + live.phase, live.phase);
-  phasePill.setAttribute('tabindex', '0');
-  phasePill.setAttribute('data-tip', phaseTip + ' (current)');
-  // D1 ATTRIBUTE PAYLOAD (epic 0015): the pill's own text already shows the
-  // phase name, so aria-label states only the essential "this is the current
-  // one" fact — it must not also duplicate data-tip's full descriptive
-  // sentence verbatim, the same class of duplication 189137e0/f8779d15/
-  // c3c57f5d fixed for the task-chip/search-hit/task-title aria-labels.
-  phasePill.setAttribute('aria-label', tr('livePhaseAria', live.phase));
-  phasePill.setAttribute('data-i18n-aria-template', 'livePhaseAria');
-  phasePill.setAttribute('data-i18n-name', live.phase);
-  head.appendChild(phasePill);
+  head.appendChild(livePhasePill(live.phase));
   if (headMeta.model) {
     head.appendChild(tipChip(
       live.model,
@@ -1153,14 +1168,7 @@ function laneCard(live, projectId) {
     headMeta.callsign.ariaLabel,
     'live-callsign'
   ));
-  var phaseTip = OFFICE_TIPS[live.phase] || 'phase not yet classified from recent activity';
-  var phasePill = el('span', 'pill live-phase-' + live.phase, live.phase);
-  phasePill.setAttribute('tabindex', '0');
-  phasePill.setAttribute('data-tip', phaseTip + ' (current)');
-  phasePill.setAttribute('aria-label', tr('livePhaseAria', live.phase));
-  phasePill.setAttribute('data-i18n-aria-template', 'livePhaseAria');
-  phasePill.setAttribute('data-i18n-name', live.phase);
-  head.appendChild(phasePill);
+  head.appendChild(livePhasePill(live.phase));
   if (headMeta.model) {
     head.appendChild(tipChip(
       live.model,

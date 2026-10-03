@@ -246,6 +246,72 @@ describe('the many-lanes grid', () => {
     }
   });
 
+  // Epic 0025 slice 3 (status pills on the live-worker cards): the phase pill
+  // was a bare word on both cards while the fleet card's status pill beside it
+  // led with an icon. Orient takes the orient-drag chip's compass, and DO,
+  // which counts edit activity, the pencil.
+  const PHASE_GLYPHS: Record<string, string> = {
+    orient: 'compass',
+    do: 'pencil',
+    gate: 'shield-check',
+    commit: 'git-commit-horizontal',
+  };
+
+  function expectPhaseGlyph(pill: Element | null, phase: string) {
+    const icon = pill?.firstElementChild;
+    expect(icon?.matches('svg.icon-' + PHASE_GLYPHS[phase]), phase).toBe(true);
+    expect(icon?.getAttribute('aria-hidden'), phase).toBe('true');
+    expect(pill?.querySelectorAll('svg'), phase).toHaveLength(1);
+    expect(pill?.textContent, phase).toBe(phase);
+    expect(pill?.getAttribute('aria-label'), phase).toBe(
+      STRINGS.en.livePhaseAria.replaceAll('{name}', phase),
+    );
+  }
+
+  it("leads the single-lane card's phase pill with its phase icon", async () => {
+    current = {
+      ...stateWith({}),
+      projects: Object.keys(PHASE_GLYPHS).map((phase) => ({
+        ...BASE_PROJECT,
+        id: 'p-' + phase,
+        slug: 'p-' + phase,
+        name: 'Project ' + phase,
+        activity: [
+          { tool: 'Read', target: 'src/a.ts', kind: 'file', phase, at: 1, firingId: 'f-' + phase },
+        ],
+      })),
+    };
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    for (const phase of Object.keys(PHASE_GLYPHS)) {
+      expectPhaseGlyph(document.querySelector('.live-worker .pill.live-phase-' + phase), phase);
+    }
+  });
+
+  it("leads each lane card's phase pill with its phase icon, and leaves an unclassified phase bare", async () => {
+    current = stateWith({
+      activity: ['orient', 'do', 'gate', 'commit', 'other'].map((phase, i) => ({
+        tool: 'Read',
+        target: 'src/' + phase + '.ts',
+        kind: 'file',
+        phase,
+        at: 5 - i,
+        firingId: 'f-' + phase,
+      })),
+    });
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(document.querySelectorAll('.lane-card')).toHaveLength(5);
+    for (const phase of Object.keys(PHASE_GLYPHS)) {
+      expectPhaseGlyph(document.querySelector('.lane-card .pill.live-phase-' + phase), phase);
+    }
+    const other = document.querySelector('.lane-card .pill.live-phase-other');
+    expect(other?.querySelector('svg')).toBeNull();
+    expect(other?.textContent).toBe('other');
+  });
+
   it('every focusable line in a lane card is keyboard-reachable (roving tabindex seeded)', async () => {
     current = stateWith({
       activity: [
