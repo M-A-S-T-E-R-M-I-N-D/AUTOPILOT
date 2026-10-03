@@ -17,9 +17,11 @@
  * silently let an operator overspend or lose track of what's actually
  * flying.
  *
- * Same shape of good target as triage.ts: zero imports (every dependency is
- * injected, not imported) and exercised with concrete expected-output
- * assertions by runner.test.ts.
+ * Same shape of good target as triage.ts: every effect is injected, not
+ * imported, and runner.ts is exercised with concrete expected-output
+ * assertions by runner.test.ts. Its one workspace import, @autopilot/engine
+ * (through ./firing-engine.ts), is aliased in vitest.dashboard-runner
+ * .config.ts so the sandbox can resolve it.
  *
  * @type {import('@stryker-mutator/api/core').PartialStrykerOptions}
  */
