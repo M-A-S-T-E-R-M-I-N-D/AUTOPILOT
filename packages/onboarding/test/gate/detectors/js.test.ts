@@ -301,6 +301,23 @@ describe('jsDetector', () => {
     expect(d?.evidence.some((e) => e.startsWith('scripts.ci:*'))).toBe(false);
   });
 
+  it('keeps every script from a package.json saved with a UTF-8 byte order mark', () => {
+    // Windows editors and PowerShell 5.1's Out-File write the BOM; npm runs
+    // such a manifest fine, so the gate must not quietly lose its scripts.
+    const d = jsDetector.detect(
+      snap(['package.json', 'tsconfig.json'], {
+        'package.json': `\uFEFF${JSON.stringify({ scripts: { typecheck: 'tsc -b', test: 'vitest run' } })}`,
+      }),
+    );
+    expect(d?.gate.typecheck).toEqual({
+      bin: 'npm',
+      args: ['run', 'typecheck'],
+      label: 'npm run typecheck',
+    });
+    expect(d?.gate.test).toEqual({ bin: 'npm', args: ['run', 'test'], label: 'npm run test' });
+    expect(d?.evidence).toEqual(['package.json', 'pm:npm', 'scripts.typecheck', 'scripts.test']);
+  });
+
   it('scores as detected-commands count plus the package.json manifest bonus', () => {
     const d = jsDetector.detect(
       snap(['package.json'], {

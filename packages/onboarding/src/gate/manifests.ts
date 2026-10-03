@@ -3,15 +3,18 @@
 
 import type { GateCommand } from './types.js';
 
-/** Safe JSON parse → an object (or null). Never throws on untrusted manifest text. */
+/** U+FEFF, the byte order mark Windows editors and PowerShell 5.1 write.
+ *  `readFileSync(…, 'utf8')` keeps it and `JSON.parse` rejects it. */
+const BOM = '\uFEFF';
+
+/** Safe JSON parse → an object (or null). Never throws on untrusted manifest text.
+ *  One leading BOM is dropped first, as Node's own JSON loader and npm do, so a
+ *  package.json saved with one still yields its scripts instead of none. */
 export function safeJsonParse(text: string | null): Record<string, unknown> | null {
-  // Stryker disable next-line ConditionalExpression: exists to narrow `text` to
-  // `string` for the compiler. At runtime `JSON.parse(null)` coerces via
-  // ToString to "null" and returns the JS value `null` — identical to this
-  // early return — so removing the guard changes no observable output.
   if (text === null) return null;
+  const body = text.startsWith(BOM) ? text.slice(BOM.length) : text;
   try {
-    const value: unknown = JSON.parse(text);
+    const value: unknown = JSON.parse(body);
     // Stryker disable next-line ConditionalExpression: when `value` is null,
     // the true branch's `(value as Record<string, unknown>)` is a cast, not a
     // conversion — it still evaluates to `null`, the same as the false
