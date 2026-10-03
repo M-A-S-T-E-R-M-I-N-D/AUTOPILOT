@@ -109,7 +109,7 @@ hand-maintained._
 | Containment posture | `docs/FLIGHT-CONTAINMENT.md` — detection (done) + CLI prevention (done) + OS sandbox
   (platform-gated, not native Windows) |
 | Verification boundary (🟢 autonomous vs. 🟣 human-required) | `docs/MASTER-PLAN.md` §17 |
-| This card last reviewed against the above | 2026-10-02 |
+| This card last reviewed against the above | 2026-10-03 |
 
 **2026-10-01 review (DOC-FRESHNESS flag against `prompt.ts`):** the flagged commits
 (`355c7895`, `a224c3d0`) added a per-project `Subagents: off` SOUL override — a
@@ -145,6 +145,18 @@ length, so no narrative changed. Re-checked: `package.json` version is still `0.
 `FIRING_PROMPT_VERSION` is still `'firing-v17'`, `pnpm self-study:gate` still runs
 `check-prompt-gate.mjs`, and `packages/store/src/eval-gate.ts` still has no commits
 since genesis. All still true.
+
+**2026-10-03 review (DOC-FRESHNESS flag against `prompt.ts`):** the flagged commit
+(`0a1d6cc7`, 2026-10-03 01:36:02 +0300) adds `FiringPromptInput.harness`: a non-Claude
+lane flown under `AUTOPILOT_ENGINE` (Codex or Gemini, epic 0036) now signs its commit
+`Harness: codex-cli` / `Harness: gemini-cli` instead of the Claude-lane constant
+`HARNESS_NAME`. A Claude lane passes nothing, so its prompt — and every claim this card
+makes, which are all scoped to "Claude, via the local Claude Code CLI" (§1) — stays
+byte-identical to before. The broader multi-provider narrative is epic 0036's own doc
+(`docs/epics/0036-provider-parity.md`), not this card's §1–§5, so no narrative here
+changed. Re-checked: `package.json` version is still `0.57.0`, `FIRING_PROMPT_VERSION`
+is still `'firing-v17'`, `pnpm self-study:gate` is still wired to `check-prompt-gate.mjs`,
+and `packages/store/src/eval-gate.ts` still has no commits since genesis. All still true.
 
 ## 7. AI-Use Disclosure
 
