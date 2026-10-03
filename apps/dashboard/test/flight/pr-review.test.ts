@@ -1371,6 +1371,13 @@ const BENIGN_SCRIPTS = new Set([
   // data-model/generate-doc.mjs; reads the docs folder, writes one index
   // file, touches no store and no GitHub.
   'docs/generate-debriefs-index.mjs',
+  // Rewrites one marked STATUS:FACTS block per status page from counts the
+  // tree itself holds (package.json, the configs, the anomaly union, the
+  // doctrine table, the epics' Status lines; `git ls-files` for the test
+  // count) — the same generate-a-committed-doc-from-the-tree class as the
+  // debriefs index above; touches no store and no GitHub (2026-10-03).
+  'docs/refresh-status.d.mts',
+  'docs/refresh-status.mjs',
   // Doc GENERATOR (board web-mtnd3yeq-oyprf0 slice 1/2): records the README
   // demo's frame sequence from the populated e2e fixture into the git-ignored
   // docs/screens/demo-frames/ — writes PNGs + one JSON manifest there, boots

@@ -90,10 +90,12 @@ export function collectFacts(root = ROOT) {
   const mutationConfigs = readdirSync(join(root, 'config/mutation')).filter((f) =>
     /^stryker\..*\.config\.mjs$/.test(f),
   ).length;
+  // windowsHide: every production spawn hides its console on Windows (the
+  // house rule spawn-windows-hide.test.ts enforces across the tree).
   const testFiles = execFileSync(
     'git',
     ['ls-files', '*.test.ts', '*.test.tsx', '*.test.mjs', '*.test.js'],
-    { cwd: root, encoding: 'utf8' },
+    { cwd: root, encoding: 'utf8', windowsHide: true },
   )
     .split('\n')
     .filter((l) => l.trim() !== '').length;
