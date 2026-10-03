@@ -17,7 +17,11 @@ import {
   type FitCandidate,
   type FitOperator,
 } from '../../src/flight/lucky-fit.js';
-import { DECLINED_LABEL, planClaimPoolIssue } from '../../src/flight/pool-client.js';
+import {
+  DECLINED_LABEL,
+  isMaintainerMarked,
+  planClaimPoolIssue,
+} from '../../src/flight/pool-client.js';
 import { HOLD_LABELS } from '../../src/flight/issue-triage.js';
 import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 
@@ -177,6 +181,59 @@ describe("luckyFitLine × the maintainer's declined and held issues (regression,
     );
     expect(fit.considered).toBe(2);
     expect(fit.shortlist.map((l) => l.number)).toEqual([17]);
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the 🍀 roll × the
+// maintainer's marks in another spelling. The pool claim skips `declined`,
+// `status: awaiting-human` and `status: blocked` in any casing, a hyphen read as
+// a space (pool-client.ts isMaintainerMarked). The scorer folded the casing but
+// not the hyphen, so on a repo whose label reads `status: awaiting human` it
+// still ranked the issue the best work to fly, and the claim refused it.
+describe("luckyFitLine × the maintainer's marks in any spelling (regression, epic 0019 additive-only law)", () => {
+  const variants = [
+    'Declined',
+    'DECLINED',
+    'Status: Awaiting-Human',
+    'status: awaiting human',
+    'Status: Awaiting Human',
+    'Status: Blocked',
+  ];
+  const marked = (mark: string) => candidate({ labels: [...candidate().labels, mark] });
+
+  it('reads variants of the three marks, not the marks themselves', () => {
+    for (const mark of variants) {
+      expect([DECLINED_LABEL, ...HOLD_LABELS]).not.toContain(mark);
+      expect(isMaintainerMarked([mark])).toBe(true);
+    }
+  });
+
+  it.each(variants)('never offers a pool issue marked "%s", as the claim skips it', (mark) => {
+    expect(planClaimPoolIssue(marked(mark), 'octocat').decision).toBe('skip');
+    expect(luckyFitLine(candidate(), operator())).toBeDefined();
+
+    expect(luckyFitLine(marked(mark), operator())).toBeUndefined();
+  });
+
+  it('a roll over four issues offers only the unmarked one', () => {
+    const fit = luckyFit(
+      [
+        { ...marked('status: awaiting human'), number: 16 },
+        { ...marked('Status: Awaiting-Human'), number: 18 },
+        { ...marked('Declined'), number: 19 },
+        candidate({ number: 17, labels: [] }),
+      ],
+      operator(),
+    );
+    expect(fit.considered).toBe(4);
+    expect(fit.shortlist.map((l) => l.number)).toEqual([17]);
+  });
+
+  it('a label that only resembles a mark is still offered, as the claim still takes it', () => {
+    const lookalike = marked('status: awaiting review');
+    expect(isMaintainerMarked(lookalike.labels)).toBe(false);
+    expect(planClaimPoolIssue(lookalike, 'octocat').decision).toBe('claim');
+    expect(luckyFitLine(lookalike, operator())).toBeDefined();
   });
 });
 

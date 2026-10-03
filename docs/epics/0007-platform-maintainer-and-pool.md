@@ -1123,6 +1123,16 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    `isMarkedIssue` wrapper and the local exact-match list is gone. Covered by
    `test/flight/owned-work-reconcile.test.ts` (the same five variants;
    written first, it failed 10 of its 12 checks against the old code).
+   The lucky shortlist followed the same day (same board task):
+   `lucky-fit.ts`'s `luckyFitLine` folded the marks' casing through its own
+   `hasLabel` but not the hyphen, so on a repo whose label reads `status:
+   awaiting human` the roll still ranked the issue the best work to fly and
+   the claim refused it. It now reads `isMaintainerMarked` and its own
+   `MAINTAINER_MARKS` list is gone. Narrowing-only: nothing it skipped before
+   is offered now. Covered by `test/flight/lucky-fit.test.ts` (the five
+   variants plus `Status: Awaiting Human`, a four-issue roll, and a label
+   that only resembles a mark; written first, it failed 3 of its 9 checks
+   against the old code).
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable
