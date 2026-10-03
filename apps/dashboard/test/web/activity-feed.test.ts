@@ -129,6 +129,32 @@ describe('the humanized activity feed', () => {
     });
   });
 
+  it('draws each row’s icon from the vendored Lucide set (epic 0025 law 1)', async () => {
+    boot();
+    await vi.advanceTimersByTimeAsync(1);
+
+    // One stroke family: the icon system's 24-unit grid, not the feed's old
+    // hand-authored 16-unit glyphs, in the same row order as the sentences.
+    const icons = Array.from(document.querySelectorAll('.act .act-icon'));
+    for (const icon of icons) {
+      expect(icon.classList.contains('icon')).toBe(true);
+      expect(icon.getAttribute('viewBox')).toBe('0 0 24 24');
+    }
+    const names = icons.map((icon) =>
+      Array.from(icon.classList)
+        .find((c) => c.startsWith('icon-'))
+        ?.slice('icon-'.length),
+    );
+    expect(names).toEqual([
+      'pencil',
+      'file-text',
+      'search',
+      'shield-check',
+      'git-commit-horizontal',
+      'dot',
+    ]);
+  });
+
   it('makes the raw tool + full target keyboard-reachable with a tooltip (app-wide interactivity audit)', async () => {
     boot();
     await vi.advanceTimersByTimeAsync(1);
