@@ -402,6 +402,19 @@ projects because of it, and it opens no shared write path. `flight/runner.ts` an
 `flight/registry.ts` are unchanged since the 2026-10-02 afternoon check. None of the four locks
 below changes; all six slices remain unchanged and live in production.
 
+Freshness check (2026-10-03, still later): `flight/runner.ts` gained one more commit since the
+check above — `1628745e` (epic 0036), which adds per-lane engine selection. GitHub #21's slice
+S-last asks for it in the fly bar: instead of every flight using this dashboard's own
+`AUTOPILOT_ENGINE`, a launch may now choose `engine` (claude, codex or gemini) and `engineModel`
+in the POST body. `FlightRunner.start()` reads both through the new `firingEngineFromRequest`,
+which validates them against the same `AUTOPILOT_ENGINE` levers an env var would face, then
+passes the validated engine to the spawn, where `firingEngineEnv` sets the child's own
+`AUTOPILOT_ENGINE` and `AUTOPILOT_ENGINE_MODEL`. Like the Gemini turn-cap change above, this is
+per-lane logic read once inside the spawned child's own `main()` — no board, SOUL or backlog row
+crosses projects because of it, and it opens no cross-project write path. `flight/fly.ts` and
+`flight/registry.ts` are unchanged. None of the four locks below changes; all six slices remain
+unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
