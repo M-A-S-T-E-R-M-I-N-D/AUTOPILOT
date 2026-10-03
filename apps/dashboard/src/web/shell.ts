@@ -1178,6 +1178,9 @@ function laneCard(live, projectId) {
       'live-worker-line' + (taskKey === 'liveProbableTask' ? ' live-worker-guess' : ''),
       tr(taskKey, taskName),
     );
+    // Epic 0025 slice 3: a confirmed focus leads with the same target icon as
+    // liveWorkerCard's line; setSweptText() keeps it across a locale switch.
+    if (taskKey === 'liveFocusTask') taskEl.insertBefore(iconEl('target'), taskEl.firstChild);
     taskEl.setAttribute('tabindex', '0');
     taskEl.setAttribute('data-i18n-template', taskKey);
     taskEl.setAttribute('data-i18n-aria-template', taskKey);
