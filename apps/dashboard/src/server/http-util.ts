@@ -9,6 +9,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { StringDecoder } from 'node:string_decoder';
 
 export const MAX_BODY_BYTES = 64 * 1024;
 
@@ -35,6 +36,11 @@ export function sendJson(
 
 export function readBody(req: IncomingMessage, limit: number): Promise<string> {
   return new Promise((resolve, reject) => {
+    // A chunk ends wherever TCP split it, often mid-character: decoding each
+    // chunk on its own turned a Hebrew letter or an emoji straddling two
+    // chunks into U+FFFD pairs. The decoder carries the incomplete trailing
+    // bytes over to the next chunk instead.
+    const decoder = new StringDecoder('utf8');
     let data = '';
     let size = 0;
     let overLimit = false;
@@ -50,9 +56,9 @@ export function readBody(req: IncomingMessage, limit: number): Promise<string> {
         reject(new Error('body too large'));
         return;
       }
-      data += chunk.toString('utf8');
+      data += decoder.write(chunk);
     });
-    req.on('end', () => resolve(data));
+    req.on('end', () => resolve(data + decoder.end()));
     req.on('error', reject);
   });
 }
