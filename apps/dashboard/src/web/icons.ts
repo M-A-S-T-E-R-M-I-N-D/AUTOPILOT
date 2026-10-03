@@ -728,6 +728,57 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M15 5.764v15' }],
     ['path', { d: 'M9 3.236v15' }],
   ],
+  // Epic 0025 slice 2: the fleet card Details panel's bare section headings
+  // (lucide-static 1.50.0). Top directories takes folder-tree, Hot files (the
+  // largest files by bytes, not the busiest) weight, Flight log scroll-text,
+  // Per-firing trace (grouped, collapsible) list-tree and Metrics gauge.
+  'folder-tree': [
+    [
+      'path',
+      {
+        d: 'M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z',
+      },
+    ],
+    [
+      'path',
+      {
+        d: 'M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z',
+      },
+    ],
+    ['path', { d: 'M3 5a2 2 0 0 0 2 2h3' }],
+    ['path', { d: 'M3 3v13a2 2 0 0 0 2 2h3' }],
+  ],
+  weight: [
+    ['circle', { cx: '12', cy: '5', r: '3' }],
+    [
+      'path',
+      {
+        d: 'M6.5 8a2 2 0 0 0-1.905 1.46L2.1 18.5A2 2 0 0 0 4 21h16a2 2 0 0 0 1.925-2.54L19.4 9.5A2 2 0 0 0 17.48 8Z',
+      },
+    ],
+  ],
+  'scroll-text': [
+    ['path', { d: 'M15 12h-5' }],
+    ['path', { d: 'M15 8h-5' }],
+    ['path', { d: 'M19 17V5a2 2 0 0 0-2-2H4' }],
+    [
+      'path',
+      {
+        d: 'M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3',
+      },
+    ],
+  ],
+  'list-tree': [
+    ['path', { d: 'M8 5h13' }],
+    ['path', { d: 'M13 12h8' }],
+    ['path', { d: 'M13 19h8' }],
+    ['path', { d: 'M3 10a2 2 0 0 0 2 2h3' }],
+    ['path', { d: 'M3 5v12a2 2 0 0 0 2 2h3' }],
+  ],
+  gauge: [
+    ['path', { d: 'm12 14 4-4' }],
+    ['path', { d: 'M3.34 19a10 10 0 1 1 17.32 0' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

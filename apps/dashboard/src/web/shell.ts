@@ -2100,7 +2100,11 @@ function languagesNode(c) {
   var langs = c.languages || [];
   if (!langs.length) return null;
   var wrap = el('div', 'detail-section');
+  // Epic 0025 slice 2: each Details section heading leads with a decorative
+  // icon, like the project page's panel headings; setSweptText() keeps it
+  // through a locale sweep.
   var languagesH = el('h3', 'detail-h', 'Languages');
+  languagesH.prepend(iconEl('code-xml'));
   languagesH.setAttribute('data-i18n', 'languages');
   wrap.appendChild(languagesH);
   var bar = langBar(langs);
@@ -2117,6 +2121,7 @@ function dirsNode(c) {
   if (!dirs.length) return null;
   var wrap = el('div', 'detail-section');
   var dirsH = el('h3', 'detail-h', 'Top directories');
+  dirsH.prepend(iconEl('folder-tree'));
   dirsH.setAttribute('data-i18n', 'topDirectories');
   wrap.appendChild(dirsH);
   wrap.appendChild(
@@ -2130,6 +2135,7 @@ function hotFilesNode(c) {
   if (!c.hotFiles || !c.hotFiles.length) return null;
   var wrap = el('div', 'detail-section');
   var hotH = el('h3', 'detail-h', 'Hot files');
+  hotH.prepend(iconEl('weight'));
   hotH.setAttribute('data-i18n', 'hotFiles');
   hotH.setAttribute('tabindex', '0');
   hotH.setAttribute(
@@ -2163,6 +2169,7 @@ function flightLogNode(c) {
   if (!log.length) return null;
   var wrap = el('div', 'detail-section');
   var flightLogH = el('h3', 'detail-h', 'Flight log');
+  flightLogH.prepend(iconEl('scroll-text'));
   flightLogH.setAttribute('data-i18n', 'flightLog');
   flightLogH.setAttribute('tabindex', '0');
   flightLogH.setAttribute(
@@ -2452,23 +2459,25 @@ function flightLogNode(c) {
 }
 wireRoving('.flight-head [tabindex]', '.flight-head');
 wireRoving('.flight-group-member [tabindex]', '.flight-group-member');
-function detailSectionNode(heading, content, i18nKey) {
+function detailSectionNode(heading, content, i18nKey, iconName) {
   if (!content) return null;
   var wrap = el('div', 'detail-section');
   var h = el('h3', 'detail-h', heading);
+  if (iconName) h.prepend(iconEl(iconName));
   if (i18nKey) h.setAttribute('data-i18n', i18nKey);
   wrap.appendChild(h);
   wrap.appendChild(content);
   return wrap;
 }
 function activityDetailNode(c) {
-  return detailSectionNode('Activity', activitySection(c), 'activity');
+  return detailSectionNode('Activity', activitySection(c), 'activity', 'activity');
 }
 function firingTimelineNode(c) {
   var firingTimeline = firingTimelineSection(c);
   if (!firingTimeline) return null;
   var wrap = el('div', 'detail-section');
   var traceH = el('h3', 'detail-h', 'Per-firing trace');
+  traceH.prepend(iconEl('list-tree'));
   traceH.setAttribute('data-i18n', 'firingTrace');
   traceH.setAttribute('tabindex', '0');
   traceH.setAttribute(
@@ -2488,7 +2497,7 @@ function metricsDetailNode(c) {
   // metrics rides /panels.js (defer). By the first fleet tick every defer script
   // has executed, so this guard is a boot-window formality, never a user-visible
   // gap — same contract as maybeNotifyFleet/syncPoolClientProjects.
-  return typeof metricsSection === 'function' ? detailSectionNode('Metrics', metricsSection(c), 'metrics') : detailSectionNode('Metrics', el('div', 'muted'), 'metrics');
+  return detailSectionNode('Metrics', typeof metricsSection === 'function' ? metricsSection(c) : el('div', 'muted'), 'metrics', 'gauge');
 }
 var DETAIL_SECTION_ORDER = ['facts', 'languages', 'dirs', 'hotfiles', 'flightlog', 'activity', 'timeline', 'metrics'];
 var DETAIL_SECTION_BUILDERS = {

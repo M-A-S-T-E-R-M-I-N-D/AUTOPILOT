@@ -350,6 +350,18 @@ propagation, and the filled style does not match the nav.
    on the `<h2>` the i18n tests pin, and `setSweptText()` keeps the icon
    across a locale switch, the way the tasks heading's focus-mode `target`
    survives (`apps/dashboard/test/web/project-detail-heading-icons.test.ts`).
+   **Details panel headings 2026-10-03 (slice 2):** the fleet card's
+   Details panel headed its seven sections (Languages, Top directories, Hot
+   files, Flight log, Activity, Per-firing trace, Metrics) with bare words.
+   Each leads with a decorative stroke now: Languages reuses `code-xml`,
+   Activity reuses `activity`, and Top directories, Hot files, Flight log,
+   Per-firing trace and Metrics take newly vendored `folder-tree`, `weight`
+   (the largest files by bytes, not the busiest), `scroll-text`,
+   `list-tree` (grouped, collapsible) and `gauge`. The STRINGS key stays on
+   each `<h3>`, Hot files, Flight log and Per-firing trace keep their own
+   `aria-label`, and `setSweptText()` keeps every icon across a locale
+   switch (`apps/dashboard/test/web/detail-panel-heading-icons.test.ts`).
+   Core grew to 247.1KB raw / 73.3KB gzip of its 251KB / 74KB budget.
 
 ## Related
 
