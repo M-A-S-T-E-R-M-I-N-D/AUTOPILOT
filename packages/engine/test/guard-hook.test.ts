@@ -4,7 +4,16 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import type * as NodeFs from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ensureWorktree } from '../src/adapters/worktree.js';
@@ -20,6 +29,16 @@ const lookupMock = vi.fn();
 vi.mock('node:dns/promises', () => ({
   lookup: (hostname: string, opts?: unknown) => lookupMock(hostname, opts),
 }));
+
+/**
+ * The deny log is written for real (the Codex tests below read it back); the
+ * spy is only there to prove a run that names no log appends nowhere at all.
+ */
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof NodeFs>();
+  return { ...actual, appendFileSync: vi.fn(actual.appendFileSync) };
+});
+const appendFileSyncMock = vi.mocked(appendFileSync);
 
 /**
  * guard-hook.ts is the stdin/stdout process shim around the pure, fully-tested
@@ -107,6 +126,7 @@ async function runGuardHook(
 
 beforeEach(() => {
   lookupMock.mockReset();
+  appendFileSyncMock.mockClear();
 });
 
 afterEach(() => {
@@ -408,6 +428,17 @@ describe('guard-hook as the Codex CLI PreToolUse hook', () => {
 
       expect(output).toBe('');
       expect(existsSync(log)).toBe(false);
+    });
+
+    it('appends nowhere for a deny when the run names no log (every Claude and Gemini run)', async () => {
+      // The hook runs with the target repo as its cwd: any fallback path in
+      // place of "no log" would land the deny as a stray file in the tree.
+      const { output } = await runGuardHook('/work/sbx', [
+        JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'cat /etc/passwd' } }),
+      ]);
+
+      expect(output).toContain('"permissionDecision":"deny"');
+      expect(appendFileSyncMock).not.toHaveBeenCalled();
     });
 
     it('still prints the deny, and exits 0, when the log cannot be written', async () => {

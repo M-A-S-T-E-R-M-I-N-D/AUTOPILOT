@@ -39,9 +39,13 @@ describe('the fly bar reads its per-row status sentence from STRINGS', () => {
     );
     expect(out).toContain("statusText += tr('flightRowWatchdogSuffix');");
     expect(out).toContain(
-      "tr('flightRowEngineModelSuffix', { engine: engineName, model: f.engineModel })",
+      "tr('flightRowEngineModelSuffix', { engine: engineName, model: engineDetail })",
     );
+    expect(out).toContain('var engineDetail = f.engineModel || backendName;');
     expect(out).toContain("tr('flightRowEngineSuffix', { engine: engineName })");
+    expect(out).toContain(
+      "f.backend === 'bedrock' ? tr('authModeBedrock') : f.backend === 'vertex' ? tr('authModeVertex')",
+    );
     expect(out).toContain("tr('flightRowQueued', f.folder)");
     expect(out).toContain("tr('pausedUntilResumed', f.folder)");
     expect(out).not.toContain('flightRowStatusText');
@@ -79,6 +83,50 @@ describe('the fly bar reads its per-row status sentence from STRINGS', () => {
       sub(STRINGS.en.flightRowFlyingFirings, { name: '/work/a', count: 1 }) +
         sub(STRINGS.en.flightRowEngineSuffix, { engine: STRINGS.en.engineClaude }),
     ).toBe(flightRowStatusText({ folder: '/work/a', running: true, engine: 'claude' }));
+    // GitHub #21 slice S1: a Claude lane routed off Anthropic's own API names
+    // its backend in the model's place, whether or not the launch chose Claude.
+    expect(
+      sub(STRINGS.en.flightRowFlyingFirings, { name: '/work/a', count: 1 }) +
+        sub(STRINGS.en.flightRowEngineModelSuffix, {
+          engine: STRINGS.en.engineClaude,
+          model: STRINGS.en.authModeBedrock,
+        }),
+    ).toBe(flightRowStatusText({ folder: '/work/a', running: true, backend: 'bedrock' }));
+    expect(
+      sub(STRINGS.en.flightRowFlyingFirings, { name: '/work/a', count: 1 }) +
+        sub(STRINGS.en.flightRowEngineModelSuffix, {
+          engine: STRINGS.en.engineClaude,
+          model: STRINGS.en.authModeVertex,
+        }),
+    ).toBe(
+      flightRowStatusText({
+        folder: '/work/a',
+        running: true,
+        engine: 'claude',
+        backend: 'vertex',
+      }),
+    );
+    expect(
+      sub(STRINGS.en.flightRowFlyingFirings, { name: '/work/a', count: 1 }) +
+        sub(STRINGS.en.flightRowEngineModelSuffix, {
+          engine: STRINGS.en.engineClaude,
+          model: 'localhost:11434',
+        }),
+    ).toBe(
+      flightRowStatusText({
+        folder: '/work/a',
+        running: true,
+        backend: 'endpoint',
+        backendHost: 'localhost:11434',
+      }),
+    );
+    expect(
+      sub(STRINGS.en.flightRowFlyingFirings, { name: '/work/a', count: 1 }) +
+        sub(STRINGS.en.flightRowEngineModelSuffix, {
+          engine: STRINGS.en.engineClaude,
+          model: STRINGS.en.authModeEndpoint,
+        }),
+    ).toBe(flightRowStatusText({ folder: '/work/a', running: true, backend: 'endpoint' }));
     expect(sub(STRINGS.en.flightRowQueued, { name: '/work/b' })).toBe(
       flightRowStatusText({ folder: '/work/b', queued: true }),
     );

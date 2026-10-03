@@ -172,7 +172,7 @@ import {
 } from '../ask/service.js';
 import { composeReport } from '../flight/report-compose.js';
 import { composeReportTasks } from '../flight/report-compose-tasks.js';
-import { readConnectionConfig } from '../connection/config.js';
+import { claudeBackendOf, readConnectionConfig } from '../connection/config.js';
 import {
   resolveClaudeEnv,
   ClaudeCliModel,
@@ -294,6 +294,9 @@ const flightRegistry = new FlightRunnerRegistry(
       const inherited = firingEngineRequestFromEnv(process.env);
       return inherited.ok ? inherited.route : undefined;
     },
+    // A Claude flight's child reads the same connection.json at its start,
+    // so the row names the endpoint, Bedrock or Vertex it is routed to.
+    claudeBackend: () => claudeBackendOf(readConnectionConfig(connectionDeps.configPath)),
     now: Date.now,
     // Graceful PAUSE: the running flight is a separate process, so the request
     // (and its eventual honoring) round-trips through the shared store rather

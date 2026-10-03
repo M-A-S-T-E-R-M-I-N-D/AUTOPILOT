@@ -770,6 +770,68 @@ describe('FlightRunner', () => {
       expect(runner.status()).not.toHaveProperty('engine');
     });
 
+    // GitHub #21 slice S1's provider chip: a Claude lane routed off Anthropic's
+    // own API (connection.json's endpoint, Bedrock or Vertex) says where.
+    it('reports the backend a Claude flight is routed to, for a launch that chose none', () => {
+      const { deps, spawned } = spyDeps();
+      const runner = new FlightRunner({
+        ...deps,
+        claudeBackend: () => ({ kind: 'endpoint', host: 'localhost:11434' }),
+      });
+      runner.start({ folder: '/work/a' });
+
+      expect(runner.status()).toMatchObject({
+        backend: 'endpoint',
+        backendHost: 'localhost:11434',
+      });
+      expect(runner.status()).not.toHaveProperty('engine');
+      expect(spawned).toEqual([undefined]);
+    });
+
+    it('reports the backend beside a Claude choice, with no host for Bedrock', () => {
+      const { deps } = spyDeps();
+      const runner = new FlightRunner({ ...deps, claudeBackend: () => ({ kind: 'bedrock' }) });
+      runner.start({ folder: '/work/a', engine: 'claude' });
+
+      expect(runner.status()).toMatchObject({ engine: 'claude', backend: 'bedrock' });
+      expect(runner.status()).not.toHaveProperty('backendHost');
+    });
+
+    it('reports no backend for a Codex or Gemini lane, which never reads connection.json', () => {
+      const { deps } = spyDeps();
+      const runner = new FlightRunner({ ...deps, claudeBackend: () => ({ kind: 'vertex' }) });
+      runner.start({ folder: '/work/a', engine: 'gemini', engineModel: 'gemini-2.5-pro' });
+      expect(runner.status()).not.toHaveProperty('backend');
+
+      const inherited = new FlightRunner({
+        ...deps,
+        claudeBackend: () => ({ kind: 'vertex' }),
+        inheritedEngine: () => ({ engine: 'codex', model: 'gpt-5-codex' }),
+      });
+      inherited.start({ folder: '/work/b' });
+      expect(inherited.status()).toMatchObject({ engine: 'codex' });
+      expect(inherited.status()).not.toHaveProperty('backend');
+    });
+
+    it("reports no backend while the connection flies Anthropic's own API", () => {
+      const { deps } = spyDeps();
+      const runner = new FlightRunner({ ...deps, claudeBackend: () => undefined });
+      runner.start({ folder: '/work/a' });
+
+      expect(runner.status()).not.toHaveProperty('backend');
+      expect(runner.status()).not.toHaveProperty('backendHost');
+    });
+
+    it('drops the backend once the flight exits', () => {
+      const { deps, child } = makeDeps({ claudeBackend: () => ({ kind: 'bedrock' }) });
+      const runner = new FlightRunner(deps);
+      runner.start({ folder: '/work/a' });
+
+      child.fireExit(0);
+
+      expect(runner.status()).toEqual(IDLE_STATUS);
+    });
+
     it('drops the engine once the chosen flight exits', () => {
       const { deps, child } = makeDeps();
       const runner = new FlightRunner(deps);

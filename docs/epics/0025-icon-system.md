@@ -369,6 +369,25 @@ propagation, and the filled style does not match the nav.
    `aria-label`, and `setSweptText()` keeps every icon across a locale
    switch (`apps/dashboard/test/web/detail-panel-heading-icons.test.ts`).
    Core grew to 247.1KB raw / 73.3KB gzip of its 251KB / 74KB budget.
+   **Dialog titles 2026-10-03 (slice 2):** the Getting started checklist
+   headed with its `compass`, but the Ask sheet ("Ask") and the command
+   palette ("Go to, open, or do") headed with bare words. The Ask sheet
+   leads with the `message-circle` its floating button draws, and the
+   palette, a type-to-find over places, projects and actions, with `search`;
+   both were already vendored. Each icon is decorative, so the name each
+   dialog takes through `aria-labelledby` stays the words alone, and the
+   STRINGS key moves onto an inner span, as on the checklist's title
+   (`apps/dashboard/test/web/dialog-title-icons.test.ts`). **What's new
+   headings 2026-10-03 (slice 2):** the once-per-version message headed its
+   title and its "What you can do now", "This round" and "On GitHub"
+   sections with bare words. Each leads with a decorative stroke now: the
+   title takes the release panel's `rocket`, the new capabilities
+   `sparkles`, the round the round panel's `refresh-cw` and GitHub the PR
+   summary's `git-pull-request`, none newly vendored. `/whats-new.js` is
+   its own chunk and cannot reach core's `iconEl()`, so it splices only
+   those four shapes from `icons.ts`, the way the onboarding ladder ships
+   its own, and builds them with `createElementNS`
+   (`apps/dashboard/test/web/whats-new-client.test.ts`).
 
 ## Related
 

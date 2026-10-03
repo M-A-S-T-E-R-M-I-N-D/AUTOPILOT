@@ -6,6 +6,71 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [S
 
 ## [Unreleased]
 
+## [0.58.0] — 2026-10-03
+
+### Added
+
+- feat(dashboard): the What's new dialog's headings lead with vendored icons (epic 0025)
+- feat(dashboard): a Claude flight row names the backend its CLI is routed to (epic 0036)
+- feat(dashboard): the Ask sheet and command palette titles lead with vendored icons (epic 0025)
+- feat(dashboard): the fleet card's Details panel headings lead with vendored icons (epic 0025)
+- feat(dashboard): a flight row names the engine the dashboard's env flies it on (epic 0036)
+- feat(dashboard): the project page's chart and shipped headings lead with vendored icons (epic 0025)
+- feat(control): a fleet watchdog's flights fly on the watch's own engine (epic 0036)
+- feat(dashboard): the Community panel headings lead with vendored icons (epic 0025)
+- feat(dashboard): a fly-bar flight row names the engine its lane flies on (epic 0036)
+- feat(dashboard): a multi-lane fleet launch flies every lane on the chosen engine (epic 0036)
+- feat(dashboard): the activity feed's row icons draw vendored Lucide strokes (epic 0025)
+- feat(dashboard): the fly bar lets a launch choose its engine (epic 0036)
+- feat(dashboard): the office map's zones lead with their phase icons (epic 0025)
+- feat(flight): a dashboard launch can choose the engine its lane flies on (epic 0036)
+- feat(dashboard): the Keeper groups' disclosure draws the vendored chevron (epic 0025)
+- feat(dashboard): the connect panel offers the endpoint, Bedrock and Vertex modes (epic 0036)
+- feat(dashboard): the live cards' phase pill leads with its phase icon (epic 0025)
+- feat(dashboard): the lane card's focus line leads with the target icon (epic 0025)
+- feat(dashboard): the fleet card's status pill leads with its status icon (epic 0025)
+- feat(flight): the preflight refuses a codex or gemini lane its CLI cannot fly (epic 0036)
+- feat(flight): a lane flies on the Gemini CLI under AUTOPILOT_ENGINE=gemini (epic 0036)
+- feat(dashboard): the lucky button draws the vendored clover (epic 0025)
+- feat(flight): a lane flies on the Codex CLI under AUTOPILOT_ENGINE=codex (epic 0036)
+- feat(dashboard): the subject rail and project tabs draw vendored icons (epic 0025)
+
+### Fixed
+
+- fix(server): the OTA update endpoint refuses a cross-site form post
+- fix(server): readBody keeps a multi-byte character split across chunks intact
+- fix(mirror-pass): the reconcile skips an issue the maintainer declined or put on hold
+- fix(docs-links): a slash-rooted link resolves from the repo root, as GitHub renders it
+- fix(keeper): the dossier skips a partner application the maintainer declined or put on hold
+- fix(docs-links): read a link target as a URL — decode %-escapes, drop ?query
+- fix(owned-work): the claim ingest skips an issue the maintainer declined or put on hold
+- fix(onboarding): the JS gate reads a package.json saved with a UTF-8 BOM
+- fix(keeper): discussions triage skips a discussion the maintainer declined or put on hold
+- fix(onboarding): the static-site gate lints .htm pages, not only .html
+- fix(flight): narrow epic 0006's doc-freshness subjects past epic 0036's noise
+- fix(onboarding): the JS gate detector installs from an npm-shrinkwrap.json
+- fix(pool): the stale-claim reaper skips an issue the maintainer declined or put on hold
+- fix(onboarding): the Python gate detector reads flake8's section in tox.ini
+- fix(collaboration): the help-wanted group skips an issue the maintainer declined or put on hold
+- fix(contributors): the good-first list skips an issue the maintainer declined or put on hold
+- fix(onboarding): the Python gate detector knows pytest's and mypy's other config files
+- fix(connection): a lane can fly on the endpoint, Bedrock and Vertex auth modes (epic 0036)
+- fix(onboarding): the Python gate detector reads the setup.cfg it already captures
+- fix(lucky): the lucky shortlist skips an issue the maintainer declined or put on hold
+- fix(flight): a Gemini lane stops at the flight's turn cap, as a Claude one does (epic 0036)
+- fix(docs): the reader stops calling an existing image or directory a broken link
+- fix(pool): the pool claim skips an issue the maintainer put on hold
+- fix(keeper): the auto-merge holds a PR the maintainer marked awaiting-human or declined
+- fix(docs-links): a fence closer with an info string is content, not a closer
+- fix(flight): a codex or gemini lane's commits name their own CLI as Harness (epic 0036)
+- fix(flight): a Gemini lane refuses a model the Gemini CLI cannot run
+- fix(keeper): a triage reply is withheld once its marker label edit fails
+- fix(dashboard): the connect popover caps its height at the viewport and scrolls inside
+- fix(engine): credit a bare OpenAI o-series model to OpenAI, not "unknown"
+- fix(keeper): the triage panel links the needs-format reply and the dossier
+- fix(e2e): adopt the final retry's visual actual, not the first attempt's
+- fix(keeper): contributors are no longer told CI lints their PR title
+
 ## [0.57.0] — 2026-10-02
 
 ### Added

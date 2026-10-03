@@ -675,12 +675,15 @@ describe('runLoop', () => {
       'refuses a threshold of %s before any firing runs',
       async (threshold) => {
         const h = harness([reverted()]);
-        await expect(
-          runLoop(h.deps, DEFAULT_ENGINE_CONFIG, {
-            maxIterations: 1,
-            demoteAfterGateFailures: threshold,
-          }),
-        ).rejects.toThrow(RangeError);
+        const run = runLoop(h.deps, DEFAULT_ENGINE_CONFIG, {
+          maxIterations: 1,
+          demoteAfterGateFailures: threshold,
+        });
+        await expect(run).rejects.toThrow(RangeError);
+        // The message names the value refused, so whoever passed it can find it.
+        await expect(run).rejects.toThrow(
+          `demoteAfterGateFailures must be a positive integer, got ${threshold}`,
+        );
         expect(h.firingInputs).toHaveLength(0);
       },
     );

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
+import type { ClaudeBackend } from '../connection/config.js';
 import { firingEngineFromRequest, type FiringEngineRoute } from './firing-engine.js';
 import { preflightRefusal, type PreflightReport } from './preflight.js';
 import { parseSocialFlightToggle, type SocialFlightToggle } from './social-flight-trigger.js';
@@ -136,6 +137,12 @@ export interface FlightRunnerDeps {
    *  names it too: the child and the preflight still get no engine of their
    *  own. Optional so the demo runner and older callers keep their contract. */
   readonly inheritedEngine?: () => FiringEngineRoute | undefined;
+  /** Epic 0036 (GitHub #21 slice S1): the backend `connection.json` routes
+   *  a Claude flight's `claude` CLI to, read at launch as the child reads
+   *  it; undefined for Anthropic's own API. Read for the status only, and
+   *  only for a flight on Claude: a Codex or Gemini lane never reads it.
+   *  Optional so the demo runner and older callers keep their contract. */
+  readonly claudeBackend?: () => ClaudeBackend | undefined;
   readonly now: () => number;
   /**
    * Record a graceful-PAUSE request against `folder` (persisted — the running
@@ -195,6 +202,15 @@ export interface FlightStatus {
    */
   readonly engine?: FiringEngineRoute['engine'];
   readonly engineModel?: string;
+  /**
+   * Epic 0036 (GitHub #21 slice S1): for a flight on Claude, chosen or by
+   * default, the backend its `claude` CLI is routed to
+   * (`FlightRunnerDeps.claudeBackend`), and an endpoint's host beside it.
+   * Omitted on Anthropic's own API, for a Codex or Gemini lane, and once the
+   * flight is no longer running.
+   */
+  readonly backend?: ClaudeBackend['kind'];
+  readonly backendHost?: string;
 }
 
 export interface StartFlightInput {
@@ -318,13 +334,21 @@ function clampFirings(requested: number | undefined): number {
 }
 
 /** The `FlightStatus` fields naming the engine a launch flies on — none when
- *  nothing names one, and no model beside Claude, which reads none. */
+ *  nothing names one, and no model beside Claude, which reads none. A flight
+ *  on Claude, chosen or by default, names the backend it is routed to. */
 function engineStatus(
   route: FiringEngineRoute | undefined,
-): Pick<FlightStatus, 'engine' | 'engineModel'> {
-  if (!route) return {};
-  if (route.engine === 'claude') return { engine: 'claude' };
-  return { engine: route.engine, engineModel: route.model };
+  claudeBackend: (() => ClaudeBackend | undefined) | undefined,
+): Pick<FlightStatus, 'engine' | 'engineModel' | 'backend' | 'backendHost'> {
+  if (route && route.engine !== 'claude') return { engine: route.engine, engineModel: route.model };
+  const engine = route ? { engine: route.engine } : {};
+  const backend = claudeBackend?.();
+  if (!backend) return engine;
+  return {
+    ...engine,
+    backend: backend.kind,
+    ...(backend.host ? { backendHost: backend.host } : {}),
+  };
 }
 
 /** Floored at `budgetUsd` — a total target below one firing's cost is nonsense. */
@@ -530,7 +554,7 @@ export class FlightRunner {
       queued: false,
       initiatedBy,
       instanceId,
-      ...engineStatus(engine ?? this.deps.inheritedEngine?.()),
+      ...engineStatus(engine ?? this.deps.inheritedEngine?.(), this.deps.claudeBackend),
     };
     // When the child exits (done, crashed, or killed) the runner is free again —
     // UNLESS it honored a pause request, in which case `folder`/`paused` survive
