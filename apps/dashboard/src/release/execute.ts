@@ -155,6 +155,26 @@ const CITATION_OUTPUT_RELATIVE_PATHS = [
   'docs/MODEL-CARD.md',
 ] as const;
 
+/** Relative to a project root — the living status blocks' generator
+ *  (`scripts/docs/refresh-status.mjs`), present on this repo. It names the
+ *  released version, so it has to run AFTER the version bump, inside the same
+ *  release commit: v0.58.0 was cut 2026-10-03 with blocks refreshed before the
+ *  bump, and `ci:docs-status` went red on main for the whole next round. */
+const STATUS_SCRIPT_RELATIVE_PATH = 'scripts/docs/refresh-status.mjs';
+
+/** The files that script rewrites (`STATUS_TARGETS` in the script) — kept in
+ *  sync by hand, like the citation list above. */
+const STATUS_OUTPUT_RELATIVE_PATHS = [
+  'README.md',
+  'docs/ROADMAP.md',
+  'docs/ACTION-PLAN.md',
+  'docs/FEATURE-COVERAGE.md',
+  'docs/BACKLOG-999.md',
+  'docs/LIVING-REPO-SPEC.md',
+  'docs/MUTATION-DEBT.md',
+  '.github/CONTRIBUTING.md',
+] as const;
+
 /** Build the RELEASE execute API against the real store + real git/fs — the
  *  production wiring `main.ts` injects into the server. `runCommand` defaults
  *  to the real `execFile`-backed runner (`github/execute.ts`'s `realRunner`);
@@ -214,6 +234,7 @@ export function createReleaseExecuteApi(
       }
 
       const hasCitationScript = existsSync(join(project.root_path, CITATION_SCRIPT_RELATIVE_PATH));
+      const hasStatusScript = existsSync(join(project.root_path, STATUS_SCRIPT_RELATIVE_PATH));
 
       // Relative to project.root_path, matching the convention `GitVcs#commitPaths`
       // already expects (self-study.ts's `SELF_STUDY_PATHS`, remediating-gate.ts's
@@ -233,21 +254,42 @@ export function createReleaseExecuteApi(
         writeChangelog: async (cl) => {
           writeFileSync(changelogPath, cl);
           touchedPaths.push('CHANGELOG.md');
-          if (!hasCitationScript) return;
-          const citation = await runCommand(
-            'node',
-            [CITATION_SCRIPT_RELATIVE_PATH],
-            project.root_path,
-          );
-          if (citation.exitCode !== 0) {
-            throw new Error(
-              `citation:update failed (exit ${citation.exitCode}): ` +
-                (citation.stderr.trim() || citation.stdout.trim() || 'no output'),
+          if (hasCitationScript) {
+            const citation = await runCommand(
+              'node',
+              [CITATION_SCRIPT_RELATIVE_PATH],
+              project.root_path,
+            );
+            if (citation.exitCode !== 0) {
+              throw new Error(
+                `citation:update failed (exit ${citation.exitCode}): ` +
+                  (citation.stderr.trim() || citation.stdout.trim() || 'no output'),
+              );
+            }
+            touchedPaths.push(
+              ...CITATION_OUTPUT_RELATIVE_PATHS.filter((p) =>
+                existsSync(join(project.root_path, p)),
+              ),
             );
           }
-          touchedPaths.push(
-            ...CITATION_OUTPUT_RELATIVE_PATHS.filter((p) => existsSync(join(project.root_path, p))),
-          );
+          // The living status blocks name the version this commit sets, so
+          // they are refreshed here, after the bump, into the same commit.
+          if (hasStatusScript) {
+            const status = await runCommand(
+              'node',
+              [STATUS_SCRIPT_RELATIVE_PATH],
+              project.root_path,
+            );
+            if (status.exitCode !== 0) {
+              throw new Error(
+                `docs:status failed (exit ${status.exitCode}): ` +
+                  (status.stderr.trim() || status.stdout.trim() || 'no output'),
+              );
+            }
+            touchedPaths.push(
+              ...STATUS_OUTPUT_RELATIVE_PATHS.filter((p) => existsSync(join(project.root_path, p))),
+            );
+          }
         },
         paths: () => touchedPaths,
       };

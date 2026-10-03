@@ -417,10 +417,20 @@ with `error.type` `FatalTurnLimitedError`, exit 53. `GeminiClient.processTurn` (
 counts next-speaker and retry turns as well, so it can stop a run first; the run then writes
 `Maximum session turns exceeded` as an error event and ends as a `success`. `parseGeminiStreamJsonOutput`
 reads either as `stopReason: 'max_turns'`, so the firing records `maxTurnsHit` and the next prompt
-gets the turn-cap death feedback a Claude firing gets. The cap restarts with each run, so a
-finish-line extension, which resumes the session, gets the whole cap, not the smaller tap
-`finishLineCaps` asks for. A Codex lane is still held to no turn cap: `CodexCliModel` passes none,
-so its TURN BUDGET line names a cap that only the wall clock enforces.
+gets the turn-cap death feedback a Claude firing gets. The cap restarts with each run, so until
+2026-10-03 a finish-line extension, which resumes the session, got the whole cap, not the smaller
+tap `finishLineCaps` asks for. Since then `GeminiCliModel` takes `InvokeCaps.maxTurns`: the run gets
+a copy of the guard settings under the OS temp directory with `model.maxSessionTurns` lowered to it
+(`geminiSettingsWithTurnCap`, which never raises a lower cap and keeps the hook as written), removed
+when the run settles. A copy it cannot make leaves the run on the guard file as given, its hook and
+whole cap intact. A Codex lane is held to no turn cap, and cannot be: `codex exec` has no
+turn limit, flag or config key, and the request for one
+([openai/codex#12336](https://github.com/openai/codex/issues/12336)) was closed as not planned.
+Until 2026-10-03 its prompt's TURN BUDGET still promised the flight's cap. Since then `fly.ts` hands
+the prompt only the cap the lane's CLI enforces (`firingEngineTurnCap`, `flight/firing-engine.ts`),
+so a Codex lane's TURN BUDGET names the wall clock alone ("the harness hard-stops you after 90
+minutes of wall clock", `turnBudgetSection` in `packages/engine/src/prompt.ts`), and its flight-log
+engine line says only the wall clock and the idle cap stop a firing.
 
 **4. Google Gemini CLI** — headless mode triggers on a non-TTY or `-p`/`--prompt`; `--output-format
 json` returns one JSON object with response + usage statistics, or JSONL for a stream
@@ -499,7 +509,7 @@ disconnected reference doc that can drift out of sync with it.
 | Amazon Bedrock (same `claude` CLI) | Same as Claude CLI (no adapter change) | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `bedrock` mode (`packages/engine/src/auth.ts`); since 2026-10-03 a lane flies on it from `connection.json` (`readConnectionConfig`, `validateConnect`), chosen in the connect panel |
 | Google Vertex (same `claude` CLI) | Same as Claude CLI | Same as Claude CLI | Same as Claude CLI | **Shipped** — `auth.ts` `vertex` mode (`packages/engine/src/auth.ts`); since 2026-10-03 a lane flies on it from `connection.json`, chosen in the connect panel, as Bedrock is |
 | OpenAI Codex CLI | Yes — `codex exec resume`; `thread.started` carries `thread_id` | Yes — full loop | **None** — token counts only, no price | **Routed** — `CodexCliModel` (`packages/engine/src/adapters/codex-cli.ts`); since 2026-10-02 a lane flies on it under `AUTOPILOT_ENGINE=codex` + `AUTOPILOT_ENGINE_MODEL` (`flight/firing-engine.ts`), or since 2026-10-03 from the fly bar's Engine select for one lane or a whole fleet (`POST /api/fleet`), demoted after two reverted firings in a row; since 2026-10-02 it runs the containment guard as its `PreToolUse` hook on every shell call and `apply_patch` (`codexGuardArgs`, `codex-guard.ts`, finding 3), and reports the calls it denied from a per-run deny log (`codexGuardDenialsFromLog`) |
-| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed); a stale id retries cold | Yes — full loop | **None** — token counts only, no price | **Routed** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); since 2026-10-02 a lane flies on it under `AUTOPILOT_ENGINE=gemini` + `AUTOPILOT_ENGINE_MODEL` (`flight/firing-engine.ts`), or since 2026-10-03 from the fly bar's Engine select for one lane or a whole fleet, its `BeforeTool` guard written and verified per instance (`geminiGuardSettingsFileName`), the worktree trusted per session, each run held to the flight's turn cap (`model.maxSessionTurns`, since 2026-10-03), demoted after two reverted firings in a row |
+| Google Gemini CLI | Yes — `--resume <id>`; JSON output carries `session_id` (upstream gap since closed); a stale id retries cold | Yes — full loop | **None** — token counts only, no price | **Routed** — `GeminiCliModel` (`packages/engine/src/adapters/gemini-cli.ts`); since 2026-10-02 a lane flies on it under `AUTOPILOT_ENGINE=gemini` + `AUTOPILOT_ENGINE_MODEL` (`flight/firing-engine.ts`), or since 2026-10-03 from the fly bar's Engine select for one lane or a whole fleet, its `BeforeTool` guard written and verified per instance (`geminiGuardSettingsFileName`), the worktree trusted per session, each run held to the flight's turn cap (`model.maxSessionTurns`, since 2026-10-03) and a finish-line extension to its smaller one, demoted after two reverted firings in a row |
 | GitHub Copilot CLI | Yes — `--resume <id>` | Yes — full loop | `--output-format=json` exists but its wire schema is undocumented and unverifiable (closed-source binary) | **Blocked** — needs a real captured output sample before an adapter can be fixture-tested |
 
 ## Acceptance criteria

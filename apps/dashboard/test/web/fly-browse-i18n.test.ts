@@ -26,9 +26,11 @@ describe('the browse-folder modal reads its static text from STRINGS', () => {
   const out = flyJs();
 
   it('titles both dialogs (success and error paint) via tr()', () => {
-    const titles = out.match(/el\('h2', '', tr\('browseFolderTitle'\)\)/g) ?? [];
-    expect(titles).toHaveLength(2);
-    expect(out).not.toContain("el('h2', '', 'Browse a folder')");
+    // One builder titles both paints, leading with its icon (epic 0025,
+    // browse-dialog-title-icon.test.ts drives it in the DOM).
+    expect(out).toContain("h.appendChild(document.createTextNode(tr('browseFolderTitle')));");
+    expect(out.match(/dialog\.appendChild\(browseTitle\(\)\);/g) ?? []).toHaveLength(2);
+    expect(out).not.toContain("'Browse a folder'");
   });
 
   it('translates the error dialog body and its Close button', () => {
