@@ -464,7 +464,17 @@ propagation, and the filled style does not match the nav.
    a finished run, a refused one and a failed request, and the execute-icon
    spacing rule covers it
    (`apps/dashboard/test/web/report-execute-button-icon.test.ts`). Every
-   execute button now leads with an icon.
+   execute button now leads with an icon. **Tasks heading 2026-10-04 (slice
+   2):** in focus mode the task board's heading led with the `target` that
+   replaced its 🎯, but the everyday "Tasks", the first line of a project's
+   Board tab, headed with bare words. It leads with the `square-kanban` the
+   Board tab draws now, the way the Keeper queue leads with the rail's
+   `inbox`; focus mode still swaps in `target`, so the icon tells the two
+   modes apart. Nothing is newly vendored, the icon is decorative, and
+   `setSweptText()` keeps it across a locale switch and every later tick
+   (`apps/dashboard/test/web/tasks-heading-icon.test.ts`). The "Inbox"
+   heading below it stays bare words, since the "Drop a note" summary under
+   it already draws `inbox`.
 
 ## Related
 

@@ -166,9 +166,11 @@ describe('fleet card Details panel i18n (board web-msnsndki-dz3vn1)', () => {
         h.getAttribute('data-i18n') === 'tasks' || h.getAttribute('data-i18n') === 'tasksFocusMode',
     );
     expect(normalHeading?.getAttribute('data-i18n')).toBe('tasks');
-    // Epic 0025 (icon system): the non-focus heading carries no leading icon
-    // and its text stays the plain STRINGS.tasks value — no stray glyph.
-    expect(normalHeading?.querySelector('svg.icon')).toBeNull();
+    // Epic 0025 (icon system): the non-focus heading leads with the Board
+    // tab's square-kanban, never focus mode's target, and its text stays the
+    // plain STRINGS.tasks value — no stray glyph.
+    expect(normalHeading?.querySelector('svg.icon-square-kanban')).not.toBeNull();
+    expect(normalHeading?.querySelector('svg.icon-target')).toBeNull();
     expect(normalHeading?.textContent).toBe(STRINGS.en.tasks);
 
     boot(stateWith({ tasks: [{ id: 't1', title: 'x', status: 'open', focus: true }] }));
