@@ -675,6 +675,28 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['rect', { width: '18', height: '18', x: '3', y: '3', rx: '2', ry: '2' }],
   ],
   dot: [['circle', { cx: '12', cy: '12', r: '1' }]],
+  // Epic 0025 slice 2: the Community group's last bare panel headings.
+  // Contributor standing (trust earned rung by rung) takes award, and
+  // Collaboration (the roadmap and what is open to claim) takes map.
+  award: [
+    [
+      'path',
+      {
+        d: 'm15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526',
+      },
+    ],
+    ['circle', { cx: '12', cy: '8', r: '6' }],
+  ],
+  map: [
+    [
+      'path',
+      {
+        d: 'M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z',
+      },
+    ],
+    ['path', { d: 'M15 5.764v15' }],
+    ['path', { d: 'M9 3.236v15' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;

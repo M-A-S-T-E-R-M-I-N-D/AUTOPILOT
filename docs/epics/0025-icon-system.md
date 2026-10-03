@@ -329,7 +329,17 @@ propagation, and the filled style does not match the nav.
    any other tool a newly vendored `file-text`, `square-terminal` and `dot`.
    `actIcon()` builds them through `iconEl()` in the 14px box the old glyphs
    had, so the reasoning line's indent still clears them. The populated e2e
-   baselines and README frames still show the old glyphs.
+   baselines and README frames still show the old glyphs. **Community
+   headings 2026-10-03 (slice 2):** Good first issues, Pool and Fleet
+   coordination lead with a stroke icon through `panelHeading()`, but the
+   Contributor standing and Collaboration panels built a bare `<h3>` tagged
+   with a STRINGS key that did not exist, so under Hebrew both stayed
+   English. They go through `panelHeading()` now, with newly vendored
+   `award` (standing earned rung by rung) and `map` (the roadmap and what is
+   open to claim) icons, and `contributorStandingTitle` and
+   `collaborationTitle` carry their words in both locales, apart from the
+   sections' aria-label keys, the way `contributorIssueListTitle` is
+   (`apps/dashboard/test/web/community-panel-headings.test.ts`).
 
 ## Related
 

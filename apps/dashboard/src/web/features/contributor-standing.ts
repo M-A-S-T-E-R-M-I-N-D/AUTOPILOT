@@ -33,7 +33,10 @@
  * `web/shell.ts`'s `#contributor-standing-panel` section carries a plain
  * `aria-label` with no `data-i18n-aria` — `shell-i18n.test.ts` requires
  * every `data-i18n-aria` key to resolve in every locale, which a
- * `strings.ts`-less key cannot satisfy today.
+ * `strings.ts`-less key cannot satisfy today. (Both have since landed: the
+ * section's `contributorStandingPanel` aria-label, and the heading's
+ * `contributorStandingTitle`, which epic 0025 slice 2 builds through
+ * `panelHeading()` with the `award` icon beside it.)
  *
  * The "prefilled partner-application deep-link" (CONTRIBUTOR JOURNEY's
  * second named piece): a real `<a>` to `.github/ISSUE_TEMPLATE/partner-
@@ -78,9 +81,7 @@ function renderContributorStandingPanel(role, tier) {
   var section = document.getElementById('contributor-standing-panel');
   if (!section) return;
   section.replaceChildren();
-  var head = el('h3', 'contributor-standing-title', 'Contributor standing');
-  head.setAttribute('data-i18n', 'contributorStandingTitle');
-  section.appendChild(head);
+  section.appendChild(panelHeading('h3', 'contributor-standing-title', 'contributorStandingTitle', 'award'));
   var intro = el('p', 'contributor-standing-intro', 'Trust widens what you can claim — it never bypasses the gate or review.');
   intro.setAttribute('data-i18n', 'contributorStandingIntro');
   section.appendChild(intro);
