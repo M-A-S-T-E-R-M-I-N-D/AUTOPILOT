@@ -29,6 +29,7 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, openSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { setPriority, constants as osConstants } from 'node:os';
+import { firingEngineEnv } from './firing-engine.js';
 import type { FlightRunnerDeps, SpawnedFlight } from './runner.js';
 
 /**
@@ -146,6 +147,7 @@ export function createSpawnFlight(
     taskScope,
     siblingsFlying,
     socialFlight,
+    engine,
   ): SpawnedFlight => {
     const flightLogPath = instanceId
       ? flightLogPathFor(folder, instanceId)
@@ -190,6 +192,10 @@ export function createSpawnFlight(
       // default, so `...process.env` above is left to pass it through
       // untouched.
       ...(socialFlight !== undefined ? { AUTOPILOT_SOCIAL_FLIGHT: socialFlight } : {}),
+      // Epic 0036's per-lane pilot: the engine THIS launch chose, as the env
+      // levers fly.ts reads. Like the social override, an omitted choice
+      // leaves this process's own AUTOPILOT_ENGINE to pass through.
+      ...(engine !== undefined ? firingEngineEnv(engine) : {}),
     };
     // FLEET SCOPE PARTITIONER: the disjoint board scope this instance works
     // first (spec-scoped decomposition — see flight/scope-partition.ts).

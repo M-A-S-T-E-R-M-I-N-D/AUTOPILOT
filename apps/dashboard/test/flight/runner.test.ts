@@ -654,6 +654,69 @@ describe('FlightRunner', () => {
     });
   });
 
+  // Epic 0036's per-lane pilot choice, server half: a launch request may name
+  // the engine its firings fly on. Both fields come straight off an HTTP body,
+  // so `start()` reads them through firingEngineFromRequest before the
+  // preflight judges that engine or a child is spawned on it.
+  describe('engine choice (epic 0036, per-lane pilot)', () => {
+    function spyDeps(): {
+      deps: FlightRunnerDeps;
+      spawned: unknown[];
+      judged: unknown[];
+    } {
+      const spawned: unknown[] = [];
+      const judged: unknown[] = [];
+      const { deps } = makeDeps({
+        spawnFlight: (...args) => {
+          spawned.push(args[8]);
+          return fakeChild();
+        },
+        preflight: (_folder, _instanceId, engine) => {
+          judged.push(engine);
+          return { go: true, checks: [] };
+        },
+      });
+      return { deps, spawned, judged };
+    }
+
+    it('hands the chosen engine to the preflight and to the spawn as its 9th arg', () => {
+      const { deps, spawned, judged } = spyDeps();
+      const result = new FlightRunner(deps).start({
+        folder: '/work/a',
+        engine: 'codex',
+        engineModel: 'gpt-5-codex',
+      });
+
+      expect(result.started).toBe(true);
+      expect(judged).toEqual([{ engine: 'codex', model: 'gpt-5-codex' }]);
+      expect(spawned).toEqual([{ engine: 'codex', model: 'gpt-5-codex' }]);
+    });
+
+    it('passes no engine when the request names none, so the child inherits the env', () => {
+      const { deps, spawned, judged } = spyDeps();
+      new FlightRunner(deps).start({ folder: '/work/a' });
+
+      expect(judged).toEqual([undefined]);
+      expect(spawned).toEqual([undefined]);
+    });
+
+    it('refuses an engine choice it cannot honour, before the preflight runs or a child spawns', () => {
+      const { deps, spawned, judged } = spyDeps();
+      const runner = new FlightRunner(deps);
+      const result = runner.start({ folder: '/work/a', engine: 'codex', engineModel: 'sonnet' });
+
+      expect(result).toEqual({
+        started: false,
+        message:
+          'AUTOPILOT_ENGINE_MODEL=sonnet names a Claude model, which the Codex CLI cannot run.',
+        status: IDLE_STATUS,
+      });
+      expect(judged).toEqual([]);
+      expect(spawned).toEqual([]);
+      expect(runner.status().running).toBe(false);
+    });
+  });
+
   it('resuming a paused flight is just start() again — no separate resume() exists', () => {
     const { deps, spawns, child } = makeDeps({ isPaused: () => true });
     const runner = new FlightRunner(deps);

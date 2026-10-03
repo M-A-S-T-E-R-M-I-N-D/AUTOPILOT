@@ -323,6 +323,20 @@ PREFLIGHT (`flight/preflight.ts`) reads the same `firingEngineFromEnv` as its `e
 blocks too when the engine's CLI does not answer `--version` on the PATH, since every firing would
 die on the missing binary and, committing nothing, never reach the demotion count.
 
+Since 2026-10-03 one dashboard launch can choose its engine without the dashboard's env, the
+server half of GitHub #21's slice S-last (per-lane pilot selection in the fly bar). A
+`POST /api/fly` body's `engine` and `engineModel` ride `StartFlightInput` and are read by
+`firingEngineFromRequest` (`flight/firing-engine.ts`), which hands the pair to `firingEngineFromEnv`.
+So a chosen engine meets every refusal above, in `FlightRunner.start()`, before the preflight runs.
+It also refuses a model with no engine, which it would otherwise drop unread, and a model name over
+128 characters or outside `[A-Za-z0-9._:/@-]`, since the name rides an adapter's argv. The route
+then reaches the preflight, whose `engine` check reads it as the child's env would, and the spawn,
+where `firingEngineEnv` sets `AUTOPILOT_ENGINE` and `AUTOPILOT_ENGINE_MODEL` over the inherited
+ones. A Claude choice is written out as `AUTOPILOT_ENGINE=claude`, so it beats an inherited engine.
+A launch that chose none passes nothing, and the child inherits the dashboard's env as before. Still
+open: the fly bar's own engine select (the UI half), and `POST /api/fleet`, which takes no engine,
+so a multi-lane launch still flies every lane on the dashboard's env.
+
 Since 2026-10-02 `AUTOPILOT_ENGINE=gemini` routes a lane to `GeminiCliModel` the same way, with the
 same model slots, routing skip and demotion. Since 2026-10-03 it also refuses a model
 `resolveModelVendor` places with any publisher but Google, or one served locally: the Gemini CLI

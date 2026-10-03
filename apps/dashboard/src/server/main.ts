@@ -123,6 +123,7 @@ import {
 import { createPublicityPreviewApi } from '../flight/publicity.js';
 import { evaluatePreflight } from '../flight/preflight.js';
 import { gatherPreflightFacts } from '../flight/preflight-facts.js';
+import { firingEngineEnv } from '../flight/firing-engine.js';
 import { createContributorIssueListPreviewApi } from '../flight/contributor-issue-list.js';
 import { createSocialIdentityApi } from '../flight/social-pass.js';
 import { createCollaborationApi } from '../flight/collaboration.js';
@@ -277,11 +278,13 @@ const flightRegistry = new FlightRunnerRegistry(
     // PREFLIGHT: the go/no-go every launch path shares (flight/preflight.ts).
     // The build-freshness fact compares the built flight this server ships
     // against the engine sources beside it; a packaged install without
-    // sources simply reports nothing there.
-    preflight: (folder) =>
+    // sources simply reports nothing there. A launch that chose its own
+    // engine (epic 0036) is judged on that engine, the env its child gets.
+    preflight: (folder, _instanceId, engine) =>
       evaluatePreflight(
         gatherPreflightFacts(folder, dirname(dbPath), {
           repoRoot: resolve(dirname(flyEntry), '..', '..', '..'),
+          ...(engine !== undefined ? { env: { ...process.env, ...firingEngineEnv(engine) } } : {}),
         }),
       ),
     now: Date.now,

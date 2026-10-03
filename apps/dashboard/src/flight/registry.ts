@@ -117,6 +117,7 @@ export class FlightRunnerRegistry {
           taskScope,
           _siblingsFlying,
           socialFlight,
+          engine,
         ) => {
           // MACHINE BUDGET HOLE FIX (STPA finding web-mt1qa7ij-c6wqgi): this
           // registry is the one thing that actually knows the live running
@@ -129,7 +130,8 @@ export class FlightRunnerRegistry {
           // deliberately ignored in favor of the real value computed here;
           // `socialFlight` (epic 0016 slice 3/6, board web-mtpzzx7v-72q2dv)
           // rides straight through unchanged — this registry has no opinion
-          // on it, only `start()`'s own fail-closed parse does.
+          // on it, only `start()`'s own fail-closed parse does. `engine`
+          // (epic 0036's per-lane pilot) rides through the same way.
           const siblingsFlying = this.#runningCount() > 0;
           const child = this.deps.spawnFlight(
             folder,
@@ -140,6 +142,7 @@ export class FlightRunnerRegistry {
             taskScope,
             siblingsFlying,
             socialFlight,
+            engine,
           );
           return {
             pid: child.pid,

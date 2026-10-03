@@ -313,7 +313,16 @@ from the dashboard (the Fly button, `dashboard fleet`, the watchdog) meets each 
 in its preflight first, as `preflight refused: engine: …`, and so does a lane whose `codex` or
 `gemini` does not answer `--version` on the PATH; `claude-cli` stays required, since the commit
 reviewer runs on it. `pnpm dashboard:doctor <folder>` shows the CLI's version and model on its
-`engine` line. Spec and status:
+`engine` line.
+
+A single dashboard launch can choose its own engine instead: a `POST /api/fly` body may carry
+`engine` (`claude`, `codex` or `gemini`) and `engineModel`. They reach that flight's child as
+`AUTOPILOT_ENGINE` and `AUTOPILOT_ENGINE_MODEL`, over the dashboard's own, so `engine: "claude"`
+flies Claude even when the dashboard runs with `AUTOPILOT_ENGINE` set. The launch meets the same
+refusals before its preflight, which then judges that engine's CLI. A model with no engine is
+refused too, as is a model name over 128 characters or holding anything but letters, digits and
+`. _ : / @ -`. The fly bar does not offer the choice yet, and `POST /api/fleet` carries none.
+Spec and status:
 [`docs/epics/0036-provider-parity.md`](epics/0036-provider-parity.md).
 
 ### Substep routing & local offload (the M6 cost lever)

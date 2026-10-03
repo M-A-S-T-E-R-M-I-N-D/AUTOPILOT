@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
+import { firingEngineFromRequest, type FiringEngineRoute } from './firing-engine.js';
 import { preflightRefusal, type PreflightReport } from './preflight.js';
 import { parseSocialFlightToggle, type SocialFlightToggle } from './social-flight-trigger.js';
 
@@ -104,6 +105,14 @@ export interface FlightRunnerDeps {
      * toggle values here, never an unrecognized string.
      */
     socialFlight?: SocialFlightToggle,
+    /**
+     * Epic 0036's per-lane pilot: the engine THIS flight's firings fly on,
+     * already read through `firingEngineFromRequest` by `start()`. A real
+     * implementation sets the child's `AUTOPILOT_ENGINE`/`_MODEL` from it
+     * (`firingEngineEnv`). Undefined when the launch chose none: the child
+     * inherits this dashboard process's own env, as before.
+     */
+    engine?: FiringEngineRoute,
   ) => SpawnedFlight;
   /** Does the target folder exist (and is usable as a flight target)? */
   readonly folderExists: (folder: string) => boolean;
@@ -113,8 +122,14 @@ export interface FlightRunnerDeps {
    *  shares — the Fly button, the fleet launcher, the fleet watchdog all
    *  come through `start()`. A report that is not GO refuses the flight
    *  with the blocking checks' advice as the message. Optional so the
-   *  demo runner and older callers keep their contract. */
-  readonly preflight?: (folder: string, instanceId?: string) => PreflightReport;
+   *  demo runner and older callers keep their contract. `engine` is the
+   *  launch's own engine choice, which the `engine` check judges instead of
+   *  this process's env; undefined when the launch chose none. */
+  readonly preflight?: (
+    folder: string,
+    instanceId?: string,
+    engine?: FiringEngineRoute,
+  ) => PreflightReport;
   readonly now: () => number;
   /**
    * Record a graceful-PAUSE request against `folder` (persisted — the running
@@ -220,6 +235,17 @@ export interface StartFlightInput {
    * `AUTOPILOT_SOCIAL_FLIGHT`, exactly as before.
    */
   readonly socialFlight?: string;
+  /**
+   * Epic 0036's per-lane pilot: the engine this ONE flight's firings fly on
+   * (`claude`, `codex` or `gemini`), with `engineModel` naming the model a
+   * non-Claude CLI runs. Raw HTTP input like `socialFlight`: `start()` reads
+   * both through `firingEngineFromRequest`, which refuses what the
+   * `AUTOPILOT_ENGINE` levers would refuse, and a refusal fails the start.
+   * Omitted (every existing caller): the child inherits this dashboard
+   * process's own `AUTOPILOT_ENGINE`, exactly as before.
+   */
+  readonly engine?: string;
+  readonly engineModel?: string;
 }
 
 export interface StartFlightResult {
@@ -415,8 +441,13 @@ export class FlightRunner {
     if (!this.deps.folderExists(folder)) {
       return { started: false, message: `folder not found: ${folder}`, status: IDLE };
     }
+    const engineRequest = firingEngineFromRequest(input.engine, input.engineModel);
+    if (!engineRequest.ok) {
+      return { started: false, message: engineRequest.reason, status: IDLE };
+    }
+    const engine = engineRequest.route;
     if (this.deps.preflight) {
-      const report = this.deps.preflight(folder, input.instanceId?.trim() || undefined);
+      const report = this.deps.preflight(folder, input.instanceId?.trim() || undefined, engine);
       if (!report.go) {
         return { started: false, message: preflightRefusal(report), status: IDLE };
       }
@@ -458,6 +489,7 @@ export class FlightRunner {
       taskScope.length > 0 ? taskScope : undefined,
       undefined,
       socialFlight,
+      engine,
     );
     this.#child = child;
     this.#status = {

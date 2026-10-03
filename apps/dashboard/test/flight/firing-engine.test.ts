@@ -6,7 +6,9 @@ import { DEFAULT_ENGINE_CONFIG, type EngineConfig } from '@autopilot/engine';
 import {
   NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES,
   firingConfigForEngine,
+  firingEngineEnv,
   firingEngineFromEnv,
+  firingEngineFromRequest,
   firingEngineLine,
 } from '../../src/flight/firing-engine.js';
 
@@ -139,6 +141,99 @@ describe('firingEngineFromEnv', () => {
         reason: `AUTOPILOT_ENGINE=${engine} names no engine a lane can fly on (claude, codex or gemini).`,
       });
     }
+  });
+});
+
+describe('firingEngineFromRequest', () => {
+  it('leaves the flight on the inherited env when the request names no engine', () => {
+    for (const [engine, model] of [
+      [undefined, undefined],
+      ['', ''],
+      ['  ', undefined],
+    ] as const) {
+      expect(firingEngineFromRequest(engine, model)).toEqual({ ok: true, route: undefined });
+    }
+  });
+
+  it('routes a requested codex or gemini lane to its model, trimmed', () => {
+    expect(firingEngineFromRequest(' Codex ', ' gpt-5-codex ')).toEqual({
+      ok: true,
+      route: { engine: 'codex', model: 'gpt-5-codex' },
+    });
+    expect(firingEngineFromRequest('gemini', 'gemini-2.5-pro')).toEqual({
+      ok: true,
+      route: { engine: 'gemini', model: 'gemini-2.5-pro' },
+    });
+  });
+
+  it('routes an explicit claude request to Claude, so it overrides an inherited engine', () => {
+    expect(firingEngineFromRequest('claude', undefined)).toEqual({
+      ok: true,
+      route: { engine: 'claude' },
+    });
+  });
+
+  it('holds a requested engine to every refusal the env levers get', () => {
+    expect(firingEngineFromRequest('codex', '')).toMatchObject({ ok: false });
+    expect(firingEngineFromRequest('codex', 'sonnet')).toEqual({
+      ok: false,
+      reason: 'AUTOPILOT_ENGINE_MODEL=sonnet names a Claude model, which the Codex CLI cannot run.',
+    });
+    expect(firingEngineFromRequest('gemini', 'gpt-5-codex')).toMatchObject({ ok: false });
+    expect(firingEngineFromRequest('copilot', 'any')).toMatchObject({ ok: false });
+  });
+
+  it('refuses a model with no engine, rather than dropping it unread', () => {
+    expect(firingEngineFromRequest(undefined, 'gpt-5-codex')).toEqual({
+      ok: false,
+      reason: 'engineModel names a model only together with engine (codex or gemini).',
+    });
+  });
+
+  it('refuses fields that are not strings', () => {
+    expect(firingEngineFromRequest(7, 'gpt-5-codex')).toEqual({
+      ok: false,
+      reason: 'engine must be a string: claude, codex or gemini.',
+    });
+    expect(firingEngineFromRequest('codex', ['gpt-5-codex'])).toEqual({
+      ok: false,
+      reason: 'engineModel must be a string.',
+    });
+  });
+
+  it('refuses a model name a command line could read as syntax, or one past the length cap', () => {
+    for (const model of ['gpt-5 & calc', 'gpt"5', 'gpt-5\nx', `g${'x'.repeat(128)}`]) {
+      const choice = firingEngineFromRequest('codex', model);
+      expect(choice.ok).toBe(false);
+      expect(choice.ok === false && choice.reason).toContain('engineModel must be one model name');
+    }
+  });
+
+  it('takes the characters model ids use: a provider prefix, a tag and a version pin', () => {
+    for (const model of ['ollama/gemma3:27b', 'gpt-5@2026-01', 'my_model.v2', 'o4-mini']) {
+      expect(firingEngineFromRequest('codex', model)).toEqual({
+        ok: true,
+        route: { engine: 'codex', model },
+      });
+    }
+  });
+});
+
+describe('firingEngineEnv', () => {
+  it('names Claude outright, so an inherited AUTOPILOT_ENGINE cannot win', () => {
+    expect(firingEngineEnv({ engine: 'claude' })).toEqual({ AUTOPILOT_ENGINE: 'claude' });
+  });
+
+  it('names a non-Claude engine and its model', () => {
+    expect(firingEngineEnv({ engine: 'gemini', model: 'gemini-2.5-pro' })).toEqual({
+      AUTOPILOT_ENGINE: 'gemini',
+      AUTOPILOT_ENGINE_MODEL: 'gemini-2.5-pro',
+    });
+  });
+
+  it('reads back through firingEngineFromEnv as the route it was built from', () => {
+    const route = { engine: 'codex', model: 'gpt-5-codex' } as const;
+    expect(firingEngineFromEnv(firingEngineEnv(route))).toEqual({ ok: true, route });
   });
 });
 
