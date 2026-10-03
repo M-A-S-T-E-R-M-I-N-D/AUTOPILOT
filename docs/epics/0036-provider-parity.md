@@ -5,7 +5,14 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0036. Provider parity — more than one engine behind the same invoke port
 
-Status: In progress — research spec landed 2026-09-27; the first slice (Bedrock/Vertex `AuthMode`
+Status: In progress (re-checked 2026-10-03) — the Codex and Gemini adapters, the Bedrock/Vertex
+`AuthMode` values and the gate-failure demotion rule shipped by 0.57.0 (2026-10-02), and a lane flies on
+either CLI since that day (`AUTOPILOT_ENGINE`); the fly bar's engine picker, per-lane engine on a fleet
+launch, the flight row's engine name and the connect panel's endpoint/Bedrock/Vertex modes landed
+2026-10-03 (after the 0.57.0 tag, unreleased). The `endpoint` auth mode (0.49.0) and the Ollama
+adapter predate the epic, and Ollama is still the one-substep offload, not a lane. The Copilot CLI
+adapter is unstarted, blocked on a captured `--output-format=json` sample (its wire schema is
+undocumented; see finding 5). Research spec landed 2026-09-27; the first slice (Bedrock/Vertex `AuthMode`
 values in `auth.ts`) landed the same day. `ModelPort` now has four live implementations
 (`ClaudeCliModel`/`StreamingClaudeCliModel`, `OllamaModel`, `CodexCliModel`, and `GeminiCliModel`) — Bedrock/Vertex
 need none, since both route through the same `claude` CLI (see row below). The Codex adapter

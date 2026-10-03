@@ -5,7 +5,14 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0025. The icon system — one stroke family, no emoji, credits kept
 
-Status: Draft (2026-09-13). Board tasks seeded 2026-09-12 under this number.
+Status: In progress (2026-10-03) — slices 1, 2 and 4 shipped: `icons.ts`, the credits
+and the board's glyphs on 2026-09-13 (CHANGELOG 0.44.0), the panel-heading hub the same
+day, and the censuses — emoji, geometric and technical glyphs, hand-inlined icon markup
+— pinned at zero across `web/` and STRINGS by 2026-10-02, with the README frames
+retaken that day. Slice 3's status pills, live cards and office-map markers landed
+2026-10-03. Open: the populated e2e baselines and README frames still show the office
+map's bare zones and the activity feed's old glyphs. Drafted 2026-09-13; board tasks
+seeded 2026-09-12 under this number.
 
 ## The ask
 

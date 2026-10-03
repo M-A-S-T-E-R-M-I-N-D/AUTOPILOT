@@ -28,7 +28,7 @@ const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
  * @typedef {{ name: string, ok: boolean, detail: string }} Check
  */
 
-/** @param {string} range e.g. ">=22.12.0" @returns {[number, number, number]} */
+/** @param {string} range e.g. ">=22.23.2" @returns {[number, number, number]} */
 function parseMinVersion(range) {
   const match = range.match(/(\d+)\.(\d+)\.(\d+)/);
   if (!match) return [0, 0, 0];
@@ -69,7 +69,7 @@ function tryLoud(command) {
 
 /** @returns {Check} */
 function checkNode() {
-  const min = parseMinVersion(pkg.engines?.node ?? '>=22.12.0');
+  const min = parseMinVersion(pkg.engines?.node ?? '>=22.23.2');
   const ok = versionAtLeast(process.version, min);
   return { name: 'node', ok, detail: process.version };
 }
@@ -179,7 +179,7 @@ function main() {
   const nodeCheck = checkNode();
   if (!nodeCheck.ok) {
     printReport([nodeCheck]);
-    console.error(`\nNode.js ${pkg.engines?.node ?? '>=22.12.0'} required. Install a newer`);
+    console.error(`\nNode.js ${pkg.engines?.node ?? '>=22.23.2'} required. Install a newer`);
     console.error('Node.js (https://nodejs.org/), then re-run this setup.');
     process.exitCode = 1;
     return;

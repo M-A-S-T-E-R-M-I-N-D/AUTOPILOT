@@ -50,19 +50,22 @@ telemetry says happened, read against the threats to validity that come from a s
 The five conclusions this study currently supports, each traceable to a mechanically-generated table in §4, the
 discussion in §5, or a cited in-repo evaluation — all read under §6's single-subject caveats:
 
-1. **Ship rate scaled WITH volume, not against it.** Across the archived 1,142-firing arc, the 3-day rolling ship
-   rate climbed 65.6% → 96.9% while daily firing volume multiplied (32 → 89 firings/day at peak) — reliability rose
-   as throughput rose (§5 RQ1). Likely mechanism: the gate-then-commit-or-revert loop, where a failed firing reverts
-   instead of landing.
+1. **Ship rate held as volume grew; it did not erode.** Across the current 901-firing series (2026-09-13 →
+   2026-10-03), the 3-day rolling ship rate bottomed at 46.1% on thin days (2026-09-22) and climbed to 90.6%
+   through the busiest stretch (43 → 78 → 120 → 116 firings/day, 2026-09-24 → 27), ending at 94.4% — the best
+   weeks were among the busiest, though not monotonically: the 44- and 137-firing days both dipped (§5 RQ1).
+   Likely mechanism: the gate-then-commit-or-revert loop, where a failed firing reverts instead of landing.
 2. **Human guidance concentrates at ADMISSION, not execution.** Once a task is on the board, operator-authored and
-   agent-proposed tasks shipped at near-identical rates and costs (94.2% vs 92.3%; $3.61 vs $2.13/solved, thin
-   26-firing sample) — while every recorded operator verdict acts on what ENTERS the board (§5 RQ2).
-3. **Newer prompts are not cheaper prompts.** Cost per shipped firing and median turns ROSE after firing-v8.1
-   ($2.80 → $4.43/solved; 45 → 66.5 median turns) even as pass rate held ≥95% — optimizing pass rate alone selects
-   for expensive, high-variance configurations (§5 RQ3, SOTA-MAP H3).
+   agent-proposed tasks ship at near-identical rates (87.6% vs 86.4% over 418 and 302 firings; $3.52 vs
+   $2.49/solved) — while all 129 recorded operator verdicts (95 approved, 73.6%) act on what ENTERS the board
+   (§5 RQ2).
+3. **The newer prompt bought pass rate, not cheaper firings — and paid in variance.** firing-v17 passes 82.4%
+   against firing-v15's 55.9% at the same cost per solved task ($3.11 vs $3.15) and fewer median turns (50 vs 59),
+   but with the series' widest cost variance (3.63 vs 1.99) — the four H3 numbers did not move together (§5 RQ3,
+   SOTA-MAP H3).
 4. **The one mechanically-verified efficiency win was engineering, not prompting.** Running the gate's
-   typecheck/lint/format concurrently cut gate wall-clock 52.4% (4,135.6s → 1,969.9s over 283 sampled firings) — a
-   directly measured effect, unlike the correlational cost-by-era trends (§5 RQ3).
+   typecheck/lint/format concurrently cut gate wall-clock 55.0% (190,539.4s → 85,745.9s over 786 sampled firings)
+   — a directly measured effect, unlike the correlational cost-by-era trends (§5 RQ3).
 5. **Self-report drifts; verification has to be mechanical.** No conclusion here rests on a self-reported field
    where a mechanically-verified one exists (gate result, SHA-on-HEAD — §3, §6). The same lesson generalized to
    fleet collection: the union+rerere self-healing merge ladder took multi-lane conflict strands 7 → 0 with zero
@@ -100,7 +103,8 @@ with a named claim the same table can also be read as failing to support.
   from self-proposed or free-picked work? Read against the "Outcomes by task pick source" table in §4 — with the
   explicit caveat in §6 that `tasks.source` measures WHO typed the title, not the quality of the guidance.
 - **RQ3 (efficiency evolution).** Has cost-per-shipped-firing or turns-per-shipped-firing changed across
-  firing-prompt-version eras (v7 → v8 → v8.1 → v8.2 → v8.3 → v8.4)? Read against the "Eval regression by prompt
+  firing-prompt-version eras (v13 → v17 in the current series, which starts 2026-09-13; v7 → v8.4 in the archived
+  one)? Read against the "Eval regression by prompt
   version" table in §4 and the measured cost-anatomy findings in `docs/RESEARCH-LIBRARY.md` ("Firing cost anatomy").
 
 None of these three has a pre-registered answer yet — they are recorded here specifically so a future firing's
@@ -375,54 +379,60 @@ Read against the three pre-registered RQs (§2), using only the mechanically-gen
 analysis code, no model call (§7). Single-subject, single-repository caveats (§6) apply to every reading below; none
 of this is evidence about how AUTOPILOT would behave on a different codebase.
 
-- **RQ1 (sustainability) — ship rate held and rose as volume grew, it did not erode.** The 3-day-rolling ship-rate
-  chart (§4, `DATA:CHART`) climbs from 65.6% (2026-08-07) to 96.9% (2026-08-12) as daily firing volume also grew (32
-  → 89 → 64 → 71 → 43 → 15 firings/day). The per-era table tells the same story from a different angle: pass rate
-  went 70.6% (firing-v7, 17 firings) → 68.8% (firing-v8, 32 firings) → 94.2% (firing-v8.1, 207 firings) → 95.0%/
-  97.1%/100.0% (v8.2/v8.4/v8.3, 20/34/4 firings). Both readings point the same direction — more firings, not fewer,
-  coincided with the reliability gain — which is the opposite of the erosion RQ1 asked whether to expect. The
-  gate-then-commit-or-revert loop (§3) is the likely mechanism (a bad firing reverts instead of landing), but this
-  data cannot separate "the loop scales" from "the backlog got easier" or "the prompt got better" — RQ3 below is the
-  closer read on the prompt-version half of that confound, and §6's selection-bias point (the agent is instructed to
-  prefer small, certain work) applies directly here.
+- **RQ1 (sustainability) — ship rate held as volume grew, it did not erode; but the relation is not monotone.** The
+  current series (§4: 901 firings, 2026-09-13 → 2026-10-03) opens at a 3-day-rolling ship rate of 71.9%, bottoms at
+  46.1% (2026-09-22) and climbs to 90.6% (2026-09-28), ending at 94.4% (2026-10-03). The trough came on thin days
+  (14 and 18 firings on 2026-09-21/22, after a 44-firing day that shipped 12); the climb coincided with the busiest
+  stretch — 43 → 78 → 120 → 116 firings/day on 2026-09-24 → 27, shipping 65.1%, 73.1%, 91.7% and 89.7% — and the
+  series ends 92 of 97 (2026-10-02) and 33 of 33 (2026-10-03). The per-era table points the same way: the two eras
+  with real samples went 55.9% (firing-v15, 127 firings) → 82.4% (firing-v17, 757 firings), the larger, later era
+  passing more. So the erosion RQ1 asked about did not happen — the best weeks were among the busiest — but the
+  single busiest day (137 firings, 2026-09-30) shipped 72.3% and the 44-firing day 27.3%, so volume alone neither
+  earns nor costs reliability. The gate-then-commit-or-revert loop (§3) is the likely mechanism (a bad firing
+  reverts instead of landing), but this data cannot separate "the loop scales" from "the backlog got easier" or
+  "the prompt got better" — RQ3 below is the closer read on the prompt-version half of that confound, and §6's
+  selection-bias point (the agent is instructed to prefer small, certain work) applies directly here.
 - **RQ2 (guidance cost) — the human-vs-agent reading: guidance shows up at the admission gate, not at execution
-  time (backlog web-msniol15-foo6oi, "analyze WHERE guidance helps").** At the 2026-08-21 snapshot (1142 firings),
-  the pick-source table (§4) shows no execution-time guidance effect: operator-assigned tasks shipped at 94.2%
-  (739 firings, $3.61/solved) and self-proposed tasks at 92.3% (26 firings, $2.13/solved, the LOWEST cost variance
-  of any bucket at 0.59) — once a task is on the board, who authored its title does not predict whether it ships or
-  what it costs; if anything the agent-mined tasks were cheaper per solved unit, on an admittedly thin 26-firing
-  sample. Where the human signal DOES concentrate is the evaluation-label table (§4): 42 operator verdicts on
-  self-proposals recorded, 0 approved, 42 rejected — a 0.0% approval rate. Two capture artifacts keep that from
-  reading as "the operator rejects everything": label capture only began 2026-08-20 (§8, third slice), so the
-  approvals that queued the 26 self-proposed firings above predate the instrument and are invisible to it; and
-  `deleteTask` on a stale self-proposal records `'rejected'`, so a board-hygiene sweep of old proposals reads as
-  mass rejection. What survives both caveats is the shape, not the rate: since capture began, every recorded human
-  verdict is an act of FILTERING what enters the board, while the execution-side columns show no operator-vs-agent
-  gap at all — operator guidance is doing its work at admission (deciding what is worth doing), not at execution
-  (how well it gets done). The `free-pick` row (0.0% over 130 firings) is not a counterexample but a definitional
-  artifact, sharper than §6's difficulty-selection caveat alone: `free-pick` means `metrics.item IS NULL`
+  time (backlog web-msniol15-foo6oi, "analyze WHERE guidance helps").** The pick-source table (§4) shows no
+  execution-time guidance effect: operator-assigned tasks shipped at 87.6% (418 firings, $3.52/solved, cost
+  variance 3.04) and self-proposed tasks at 86.4% (302 firings, $2.49/solved, variance 3.33) — once a task is on
+  the board, who authored its title does not predict whether it ships, and the agent-mined tasks were cheaper per
+  solved unit on a sample that is no longer thin. Where the human signal DOES concentrate is the evaluation-label
+  table (§4): 129 operator verdicts on self-proposals recorded, 95 approved, 34 rejected — a 73.6% approval rate.
+  The current series starts 2026-09-13, after label capture began (2026-08-20, §8), so the approvals that queued
+  the 302 self-proposed firings above are visible to the instrument, and the approval rate is a real number
+  rather than the capture artifact an earlier snapshot showed; one caveat remains: `deleteTask` on a stale
+  self-proposal records `'rejected'`, so a board-hygiene sweep inflates the 34. What that leaves is the shape:
+  every recorded human verdict is an act of FILTERING what enters the board — roughly one proposal in four is
+  turned away — while the execution-side columns show a 1.2-point operator-vs-agent gap; operator guidance is
+  doing its work at admission (deciding what is worth doing), not at execution (how well it gets done). The
+  `free-pick` row (0.0% over 92 firings, median 7 turns) is not a counterexample but a definitional artifact,
+  sharper than §6's difficulty-selection caveat alone: `free-pick` means `metrics.item IS NULL`
   (`evalRegressionByPickSource`), which sweeps in every NOOP→VERDICT firing — firings whose correct, instructed
-  outcome is to commit nothing and report a verdict — so the bucket's growth (24 → 130 firings between snapshots)
-  mostly tracks adoption of the honest-noop protocol, and its pass rate measures that protocol, not failed work.
-- **RQ3 (efficiency evolution) — cost and turns per shipped firing went UP after firing-v8.1, not down.** Cost/solved
-  by era (§4): firing-v7 $3.72 → firing-v8 $3.81 → firing-v8.1 $2.80 → firing-v8.2 $4.02 → firing-v8.3 $3.41 →
-  firing-v8.4 $4.43. Median turns: 49 → 46.5 → 45 → 59 → 69 → 66.5. firing-v8.1 is the low point on both axes, and
-  every era after it costs more and takes more turns to ship, even as pass rate held ≥95%. This is the opposite of a
-  clean "later prompt versions got more efficient" story — if anything the newest eras (v8.2-v8.4) are paying more
-  per shipped firing than the mid-series ones did. Two things narrow how much weight this can carry: firing-v8.2 and
-  firing-v8.3 are thin samples (20 and 4 firings), and per-era cost variance also rises alongside the median (1.15 →
-  3.78 across the same span) — a widening, not just a shift, consistent with `docs/RESEARCH-LIBRARY.md`'s "Firing
+  outcome is to commit nothing and report a verdict — so its pass rate measures the honest-noop protocol, not
+  failed work.
+- **RQ3 (efficiency evolution) — the newer prompt bought pass rate at the same cost per solved task, and paid in
+  variance.** Cost/solved by era (§4): firing-v13 $2.11 → firing-v14 $2.16 → firing-v15 $3.15 → firing-v16 $1.82
+  → firing-v17 $3.11. Median turns: 41.5 → 41.5 → 59 → 44 → 50. Pass rate: 62.5% → 75.0% → 55.9% → 100.0% →
+  82.4%. Cost variance: 0.20 → 0.74 → 1.99 → 0.09 → 3.63. Only two eras carry real samples — firing-v15 (127
+  firings) and firing-v17 (757); v13, v14 and v16 are 8, 8 and 2 firings and cannot be ranked. Between those
+  two, the newer prompt passes far more often (82.4% vs 55.9%) at the same cost per solved task ($3.11 vs
+  $3.15) and fewer median turns (50 vs 59), but with the widest cost variance in the series (3.63 vs 1.99). That
+  is neither the clean "later prompt versions got more efficient" story nor the cost rise an earlier snapshot of
+  this series showed: the pass-rate gain was not paid for per solved task, and the number that moved the wrong
+  way is consistency — exactly the one the §4 table's own preamble says a prompt-version bump should be gated on
+  alongside the other three (SOTA-MAP H3). The widening is consistent with `docs/RESEARCH-LIBRARY.md`'s "Firing
   cost anatomy" finding that cache-read tokens (which grow with accumulated context/repo size, not directly with
   prompt version) dominate cost. Separately, the one RQ3-adjacent number this document DOES verify mechanically
   rather than infer from cost/turns trends is wall-clock, not cost: gate parallelization (§4,
-  `gateParallelSavings`) measured a real 52.4% reduction (4135.6s → 1969.9s, 283 sampled firings) in gate time from
-  running typecheck/lint/format concurrently — an engineering change with a directly-measured effect, unlike the
-  cost/turns-by-era numbers above which are correlational across a changing backlog.
+  `gateParallelSavings`) measured a real 55.0% reduction (190,539.4s → 85,745.9s, 786 sampled firings) in gate
+  time from running typecheck/lint/format concurrently — an engineering change with a directly-measured effect,
+  unlike the cost/turns-by-era numbers above which are correlational across a changing backlog.
 
 🟣 These are still one AI-authored reading of tables a human has not reviewed (§7) — in particular, the RQ3 finding
-(cost/turns rising after firing-v8.1) is exactly the kind of load-bearing conclusion §2's RQ note asks a human to
-confirm before it drives a prompt-version decision, since it argues against the intuitive "newer prompt = cheaper"
-assumption.
+(firing-v17's pass-rate gain came with the series' widest cost variance, not a cost rise) is exactly the kind of
+load-bearing conclusion §2's RQ note asks a human to confirm before it drives a prompt-version decision, since
+variance is the number such a decision would be gated on.
 
 ## 6. Threats to Validity
 
@@ -463,9 +473,10 @@ assumption.
 - **The pinned suite (§4, §8) fixes the population problem but not the deeper one.** `docs/SELF-STUDY/eval-suite.json`
   freezes 50 specific, mechanically-verified-good firings, so its regression numbers are at least reproducible over
   time — but the tasks in it were still picked by this same agent, from its own backlog, under whatever prompt
-  version happened to be running when each one shipped (currently all `firing-v8.1`, per §4 — the suite has no
-  `firing-v7` or `firing-v8` representation because none of the 50 most recent known-good firings ran under those
-  versions). It is not yet what SOTA-MAP actually asks for: a suite a **candidate** prompt version is replayed
+  version happened to be running when each one shipped (all `firing-v17` since the 2026-10-03 re-pin — the suite
+  has no `firing-v15` or earlier representation because none of the 50 most recent known-good firings ran under
+  those versions; the 2026-08-10 pin it replaced named ids of which only 10 still resolved in the current series,
+  which starts 2026-09-13). It is not yet what SOTA-MAP actually asks for: a suite a **candidate** prompt version is replayed
   against *before* shipping. Pinning is the pre-registration half of that; running a new prompt version against
   these same 50 task descriptions and comparing outcomes is the still-missing replay half.
 

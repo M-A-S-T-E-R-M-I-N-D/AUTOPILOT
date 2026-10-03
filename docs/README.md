@@ -14,8 +14,10 @@ script and verified by CI — edit the source, not the file.
 - [RUNBOOK.md](RUNBOOK.md) — every known failure mode and its recovery: the stale-4317-server ritual, kill
   procedures, SQLite/WAL corruption and snapshot restore, the flight instance lock, containment-breach response.
 - [RELEASING.md](RELEASING.md) — versioning policy, the release ritual, milestone tags, pre-release maturity.
-- [ROADMAP.md](ROADMAP.md) — where the fleet is flying next, and what shipped since the last update.
+- [ROADMAP.md](ROADMAP.md) — where the fleet is flying next: §2's milestone table (M0–M16, what is true today
+  and what is open for each) and §6's dated targets, Q4 2026 first.
 - [ACTION-PLAN.md](ACTION-PLAN.md) — milestones M0→M9 with a binary Definition of Done each. **The build order.**
+  M10–M16 live only in ROADMAP §2.
 - [FEATURE-COVERAGE.md](FEATURE-COVERAGE.md) — every feature traced to its spec and milestone ("nothing forgotten").
 - [MODELS.md](MODELS.md) — what the fleet flies (Claude models, roles, routing) and how it keeps up.
 - [COCKPIT-BASELINE.md](COCKPIT-BASELINE.md) — the living measurement doc for the dashboard cockpit.
@@ -77,7 +79,8 @@ script and verified by CI — edit the source, not the file.
 - [SELF-STUDY/PAPER.md](SELF-STUDY/PAPER.md) — AUTOPILOT's own account of flying its own repository: method,
   gate-verified vs. self-reported telemetry, threats to validity. Data regenerates with `pnpm self-study:update`;
   never hand-edit the `DATA:SUMMARY` block.
-- [SELF-STUDY/DATASHEET.md](SELF-STUDY/DATASHEET.md) — the datasheet for the exported flight dataset (**generated**).
+- [SELF-STUDY/DATASHEET.md](SELF-STUDY/DATASHEET.md) — the hand-written datasheet (Gebru et al.) for the flight
+  dataset `pnpm self-study:export` writes as CSV/JSONL; the script writes the data, not this document.
 - [SELF-STUDY/EVIDENCE-LOG.md](SELF-STUDY/EVIDENCE-LOG.md) — the running evidence log behind the paper's claims.
 - [SELF-STUDY/DATA-SERIES.md](SELF-STUDY/DATA-SERIES.md) — the per-day series the charts read (**generated**).
 - [CASE-STUDIES/README.md](CASE-STUDIES/README.md) — full narrative flights, cited against real flight logs and gate

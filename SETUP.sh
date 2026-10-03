@@ -10,7 +10,7 @@ cd "$(dirname "$0")"
 if ! command -v node >/dev/null 2>&1; then
   echo
   echo "  Node.js was not found on PATH."
-  echo "  AUTOPILOT needs Node.js 22.12 or newer: https://nodejs.org/"
+  echo "  AUTOPILOT needs Node.js 22.23.2 or newer: https://nodejs.org/"
   echo "  Install it, then run SETUP.sh again."
   echo
   exit 1

@@ -5,10 +5,13 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0011. ARCHITECT chat v2 — a persona-switched control surface for the Ask panel
 
-Status: Active — slices 1-3 shipped end-to-end (2026-08-21): the Ask panel's
-GENIUS/ARCHITECT persona toggle, ARCHITECT's action-card proposal flow, and
-the confirm-gated control-tool execute endpoint are all live in production
-code. Slice 4 (`fly_start`/`fly_stop`) remains deferred — see Out of scope.
+Status: Active (re-checked 2026-10-03) — slices 1-3 shipped end-to-end (2026-08-21):
+the Ask panel's GENIUS/ARCHITECT persona toggle, ARCHITECT's action-card proposal
+flow, and the confirm-gated control-tool execute endpoint are all live in
+production code, and took fixes as late as 0.57.0 (2026-10-02: the ARCHITECT
+prompt names `tasks_delete`'s `projectId`; `tasks_create` measures the title cap
+after trimming). Slice 4 (`fly_start`/`fly_stop`) remains deferred and unstarted —
+`packages/mcp/src/control.ts` names it only in a comment — see Out of scope.
 
 Board task: `web-msnqmgge-oijj8x`. v1 shipped MCP write tools with no UI
 consumer (`packages/mcp/src/control.ts` — `tasks_list`, `tasks_set_status`,

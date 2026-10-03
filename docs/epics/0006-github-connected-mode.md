@@ -5,7 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0006. GitHub connected mode — solo by default, federated by choice
 
-Status: All five slices SHIPPED. Slice 1 (connect panel: gh presence/auth/identity
+Status: Done (2026-08-23; re-checked 2026-10-03) — all five slices shipped and still
+live at 0.57.0. Slice 1 (connect panel: gh presence/auth/identity
 detection, SETUP doctor's optional gh check) done (2026-08-17); slice 2 (sync any
 project: `gh repo create --source --push` + re-sync, secret-scan-gated public sync)
 also done (2026-08-17); slice 3 (maintainer flow: push-tag + `gh release create`)

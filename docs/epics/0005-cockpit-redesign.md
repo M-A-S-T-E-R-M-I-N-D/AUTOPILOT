@@ -5,7 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # 0005. Cockpit MX redesign — the whole dashboard, dark-luxury flight deck on a Material-future system
 
-Status: Active
+Status: Abandoned (2026-10-03) — superseded by [epic 0015](0015-cockpit-supervisory-control.md),
+whose phases D1–D5 absorb this scope; `apps/dashboard/src/flight/doc-freshness.ts` tracks
+0015 in this file's place. Slices 1 (MX token layer) and 2 (landing panel) shipped under
+this number and stay shipped; what the Slices section records as in progress for 3–6
+continues under 0015 and the cockpit epics 0017–0031, not here.
 
 Founder directive (2026-08-13): _"completely rethink UX/UI for more modern… overall, all
 the webapp, not only the lists."_ Direction chosen by the founder from three presented
@@ -669,6 +673,8 @@ it is extracted, never the 4.7K-line file).
 
 ## Related
 
+- **Superseded by** [epic 0015](0015-cockpit-supervisory-control.md) (its "Related"
+  names this epic as "cockpit redesign v1 — superseded by this epic's phases D1–D5").
 - Founder's design-quality rules (anti-template policy; "at least four required
   qualities" — this spec commits to hierarchy, rhythm, depth, typography, semantic
   color, designed states, and clarifying motion).
