@@ -11,7 +11,7 @@ Closes #
 
 ## Milestone
 
-<!-- Which ACTION-PLAN milestone (M0–M9) does this advance? -->
+<!-- Which ROADMAP §2 milestone (M0–M16) does this advance? ACTION-PLAN.md holds the Definition of Done for M0–M9. -->
 
 ## Type of change
 

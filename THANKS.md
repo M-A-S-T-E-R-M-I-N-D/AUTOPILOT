@@ -13,7 +13,7 @@ honored, nothing stripped, the little copied into the product itself (the
 typefaces and icons below) shipped with its complete license text, and the
 full inventory kept public and regenerated in
 [`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md)
-(487 packages at last count; zero copyleft-strong, zero unknown — audited).
+(495 packages at last count; zero copyleft-strong, zero unknown — audited).
 
 ## The pillars
 
@@ -76,7 +76,7 @@ full inventory kept public and regenerated in
 - **[Keep a Changelog](https://keepachangelog.com/)**, **[SemVer](https://semver.org/)**,
   **[REUSE](https://reuse.software/)**, and the **[DCO](https://developercertificate.org/)** — the conventions this
   repo leans on instead of inventing worse ones.
-- Everyone in [`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md) not named above — 487 packages deep,
+- Everyone in [`docs/THIRD-PARTY-LICENSES.md`](docs/THIRD-PARTY-LICENSES.md) not named above — 495 packages deep,
   every one of them somebody's care.
 
 - **[actions/checkout](https://github.com/actions/checkout)**, **[actions/setup-node](https://github.com/actions/setup-node)**,

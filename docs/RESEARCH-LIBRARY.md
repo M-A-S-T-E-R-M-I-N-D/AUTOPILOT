@@ -170,6 +170,13 @@ order for the throughline; each still stands as its own dated entry below.
 - Routing wisdom unchanged, now cheaper to keep: Haiku ~70%
   (triage/cheap calls — our Ask + triage), Sonnet builds, Opus/Fable
   reviews & hard reasoning. Flights default sonnet→opus fallback.
+- **Addendum (2026-10-03):** the catalogue (`packages/engine/src/models.ts`)
+  now pins `claude-fable-5-1`, `claude-opus-5-5` (pinned 2026-09-24, the day
+  Opus 5.5 shipped), `claude-sonnet-5` and `claude-haiku-4-5-20251001`, each
+  beside its auto-tracking alias; flights default to `fable` with `opus` as
+  the fallback (`DEFAULT_ENGINE_CONFIG`, `packages/engine/src/config.ts`),
+  not sonnet→opus. `docs/MODELS.md` and `ci:model-freshness` announce the
+  next drift.
 
 ## Local RAG efficiency (2026-08-08)
 

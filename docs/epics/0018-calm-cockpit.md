@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Epic 0018 — Calm Cockpit: layout stability, tabs, and the many-lanes view
 
-**Status:** DONE (2026-09-12). All four slices shipped: 1 — the stability
+**Status:** DONE (2026-09-12; re-checked 2026-10-03). All four slices shipped: 1 — the stability
 laws (`3236b264`, `5ad80787`: bounded scroll containers; `4391c5fa`,
 `8e2eda0a`: project-page sections and render state survive unrelated
 ticks); 2 — the many-lanes grid (`c1287698`); 3 — center tabs, delivered as
