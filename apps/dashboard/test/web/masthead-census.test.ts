@@ -67,6 +67,12 @@ describe('masthead census (EPIC 0017 slice 1/5) — pins every existing control 
     expect(masthead).toContain('value="subscription"');
     expect(masthead).toContain('value="api-key"');
     expect(masthead).toContain('value="oauth-token"');
+    expect(masthead).toContain('value="endpoint"');
+    expect(masthead).toContain('value="bedrock"');
+    expect(masthead).toContain('value="vertex"');
+    expect(masthead).toContain('data-connect-fields="endpoint"');
+    expect(masthead).toContain('data-connect-fields="bedrock"');
+    expect(masthead).toContain('data-connect-fields="vertex"');
     expect(masthead).toContain('id="connect-secret-label"');
     expect(masthead).toContain('id="connect-secret"');
     expect(masthead).toContain('data-i18n="saveVerify"');

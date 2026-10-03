@@ -42,6 +42,9 @@ export type ConnectPanelKey =
   | 'connectTokenPlaceholder'
   | 'connectOauthTokenHint'
   | 'connectSubscriptionHint'
+  | 'connectEndpointHint'
+  | 'connectBedrockHint'
+  | 'connectVertexHint'
   | 'connectionUnavailable'
   | 'connectDotTipUnavailable'
   | 'connectHeadUnavailable'
@@ -93,12 +96,13 @@ export interface ConnectModeMeta {
   readonly hint: string;
 }
 
-/** Maps a connection `mode` ('api-key' | 'oauth-token' | 'subscription') to
- *  the credential field's visibility, label, placeholder, and hint line —
- *  'api-key' and 'oauth-token' both show a secret input; 'subscription'
- *  (and anything else) hides it and points at `claude`/`/login` instead.
- *  The API-key placeholder is a format prefix, not prose, so it stays a
- *  literal in every locale. */
+/** Maps a connection `mode` to the credential field's visibility, label,
+ *  placeholder, and hint line — 'api-key' and 'oauth-token' both show a
+ *  secret input; 'endpoint', 'bedrock' and 'vertex' hide it, since each has
+ *  its own fields in the form (epic 0036), and say where their credentials
+ *  come from; 'subscription' (and anything else) hides it and points at
+ *  `claude`/`/login` instead. The API-key placeholder is a format prefix,
+ *  not prose, so it stays a literal in every locale. */
 export function connectModeMeta(mode: string, tr: ConnectPanelTranslator): ConnectModeMeta {
   if (mode === 'api-key') {
     return {
@@ -116,12 +120,50 @@ export function connectModeMeta(mode: string, tr: ConnectPanelTranslator): Conne
       hint: tr('connectOauthTokenHint'),
     };
   }
+  if (mode === 'endpoint') {
+    return { show: false, label: '', ph: '', hint: tr('connectEndpointHint') };
+  }
+  if (mode === 'bedrock') {
+    return { show: false, label: '', ph: '', hint: tr('connectBedrockHint') };
+  }
+  if (mode === 'vertex') {
+    return { show: false, label: '', ph: '', hint: tr('connectVertexHint') };
+  }
   return {
     show: false,
     label: '',
     ph: '',
     hint: tr('connectSubscriptionHint'),
   };
+}
+
+/** What the CONNECT form's fields hold when Save is pressed: the shared
+ *  secret field, and the fields of the endpoint, Bedrock and Vertex groups. */
+export interface ConnectFieldValues {
+  readonly secret: string;
+  readonly baseUrl: string;
+  readonly authToken: string;
+  readonly awsRegion: string;
+  readonly gcpProjectId: string;
+  readonly gcpRegion: string;
+}
+
+/** The `POST /api/connection` body for `mode`: the mode and its own fields
+ *  only, so a key typed under one mode never rides along when another is
+ *  saved. `validateConnect` (`connection/service.ts`) trims, checks and keeps
+ *  the same fields; an unknown mode goes alone, for the server to refuse. */
+export function connectRequestBody(
+  mode: string,
+  values: ConnectFieldValues,
+): Readonly<Record<string, string>> {
+  if (mode === 'api-key') return { mode, apiKey: values.secret };
+  if (mode === 'oauth-token') return { mode, oauthToken: values.secret };
+  if (mode === 'endpoint') return { mode, baseUrl: values.baseUrl, authToken: values.authToken };
+  if (mode === 'bedrock') return { mode, awsRegion: values.awsRegion };
+  if (mode === 'vertex') {
+    return { mode, gcpProjectId: values.gcpProjectId, gcpRegion: values.gcpRegion };
+  }
+  return { mode };
 }
 
 /** Shape of the `/api/connection` JSON payload the CONNECT popover's status

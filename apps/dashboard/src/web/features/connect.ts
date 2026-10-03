@@ -21,6 +21,7 @@
  */
 import {
   connectModeMeta,
+  connectRequestBody,
   connectStatusMeta,
   connectTestResultMeta,
   ghStatusMeta,
@@ -124,6 +125,7 @@ function connectInit() {
   // injection route fly.ts's flightProgressOf takes — since a spliced
   // function cannot import a translator.
   ${connectModeMeta.toString()}
+  ${connectRequestBody.toString()}
   ${connectStatusMeta.toString()}
   ${connectTestResultMeta.toString()}
   ${ghStatusMeta.toString()}
@@ -249,11 +251,30 @@ function connectInit() {
       })
       .catch(function () { fail('reportPreviewUnavailable'); });
   }
+  // The endpoint, Bedrock and Vertex modes each have a fieldset of their own
+  // (epic 0036). Only the chosen mode's shows. The others are disabled as
+  // well as hidden, so their required fields never block a Save, and a token
+  // typed into one is cleared as it hides, as the secret field's is.
+  var fieldGroups = form ? form.querySelectorAll('[data-connect-fields]') : [];
   function applyMode(mode) {
     var m = connectModeMeta(mode, tr);
     if (secretEl) { secretEl.hidden = !m.show; secretEl.placeholder = m.ph; if (!m.show) secretEl.value = ''; }
     if (secretLabel) { secretLabel.hidden = !m.show; secretLabel.textContent = m.label; }
     if (hintEl) hintEl.textContent = m.hint;
+    for (var gi = 0; gi < fieldGroups.length; gi++) {
+      var group = fieldGroups[gi];
+      var chosen = group.getAttribute('data-connect-fields') === mode;
+      group.hidden = !chosen;
+      group.disabled = !chosen;
+      if (!chosen) {
+        var tokens = group.querySelectorAll('input[type="password"]');
+        for (var ti = 0; ti < tokens.length; ti++) tokens[ti].value = '';
+      }
+    }
+  }
+  function fieldValue(id) {
+    var el = document.getElementById(id);
+    return el ? el.value : '';
   }
   function paintDot(dotClass, dotTip, dotAriaLabel) {
     if (!dotEl) return;
@@ -437,15 +458,24 @@ function connectInit() {
   if (form) form.addEventListener('submit', function (e) {
     e.preventDefault();
     var mode = modeEl ? modeEl.value : 'subscription';
-    var body = { mode: mode };
-    if (mode === 'api-key') body.apiKey = secretEl ? secretEl.value : '';
-    if (mode === 'oauth-token') body.oauthToken = secretEl ? secretEl.value : '';
+    var body = connectRequestBody(mode, {
+      secret: secretEl ? secretEl.value : '',
+      baseUrl: fieldValue('connect-base-url'),
+      authToken: fieldValue('connect-auth-token'),
+      awsRegion: fieldValue('connect-aws-region'),
+      gcpProjectId: fieldValue('connect-gcp-project'),
+      gcpRegion: fieldValue('connect-gcp-region'),
+    });
     if (statusEl) statusEl.textContent = tr('connectSaving');
     fetch('/api/connection', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
-        if (res.ok) { if (secretEl) secretEl.value = ''; render(res.j); }
-        else if (statusEl) { statusEl.textContent = tr('connectSaveError', { error: (res.j && res.j.error) ? res.j.error : tr('connectSaveErrorGeneric') }); statusEl.className = 'connect-status connect-bad'; }
+        if (res.ok) {
+          if (secretEl) secretEl.value = '';
+          var authTokenEl = document.getElementById('connect-auth-token');
+          if (authTokenEl) authTokenEl.value = '';
+          render(res.j);
+        } else if (statusEl) { statusEl.textContent = tr('connectSaveError', { error: (res.j && res.j.error) ? res.j.error : tr('connectSaveErrorGeneric') }); statusEl.className = 'connect-status connect-bad'; }
       })
       .catch(function () { if (statusEl) statusEl.textContent = tr('connectSaveFailed'); });
   });

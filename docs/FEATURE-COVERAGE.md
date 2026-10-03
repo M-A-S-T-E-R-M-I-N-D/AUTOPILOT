@@ -7,7 +7,7 @@
 ## A. Core engine & autonomy
 | Feature | Spec | Milestone |
 |---|---|---|
-| [x] External loop over `claude -p` (subscription auth, no API key) — `ClaudeCliModel` adapter + loop; e2e-proven pipeline; **auth modes** (subscription default / API key / headless OAuth token) with stray-key stripping per the official credential precedence | ENGINE-RESEARCH G1; MDVIEWER §1 | M1 |
+| [x] External loop over `claude -p` (subscription auth, no API key) — `ClaudeCliModel` adapter + loop; e2e-proven pipeline; **auth modes** (subscription default / API key / headless OAuth token / compatible endpoint / Amazon Bedrock / Google Vertex AI, all six chosen in the Connect popover, epic 0036) with stray-key stripping per the official credential precedence | ENGINE-RESEARCH G1; MDVIEWER §1 | M1 |
 | [x] Orient → pick → gate → commit → self-report → pace — firing prompt built (`buildFiringPrompt`) + live flight wired (`dashboard:fly`: real ClaudeCliModel · detected gate via GateRunner · budget-capped); e2e-proven live (160+ real firings — BACKLOG-999 §A) | MASTER §3; ENGINE-RESEARCH | M1 |
 | [x] Un-fakeable telemetry (envelope + self-report, cross-checked by sha/HEAD) | ENGINE-RESEARCH G2 | M1 |
 | [x] Graceful telemetry degradation (infer from commit) | ENGINE-RESEARCH G3 | M1 |

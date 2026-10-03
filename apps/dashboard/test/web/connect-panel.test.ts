@@ -32,6 +32,7 @@ import { describe, it, expect } from 'vitest';
 import { STRINGS } from '@autopilot/tokens';
 import {
   connectModeMeta,
+  connectRequestBody,
   connectStatusMeta,
   connectTestResultMeta,
   ghStatusMeta,
@@ -39,6 +40,7 @@ import {
   githubIssueConfirmMessage,
   githubIssueExecuteResult,
   reportComposeStatusMeta,
+  type ConnectFieldValues,
   type ConnectPanelTranslator,
 } from '../../src/web/connect-panel.js';
 
@@ -102,6 +104,68 @@ describe('connectModeMeta', () => {
     expect(token.hint).toBe(STRINGS.he.connectOauthTokenHint);
 
     expect(connectModeMeta('subscription', trHe).hint).toBe(STRINGS.he.connectSubscriptionHint);
+  });
+
+  // Epic 0036: these three route the same claude CLI elsewhere. Each has its
+  // own fields in the form, so the shared secret field stays hidden.
+  it('hides the secret input and gives its own hint for the endpoint, Bedrock and Vertex modes', () => {
+    const cases = [
+      ['endpoint', 'connectEndpointHint'],
+      ['bedrock', 'connectBedrockHint'],
+      ['vertex', 'connectVertexHint'],
+    ] as const;
+    for (const [mode, hintKey] of cases) {
+      const meta = connectModeMeta(mode, trEn);
+      expect(meta.show, mode).toBe(false);
+      expect(meta.label, mode).toBe('');
+      expect(meta.ph, mode).toBe('');
+      expect(meta.hint, mode).toBe(STRINGS.en[hintKey]);
+      expect(connectModeMeta(mode, trHe).hint, mode).toBe(STRINGS.he[hintKey]);
+    }
+  });
+});
+
+describe('connectRequestBody', () => {
+  const values: ConnectFieldValues = {
+    secret: 'sk-ant-secret',
+    baseUrl: 'https://gateway.example.com',
+    authToken: 'tok-123',
+    awsRegion: 'eu-west-1',
+    gcpProjectId: 'my-project',
+    gcpRegion: 'us-east5',
+  };
+
+  it('sends the secret as the key or token its mode names', () => {
+    expect(connectRequestBody('api-key', values)).toEqual({
+      mode: 'api-key',
+      apiKey: 'sk-ant-secret',
+    });
+    expect(connectRequestBody('oauth-token', values)).toEqual({
+      mode: 'oauth-token',
+      oauthToken: 'sk-ant-secret',
+    });
+  });
+
+  it('sends only the chosen mode’s own fields, never another mode’s', () => {
+    expect(connectRequestBody('endpoint', values)).toEqual({
+      mode: 'endpoint',
+      baseUrl: 'https://gateway.example.com',
+      authToken: 'tok-123',
+    });
+    expect(connectRequestBody('bedrock', values)).toEqual({
+      mode: 'bedrock',
+      awsRegion: 'eu-west-1',
+    });
+    expect(connectRequestBody('vertex', values)).toEqual({
+      mode: 'vertex',
+      gcpProjectId: 'my-project',
+      gcpRegion: 'us-east5',
+    });
+  });
+
+  it('sends the mode alone for subscription, or for a mode it does not know', () => {
+    expect(connectRequestBody('subscription', values)).toEqual({ mode: 'subscription' });
+    expect(connectRequestBody('bogus', values)).toEqual({ mode: 'bogus' });
   });
 });
 
