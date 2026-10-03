@@ -45,6 +45,36 @@ describe('pythonDetector', () => {
     expect(d?.evidence).toEqual(['setup.cfg']);
   });
 
+  it('maps pytest / mypy / flake8 from setup.cfg sections, in that evidence order', () => {
+    // setup.cfg is the one place flake8 reads natively (it has no pyproject
+    // support), and pytest and mypy both document it — the snapshot already
+    // captures its text, so a setup.cfg-configured project must not get an
+    // empty gate.
+    const d = pythonDetector.detect(
+      snap(['setup.cfg', 'pkg/__init__.py'], {
+        'setup.cfg':
+          '[metadata]\r\nname = pkg\r\n\r\n[tool:pytest]\r\ntestpaths = tests\r\n\r\n' +
+          '[mypy]\r\nstrict = True\r\n\r\n[flake8]\r\nmax-line-length = 100\r\n',
+      }),
+    );
+    expect(d?.evidence).toEqual(['setup.cfg', 'pytest', 'mypy', 'flake8']);
+    expect(d?.gate.test).toEqual({ bin: 'pytest', args: [], label: 'pytest' });
+    expect(d?.gate.typecheck).toEqual({ bin: 'mypy', args: ['.'], label: 'mypy .' });
+    expect(d?.gate.lint).toEqual({ bin: 'flake8', args: [], label: 'flake8' });
+  });
+
+  it('ignores setup.cfg sections that are not the tool’s own config', () => {
+    // A per-module `[mypy-requests.*]` only refines a global `[mypy]` section,
+    // and `[coverage:run]` configures coverage.py, not pytest.
+    const d = pythonDetector.detect(
+      snap(['setup.cfg'], {
+        'setup.cfg': '[mypy-requests.*]\nignore_missing_imports = True\n[coverage:run]\n',
+      }),
+    );
+    expect(d?.gate).toEqual({});
+    expect(d?.evidence).toEqual(['setup.cfg']);
+  });
+
   it('records requirements.txt as evidence on its own', () => {
     const d = pythonDetector.detect(snap(['requirements.txt']));
     expect(d?.evidence).toEqual(['requirements.txt']);
