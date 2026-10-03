@@ -25,7 +25,7 @@ import {
   DOSSIER_POSTED_LABEL,
   PARTNER_APPLICATION_LABEL,
 } from '../../src/flight/contributor-dossier.js';
-import { DECLINED_LABEL } from '../../src/flight/pool-client.js';
+import { DECLINED_LABEL, isMaintainerMarked } from '../../src/flight/pool-client.js';
 import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
@@ -158,5 +158,101 @@ describe("the partner-application dossier × the maintainer's declined and held 
       'skip',
     );
     expect(planIssueTriage(application(53, []), [], []).decision).toBe('dossier');
+  });
+});
+
+// Epic 0019 additive-only law, issue triage × the maintainer's marks in
+// another casing. The pool claim, the stale-claim reaper and the lists skip
+// `declined`, `status: awaiting-human` and `status: blocked` in any casing or
+// hyphenation (pool-client.ts isMaintainerMarked). Issue triage matched them
+// exactly, so on a repo whose label reads `Declined` or `Status: Blocked` the
+// claim refused the issue while triage still labeled it, answered it and
+// boarded it for the fleet, and a held application still got its dossier.
+describe("planIssueTriage × the maintainer's marks in any casing (regression, epic 0019 additive-only law)", () => {
+  const answered = 'the maintainer has answered it';
+  const held = 'the maintainer put it on hold by hand';
+  const variants = [
+    ['Declined', answered],
+    ['DECLINED', answered],
+    ['Status: Awaiting-Human', held],
+    ['status: awaiting human', held],
+    ['Status: Blocked', held],
+  ] as const;
+  /** A bug filed on the template, so triage would accept it unmarked. */
+  const reported = (number: number, title: string, labels: readonly string[]): IncomingIssue => ({
+    number,
+    title,
+    body: '### What happened?\nStuck\n\n### Steps to reproduce\n1. see above\n\n### Expected behavior\nIt works.\n',
+    labels,
+  });
+
+  it('reads variants of the three marks triage skips, not the marks themselves', () => {
+    for (const [mark] of variants) {
+      expect([DECLINED_LABEL, ...HOLD_LABELS]).not.toContain(mark);
+      expect(isMaintainerMarked([mark])).toBe(true);
+    }
+  });
+
+  it.each(variants)('skips an issue marked "%s", as the pool claim does', (mark, why) => {
+    const title = 'Keyboard nav is broken in the fleet table';
+    expect(planIssueTriage(reported(60, title, []), [], []).decision).toBe('accept');
+
+    const decision = planIssueTriage(reported(60, title, [mark]), [], []);
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain('#60');
+    expect(decision.reasoning).toContain(`"${mark}" — ${why}`);
+  });
+
+  it.each(variants)('plans no dossier for an application marked "%s"', (mark) => {
+    const decision = planIssueTriage(application(61, [mark]), [], []);
+
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain(`"${mark}"`);
+  });
+
+  it('writes on and boards only the unmarked issue of four', async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-issue-triage-mark-casing-db-'));
+    const s = openStore(join(dbDir, 'a.db'));
+    try {
+      migrate(s);
+      s.db
+        .prepare(
+          `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+           VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', NULL, 100, 100)`,
+        )
+        .run();
+      const exec = ghServing([
+        reported(80, 'Keyboard nav is broken in the fleet table', ['Declined']),
+        reported(81, 'The cost chart loses its legend on resize', ['Status: Blocked']),
+        application(82, ['Status: Awaiting-Human']),
+        reported(83, 'The flight log scrolls past its last line', []),
+      ]);
+
+      const result = await runIssueTriageRitual(exec, s, 'p1', [], [], undefined, () => 100);
+
+      expect(result.plans.map((plan) => plan.decision.decision)).toEqual([
+        'skip',
+        'skip',
+        'skip',
+        'accept',
+      ]);
+      const writes = calls(exec).filter((args) => args[0] === 'issue' && args[1] !== 'list');
+      expect(writes.length).toBeGreaterThan(0);
+      expect(writes.map((args) => args[2])).toEqual(writes.map(() => '83'));
+      expect(
+        calls(exec).filter((args) => args.some((arg) => arg.includes('applicant-82'))),
+      ).toEqual([]);
+      expect(result.tasksCreated).toBe(1);
+    } finally {
+      s.close();
+      rmSync(dbDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+
+  it('still triages a label that only resembles a mark', () => {
+    const title = 'Keyboard nav is broken in the fleet table';
+    for (const label of ['declined-upstream', 'status: blocked on ci', 'awaiting-human']) {
+      expect(planIssueTriage(reported(62, title, [label]), [], []).decision).toBe('accept');
+    }
   });
 });
