@@ -178,10 +178,22 @@ describe('FlightRunner', () => {
       'flying /work/sandbox — 2 firing(s) — preflight warns: engine: Codex CLI is not signed in | disk-space: 3.0 GiB free',
     );
     expect(spawns).toHaveLength(1);
+    // The warnings ride on their own too, so a fleet launch can name them on
+    // its lane's line without reading them back out of the message.
+    expect(fixed.warnings).toBe(
+      'preflight warns: engine: Codex CLI is not signed in | disk-space: 3.0 GiB free',
+    );
     const total = new FlightRunner(deps).start({ folder: '/work/sandbox', totalBudgetUsd: 30 });
     expect(total.message).toBe(
       'flying /work/sandbox — up to $30 total — preflight warns: engine: Codex CLI is not signed in | disk-space: 3.0 GiB free',
     );
+  });
+
+  it('PREFLIGHT: a start with no warnings carries no warnings key', () => {
+    const { deps } = makeDeps({ preflight: () => ({ go: true, checks: [] }) });
+    const result = new FlightRunner(deps).start({ folder: '/work/sandbox', firings: 1 });
+    expect(result.started).toBe(true);
+    expect(result).not.toHaveProperty('warnings');
   });
 
   it('resolves a relative folder to an absolute path (spawn, status, and message)', () => {

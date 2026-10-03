@@ -272,6 +272,48 @@ describe('runFleetLaunch', () => {
     expect(started.lines[1]).toBe('  base: 200 started — 0 task(s) reserved');
   });
 
+  it('names the preflight warnings a started lane flies past (epic 0036)', async () => {
+    // A single launch's start message names them; a fleet's lane line used to
+    // say only "started", so a Codex lane not signed in flew unremarked.
+    const postFly = vi
+      .fn<(body: FleetLaunchPostBody) => Promise<FleetLaunchPostResult>>()
+      .mockResolvedValueOnce({
+        status: 200,
+        started: true,
+        message: 'flying /repo — 1 firing(s) — preflight warns: engine: Codex CLI is not signed in',
+        warnings: 'preflight warns: engine: Codex CLI is not signed in',
+      })
+      .mockResolvedValueOnce({ status: 200, started: true, message: 'flying /repo — 1 firing(s)' });
+    const result = await runFleetLaunch(baseArgs, 0, {
+      loadOpenTasks: () => [],
+      postFly,
+      sleep: async () => {},
+    });
+    expect(result.lines.slice(1)).toEqual([
+      '  base: 200 started — 0 task(s) reserved — preflight warns: engine: Codex CLI is not signed in',
+      '  fleet-2: 200 started — 0 task(s) reserved',
+    ]);
+  });
+
+  it('names no warnings beside a refused lane — its reason already says why', async () => {
+    const postFly = vi
+      .fn<(body: FleetLaunchPostBody) => Promise<FleetLaunchPostResult>>()
+      .mockResolvedValue({
+        status: 409,
+        started: false,
+        message: 'already flying /repo — one flight at a time',
+        warnings: 'preflight warns: disk-space: 3.0 GiB free',
+      });
+    const result = await runFleetLaunch({ ...baseArgs, laneCount: 1 }, 0, {
+      loadOpenTasks: () => [],
+      postFly,
+      sleep: async () => {},
+    });
+    expect(result.lines[1]).toBe(
+      '  base: 409 not started — 0 task(s) reserved — already flying /repo — one flight at a time',
+    );
+  });
+
   it('flies every lane on the chosen engine and names it in the summary (epic 0036)', async () => {
     const postFly = vi
       .fn<(body: FleetLaunchPostBody) => Promise<FleetLaunchPostResult>>()

@@ -286,6 +286,11 @@ export interface StartFlightResult {
   readonly started: boolean;
   readonly message: string;
   readonly status: FlightStatus;
+  /** The preflight warnings a started flight flies past (`preflightWarnings`),
+   *  also at the end of `message`. Omitted when there were none. A fleet
+   *  launch names them on the lane's own line (`runFleetLaunch`), where the
+   *  start message is not shown. */
+  readonly warnings?: string;
   /** Set (true) only by a `FlightRunnerRegistry` refusing to start `folder`
    *  immediately because its concurrency cap is full — the request was
    *  QUEUED, not rejected, and will start on its own once a slot frees.
@@ -576,6 +581,7 @@ export class FlightRunner {
       started: true,
       message: warnings === null ? flying : `${flying} — ${warnings}`,
       status: this.#status,
+      ...(warnings === null ? {} : { warnings }),
     };
   }
 }
