@@ -356,8 +356,15 @@ the launch's `engine` and, beside Codex or Gemini, its `engineModel` (`flight/ru
 flight's row reads "Flying … — 3 firing(s) · Codex (gpt-5-codex)" (`flightRowEngineModelSuffix`,
 `flightRowEngineSuffix` for a Claude choice). A fleet flying several CLIs at once can be read at a
 glance. A launch that chose no engine flies on the dashboard's env, which the row cannot see, so its
-row names none. Still open: a flight the fleet watchdog starts on its own (`createHttpSpawnFlight` in
-`control/cli.ts`) sends no engine, so it flies on the dashboard's env.
+row names none. Since 2026-10-03 a flight the watchdog starts on its own flies on the watch's own
+engine. A single-folder `watch` always did, since its flight is a child that inherits the watch's
+env, but a fleet-mode spawn (`createHttpSpawnFlight` in `control/cli.ts`) rides the dashboard's
+`POST /api/fly` and flew on the dashboard's env. `watch` now reads `AUTOPILOT_ENGINE` and
+`AUTOPILOT_ENGINE_MODEL` once through `firingEngineRequestFromEnv`, judged as the request will be,
+and `watchFlyBody` (`control/flight-watchdog.ts`) carries the choice on every spawn's body, through
+the same `firingEngineRequestFields` `POST /api/fleet` uses. Unset, a spawn names no engine, as
+before. A setting a flight would refuse stops the watch at start (`watch refused: …`) instead of
+failing every spawn's request unseen, and the start line names the engine (`watchEngineClause`).
 
 Since 2026-10-02 `AUTOPILOT_ENGINE=gemini` routes a lane to `GeminiCliModel` the same way, with the
 same model slots, routing skip and demotion. Since 2026-10-03 it also refuses a model
