@@ -73,7 +73,10 @@ function tierForLabels(labels: readonly string[]): ContributorIssueTier | null {
  *  law 2: the maintainer's mark outranks a listing). */
 const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS].map(normalizeLabel);
 
-function isMaintainerMarked(labels: readonly string[]): boolean {
+/** True when `labels` carry one of {@link MAINTAINER_MARKS}, in any casing or
+ *  hyphenation. Exported so the Collaboration panel's help-wanted read
+ *  (help-wanted-items.ts) skips the same issues this list does. */
+export function isMaintainerMarked(labels: readonly string[]): boolean {
   return labels.some((label) => MAINTAINER_MARKS.includes(normalizeLabel(label)));
 }
 

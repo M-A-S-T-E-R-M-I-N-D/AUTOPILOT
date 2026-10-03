@@ -8,7 +8,10 @@ import {
   HELP_WANTED_LABEL,
   type HelpWantedItem,
 } from '../../src/flight/help-wanted-items.js';
-import { MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
+import { HOLD_LABELS, MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
+import { DECLINED_LABEL, planClaimPoolIssue } from '../../src/flight/pool-client.js';
+import { planContributorIssueList } from '../../src/flight/contributor-issue-list.js';
+import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 describe('isHelpWantedItem', () => {
@@ -279,5 +282,74 @@ describe('fetchHelpWantedItems', () => {
     const items = await fetchHelpWantedItems(exec);
 
     expect(items[0]?.assignees).toEqual(['octocat', 'hubot']);
+  });
+});
+
+// Epic 0019 additive-only law, the Collaboration panel × the maintainer's
+// marks. A declined or held issue stays open for its reporter to reply to
+// (CONTRIBUTING.md), `help wanted` label and all. The pool claim skips it
+// (pool-client.ts planClaimPoolIssue) and so does the Good-first list, which
+// reads the same label (contributor-issue-list.ts planContributorIssueList).
+// This read only checked the label, so the panel showed the issue as
+// "Unclaimed" under "what's open to claim".
+describe("fetchHelpWantedItems × the maintainer's declined and held issues (regression, epic 0019 additive-only law)", () => {
+  const seeded = (name: string) =>
+    HOUSE_TAXONOMY_LABELS.find((label) => label.name === name)?.name ?? '';
+  const marks = [seeded('declined'), seeded('status: awaiting-human'), seeded('status: blocked')];
+  const raw = (number: number, labels: readonly string[], assignees: readonly string[] = []) => ({
+    number,
+    title: `Issue ${number}`,
+    url: `https://github.com/example/repo/issues/${number}`,
+    labels: labels.map((name) => ({ name })),
+    assignees: assignees.map((login) => ({ login })),
+  });
+  const listed = async (rows: readonly ReturnType<typeof raw>[]) => {
+    const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: JSON.stringify(rows) });
+    return (await fetchHelpWantedItems(exec)).map((item) => item.number);
+  };
+  const issue = (labels: readonly string[]) => ({
+    number: 1,
+    title: 'Issue 1',
+    url: 'https://github.com/example/repo/issues/1',
+    labels,
+    assignees: [],
+  });
+
+  it('reads the labels the pool claim skips on, as the seeder stamps them', () => {
+    expect([DECLINED_LABEL, ...HOLD_LABELS]).toEqual(marks);
+  });
+
+  it.each(marks)('never offers an unclaimed issue marked "%s" as open to claim', async (mark) => {
+    const open = ['pool: ux', HELP_WANTED_LABEL];
+    const marked = [...open, mark];
+
+    expect(planClaimPoolIssue(issue(open), 'octocat').decision).toBe('claim');
+    expect(planContributorIssueList([issue(open)])).toHaveLength(1);
+    expect(await listed([raw(1, open)])).toEqual([1]);
+
+    expect(planClaimPoolIssue(issue(marked), 'octocat').decision).toBe('skip');
+    expect(planContributorIssueList([issue(marked)])).toEqual([]);
+    expect(await listed([raw(1, marked)])).toEqual([]);
+  });
+
+  it('matches a mark in any casing, as the Good-first list does', async () => {
+    const labels = [HELP_WANTED_LABEL, 'Status: Blocked'];
+
+    expect(planContributorIssueList([issue(labels)])).toEqual([]);
+    expect(await listed([raw(1, labels)])).toEqual([]);
+  });
+
+  it('keeps a marked issue someone already holds, so "Claimed by" and My claims still show it', async () => {
+    expect(await listed([raw(7, [HELP_WANTED_LABEL, DECLINED_LABEL], ['octocat'])])).toEqual([7]);
+  });
+
+  it('drops only the unclaimed marked issue and keeps the rest in gh order', async () => {
+    const rows = [
+      raw(4, [HELP_WANTED_LABEL]),
+      raw(2, [HELP_WANTED_LABEL, 'status: awaiting-human']),
+      raw(3, [HELP_WANTED_LABEL], ['hubot']),
+    ];
+
+    expect(await listed(rows)).toEqual([4, 3]);
   });
 });
