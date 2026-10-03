@@ -560,6 +560,58 @@ describe('createReleaseExecuteApi', () => {
       }
     });
 
+    it('refreshes the living status blocks AFTER the bump, inside the same release commit (2026-10-03)', async () => {
+      // v0.58.0 was cut with the blocks refreshed before the bump; they still
+      // named v0.57.0 and ci:docs-status went red on main for a whole round.
+      const repo = mkdtempSync(join(tmpdir(), 'ap-dash-rel-status-ok-'));
+      const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-rel-db-'));
+      try {
+        setupTaggedRepo(repo);
+        withCitationScript(repo);
+        mkdirSync(join(repo, 'scripts', 'docs'), { recursive: true });
+        writeFileSync(join(repo, 'scripts', 'docs', 'refresh-status.mjs'), '// stub\n');
+        writeFileSync(join(repo, 'README.md'), 'as of v1.0.0\n');
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'chore: add the generator stubs']);
+        gitSync(repo, ['tag', '-a', 'v1.0.0', '-f', '-m', 'v1.0.0']);
+        writeFileSync(join(repo, 'a.txt'), 'x');
+        gitSync(repo, ['add', '-A']);
+        gitSync(repo, ['commit', '-q', '-m', 'feat: a new capability']);
+
+        const dbPath = join(dbDir, 'a.db');
+        const s = openStore(dbPath);
+        migrate(s);
+        project(s, 'p1', repo);
+        s.close();
+
+        const calls: Array<{ command: string; args: readonly string[] }> = [];
+        const result = await createReleaseExecuteApi(dbPath, async (command, args) => {
+          calls.push({ command, args });
+          if (args[0] === 'scripts/docs/refresh-status.mjs') {
+            // The real generator reads package.json, which the bump has
+            // already rewritten by the time it runs.
+            const bumped = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as {
+              version: string;
+            };
+            writeFileSync(join(repo, 'README.md'), `as of v${bumped.version}\n`);
+          }
+          return { exitCode: 0, stdout: '', stderr: '' };
+        })('p1');
+
+        expect(result?.ok).toBe(true);
+        expect(calls.map((c) => c.args[0])).toEqual([
+          'scripts/citation/generate-citation.mjs',
+          'scripts/docs/refresh-status.mjs',
+        ]);
+        expect(gitSync(repo, ['log', '--format=%s', '-n', '1'])).toBe('chore(release): v1.0.1');
+        expect(gitSync(repo, ['show', '--stat', '--format=', 'HEAD'])).toContain('README.md');
+        expect(readFileSync(join(repo, 'README.md'), 'utf8')).toBe('as of v1.0.1\n');
+      } finally {
+        cleanupDir(repo);
+        cleanupDir(dbDir);
+      }
+    });
+
     it('fails the release before any commit when the citation script exits non-zero', async () => {
       const repo = mkdtempSync(join(tmpdir(), 'ap-dash-rel-citation-fail-'));
       const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-rel-db-'));
