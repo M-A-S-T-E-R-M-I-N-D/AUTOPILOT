@@ -12,9 +12,13 @@ import {
   createFlightWatchdogControl,
   canSpawnFlight,
   parseWatchArgs,
+  watchEngineClause,
+  watchFlyBody,
+  DEFAULT_WATCH_FLY_FIRINGS,
   type FlightWatchdogControl,
 } from '../../src/control/flight-watchdog.js';
 import { engineLockFileName, deriveFlyProjectId } from '../../src/flight/lock.js';
+import { DEFAULT_BUDGET_USD } from '../../src/flight/runner.js';
 
 vi.mock('@autopilot/store', async (importOriginal) => {
   const actual = await importOriginal<typeof AutopilotStore>();
@@ -342,6 +346,46 @@ describe('parseWatchArgs (pure)', () => {
       budgetUsd: 5,
       totalBudgetUsd: 5,
     });
+  });
+});
+
+describe('watchFlyBody (pure)', () => {
+  const base = {
+    folder: '/repos/a',
+    firings: DEFAULT_WATCH_FLY_FIRINGS,
+    budgetUsd: DEFAULT_BUDGET_USD,
+    initiatedBy: 'fleet-watchdog',
+  };
+
+  it('is the body fleet spawns always sent when the watch names no engine', () => {
+    expect(watchFlyBody('/repos/a', undefined)).toEqual(base);
+  });
+
+  it("carries the watch's own engine, so a fleet spawn does not fly on the dashboard's env", () => {
+    // Epic 0036: a single-folder `watch` spawns its flight as a child that
+    // inherits the watch's env, but a fleet spawn rides the dashboard's
+    // `/api/fly`, whose flight inherited the DASHBOARD's env instead.
+    expect(watchFlyBody('/repos/a', { engine: 'codex', model: 'gpt-5-codex' })).toEqual({
+      ...base,
+      engine: 'codex',
+      engineModel: 'gpt-5-codex',
+    });
+    expect(watchFlyBody('/repos/a', { engine: 'claude' })).toEqual({ ...base, engine: 'claude' });
+  });
+});
+
+describe('watchEngineClause (pure)', () => {
+  it("adds nothing when the watch names no engine and its flights take the dashboard's", () => {
+    expect(watchEngineClause(undefined)).toBe('');
+  });
+
+  it('names the engine and model every spawned flight flies on', () => {
+    expect(watchEngineClause({ engine: 'claude' })).toBe(
+      '; flights fly on the Claude Code CLI (AUTOPILOT_ENGINE)',
+    );
+    expect(watchEngineClause({ engine: 'gemini', model: 'gemini-2.5-pro' })).toBe(
+      '; flights fly on the Gemini CLI on gemini-2.5-pro (AUTOPILOT_ENGINE)',
+    );
   });
 });
 

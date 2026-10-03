@@ -31,7 +31,7 @@ import {
 } from '../flight/runner.js';
 import { parseFleetCliArgs } from '../flight/fleet-launch.js';
 import type { FleetLaunchApi } from '../flight/fleet-launch-api.js';
-import { firingEngineFromRequest } from '../flight/firing-engine.js';
+import { firingEngineFromRequest, firingEngineRequestFields } from '../flight/firing-engine.js';
 import type { LuckyPlan, LuckyProbe } from '../flight/lucky-plan.js';
 import {
   parseLuckyAttention,
@@ -1288,13 +1288,7 @@ async function handleFleetLaunch(
     send(400, { error: engineRequest.reason });
     return;
   }
-  const route = engineRequest.route;
-  const engine =
-    route === undefined
-      ? {}
-      : route.engine === 'claude'
-        ? { engine: route.engine }
-        : { engine: route.engine, engineModel: route.model };
+  const engine = firingEngineRequestFields(engineRequest.route);
 
   const result = await api({ ...parsed.args, folder: resolve(parsed.args.folder), ...engine });
   send(result.ok ? 200 : 502, result);

@@ -5,7 +5,12 @@ import { dirname } from 'node:path';
 import { openStore, listProjects, type ProjectRow } from '@autopilot/store';
 import { samePath } from '../paths.js';
 import { isFlightOwnerAlive } from '../flight/lock.js';
-import type { FlightRunnerDeps } from '../flight/runner.js';
+import { DEFAULT_BUDGET_USD, type FlightRunnerDeps } from '../flight/runner.js';
+import {
+  firingEngineCli,
+  firingEngineRequestFields,
+  type FiringEngineRoute,
+} from '../flight/firing-engine.js';
 
 /** `watch <folder>`'s default firing count per spawned flight — cautious,
  *  matches `dashboard:fly`'s own DEFAULT_FIRINGS single-firing default. */
@@ -49,6 +54,44 @@ export function parseWatchArgs(
       ? Math.max(budgetUsd, Number(totalBudgetRaw) || budgetUsd)
       : undefined;
   return { flyFolder, firings, budgetUsd, totalBudgetUsd };
+}
+
+/** The `POST /api/fly` body a fleet-mode `watch` spawns an idle project's
+ *  flight with. */
+export interface WatchFlyBody {
+  readonly folder: string;
+  readonly firings: number;
+  readonly budgetUsd: number;
+  readonly initiatedBy: 'fleet-watchdog';
+  readonly engine?: string;
+  readonly engineModel?: string;
+}
+
+/**
+ * Epic 0036: a single-folder `watch` spawns its flight as a child of its own,
+ * which inherits the watch's `AUTOPILOT_ENGINE`, but a fleet spawn rides the
+ * dashboard's `/api/fly`, whose flight inherited the DASHBOARD's env instead.
+ * `engine` is the watch's own choice (`firingEngineRequestFromEnv`), carried
+ * in the body so both modes fly on it; `undefined` sends the body unchanged.
+ */
+export function watchFlyBody(folder: string, engine: FiringEngineRoute | undefined): WatchFlyBody {
+  return {
+    folder,
+    firings: DEFAULT_WATCH_FLY_FIRINGS,
+    budgetUsd: DEFAULT_BUDGET_USD,
+    initiatedBy: 'fleet-watchdog',
+    ...firingEngineRequestFields(engine),
+  };
+}
+
+/** The `watch` start line's engine clause: empty when the watch names none. */
+export function watchEngineClause(engine: FiringEngineRoute | undefined): string {
+  if (engine === undefined) return '';
+  const cli =
+    engine.engine === 'claude'
+      ? 'Claude Code CLI'
+      : `${firingEngineCli(engine.engine)} CLI on ${engine.model}`;
+  return `; flights fly on the ${cli} (AUTOPILOT_ENGINE)`;
 }
 
 /** The slice of watchdog capability that decides whether to spawn a flight —

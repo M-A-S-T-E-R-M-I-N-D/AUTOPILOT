@@ -17,8 +17,10 @@ import {
   createFlightWatchdogControl,
   canSpawnFlight,
   parseWatchArgs,
-  DEFAULT_WATCH_FLY_FIRINGS,
+  watchEngineClause,
+  watchFlyBody,
 } from './flight-watchdog.js';
+import { firingEngineRequestFromEnv, type FiringEngineRoute } from '../flight/firing-engine.js';
 import { runTaxonomySeed } from '../flight/taxonomy-seed.js';
 import {
   reconcileOwnedWork,
@@ -128,18 +130,17 @@ function createHttpLand(
  *  flight/runner.ts) is the epic's last acceptance criterion: it rides the
  *  request into the registry's FlightStatus so the dashboard's per-project
  *  flight card can tell an operator this project started flying on its own,
- *  not because they clicked Fly. */
-function createHttpSpawnFlight(port: number): (folder: string) => void {
+ *  not because they clicked Fly. `engine` is the watch's own engine choice
+ *  (epic 0036, `watchFlyBody`). */
+function createHttpSpawnFlight(
+  port: number,
+  engine: FiringEngineRoute | undefined,
+): (folder: string) => void {
   return (folder) => {
     void fetch(`http://127.0.0.1:${port}/api/fly`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        folder,
-        firings: DEFAULT_WATCH_FLY_FIRINGS,
-        budgetUsd: DEFAULT_BUDGET_USD,
-        initiatedBy: 'fleet-watchdog',
-      }),
+      body: JSON.stringify(watchFlyBody(folder, engine)),
     }).catch(() => {});
   };
 }
@@ -442,6 +443,15 @@ async function main(): Promise<void> {
       // keeps the exact server-lifecycle-only behavior this command always had.
       const watchArgs = parseWatchArgs(process.argv.slice(3, 7), DEFAULT_BUDGET_USD);
       const flyFolder = watchArgs.flyFolder;
+      // Epic 0036: the engine this watch's own env names. A single-folder
+      // flight inherits it as its child's env; a fleet spawn carries it in
+      // its `/api/fly` body (`watchFlyBody`). A setting no flight could fly
+      // stops the watch here, once, instead of refusing every spawn unseen.
+      const watchEngine = firingEngineRequestFromEnv(process.env);
+      if (!watchEngine.ok) {
+        reportRefusal(`watch refused: ${watchEngine.reason}`);
+        break;
+      }
       // Guards the race between "spawned a flight" and "the flight finished
       // onboarding and wrote status='flying' to the store" (fly.ts) — without
       // it, a tick landing inside that window would see the project still
@@ -503,7 +513,7 @@ async function main(): Promise<void> {
       // FLYABLE_STATUSES boundary (via fleetFlightWatchdogTick) and
       // landWatchdogTick unchanged, looped over listProjects() fresh every
       // tick; no new spawn, idle-boundary, or concurrency logic invented here.
-      const httpSpawnFlight = createHttpSpawnFlight(config.port);
+      const httpSpawnFlight = createHttpSpawnFlight(config.port, watchEngine.route);
       // Per-project counterpart to the single-folder path's `landInProgress`
       // boolean — also read by the fleet flight control below so a project
       // whose land is mid checkout/merge is never handed a fresh flight spawn
@@ -529,6 +539,7 @@ async function main(): Promise<void> {
           (fleetFlightControl
             ? ' + fleet flight spawning + landing (all registered projects)'
             : '') +
+          watchEngineClause(watchEngine.route) +
           '. Ctrl+C to stop.',
       );
       const ac = new AbortController();
