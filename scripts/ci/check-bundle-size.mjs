@@ -555,7 +555,14 @@ const PANELS_RAW_BUDGET = 255 * 1024;
 // line.
 // Then panels gzip 73->78KB (2026-09-30), the same per-firing trace
 // relocation as the panels raw entry above -- measured 78245B.
-const PROJECT_GZIP_BUDGET = 34 * 1024;
+// Then project gzip 34->35KB (2026-10-03, board web-mtywp7zq-55f3o9), epic
+// 0025's Keeper execute buttons: the mirror pass's five and the Discussions
+// triage run lead with vendored icons and swap their busy words through
+// setSweptText(). Paid the tripwire first -- setSweptText() over a captured
+// child-node restore (-17B). Measured 34886B against the 34816B line: 70
+// bytes over, from 26 under before the slice -- the margin every entry above
+// refuses. Raw (129756B) stays under PROJECT_RAW_BUDGET untouched.
+const PROJECT_GZIP_BUDGET = 35 * 1024;
 const PANELS_GZIP_BUDGET = 78 * 1024;
 // THE LOCALES CHUNK (2026-09-30, board ap-muo35gze-1): /locales.js carries
 // every non-English STRINGS table (features/locale-data.ts), and core loads

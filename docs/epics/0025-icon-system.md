@@ -422,6 +422,24 @@ propagation, and the filled style does not match the nav.
    aria-label stay the words alone. `subject-nav.ts` rides `/panels.js`, so
    core does not grow; `iconEl` is typeof-guarded like `tr`, since the module
    also runs on its own (`apps/dashboard/test/web/keeper-queue-heading-icon.test.ts`).
+   **Keeper execute buttons 2026-10-03 (slice 2):** landing, release and the
+   issue triage run led with their panel's icon, but the mirror pass's five
+   buttons, the Discussions triage run and the PR review Apply were bare
+   words. The mirror pass buttons lead with what each does: the pass itself
+   the panel heading's `repeat`, Fix doc drift `file-text`, Post landing
+   note(s) `message-circle`, Free stale claim(s) `lock-open` and Follow
+   GitHub priority label(s) `flag`. The Discussions triage run takes its
+   heading's `message-circle`, and Apply the KEEPER `key-round` the issue
+   triage run draws; none is newly vendored. The mirror pass and Discussions
+   triage runs swap their busy and idle words through `setSweptText()`, not
+   `textContent`, so the icon stays put through a run and a failed one, as
+   Start over's `setTaggedLabel()` does. Every execute icon sat flush against
+   its words; one rule spaces them
+   (`apps/dashboard/test/web/keeper-execute-button-icons.test.ts`). The
+   `/project.js` gzip line rose 34→35KB for it (34886B; HEAD had 26 bytes of
+   margin). Open: the pool claim and the report execute buttons are still
+   bare words, and the issue triage and release runs still swap
+   `textContent`, dropping their icon on the first run.
 
 ## Related
 
