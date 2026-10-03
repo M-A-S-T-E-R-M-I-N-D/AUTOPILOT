@@ -42,20 +42,14 @@ export type FiringEngineChoice =
 export const NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES = 2;
 
 /** How each non-Claude engine is named in the flight log, a model it runs,
- *  the one publisher whose models it can reach when it has one, and whether
- *  it holds a run to the flight's turn cap. Codex reaches other providers
- *  through its own config, so only a Claude model is refused there; the
- *  Gemini CLI calls Google's API alone. Gemini takes the cap as
- *  `model.maxSessionTurns` in the lane's settings file; `codex exec` has no
- *  turn limit at all (openai/codex#12336, closed as not planned). */
+ *  and the one publisher whose models it can reach when it has one. Codex
+ *  reaches other providers through its own config, so only a Claude model is
+ *  refused there; the Gemini CLI calls Google's API alone. */
 const ENGINES: Readonly<
-  Record<
-    NonClaudeEngine,
-    { cli: string; exampleModel: string; onlyVendor?: ModelVendorId; turnCap: boolean }
-  >
+  Record<NonClaudeEngine, { cli: string; exampleModel: string; onlyVendor?: ModelVendorId }>
 > = {
-  codex: { cli: 'Codex', exampleModel: 'gpt-5-codex', turnCap: false },
-  gemini: { cli: 'Gemini', exampleModel: 'gemini-2.5-pro', onlyVendor: 'google', turnCap: true },
+  codex: { cli: 'Codex', exampleModel: 'gpt-5-codex' },
+  gemini: { cli: 'Gemini', exampleModel: 'gemini-2.5-pro', onlyVendor: 'google' },
 };
 
 function isNonClaudeEngine(engine: string): engine is NonClaudeEngine {
@@ -206,17 +200,6 @@ export function firingConfigForEngine(
   };
 }
 
-/** The turn cap `route`'s CLI enforces, which is the one its prompt may
- *  name: `maxTurns` for Claude (`--max-turns`) and Gemini, nothing for Codex,
- *  whose firings only the wall clock and the idle cap stop. */
-export function firingEngineTurnCap(
-  route: FiringEngineRoute,
-  maxTurns: number,
-): number | undefined {
-  if (route.engine === 'claude' || ENGINES[route.engine].turnCap) return maxTurns;
-  return undefined;
-}
-
 /** Where each engine's containment guard runs: the same `guard-hook.js` the
  *  Claude settings file runs, as that CLI's own pre-tool hook. Gemini loads
  *  hooks only in a trusted folder, so its lane trusts the worktree for each
@@ -233,13 +216,9 @@ const GUARD_LINES: Readonly<Record<NonClaudeEngine, string>> = {
 export function firingEngineLine(route: FiringEngineRoute): string | null {
   if (route.engine === 'claude') return null;
   const cli = firingEngineCli(route.engine);
-  const turnCap = ENGINES[route.engine].turnCap
-    ? ''
-    : `no turn cap, since ${cli} has no turn limit, so only the wall clock and the idle cap stop a firing; `;
   return (
     `Engine: ${cli} CLI on ${route.model} (AUTOPILOT_ENGINE). Model routing is off; ` +
     `${GUARD_LINES[route.engine]}; no cost is recorded, since ${cli} reports no price; ` +
-    turnCap +
     `${NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES} reverted firings in a row demote the lane.`
   );
 }

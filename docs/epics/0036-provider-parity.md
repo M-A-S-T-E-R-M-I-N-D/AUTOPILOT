@@ -419,14 +419,8 @@ counts next-speaker and retry turns as well, so it can stop a run first; the run
 reads either as `stopReason: 'max_turns'`, so the firing records `maxTurnsHit` and the next prompt
 gets the turn-cap death feedback a Claude firing gets. The cap restarts with each run, so a
 finish-line extension, which resumes the session, gets the whole cap, not the smaller tap
-`finishLineCaps` asks for. A Codex lane is held to no turn cap, and cannot be: `codex exec` has no
-turn limit, flag or config key, and the request for one
-([openai/codex#12336](https://github.com/openai/codex/issues/12336)) was closed as not planned.
-Until 2026-10-03 its prompt's TURN BUDGET still promised the flight's cap. Since then `fly.ts` hands
-the prompt only the cap the lane's CLI enforces (`firingEngineTurnCap`, `flight/firing-engine.ts`),
-so a Codex lane's TURN BUDGET names the wall clock alone ("the harness hard-stops you after 90
-minutes of wall clock", `turnBudgetSection` in `packages/engine/src/prompt.ts`), and its flight-log
-engine line says only the wall clock and the idle cap stop a firing.
+`finishLineCaps` asks for. A Codex lane is still held to no turn cap: `CodexCliModel` passes none,
+so its TURN BUDGET line names a cap that only the wall clock enforces.
 
 **4. Google Gemini CLI** — headless mode triggers on a non-TTY or `-p`/`--prompt`; `--output-format
 json` returns one JSON object with response + usage statistics, or JSONL for a stream
