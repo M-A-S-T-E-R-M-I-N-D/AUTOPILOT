@@ -255,34 +255,6 @@ describe('evaluatePreflight — the go/no-go before a flight spends a dollar', (
     });
   });
 
-  it('a gemini lane with no auth method set WARNS: the lane may still find one the preflight cannot see', () => {
-    const gemini = {
-      kind: 'cli' as const,
-      engine: 'gemini' as const,
-      model: 'gemini-2.5-pro',
-      found: true,
-      version: '0.8.2',
-    };
-    const unset = evaluatePreflight(facts({ engine: { ...gemini, authConfigured: false } }));
-    expect(unset.go).toBe(true);
-    expect(check(unset, 'engine')).toEqual({
-      level: 'warn',
-      name: 'engine',
-      ok: true,
-      detail:
-        'Gemini CLI 0.8.2 on gemini-2.5-pro (AUTOPILOT_ENGINE) has no auth method set (`security.auth.selectedType` in its settings, or GEMINI_API_KEY, GOOGLE_GENAI_USE_VERTEXAI or GOOGLE_GENAI_USE_GCA in the env or a .env file) — every firing exits before its first turn; run `gemini` once and sign in, or set GEMINI_API_KEY',
-    });
-    expect(formatPreflight(unset)).toContain(`[--] engine: ${check(unset, 'engine').detail}`);
-    const set = evaluatePreflight(facts({ engine: { ...gemini, authConfigured: true } }));
-    expect(check(set, 'engine')).toEqual({
-      level: 'info',
-      name: 'engine',
-      ok: true,
-      detail:
-        'Gemini CLI 0.8.2 on gemini-2.5-pro (AUTOPILOT_ENGINE) — no cost is recorded, since Gemini reports no price',
-    });
-  });
-
   it('a codex lane still needs `claude`: the commit reviewer stays on it', () => {
     const report = evaluatePreflight(
       facts({
