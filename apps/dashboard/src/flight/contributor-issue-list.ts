@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { CliExec } from '../connection/cli-probe.js';
-import { MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
+import { HOLD_LABELS, MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
+import { DECLINED_LABEL } from './pool-client.js';
 import { ghExec } from './gh-exec.js';
 
 /**
@@ -65,12 +66,24 @@ function tierForLabels(labels: readonly string[]): ContributorIssueTier | null {
   return null;
 }
 
+/** The maintainer's own marks on an issue: answered no, or on hold until they
+ *  lift it by hand. Such an issue stays open, tier label and all, for its
+ *  reporter to reply to (CONTRIBUTING.md); the pool claim skips it on the same
+ *  labels (pool-client.ts), so this list must not offer it either (epic 0019
+ *  law 2: the maintainer's mark outranks a listing). */
+const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS].map(normalizeLabel);
+
+function isMaintainerMarked(labels: readonly string[]): boolean {
+  return labels.some((label) => MAINTAINER_MARKS.includes(normalizeLabel(label)));
+}
+
 /**
  * Filters open issues down to the CONTRIBUTOR JOURNEY's pick list: only
  * `good first issue`/`help wanted`-labeled issues, already-assigned ones
  * excluded outright (a visitor should never be steered at something someone
  * already owns — the same claim signal `flight/pool-client.ts`'s
- * `isClaimedPoolIssue` reads). Good-first-issue entries rank before
+ * `isClaimedPoolIssue` reads), and so are ones the maintainer has declined or
+ * put on hold ({@link MAINTAINER_MARKS}). Good-first-issue entries rank before
  * help-wanted, ties broken by issue number so the order is stable across
  * calls with identical input.
  */
@@ -80,6 +93,7 @@ export function planContributorIssueList(
   const entries: ContributorListEntry[] = [];
   for (const issue of issues) {
     if (issue.assignees.length > 0) continue;
+    if (isMaintainerMarked(issue.labels)) continue;
     const tier = tierForLabels(issue.labels);
     if (!tier) continue;
     entries.push({ number: issue.number, title: issue.title, url: issue.url, tier });
