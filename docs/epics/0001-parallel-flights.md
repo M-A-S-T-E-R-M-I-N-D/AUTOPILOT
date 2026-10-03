@@ -415,6 +415,15 @@ crosses projects because of it, and it opens no cross-project write path. `fligh
 `flight/registry.ts` are unchanged. None of the four locks below changes; all six slices remain
 unchanged and live in production.
 
+Freshness check (2026-10-03, still later again): `flight/runner.ts` gained one more commit since
+the check above — `8a26ee91` (epic 0036), which lets the fly bar's flight row name the engine a
+lane is flying on. `FlightStatus` now carries the launch's own `engine`/`engineModel`, read through
+the same `firingEngineFromRequest` the prior commit introduced, and the bar row appends it after the
+budget clause (e.g. "· Codex (gpt-5-codex)"). This is a pure UI-visibility addition — reading a value
+already computed per-launch and displaying it — with no new write path and no change to who can read
+or trigger a flight. `flight/fly.ts` and `flight/registry.ts` are unchanged. None of the four locks
+below changes; all six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
