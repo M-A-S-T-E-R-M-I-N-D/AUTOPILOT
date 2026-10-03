@@ -67,8 +67,8 @@ interface RawAssignedIssue {
 
 /** The maintainer's own marks on an issue: answered no, or on hold until they
  *  lift it by hand. Issue triage never picks such an issue onto the board
- *  (issue-triage.ts planIssueTriage) and the pool claim refuses it
- *  (pool-client.ts planClaimPoolIssue), both matching these labels exactly;
+ *  (issue-triage.ts planIssueTriage, matching these labels exactly) and the
+ *  pool claim refuses it (pool-client.ts planClaimPoolIssue, in any casing);
  *  an assignment does not lift the mark (epic 0019 law 2: the maintainer's
  *  mark outranks a claim). */
 const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS];
