@@ -56,7 +56,7 @@ import {
   parseIssueLabels,
   POOL_LABEL_PREFIX,
 } from './issue-triage.js';
-import { DECLINED_LABEL } from './pool-client.js';
+import { DECLINED_LABEL, normalizeLabel } from './pool-client.js';
 
 /** The subset of a GitHub Discussion this policy needs — title/body/category
  *  plus the two states (`isAnswered`, `locked`) that decide whether a reply
@@ -110,8 +110,9 @@ export type DiscussionTriageDecision = DiscussionTriageAccept | DiscussionTriage
  *  hand ({@link HOLD_LABELS}). A discussion takes the repo's labels, so it can
  *  carry them exactly as an issue does, and issue triage never scores, labels
  *  or answers an issue that does (epic 0019 law 2: the maintainer's mark
- *  outranks triage). Matched exactly, as issue triage matches them. */
-const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS];
+ *  outranks triage). Matched in any casing, a hyphen read as a space
+ *  ({@link normalizeLabel}), as issue triage and the pool claim match them. */
+const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS].map(normalizeLabel);
 
 /**
  * Decides what a KEEPER Discussions pass should do with one open discussion:
@@ -150,7 +151,7 @@ export function planDiscussionTriage(discussion: IncomingDiscussion): Discussion
   }
 
   const labels = discussion.labels ?? [];
-  const mark = MAINTAINER_MARKS.find((label) => labels.includes(label));
+  const mark = labels.find((label) => MAINTAINER_MARKS.includes(normalizeLabel(label)));
   if (mark) {
     return {
       decision: 'skip',

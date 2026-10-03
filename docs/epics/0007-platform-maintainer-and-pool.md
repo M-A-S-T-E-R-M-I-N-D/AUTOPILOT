@@ -1294,6 +1294,18 @@ standalone board item. ap-mtlvusoi-0 closes on this evidence.
    (the labels are the seeder's; issue triage and this ritual skip the same
    mark; the ritual sends nothing for the marked discussion and still
    answers the unmarked one beside it).
+   Refined again 2026-10-03 (same board task): issue triage (a2a1c716), the
+   pool claim, the reaper and the lists read the three marks in any casing
+   or hyphenation, but this skip still matched them exactly, so on a repo
+   whose label reads `Declined` or `Status: Blocked` issue triage held the
+   issue while this ritual still replied to the discussion and labeled it.
+   `planDiscussionTriage` now compares through `pool-client.ts`'s
+   `normalizeLabel`, and the skip reason names the label as the discussion
+   carries it. Narrowing-only: the seeder's own spellings skip as before, and
+   nothing skipped before is answered now. Covered by
+   `test/flight/discussions-triage.test.ts` (the same five variants and a
+   label that only resembles a mark; written first, it failed 7 of its 9
+   checks against the old code).
 
 ## The claims ledger (2026-09-13)
 

@@ -17,7 +17,7 @@ import {
 } from '../../src/flight/discussions-triage.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 import { HOLD_LABELS, planIssueTriage } from '../../src/flight/issue-triage.js';
-import { DECLINED_LABEL } from '../../src/flight/pool-client.js';
+import { DECLINED_LABEL, isMaintainerMarked } from '../../src/flight/pool-client.js';
 import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 
 function discussion(overrides: Partial<IncomingDiscussion> = {}): IncomingDiscussion {
@@ -844,5 +844,105 @@ describe("planDiscussionTriage × the maintainer's declined and held discussions
     expect(
       planDiscussionTriage(discussion({ isAnswered: true, labels: ['declined'] })).reasoning,
     ).toContain('chosen answer');
+  });
+});
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the KEEPER
+// Discussions ritual × the maintainer's marks in another casing. Issue triage,
+// the pool claim, the reaper and the lists skip `declined`, `status:
+// awaiting-human` and `status: blocked` in any casing or hyphenation
+// (pool-client.ts isMaintainerMarked). This ritual matched them exactly, so on
+// a repo whose label reads `Declined` or `Status: Blocked` issue triage held
+// the issue while this ritual still replied to the discussion and labeled it.
+describe("planDiscussionTriage × the maintainer's marks in any casing (regression, epic 0019 additive-only law)", () => {
+  const variants = [
+    'Declined',
+    'DECLINED',
+    'Status: Awaiting-Human',
+    'status: awaiting human',
+    'Status: Blocked',
+  ];
+  const node = (id: string, number: number, labels: readonly string[]) => ({
+    id,
+    number,
+    title: 'Keyboard nav is broken in the fleet table',
+    body: 'Screen reader users are stuck',
+    isAnswered: false,
+    locked: false,
+    category: { name: 'Q&A' },
+    labels: { nodes: labels.map((name) => ({ name })) },
+  });
+
+  it('reads variants of the three marks, not the marks themselves', () => {
+    for (const mark of variants) {
+      expect([DECLINED_LABEL, ...HOLD_LABELS]).not.toContain(mark);
+      expect(isMaintainerMarked([mark])).toBe(true);
+    }
+  });
+
+  it.each(variants)(
+    'skips a discussion marked "%s", as issue triage skips such an issue',
+    (mark) => {
+      const issue = { number: 9, title: 'Keyboard nav is broken', body: 'Stuck', labels: [mark] };
+      expect(planIssueTriage(issue, [], []).decision).toBe('skip');
+      expect(planDiscussionTriage(discussion()).decision).toBe('accept');
+
+      const decision = planDiscussionTriage(discussion({ labels: [mark] }));
+
+      expect(decision.decision).toBe('skip');
+      expect(decision.reasoning).toContain(`carries "${mark}"`);
+    },
+  );
+
+  it('names the mark as the discussion carries it, ahead of an earlier pool label', () => {
+    const decision = planDiscussionTriage(
+      discussion({ labels: ['pool: accessibility', 'Status: Blocked'] }),
+    );
+
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain('"Status: Blocked"');
+  });
+
+  it('posts no reply and no pool label on the marked discussions, while the unmarked one beside them is answered', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: discussionsGraphql([
+          node('D_declined', 6, ['Declined']),
+          node('D_awaiting', 7, ['Status: Awaiting-Human']),
+          node('D_blocked', 8, ['Status: Blocked']),
+          node('D_open', 9, []),
+        ]),
+      })
+      .mockResolvedValueOnce({ code: 0, stdout: labelGraphql('LA_a11y') })
+      .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) })
+      .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) });
+
+    const result = await runDiscussionTriageRitual(exec, 'gabibi555');
+
+    expect(exec).toHaveBeenCalledTimes(4);
+    const sent = (vi.mocked(exec).mock.calls as [string, readonly string[]][]).map(([, args]) =>
+      args.join(' '),
+    );
+    for (const id of ['D_declined', 'D_awaiting', 'D_blocked']) {
+      expect(sent.filter((args) => args.includes(id))).toEqual([]);
+    }
+    expect(sent[2]).toContain('discussionId=D_open');
+    expect(sent[3]).toContain('labelableId=D_open');
+    expect(result.plans.map((plan) => plan.decision.decision)).toEqual([
+      'skip',
+      'skip',
+      'skip',
+      'accept',
+    ]);
+    expect(result.outcomes.map((outcome) => outcome.discussionNumber)).toEqual([9]);
+  });
+
+  it('still answers a discussion whose label only resembles a mark', () => {
+    for (const label of ['declined-upstream', 'status: blocked on ci', 'awaiting-human']) {
+      expect(isMaintainerMarked([label])).toBe(false);
+      expect(planDiscussionTriage(discussion({ labels: [label] })).decision).toBe('accept');
+    }
   });
 });
