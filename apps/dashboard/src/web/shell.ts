@@ -5757,7 +5757,7 @@ ${settingsMenuHtml()}
   </header>
 ${subjectNavHtml(project)}
   <dialog class="palette" id="palette" aria-labelledby="palette-title">
-    <h2 class="palette-title" id="palette-title" data-i18n="paletteTitle">Go to, open, or do</h2>
+    <h2 class="palette-title" id="palette-title">${iconSvg('search')}<span data-i18n="paletteTitle">Go to, open, or do</span></h2>
     <input class="palette-input" id="palette-input" type="text" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Type a place, a project or an action…" data-i18n-placeholder="palettePlaceholder" />
     <ul class="palette-list" id="palette-list" role="listbox" aria-labelledby="palette-title"></ul>
   </dialog>
@@ -5889,7 +5889,7 @@ ${benchmarkSubjectHtml(project)}  <div class="snackbar-host" id="snackbar-host" 
   <button type="button" class="ask-fab" id="ask-fab" aria-expanded="false" aria-controls="ask-sheet" aria-label="Ask" data-i18n-aria="askFab" data-tip="Ask Architect or Genius about this page — opens beside it" data-i18n-tip="askFabTip">${iconSvg('message-circle')}</button>
   <aside class="ask-sheet" id="ask-sheet" role="dialog" aria-modal="false" aria-labelledby="ask-sheet-title" hidden>
     <div class="ask-sheet-head">
-      <h2 class="ask-sheet-title" id="ask-sheet-title" data-i18n="askSheetTitle">Ask</h2>
+      <h2 class="ask-sheet-title" id="ask-sheet-title">${iconSvg('message-circle')}<span data-i18n="askSheetTitle">Ask</span></h2>
       <button type="button" class="ask-sheet-close" id="ask-sheet-close" aria-label="Close" data-i18n-aria="askSheetClose">${iconSvg('x')}</button>
     </div>
     <div class="ask-sheet-body" id="ask-sheet-body"></div>
