@@ -21,6 +21,21 @@ const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 export default defineConfig({
   root: repoRoot,
+  resolve: {
+    alias: {
+      // registry.ts reaches one workspace package, through ./runner.ts and
+      // ./firing-engine.ts (47c7649b, epic 0036): `isLocallyServed` and
+      // `resolveModelVendor`, both in packages/engine/src/model-vendor.ts (no
+      // imports of its own). Inside the Stryker sandbox (symlinkNodeModules:
+      // false) the package name cannot resolve — "Cannot find package
+      // '@autopilot/engine'" — so `vitest related` found no tests and the
+      // 2026-10-03 nightly went red with zero mutants run. Aliased straight to
+      // that source file, as vitest.dashboard-preflight.config.ts does.
+      '@autopilot/engine': fileURLToPath(
+        new URL('../../packages/engine/src/model-vendor.ts', import.meta.url),
+      ),
+    },
+  },
   test: {
     globals: false,
     environment: 'node',
