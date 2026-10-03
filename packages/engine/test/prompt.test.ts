@@ -444,6 +444,30 @@ describe('buildFiringPrompt', () => {
     expect(bare).not.toContain('## TURN BUDGET');
   });
 
+  it('names only the wall clock when that is the one cap the CLI is held to', () => {
+    // A Codex lane (epic 0036): `codex exec` has no turn limit, so fly.ts
+    // passes `maxTurns: undefined`, and the section must not claim a turn cap.
+    const p = buildFiringPrompt({
+      soul: SOUL,
+      firing: 2,
+      retro: false,
+      maxTurns: undefined,
+      wallClockMin: 90,
+    });
+    expect(p).toContain(
+      '## TURN BUDGET — the harness hard-stops you after 90 minutes of wall clock\n',
+    );
+    expect(p).not.toMatch(/hard-stops you at \S+ turns/);
+    expect(p).toMatch(/commit the verifiable slice EARLY/);
+    expect(p).toContain('wip(autopilot): checkpoint — <one');
+    // With neither cap valid there is still nothing honest to state.
+    for (const wallClockMin of [0, -5, Number.NaN]) {
+      expect(
+        buildFiringPrompt({ soul: SOUL, firing: 2, retro: false, maxTurns: 0, wallClockMin }),
+      ).not.toContain('## TURN BUDGET');
+    }
+  });
+
   it('treats an invalid maxTurns (NaN, zero, negative) the same as "no cap known"', () => {
     // NaN: distinguishes the `||` clauses from a mutated `&&` — `maxTurns ===
     // undefined` is false and `!Number.isFinite(NaN)` is true, so only a

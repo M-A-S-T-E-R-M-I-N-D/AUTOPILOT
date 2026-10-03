@@ -21,7 +21,11 @@
  */
 
 import { execFile, type ExecFileOptions } from 'node:child_process';
-import type { ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { geminiSettingsWithTurnCap } from '../gemini-guard.js';
+import type { InvokeCaps, ModelEnvelope, ModelPort, ModelResponse } from '../ports.js';
 import {
   activityFromToolCall,
   guardDenialFromText,
@@ -287,6 +291,43 @@ export function isGeminiResumeFailure(
   return isResumeFailure(resumeSessionId, resp) && resp.exitCode === GEMINI_FATAL_INPUT_ERROR;
 }
 
+/** One run's turn-capped copy of the guard settings, in a directory of its
+ *  own so the run removes it whole, as `CodexCliModel`'s deny log is. */
+interface CappedSettings {
+  readonly dir: string;
+  readonly file: string;
+}
+
+function discardCappedSettings(capped: Pick<CappedSettings, 'dir'>): void {
+  try {
+    rmSync(capped.dir, { recursive: true, force: true });
+  } catch {
+    // A child the kill left running may hold it open; that costs one stray temp dir.
+  }
+}
+
+/**
+ * A copy of the guard settings at `guardPath` under the OS temp directory,
+ * outside the target the agent edits, its turn cap lowered to `maxTurns`
+ * ({@link geminiSettingsWithTurnCap}). Null when none can be made: the run
+ * then gets the guard file as given, its hook and the flight's whole cap,
+ * never a settings file without the hook.
+ */
+function openCappedSettings(guardPath: string, maxTurns: number): CappedSettings | null {
+  let dir: string | null = null;
+  try {
+    const text = geminiSettingsWithTurnCap(readFileSync(guardPath, 'utf8'), maxTurns);
+    if (text === null) return null;
+    dir = mkdtempSync(join(tmpdir(), 'autopilot-gemini-caps-'));
+    const file = join(dir, 'settings.json');
+    writeFileSync(file, text, { encoding: 'utf8', mode: 0o600 });
+    return { dir, file };
+  } catch {
+    if (dir !== null) discardCappedSettings({ dir });
+    return null;
+  }
+}
+
 export interface GeminiCliOptions {
   readonly repo: string;
   /** CLI binary — discovered from PATH by default (never a hardcoded personal path). */
@@ -402,17 +443,27 @@ export interface GeminiCliOptions {
  * path matches `ClaudeCliModel.execOnce`'s too: the reap goes through the
  * injectable {@link GeminiCliOptions.reapDescendants} seam, and a kill by the
  * wall-clock cap comes back `timedOut` (THIRD CAP) instead of reading as an
- * ordinary crash. Never rejects: a spawn failure resolves the same "no
- * envelope" shape an abnormal exit gets.
+ * ordinary crash. A smaller turn cap asked for one call (`caps.maxTurns`, the
+ * finish-line extension's tap) reaches the CLI the only way it can, as a
+ * temp copy of the guard settings with a lower `model.maxSessionTurns`; with
+ * no guard file there is no settings file to lower it in, and it is ignored,
+ * as `caps.maxBudgetUsd` always is (the CLI has no budget cap). Never rejects:
+ * a spawn failure resolves the same "no envelope" shape an abnormal exit gets.
  */
 export class GeminiCliModel implements ModelPort {
   constructor(private readonly opts: GeminiCliOptions) {}
 
-  async invoke(model: string, prompt: string, resumeSessionId?: string): Promise<ModelResponse> {
-    const first = await this.execOnce(model, prompt, resumeSessionId);
+  async invoke(
+    model: string,
+    prompt: string,
+    resumeSessionId?: string,
+    caps?: InvokeCaps,
+  ): Promise<ModelResponse> {
+    const maxTurns = caps?.maxTurns;
+    const first = await this.execOnce(model, prompt, resumeSessionId, maxTurns);
     if (resumeSessionId === undefined || resumeSessionId.length === 0) return first;
     if (isGeminiResumeFailure(resumeSessionId, first)) {
-      const retry = await this.execOnce(model, prompt, undefined);
+      const retry = await this.execOnce(model, prompt, undefined, maxTurns);
       return { ...retry, resumed: false };
     }
     // No session in the output (an exit before the CLI wrote one): nothing
@@ -425,6 +476,7 @@ export class GeminiCliModel implements ModelPort {
     model: string,
     prompt: string,
     resumeSessionId: string | undefined,
+    maxTurns: number | undefined,
   ): Promise<ModelResponse> {
     // npm installs `gemini` on Windows as a `gemini.cmd` shim, which execFile
     // cannot launch itself (ENOENT). gate.ts's buildInvocation routes a bare
@@ -471,11 +523,18 @@ export class GeminiCliModel implements ModelPort {
     const startedAt = Date.now();
     const baseEnv = this.opts.env ?? process.env;
     const guard = this.opts.guardSettingsPath;
+    // The CLI's one turn cap lives in this file, so a smaller one asked for
+    // this run rides on a copy of it (removed at settle, below).
+    const capped =
+      guard !== undefined && guard.length > 0 && maxTurns !== undefined
+        ? openCappedSettings(guard, maxTurns)
+        : null;
+    const settingsPath = capped?.file ?? guard;
     const execOpts: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = {
       cwd: this.opts.repo,
       env:
-        guard !== undefined && guard.length > 0
-          ? { ...baseEnv, GEMINI_CLI_SYSTEM_SETTINGS_PATH: guard }
+        settingsPath !== undefined && settingsPath.length > 0
+          ? { ...baseEnv, GEMINI_CLI_SYSTEM_SETTINGS_PATH: settingsPath }
           : baseEnv,
       maxBuffer: 64 * 1024 * 1024,
       windowsHide: true,
@@ -520,6 +579,7 @@ export class GeminiCliModel implements ModelPort {
           clearTimeout(idleTimer);
           (this.opts.reapDescendants ?? reapCliDescendants)(child.pid);
           if (child.pid !== undefined) this.opts.pidRegistry?.untrack(child.pid);
+          if (capped !== null) discardCappedSettings(capped);
           // Same derivation as ClaudeCliModel.execOnce: a numeric err.code is the
           // real exit code; a spawn failure or timeout kill has none, so it reads as 1.
           const exitCode =

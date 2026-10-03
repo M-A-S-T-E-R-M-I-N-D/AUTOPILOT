@@ -226,3 +226,33 @@ export function buildGeminiFlightSettings(
     },
   };
 }
+
+function isPositiveWhole(n: unknown): n is number {
+  return typeof n === 'number' && Number.isInteger(n) && n > 0;
+}
+
+/**
+ * `settingsText`, a {@link buildGeminiFlightSettings} file, with its turn cap
+ * lowered to `maxTurns` for one run: the finish-line extension's smaller tap
+ * (`InvokeCaps.maxTurns`), which `--max-turns` gives a Claude run and no
+ * Gemini flag can. A lower cap already in the file stays, and every other
+ * setting, the guard hook first, is kept as written. Null when `maxTurns` is
+ * not a positive whole number or the text is not a settings object, so the
+ * caller keeps the file it has instead of writing one without the hook.
+ */
+export function geminiSettingsWithTurnCap(settingsText: string, maxTurns: number): string | null {
+  if (!isPositiveWhole(maxTurns)) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(settingsText);
+  } catch {
+    return null;
+  }
+  const settings = recordOrNull(parsed);
+  if (settings === null) return null;
+  const model = settings['model'] === undefined ? {} : recordOrNull(settings['model']);
+  if (model === null) return null;
+  const current = model['maxSessionTurns'];
+  const maxSessionTurns = isPositiveWhole(current) ? Math.min(current, maxTurns) : maxTurns;
+  return JSON.stringify({ ...settings, model: { ...model, maxSessionTurns } }, null, 2);
+}

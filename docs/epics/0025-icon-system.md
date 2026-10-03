@@ -387,7 +387,23 @@ propagation, and the filled style does not match the nav.
    its own chunk and cannot reach core's `iconEl()`, so it splices only
    those four shapes from `icons.ts`, the way the onboarding ladder ships
    its own, and builds them with `createElementNS`
-   (`apps/dashboard/test/web/whats-new-client.test.ts`).
+   (`apps/dashboard/test/web/whats-new-client.test.ts`). **Browse dialog
+   title 2026-10-03 (slice 2):** the Fly bar's "Browse a folder" modal
+   headed both its paints, the listing and the error, with bare words beside
+   the iconed Ask, palette and report dialogs. One `browseTitle()` builds it
+   for both now, led by a newly vendored, decorative `folder-open`, so the
+   name the dialog takes through `aria-labelledby` stays the words alone; the
+   title is built with `tr()` on every paint, so a Hebrew page paints Hebrew
+   words beside the same icon
+   (`apps/dashboard/test/web/browse-dialog-title-icon.test.ts`). **Tour
+   title 2026-10-03 (slice 2):** every guided tour stop headed with bare
+   words beside its "Step N of M" counter. It leads with the `compass` the
+   overflow menu's Tour item draws now, as the Ask sheet leads with its
+   button's `message-circle`; nothing is newly vendored, and `tour.ts` rides
+   `/panels.js`, so core does not grow. The icon is decorative, so the name
+   the dialog takes through `aria-labelledby` stays the stop's words and its
+   counter, and `paintTour()` builds the title with `tr()` on every stop
+   (`apps/dashboard/test/web/tour-title-icon.test.ts`).
 
 ## Related
 

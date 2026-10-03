@@ -27,7 +27,8 @@ describe('tourJs', () => {
 
   it('renders step title/body and Skip/Back/Next chrome via tr(key), not English literals (board web-msnsndki-dz3vn1)', () => {
     const out = tourJs();
-    expect(out).toContain("var h = el('h2', '', tr(keys.titleKey));");
+    // The title's words follow a decorative compass (epic 0025).
+    expect(out).toContain('h.appendChild(document.createTextNode(tr(keys.titleKey)));');
     expect(out).toContain("dialog.appendChild(el('p', '', tr(keys.bodyKey)));");
     // `isLast`, not `meta.isLast`: a stop whose target this page does not
     // have is stepped over, so "last" is about what the page can SHOW rather
