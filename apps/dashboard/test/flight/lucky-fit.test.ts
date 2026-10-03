@@ -17,7 +17,11 @@ import {
   type FitCandidate,
   type FitOperator,
 } from '../../src/flight/lucky-fit.js';
-import { DECLINED_LABEL, planClaimPoolIssue } from '../../src/flight/pool-client.js';
+import {
+  DECLINED_LABEL,
+  isMaintainerMarked,
+  planClaimPoolIssue,
+} from '../../src/flight/pool-client.js';
 import { HOLD_LABELS } from '../../src/flight/issue-triage.js';
 import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 
@@ -177,6 +181,47 @@ describe("luckyFitLine × the maintainer's declined and held issues (regression,
     );
     expect(fit.considered).toBe(2);
     expect(fit.shortlist.map((l) => l.number)).toEqual([17]);
+  });
+});
+
+// The pool claim reads a maintainer's mark in any casing AND hyphenation
+// (pool-client.ts isMaintainerMarked: `status: awaiting human` is the hold
+// `status: awaiting-human`). The roll folded casing only, so on a repo whose
+// own hold label is spelled with a space it ranked an issue the claim refuses.
+describe("luckyFitLine × the maintainer's marks in any casing or hyphenation (regression, epic 0019 additive-only law)", () => {
+  const variants = [
+    'Declined',
+    'DECLINED',
+    'Status: Awaiting-Human',
+    'status: awaiting human',
+    'Status: Awaiting Human',
+    'Status: Blocked',
+  ];
+  const marked = (mark: string) => candidate({ labels: [...candidate().labels, mark] });
+
+  it.each(variants)('never offers an issue marked "%s", which the claim refuses', (mark) => {
+    expect(isMaintainerMarked([mark])).toBe(true);
+    expect(planClaimPoolIssue(marked(mark), 'octocat').decision).toBe('skip');
+    expect(luckyFitLine(marked(mark), operator())).toBeUndefined();
+  });
+
+  it('drops every variant from the shortlist and keeps the unmarked one', () => {
+    const fit = luckyFit(
+      [
+        ...variants.map((mark, i) => ({ ...marked(mark), number: 20 + i })),
+        candidate({ number: 30 }),
+      ],
+      operator(),
+    );
+    expect(fit.considered).toBe(variants.length + 1);
+    expect(fit.shortlist.map((l) => l.number)).toEqual([30]);
+  });
+
+  it('still offers an issue whose label only resembles a mark', () => {
+    for (const label of ['declined-upstream', 'status: blocked on ci', 'awaiting-human']) {
+      expect(isMaintainerMarked([label])).toBe(false);
+      expect(luckyFitLine(marked(label), operator())).toBeDefined();
+    }
   });
 });
 
