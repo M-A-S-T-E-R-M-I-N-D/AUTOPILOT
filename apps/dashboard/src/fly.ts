@@ -210,6 +210,7 @@ import {
   firingConfigForEngine,
   firingEngineFromEnv,
   firingEngineLine,
+  firingEngineTurnCap,
 } from './flight/firing-engine.js';
 import {
   deriveFlyProjectId,
@@ -1235,6 +1236,7 @@ async function main(): Promise<void> {
     const firingConfig = firingConfigForEngine(config, engineRoute);
     const engineLine = firingEngineLine(engineRoute);
     if (engineLine !== null) out(engineLine);
+    const promptTurnCap = firingEngineTurnCap(engineRoute, maxTurns);
 
     const sink = new SqliteFiringStore(store, projectId, now, instanceId);
     // Adaptive cadence (v2.4 usage_advisor port, docs/BACKLOG-999.md): paces
@@ -1647,7 +1649,9 @@ async function main(): Promise<void> {
             repoMap: repoMapDigest,
             inbox: buildInboxDigest(inboxEntries),
             fleet,
-            maxTurns, // deliver-or-pack: the agent must SEE its ceiling
+            // deliver-or-pack: the agent must SEE its ceiling — the one its CLI
+            // enforces, so a codex lane is never promised a turn cap.
+            ...(promptTurnCap !== undefined ? { maxTurns: promptTurnCap } : {}),
             // …and the OTHER ceiling it actually dies on under a fleet.
             wallClockMin: Math.round((cliTimeoutMs ?? DEFAULT_CLI_TIMEOUT_MS) / 60_000),
             // ATTRIBUTION channel 1 (docs/ATTRIBUTION.md): every commit trailer

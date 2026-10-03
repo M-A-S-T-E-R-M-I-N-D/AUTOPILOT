@@ -7,8 +7,9 @@
  * tested there). This locks the wiring those tests cannot see: fly.ts reads
  * the line from the project's OWN SOUL once, under the fleet-wide
  * FLY_MAX_TURNS ceiling, then hands the one number to the engine's cap, the
- * firing prompt's TURN BUDGET, and the turn-cap death feedback — so the agent
- * is told the ceiling it actually dies at, never a ceiling it no longer has.
+ * firing prompt's TURN BUDGET (when the lane's CLI enforces it), and the
+ * turn-cap death feedback — so the agent is told the ceiling it actually dies
+ * at, never a ceiling it no longer has.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -24,7 +25,14 @@ describe('fly.ts wires the "Turns: N" SOUL line', () => {
 
   it('hands the one number to the engine cap, the prompt, and the turn-cap death feedback', () => {
     expect(flySource).toMatch(/maxBudgetUsd: firingBudgetUsd,\n\s+maxTurns,\n/);
-    expect(flySource).toMatch(/buildFiringPrompt\(\{[^}]*\n\s+maxTurns,/s);
+    // The prompt names it only on a CLI that enforces it (a codex lane has no
+    // turn limit, epic 0036), so the agent is never promised a cap it lacks.
+    expect(flySource).toContain(
+      'const promptTurnCap = firingEngineTurnCap(engineRoute, maxTurns);',
+    );
+    expect(flySource).toMatch(
+      /buildFiringPrompt\(\{[^}]*\n\s+\.\.\.\(promptTurnCap !== undefined \? \{ maxTurns: promptTurnCap \} : \{\}\),/s,
+    );
     expect(flySource).toContain('DIED AT THE TURN CAP (${maxTurns} turns)');
     // The fleet-wide constant reaches a firing only through that one number.
     expect(flySource).not.toContain('maxTurns: FLY_MAX_TURNS');
