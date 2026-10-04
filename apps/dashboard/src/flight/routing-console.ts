@@ -13,11 +13,15 @@
  * counts ({@link fetchOpenMilestones}; `taxonomy-seed.ts` reads every
  * milestone's title, `issue-triage.ts` titles only). The open issues come
  * from `issue-triage.ts`'s `fetchOpenIssues`, whose rows {@link RoutingIssue}
- * accepts as they are. Read-only throughout: nothing here labels, assigns
+ * accepts as they are; {@link fetchRoutingConsole} makes both reads behind
+ * the one call `server/routing-console.ts` serves as `GET
+ * /api/routing-console`. Read-only throughout: nothing here labels, assigns
  * or closes anything.
  */
 
 import type { CliExec } from '../connection/cli-probe.js';
+import { ghExec } from './gh-exec.js';
+import { fetchOpenIssues } from './issue-triage.js';
 import { normalizeLabel } from './pool-client.js';
 import {
   HOUSE_TAXONOMY_LABELS,
@@ -216,4 +220,52 @@ export async function fetchOpenMilestones(
     if (pageRows.length < MILESTONE_PAGE_SIZE) break;
   }
   return parseMilestoneRows(rows);
+}
+
+/** What `GET /api/routing-console` answers: the console, except that its
+ *  milestones are `null` when the open milestones could not be read — the
+ *  panel then says "unknown" rather than "no milestones". The issue side
+ *  carries no such mark: `fetchOpenIssues` reads a failed list as no open
+ *  issues, the same degradation the triage sweep and the pool live with. */
+export interface RoutingConsoleSnapshot extends Omit<RoutingConsole, 'milestones'> {
+  readonly milestones: readonly MilestoneProgress[] | null;
+}
+
+/** The routing console's read (injected) — see {@link createRoutingConsoleApi}. */
+export type RoutingConsoleApi = () => Promise<RoutingConsoleSnapshot>;
+
+/** The answer when nothing could be read: milestones unknown, and every
+ *  queue present but empty, the shape {@link planRoutingConsole} gives an
+ *  empty issue list. */
+export const UNREADABLE_ROUTING_CONSOLE: RoutingConsoleSnapshot = {
+  ...planRoutingConsole([], []),
+  milestones: null,
+};
+
+/** One open-milestone read and one open-issue read, in parallel, derived
+ *  into the console. Read-only: a milestone GET and an issue list. */
+export async function fetchRoutingConsole(exec: CliExec): Promise<RoutingConsoleSnapshot> {
+  const [milestones, issues] = await Promise.all([
+    fetchOpenMilestones(exec),
+    fetchOpenIssues(exec),
+  ]);
+  const plan = planRoutingConsole(milestones ?? [], issues);
+  return { ...plan, milestones: milestones === undefined ? null : plan.milestones };
+}
+
+/**
+ * Builds the routing console's read, defaulting to the fleet's guarded `gh`
+ * like every other on-demand panel read here (`collaboration.ts`'s
+ * `createCollaborationApi`). Never rejects: a thrown `exec` answers
+ * {@link UNREADABLE_ROUTING_CONSOLE}, so the route never 500s on a missing
+ * or failing `gh`.
+ */
+export function createRoutingConsoleApi(exec: CliExec = ghExec): RoutingConsoleApi {
+  return async () => {
+    try {
+      return await fetchRoutingConsole(exec);
+    } catch {
+      return UNREADABLE_ROUTING_CONSOLE;
+    }
+  };
 }
