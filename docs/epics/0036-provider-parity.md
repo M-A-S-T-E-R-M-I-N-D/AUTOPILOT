@@ -239,7 +239,14 @@ on the same round. A record written before the field names none and reads `unrec
 Until a later 2026-10-04 commit the revert rate was not there to read: each line gave the ship and
 death rates only, and a reverted firing showed in the round-wide `by outcome` section alone, though
 reverts are what demote a lane off Claude. `summarizeFirings` now counts them (`reverted`), and every
-summary line prints the rate between the two (`shipped  50%  reverted  50%  died   0%`). Two usage traps, read from the Rust source
+summary line prints the rate between the two (`shipped  50%  reverted  50%  died   0%`). Until a
+later 2026-10-04 commit a demotion was missing too: the flight log's `DEMOTED` line was its only
+trace, so the report could not say which lane stopped taking work. A demoted lane now writes a
+`lane-demoted` event (`laneDemotionOf`, `flight/firing-engine.ts`) naming its engine, model, the
+reverts in a row and the firings it flew, and `readReportDemotions` reads it back under the lane it
+was recorded by. The report's `demoted lanes` section, right after `by engine`, lists each one
+(`fleet-2 codex (gpt-5-codex)  demoted after 3 firings, 2 reverted in a row`), says `none` when a
+lane flew off Claude and kept its work, and is left out of a Claude-only report. Two usage traps, read from the Rust source
 (`codex-rs/exec/src/event_processor_with_jsonl_output.rs`, `codex-rs/protocol/src/protocol.rs`,
 2026-09-27): `usage` is the thread's running total, not a per-turn delta, so the last
 `turn.completed` wins and a sum would double-count; and `input_tokens` includes

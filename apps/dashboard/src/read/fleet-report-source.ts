@@ -14,11 +14,14 @@ import type { Store } from '@autopilot/store';
 type Db = Store['db'];
 import { parseFiringDeath, parseNoopClass } from './source.js';
 import { isQuotaDeath } from '../flight/model-scoreboard.js';
+import { LANE_DEMOTED_EVENT } from '../flight/firing-engine.js';
 import { execFileSync } from 'node:child_process';
 import {
   QUOTA_DEATH,
+  laneOf,
   type ParkedLane,
   type ReportConvergence,
+  type ReportDemotion,
   type ReportEscalation,
   type ReportFiring,
 } from './fleet-report.js';
@@ -68,14 +71,20 @@ export function readReportFirings(db: Db, baseProjectId: string, sinceMs: number
   }));
 }
 
-/** The firing record's fields, or `null` for a missing or unreadable one. */
-function firingRecordOf(payload: string | null): { costUsd?: unknown; engine?: unknown } | null {
+/** An event payload's fields, or `null` for a missing or unreadable one. */
+function payloadFieldsOf(payload: string | null): Readonly<Record<string, unknown>> | null {
   try {
-    const record = JSON.parse(payload ?? 'null') as unknown;
-    return record !== null && typeof record === 'object' ? record : null;
+    const fields = JSON.parse(payload ?? 'null') as unknown;
+    return fields !== null && typeof fields === 'object'
+      ? (fields as Record<string, unknown>)
+      : null;
   } catch {
     return null;
   }
+}
+
+function integerOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) ? value : null;
 }
 
 /**
@@ -86,14 +95,14 @@ function firingRecordOf(payload: string | null): { costUsd?: unknown; engine?: u
  * missing, unreadable or silent on cost leaves the column's figure standing.
  */
 function recordsNoPrice(payload: string | null): boolean {
-  return firingRecordOf(payload)?.costUsd === null;
+  return payloadFieldsOf(payload)?.['costUsd'] === null;
 }
 
 /** The CLI the firing record says it flew on (epic 0036). No metrics column
  *  holds it, so a record that is missing, unreadable or written before the
  *  field existed names none. */
 function recordedEngine(payload: string | null): string | null {
-  const engine = firingRecordOf(payload)?.engine;
+  const engine = payloadFieldsOf(payload)?.['engine'];
   return typeof engine === 'string' ? engine : null;
 }
 
@@ -176,6 +185,44 @@ function parseEscalationPayload(
   } catch {
     return null;
   }
+}
+
+/**
+ * Every lane demoted since the moment, oldest first: the `lane-demoted`
+ * events `fly.ts` writes when the gate reverted a lane's firings off Claude
+ * twice in a row (epic 0036). The lane is read off the project id the event
+ * was recorded under, as a firing's is off its id. A payload it cannot read
+ * still counts, its engine `unrecorded`.
+ */
+export function readReportDemotions(
+  db: Db,
+  baseProjectId: string,
+  sinceMs: number,
+): ReportDemotion[] {
+  const rows = db
+    .prepare(
+      `SELECT project_id, payload FROM events
+        WHERE (project_id = ? OR project_id LIKE ? ESCAPE '\\')
+          AND type = ?
+          AND created_at >= ?
+        ORDER BY created_at, id`,
+    )
+    .all(baseProjectId, `${likeEscape(baseProjectId)}--fleet-%`, LANE_DEMOTED_EVENT, sinceMs) as {
+    project_id: string;
+    payload: string | null;
+  }[];
+  return rows.map((r) => {
+    const p = payloadFieldsOf(r.payload);
+    const engine = p?.['engine'];
+    const model = p?.['model'];
+    return {
+      lane: laneOf(r.project_id),
+      engine: typeof engine === 'string' ? engine : 'unrecorded',
+      model: typeof model === 'string' ? model : null,
+      reverted: integerOrNull(p?.['reverted']),
+      firings: integerOrNull(p?.['firings']),
+    };
+  });
 }
 
 /** `%` and `_` in a project id are literal, not LIKE wildcards. */

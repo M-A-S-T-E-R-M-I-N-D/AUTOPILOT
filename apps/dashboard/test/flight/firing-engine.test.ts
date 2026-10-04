@@ -13,7 +13,32 @@ import {
   firingEngineRequestFields,
   firingEngineRequestFromEnv,
   firingEngineTurnCap,
+  laneDemotionOf,
 } from '../../src/flight/firing-engine.js';
+
+// A demotion left a DEMOTED line in the flight log and no other trace, so the
+// fleet report could not say which lane, engine or model the gate stopped.
+describe('laneDemotionOf', () => {
+  const codex = { engine: 'codex', model: 'gpt-5-codex' } as const;
+
+  it('names the engine, the model, the reverts in a row and the firings flown', () => {
+    expect(laneDemotionOf(codex, { firings: 3, stoppedBy: 'demoted' })).toEqual({
+      engine: 'codex',
+      model: 'gpt-5-codex',
+      reverted: NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES,
+      firings: 3,
+    });
+  });
+
+  it('records nothing for a flight that ended any other way', () => {
+    expect(laneDemotionOf(codex, { firings: 3, stoppedBy: 'max-iterations' })).toBeNull();
+    expect(laneDemotionOf(codex, { firings: 1, stoppedBy: 'stop' })).toBeNull();
+  });
+
+  it('records nothing for a Claude lane, which is never demoted', () => {
+    expect(laneDemotionOf({ engine: 'claude' }, { firings: 2, stoppedBy: 'demoted' })).toBeNull();
+  });
+});
 
 describe('firingEngineFromEnv', () => {
   it('flies Claude when AUTOPILOT_ENGINE is unset, blank or claude', () => {
