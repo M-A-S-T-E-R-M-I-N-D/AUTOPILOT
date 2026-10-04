@@ -3028,9 +3028,10 @@ function tasksSection(c) {
   // focus mode instead of baking 🎯 into the STRINGS text — setSweptText()
   // (locale.ts) already keeps a leading <svg class="icon"> child through
   // every translateDom() sweep, so the icon survives a locale switch same
-  // as panelHeading()'s.
+  // as panelHeading()'s. Outside focus mode it leads with the square-kanban
+  // the Board tab draws, so the icon still tells the two modes apart.
   var head = el('h3', 'detail-h');
-  if (anyFocus) head.appendChild(iconEl('target'));
+  head.appendChild(iconEl(anyFocus ? 'target' : 'square-kanban'));
   head.appendChild(document.createTextNode(anyFocus ? tr('tasksFocusMode') : tr('tasks')));
   head.setAttribute('data-i18n', anyFocus ? 'tasksFocusMode' : 'tasks');
   wrap.appendChild(head);
