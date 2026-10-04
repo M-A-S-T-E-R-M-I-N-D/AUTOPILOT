@@ -207,6 +207,17 @@ seeding ritual (`docs/epics/0019-...md`), not the watchdog: `watch`/`fleet`/
 above are untouched. Same "grown past this spec's scope, watchdog contract unchanged"
 shape as every re-check above; no drift here.
 
+DOC-FRESHNESS re-check (2026-10-04, second): `control/cli.ts` moved again the same day
+(`c889b2e5`, epic 0036 "a demoted lane is recorded, and the report names its engine") —
+the read-only `fleet-report` case now also passes `readReportDemotions`
+(`read/fleet-report-source.ts`) to `renderFleetReport`, so the report prints a
+"demoted lanes" section after `by engine`, naming which lane stopped taking work, on
+which engine/model, after how many reverts in a row. That is epic 0036's own
+provider-quality telemetry (`docs/epics/0036-provider-parity.md`), not the watchdog:
+`watch`/`fleet`/`flightWatchdogTick`/`landWatchdogTick`/`FLYABLE_STATUSES` and every
+acceptance criterion above are untouched — a two-line reporting change inside
+`fleet-report`, the same shape as the 2026-09-30 "rung 4" re-check. No drift here.
+
 ## Related
 
 - `docs/epics/0001-parallel-flights.md` — the concurrency substrate (registry, locks,
