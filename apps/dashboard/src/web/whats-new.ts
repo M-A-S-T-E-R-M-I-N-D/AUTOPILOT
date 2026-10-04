@@ -100,7 +100,8 @@ export const WHATS_NEW_STRINGS = STRINGS;
  * takes the release panel's rocket, "What you can do now" the sparkles of
  * something new, "This round" the round panel's refresh-cw and "On GitHub"
  * the GitHub PR summary's git-pull-request. The Settings row that reopens the
- * message takes the same sparkles. Decorative beside the words.
+ * message takes the same sparkles, and Close the x the Docs editor's Cancel
+ * draws, since it puts the message away. Decorative beside the words.
  */
 const HEADING_ICONS = {
   title: 'rocket',
@@ -108,6 +109,7 @@ const HEADING_ICONS = {
   round: 'refresh-cw',
   github: 'git-pull-request',
   menu: 'sparkles',
+  close: 'x',
 } as const;
 
 /** Only the shapes the headings draw, spliced from the vendored set — the
@@ -159,6 +161,7 @@ const WHATS_NEW_CSS = `
 .wn-foot label { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); }
 .wn-foot a { color: var(--color-accent); font-size: var(--text-sm); }
 .wn-close { font: inherit; cursor: pointer; padding: var(--space-1) var(--space-4); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
+.wn-close > .icon { margin-inline-end: 0.35em; }
 .wn-close:focus-visible, .wn-foot input:focus-visible, .wn-foot a:focus-visible, .wn-dialog summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .wn-menu-btn { font: inherit; font-size: var(--text-sm); cursor: pointer; background: none; border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: var(--space-1) var(--space-2); color: var(--color-text); white-space: nowrap; min-inline-size: 44px; min-block-size: 44px; flex: 0 0 auto; }
 .wn-menu-btn > .icon { margin-inline-end: 0.35em; }
@@ -407,8 +410,10 @@ function openWhatsNew() {
   link.rel = 'noopener noreferrer';
   link.hidden = true;
   foot.appendChild(link);
-  var close = el('button', 'wn-close', wt('close'));
+  var close = el('button', 'wn-close');
   close.type = 'button';
+  close.appendChild(icon(WH.close));
+  close.appendChild(document.createTextNode(wt('close')));
   close.addEventListener('click', closeWhatsNew);
   foot.appendChild(close);
   dialog.appendChild(foot);

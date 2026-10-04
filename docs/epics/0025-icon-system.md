@@ -593,7 +593,16 @@ propagation, and the filled style does not match the nav.
    whole `textContent`. Each icon is decorative, so a button's name stays its
    words (`apps/dashboard/test/web/settings-menu-icons.test.ts`, axe-clean).
    The board's Columns/List toggle stays bare words: it wants a vendored
-   `list`, and core sits about 200 bytes under its raw line.
+   `list`, and core sits about 200 bytes under its raw line. **What's new
+   Close 2026-10-04 (slice 2):** the message's title and section headings and
+   its Settings row lead with a stroke icon, but the accent-filled Close in
+   its footer was bare words. It leads with the `x` the Docs editor's Cancel
+   and the Plan editor's Discard draft draw, since it puts the message away;
+   nothing is newly vendored. The chunk splices the shape through the same
+   icon map as its headings, so core does not grow. The icon is decorative,
+   so the button's name stays its words, in Hebrew too, and the button still
+   takes focus when the message opens
+   (`apps/dashboard/test/web/whats-new-close-icon.test.ts`, axe-clean).
 
 ## Related
 
