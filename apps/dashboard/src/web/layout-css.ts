@@ -2154,6 +2154,11 @@ html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .iss
 .tour-dot[aria-current='true'] { background: var(--color-accent); }
 .tour-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
 .tour-nav { display: flex; gap: var(--space-2); }
+/* Epic 0025: Back leads and Next trails with the replay's chevrons, mirrored
+   under dir=rtl like that pair, where "back" points right. */
+.tour-nav button > .icon:first-child { margin-inline-end: 0.25em; }
+.tour-nav button > .icon:last-child { margin-inline-start: 0.25em; }
+[dir='rtl'] .tour-nav button > .icon { transform: scaleX(-1); }
 /* Tour CTA designed states (COCKPIT 6/6): the same MX shape-morph + elevation
    hover/active pair .fly-flight-actions button carries. Rest radius swaps
    --radius-sm for --shape-extra-small (both 4px) so the state tokens pair

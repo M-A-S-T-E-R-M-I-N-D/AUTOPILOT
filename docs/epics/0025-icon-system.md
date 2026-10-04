@@ -603,7 +603,6 @@ propagation, and the filled style does not match the nav.
    so the button's name stays its words, in Hebrew too, and the button still
    takes focus when the message opens
    (`apps/dashboard/test/web/whats-new-close-icon.test.ts`, axe-clean).
-   `list`, and core sits about 200 bytes under its raw line.
    **Report dialog's Compose and Preview 2026-10-04 (slice 2):** the
    right-click "Report from here" dialog's title, menu item and Execute all
    lead with `flag`, but Compose with AI and Preview, the two buttons that
@@ -617,7 +616,18 @@ propagation, and the filled style does not match the nav.
    same icons, and a compose or preview only disables its button, so the
    icon survives both. `report-menu.ts` rides `/panels.js`, so core does not
    grow (`apps/dashboard/test/web/report-dialog-action-icons.test.ts`,
-   axe-clean).
+   axe-clean). **Tour Back and Next 2026-10-04 (slice 2):** the guided tour
+   headed every stop with the `compass` its overflow item draws, but stepped
+   between stops with bare-word Back and Next, where the Firing Replay steps
+   through its actions with chevrons. Back leads with that replay's
+   `chevron-left` and Next trails with its `chevron-right`, both mirrored
+   under `dir="rtl"`, where "back" points right, like the replay's pair.
+   Nothing is newly vendored, and `tour.ts` rides `/panels.js`, so core does
+   not grow. Each icon is decorative, so a button's name stays its words, and
+   `paintTour()` rebuilds both with `tr()` on every stop, so a Hebrew page
+   paints its words beside the same chevrons; the last stop's "Start the
+   checklist" hand-over stays bare words
+   (`apps/dashboard/test/web/tour-nav-chevrons.test.ts`, axe-clean).
 
 ## Related
 

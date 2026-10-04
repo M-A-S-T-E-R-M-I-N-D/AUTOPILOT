@@ -37,9 +37,10 @@ describe('tourJs', () => {
     expect(out).toContain(
       "skip.setAttribute('data-tip', tr(isLast ? 'tourSkipTipLast' : 'tourSkipTipMid'));",
     );
-    expect(out).toContain("back.textContent = tr('tourBack');");
+    // Back's words follow and Next's lead a decorative chevron (epic 0025).
+    expect(out).toContain("back.appendChild(document.createTextNode(tr('tourBack')));");
     expect(out).toContain("back.setAttribute('data-tip', tr('tourBackTip'));");
-    expect(out).toContain("next.textContent = tr('tourNext');");
+    expect(out).toContain("next.appendChild(document.createTextNode(tr('tourNext')));");
     expect(out).toContain("next.setAttribute('data-tip', tr('tourNextTip'));");
     expect(out).not.toContain("back.textContent = 'Back';");
     expect(out).not.toContain("next.textContent = 'Next';");
