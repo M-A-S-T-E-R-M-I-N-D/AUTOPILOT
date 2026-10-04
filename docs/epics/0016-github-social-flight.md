@@ -122,8 +122,19 @@ Per pass, mechanically derived — no guesses:
    multi-lane launch refuses a non-default pick rather than dropping it, and
    the select locks while a flight runs (`test/web/fly-target.test.ts`,
    axe-clean with the settings open, en + he; RUNBOOK §13).
-   _Still open:_ persisting the standalone digest for the FLIGHT DEBRIEF
-   panel, which needs the store this mode skips today.
+   The standalone digest reaches the FLIGHT DEBRIEF panel too:
+   `flight/post-flight-sweeps.ts`'s `recordGithubOnlyFlightDebrief` opens
+   the store only to write the one `social-debrief` row, the same row a code
+   flight writes through `recordSocialFlightDebrief`. It writes only into a
+   store that already exists, under the project onboarding's own `findByRoot`
+   resolves for the target, so it never creates a store or registers a
+   project; the log says when it could not store the digest
+   (`test/flight/post-flight-sweeps.test.ts`, read back through
+   `readSocialFlightDebrief`).
+   _Still open:_ the mirror pass beside the social pass — the board task asks
+   for "social+mirror passes only", and this mode runs the social pass alone
+   today. `flight/mirror-pass.ts`'s planners exist, but its reconcile reads
+   board tasks out of the store this mode only writes one row to.
 5. **observability**: every social action in the flight log + a SOCIAL
    section in the debrief (what was said/filed/closed, caps consumed).
    _Shipped so far:_ every woven-in pass already says its own line as it
