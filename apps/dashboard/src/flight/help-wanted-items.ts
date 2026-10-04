@@ -8,9 +8,9 @@
  * `help wanted` default label, WITH its assignee carried through as the
  * issue's claim state. This deliberately does NOT reuse
  * `contributor-issue-list.ts`'s `fetchContributorFacingIssues` — that read
- * exists for a visiting contributor's pick list and drops already-assigned
- * issues outright (`planContributorIssueList`'s `if (issue.assignees.length
- * > 0) continue`), the opposite of what a maestro's own "who does what"
+ * exists for a visiting contributor's pick list and drops already-held
+ * issues outright (`planContributorIssueList`'s `isHeld` check: an assignee
+ * or a claims-ledger claim), the opposite of what a maestro's own "who does what"
  * panel needs, which wants precisely the assignee shown. Ships {@link
  * HelpWantedItem} and the read wiring {@link fetchHelpWantedItems} — the
  * same injectable `CliExec` `roadmap-items.ts`'s `fetchRoadmapItems` and

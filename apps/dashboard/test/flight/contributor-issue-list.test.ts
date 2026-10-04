@@ -9,7 +9,15 @@ import {
   type ContributorFacingIssue,
 } from '../../src/flight/contributor-issue-list.js';
 import { HOLD_LABELS, MAX_ISSUE_LIST } from '../../src/flight/issue-triage.js';
-import { DECLINED_LABEL, planClaimPoolIssue } from '../../src/flight/pool-client.js';
+import {
+  DECLINED_LABEL,
+  fetchPoolIssues,
+  isClaimedPoolIssue,
+  planClaimPoolIssue,
+  planClaimPoolIssueCommands,
+  type PoolIssue,
+} from '../../src/flight/pool-client.js';
+import { claimLedger } from '../../src/flight/claim-ledger.js';
 import { HOUSE_TAXONOMY_LABELS } from '../../src/flight/taxonomy-seed.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
@@ -136,6 +144,119 @@ describe("planContributorIssueList × the maintainer's declined and held issues 
   });
 });
 
+// Epic 0019 additive-only law, the Good-first list × the claims ledger. The
+// pool client posts a claim as a comment and then assigns the claimant; for an
+// outside contributor without triage rights the assign fails and only the
+// comment lands (claim-ledger.ts, #27). The pool reads that comment as a claim
+// and warns the next claimant, but this list read only the assignees, so it
+// offered the claimed issue to the next visitor as free.
+describe('planContributorIssueList × a claim held only by its comment (regression, epic 0019 additive-only law)', () => {
+  const NOW = Date.parse('2026-10-04T12:00:00Z');
+  const CLAIMANT = 'gabibi555';
+  const tiers = ['good first issue', 'help wanted'];
+
+  interface Said {
+    readonly login: string;
+    readonly at: string;
+    readonly body: string;
+  }
+  const row = (labels: readonly string[], said: readonly Said[] = []) => ({
+    number: 7,
+    title: 'Fix the thing',
+    url: 'https://github.com/example/repo/issues/7',
+    labels: labels.map((name) => ({ name })),
+    assignees: [] as { login: string }[],
+    comments: said.map(({ login, at, body }) => ({ author: { login }, createdAt: at, body })),
+  });
+  type Row = ReturnType<typeof row>;
+
+  /** A gh that answers `gh issue list` with only the fields `--json` asked
+   *  for, as gh does. */
+  const projectingGh = (rows: readonly Row[]) =>
+    vi.fn<CliExec>(async (_cmd, args) => {
+      const fields = (args[args.indexOf('--json') + 1] ?? '').split(',');
+      const projected = rows.map((r) =>
+        Object.fromEntries(Object.entries(r).filter(([key]) => fields.includes(key))),
+      );
+      return { code: 0, stdout: JSON.stringify(projected) };
+    });
+
+  /** The claim comment the pool client posts for CLAIMANT, from its own plan. */
+  const claimComment = (labels: readonly string[]): string => {
+    const free: PoolIssue = {
+      number: 7,
+      title: 'Fix the thing',
+      url: 'https://github.com/example/repo/issues/7',
+      labels,
+      assignees: [],
+    };
+    const decision = planClaimPoolIssue(free, CLAIMANT, NOW);
+    const comment = planClaimPoolIssueCommands(free, CLAIMANT, decision).find(
+      (command) => command.args[1] === 'comment',
+    );
+    return comment?.args[comment.args.indexOf('--body') + 1] ?? '';
+  };
+  const claimed = (tier: string, more: readonly Said[] = []): Row => {
+    const labels = ['pool: ux', tier];
+    return row(labels, [
+      { login: CLAIMANT, at: '2026-10-03T09:00:00Z', body: claimComment(labels) },
+      ...more,
+    ]);
+  };
+
+  it.each(tiers)('never lists a "%s" issue the pool reads as claimed', async (tier) => {
+    const page = [claimed(tier)];
+
+    const [pooled] = await fetchPoolIssues(projectingGh(page));
+    expect(pooled === undefined ? false : isClaimedPoolIssue(pooled)).toBe(true);
+    expect(
+      pooled === undefined ? 'missing' : planClaimPoolIssue(pooled, 'octocat', NOW).decision,
+    ).toBe('contest');
+
+    expect(await createContributorIssueListPreviewApi(projectingGh(page))()).toEqual([]);
+  });
+
+  it.each(tiers)('lists the "%s" issue again once its claimant hands it back', async (tier) => {
+    const page = [
+      claimed(tier, [{ login: CLAIMANT, at: '2026-10-03T10:00:00Z', body: '/unclaim' }]),
+    ];
+
+    expect(
+      (await createContributorIssueListPreviewApi(projectingGh(page))()).map((e) => e.tier),
+    ).toEqual([tier]);
+  });
+
+  it('still lists an issue whose comments carry no claim', async () => {
+    const page = [
+      row(
+        ['help wanted'],
+        [{ login: 'octocat', at: '2026-10-03T09:00:00Z', body: 'Is anyone on this?' }],
+      ),
+    ];
+
+    expect(await createContributorIssueListPreviewApi(projectingGh(page))()).toHaveLength(1);
+  });
+
+  it('skips an issue whose ledger holds a claim nobody is assigned to', () => {
+    const labels = ['pool: ux', 'good first issue'];
+    const claims = claimLedger(
+      [],
+      [{ author: CLAIMANT, createdAt: NOW, body: claimComment(labels) }],
+    );
+
+    expect(planContributorIssueList([issue({ labels })])).toHaveLength(1);
+    expect(planContributorIssueList([issue({ labels, claims })])).toEqual([]);
+  });
+
+  it('keeps skipping an assigned issue even when the ledger released its assignee', () => {
+    expect(
+      planContributorIssueList([
+        issue({ labels: ['help wanted'], assignees: ['octocat'], claims: [] }),
+      ]),
+    ).toEqual([]);
+  });
+});
+
 describe('fetchContributorFacingIssues', () => {
   it('calls gh issue list with the expected argv', async () => {
     const exec: CliExec = vi.fn().mockResolvedValue({ code: 0, stdout: '[]' });
@@ -150,7 +271,7 @@ describe('fetchContributorFacingIssues', () => {
       '--limit',
       String(MAX_ISSUE_LIST),
       '--json',
-      'number,title,url,labels,assignees',
+      'number,title,url,labels,assignees,comments',
     ]);
   });
 
@@ -177,6 +298,15 @@ describe('fetchContributorFacingIssues', () => {
         url: 'https://github.com/example/repo/issues/1',
         labels: ['good first issue', 'bug'],
         assignees: ['octocat'],
+        claims: [
+          {
+            login: 'octocat',
+            claimedAt: null,
+            assigned: true,
+            lastActivityAt: null,
+            contested: false,
+          },
+        ],
       },
     ]);
   });
@@ -228,6 +358,7 @@ describe('fetchContributorFacingIssues', () => {
         url: 'https://github.com/example/repo/issues/1',
         labels: [],
         assignees: [],
+        claims: [],
       },
     ]);
   });
@@ -251,6 +382,7 @@ describe('fetchContributorFacingIssues', () => {
         url: 'https://github.com/example/repo/issues/1',
         labels: [],
         assignees: [],
+        claims: [],
       },
     ]);
   });
