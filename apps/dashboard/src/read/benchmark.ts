@@ -176,7 +176,8 @@ export function scoreboardTiers(routed: readonly RoutedFiring[]): BenchmarkTier[
         firings: s.firings,
         shipped: s.shipped,
         shipRate: s.firings === 0 ? null : s.shipped / s.firings,
-        costPerShipUsd: s.shipped === 0 ? null : s.costUsd / s.shipped,
+        // Priced ships alone, as the scoreboard itself divides (epic 0036).
+        costPerShipUsd: s.pricedShipped === 0 ? null : s.costUsd / s.pricedShipped,
       })),
     };
   });
