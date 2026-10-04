@@ -82,7 +82,7 @@ import { STALE_TASK_DAYS } from '../web/task-queue.js';
 import { claimLedger } from './claim-ledger.js';
 import { isMaintainerMarked } from './contributor-issue-list.js';
 import { parseIssueLabels } from './issue-triage.js';
-import { parsePoolComments } from './pool-client.js';
+import { normalizeLabel, parsePoolComments } from './pool-client.js';
 
 /** Parses `issue-triage.ts`'s `issueTaskId` convention (`github-<n>`) back
  *  into the issue number it names — `null` for a task id from any other
@@ -992,7 +992,19 @@ export interface MirrorPassClaimedIssue {
    *  release note alone frees it. Absent means assigned (the pre-ledger
    *  reading, every fixture that predates it). */
   readonly assigned?: boolean;
+  /** The claim protocol's {@link CLAIMED_LABEL} as the issue carries it, set
+   *  only on the claim of the issue's one assignee: unassigning that claim
+   *  leaves nobody on the issue, so the label comes off with it. */
+  readonly claimedLabel?: string;
 }
+
+/** The label the claim protocol's `/claim` adds when it assigns
+ *  (`.github/workflows/claim.yml`, seeded by taxonomy-seed.ts). Its own two
+ *  releases, `/unclaim` and `stale-claim-reaper.yml`, remove it together with
+ *  the assignee. The reaper below does the same, or a freed issue keeps
+ *  reading `claimed` with nobody on it: the workflow reaper only looks at a
+ *  `claimed` issue that still has an assignee. */
+export const CLAIMED_LABEL = 'claimed';
 
 /** Derivation 4/4's finding: an open issue's assignee has been quiet long
  *  enough to reap the claim. */
@@ -1047,10 +1059,13 @@ export function planMirrorPassStaleClaimReaper(
  * to apply it: the reopen-explaining comment first (so the note lands even
  * if the unassign call itself fails), then the unassign — same
  * comment-before-state-change ordering {@link planMirrorPassCommands} uses.
+ * `claimedLabel` ({@link MirrorPassClaimedIssue.claimedLabel}) comes off in
+ * that same unassign edit, as the claim protocol's own releases lift it.
  * Pure: plans argv, never invokes `gh`.
  */
 export function planMirrorPassStaleClaimCommands(
   finding: MirrorPassStaleClaimFinding,
+  claimedLabel?: string,
 ): readonly MirrorPassCommand[] {
   const issueRef = String(finding.issueNumber);
   const note: MirrorPassCommand = {
@@ -1059,12 +1074,15 @@ export function planMirrorPassStaleClaimCommands(
     details: `posting the stale-claim reaper note on #${finding.issueNumber}`,
   };
   if (finding.assigned === false) return [note];
+  const lifted = claimedLabel === undefined ? [] : ['--remove-label', claimedLabel];
   return [
     note,
     {
       command: 'gh',
-      args: ['issue', 'edit', issueRef, '--remove-assignee', finding.assignee],
-      details: `unassigning @${finding.assignee} from #${finding.issueNumber} — quiet ${finding.quietDays}d`,
+      args: ['issue', 'edit', issueRef, '--remove-assignee', finding.assignee, ...lifted],
+      details:
+        `unassigning @${finding.assignee} from #${finding.issueNumber} — quiet ${finding.quietDays}d` +
+        (claimedLabel === undefined ? '' : `, removing "${claimedLabel}"`),
     },
   ];
 }
@@ -1078,6 +1096,7 @@ interface RawGithubIssueActivity {
   readonly assignees?: unknown;
   readonly comments?: unknown;
   readonly updatedAt?: unknown;
+  readonly labels?: unknown;
 }
 
 /**
@@ -1158,8 +1177,10 @@ export async function fetchClaimedIssueActivity(
  * holder has their own clock. Same `gh issue view` read and never-throw
  * stance as {@link fetchClaimedIssueActivity}; `lastActivityAt` is the
  * claimant's latest own comment, else the claim, else the issue's own
- * `updatedAt` (the conservative fallback). Returns `[]` for a bad read or
- * an unclaimed issue.
+ * `updatedAt` (the conservative fallback). The read takes the labels too: a
+ * {@link CLAIMED_LABEL} in any casing rides on the claim of the issue's one
+ * assignee as `claimedLabel`, spelled as the issue carries it. Returns `[]`
+ * for a bad read or an unclaimed issue.
  */
 export async function fetchClaimedIssueClaims(
   exec: CliExec,
@@ -1170,7 +1191,7 @@ export async function fetchClaimedIssueClaims(
     'view',
     String(issueNumber),
     '--json',
-    'number,state,assignees,comments,updatedAt',
+    'number,state,assignees,comments,updatedAt,labels',
   ]);
   if (code !== 0) return [];
 
@@ -1191,12 +1212,18 @@ export async function fetchClaimedIssueClaims(
   const assignees = (Array.isArray(raw.assignees) ? raw.assignees : [])
     .map((entry) => (entry as { login?: unknown })?.login)
     .filter((login): login is string => typeof login === 'string');
+  const claimedLabel = parseIssueLabels(raw.labels).find(
+    (label) => normalizeLabel(label) === CLAIMED_LABEL,
+  );
   return claimLedger(assignees, parsePoolComments(raw.comments)).map((claim) => ({
     number: raw.number as number,
     state: state === 'OPEN' ? 'open' : 'closed',
     assignee: claim.login,
     lastActivityAt: claim.lastActivityAt ?? updatedAtMs,
     assigned: claim.assigned,
+    ...(claimedLabel !== undefined && claim.assigned && assignees.length === 1
+      ? { claimedLabel }
+      : {}),
   }));
 }
 
@@ -1226,7 +1253,7 @@ export function planMirrorPassStaleClaimBatch(
 ): readonly MirrorPassStaleClaimPlan[] {
   return issues.map((issue) => {
     const finding = planMirrorPassStaleClaimReaper(issue, nowMs, thresholdDays);
-    const commands = finding ? planMirrorPassStaleClaimCommands(finding) : [];
+    const commands = finding ? planMirrorPassStaleClaimCommands(finding, issue.claimedLabel) : [];
     return { issue, finding, commands };
   });
 }
