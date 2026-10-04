@@ -5836,8 +5836,8 @@ ${contextRailHtml(project)}
       <h2 class="ob-title" id="ob-title">${iconSvg('compass')}<span data-i18n="obTitle">Getting started</span></h2>
       <p class="ob-tip muted" data-i18n="obTip">Your first flight, one small step at a time</p>
       <div class="ob-badges" id="ob-badges" role="group" aria-label="Badges earned" data-i18n-aria="obBadgesAria"></div>
-      <button type="button" class="ob-tour-link" id="ob-tour-link" data-i18n="obTourLink" data-i18n-tip="obTourLinkTip" data-tip="Opens the short tour: firing, slice, gate, flight">What do these words mean?</button>
-      <button type="button" class="ob-snooze" id="ob-snooze" data-i18n="obSnooze">Remind me later</button>
+      <button type="button" class="ob-tour-link" id="ob-tour-link" data-i18n="obTourLink" data-i18n-tip="obTourLinkTip" data-tip="Opens the short tour: firing, slice, gate, flight">${iconSvg('compass')}What do these words mean?</button>
+      <button type="button" class="ob-snooze" id="ob-snooze" data-i18n="obSnooze">${iconSvg('clock')}Remind me later</button>
       <button type="button" class="ob-minimize" id="ob-minimize" aria-expanded="true" aria-controls="ob-body" aria-label="Minimize the checklist" data-i18n-aria="obMinimize" data-tip="Keeps your standing at the top; My progress, or this button, brings the steps back" data-i18n-tip="obMinimizeTip">${iconSvg('arrow-left')}</button>
     </div>
     <p class="ob-strip" id="ob-strip" hidden><span class="ob-strip-text" id="ob-strip-text"></span><span class="ob-strip-social-on" id="ob-strip-social-on" hidden data-i18n="obSocialOn">GitHub connected — social unlocked</span><button type="button" class="ob-strip-social" id="ob-strip-social" hidden data-i18n="obSocialOff">Go social: connect GitHub</button></p>
