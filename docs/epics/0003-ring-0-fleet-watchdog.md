@@ -197,6 +197,16 @@ reason. That is `dashboard fleet`'s own launch-summary reporting
 this spec's scope, watchdog contract unchanged" shape as every re-check above; no drift
 here.
 
+DOC-FRESHNESS re-check (2026-10-04): `control/cli.ts` moved again on 2026-10-04
+(`082ca978`, epic 0019 "taxonomy-seed --labels-only and --dry-run") — the separate
+`taxonomy-seed` case gained `--labels-only` (skip the starter milestones) and
+`--dry-run` (read and plan, write nothing) flags, parsed by `parseTaxonomySeedArgs` and
+rendered by the new pure `summarizeTaxonomySeed`. That is epic 0019's own label/milestone
+seeding ritual (`docs/epics/0019-...md`), not the watchdog: `watch`/`fleet`/
+`flightWatchdogTick`/`landWatchdogTick`/`FLYABLE_STATUSES` and every acceptance criterion
+above are untouched. Same "grown past this spec's scope, watchdog contract unchanged"
+shape as every re-check above; no drift here.
+
 ## Related
 
 - `docs/epics/0001-parallel-flights.md` — the concurrency substrate (registry, locks,

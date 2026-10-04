@@ -223,7 +223,14 @@ no priced figure, only raw tokenUsage" (`openai/codex`-adjacent tooling issue tr
 search 2026-09-27). Per the never-invent-a-cost rule above, a `CodexCliModel` MUST report
 `costUsd: null`, never a locally-priced estimate — which degrades every cost-based telemetry surface
 (per-firing $, the MACHINE-WIDE 30d-equiv denominator, evaluation scorecards) for any lane flown on
-it. That degradation is a real, accepted cost of adding this adapter, not a bug to fix in it. Two usage traps, read from the Rust source
+it. That degradation is a real, accepted cost of adding this adapter, not a bug to fix in it.
+Since 2026-10-04 the fleet report keeps it unknown as well. The metrics column stores a null cost as
+0, so `dashboard:fleet-report` priced every Codex or Gemini ship at $0.00, and a mixed round's cost
+per ship fell with each one (one $2.00 Claude ship beside two Codex ships read $0.67).
+`readReportFirings` (`read/fleet-report-source.ts`) now reads the firing record's own `costUsd`, a
+null one as unpriced, and `summarizeFirings` (`read/fleet-report.ts`) prices a group by its priced
+firings alone, prints `-` for a group with none, and counts the rest (`unpriced 2`). The round
+evaluation's commit header calls a round whose ships carry no price `unpriced`, not shipless. Two usage traps, read from the Rust source
 (`codex-rs/exec/src/event_processor_with_jsonl_output.rs`, `codex-rs/protocol/src/protocol.rs`,
 2026-09-27): `usage` is the thread's running total, not a per-turn delta, so the last
 `turn.completed` wins and a sum would double-count; and `input_tokens` includes
@@ -419,8 +426,14 @@ child reads it at its start, through `claudeBackendOf` (`connection/config.ts`),
 `resolveClaudeEnv` routes it: an endpoint needs its base URL and Vertex its project, or the CLI flies
 Anthropic's own API and the row names no backend. `FlightStatus` carries `backend` and an endpoint's
 `backendHost`, the URL's host alone, never userinfo, a path or a query a hand-edited file could
-carry. A Codex or Gemini lane names none, since it never reads the file. The fleet view's lane cards
-do not name it yet.
+carry. A Codex or Gemini lane names none, since it never reads the file. Since 2026-10-04 the live
+lane cards name it too, the rest of slice S1's "provider chip in the fly bar + lane cards": each card
+carries a chip with its lane's CLI and, for Claude, its backend ("Claude Code (Amazon Bedrock)",
+"Codex"), a Codex or Gemini model being the model chip's beside it. The cards are built from the
+store, which knows nothing of the registry, so `withLaneEngines` (`read/lane-engines.ts`) merges each
+running flight's engine and backend into its project's card as `laneEngines`, in `server/main.ts`'s
+`readState`, keyed as `firingIdOf` keys the lane's firing ids (`<project>--<instanceId>`, or the bare
+project for the base flight). A lane whose flight names no engine shows no chip, as its row names none.
 Since 2026-10-03 a flight the watchdog starts on its own flies on the watch's own
 engine. A single-folder `watch` always did, since its flight is a child that inherits the watch's
 env, but a fleet-mode spawn (`createHttpSpawnFlight` in `control/cli.ts`) rides the dashboard's

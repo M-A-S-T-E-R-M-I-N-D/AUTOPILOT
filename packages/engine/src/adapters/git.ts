@@ -770,7 +770,7 @@ export class GitVcs implements VcsPort {
       .map((line) => line.slice('HEAD:'.length));
   }
 
-  async revertLast(sinceRef?: string): Promise<void> {
+  async revertLast(sinceRef?: string, reason?: string): Promise<void> {
     // GATE HOLE 3 (board web-mtb8hghd-72z52z): a firing's own commit(s) can
     // be more than one — reverting only `HEAD` would leave earlier commits
     // from the same firing in place. `sinceRef..HEAD` reverts the WHOLE
@@ -825,6 +825,41 @@ export class GitVcs implements VcsPort {
       // git errors harmlessly and the result here is discarded.
       await git(this.repo, ['revert', '--abort']);
       throw new Error(`git revert failed (exit ${result.exitCode}): ${gitFailureReason(result)}`);
+    }
+    if (reason) await this.appendRevertReason(reason);
+  }
+
+  /**
+   * Appends `reason` (the gate's own failure detail, e.g. `GateResult.details`
+   * via firing.ts) to the revert commit `revertLast` just created, in place of
+   * `--no-edit`'s bare default message ("This reverts commit <sha>."). Two
+   * epic-0036 relandings were auto-reverted nine minutes after landing with
+   * NOTHING in the revert commit or the firing record saying why — `--no-edit`
+   * is exactly what discarded it, since the gate ran, found the reason, and
+   * then had nowhere additive to put it. A range revert creates one commit per
+   * original commit (newest-first); only the LAST one (HEAD once the whole
+   * range is reverted) gets the reason, which is enough — the reason explains
+   * the firing's gate verdict as a whole, not any one of its commits.
+   *
+   * Best-effort: the revert itself already succeeded by the time this runs, so
+   * a failure here (an amend hook rejecting the new message, a flaky re-sign)
+   * must not be mistaken by the caller for the revert itself having failed —
+   * that would wrongly flip a 'reverted' firing to 'unverifiable' over a
+   * cosmetic step. `withMessageFile` sidesteps the argv length ceiling a long
+   * test-output tail can hit; `--cleanup=whitespace` keeps a line starting
+   * with '#' (a vitest/markdown heading in the tail) from being read as a git
+   * comment and dropped, same reasoning as {@link tag}'s own use of it.
+   */
+  private async appendRevertReason(reason: string): Promise<void> {
+    try {
+      const current = await git(this.repo, ['log', '-1', '--format=%B']);
+      if (current.exitCode !== 0) return;
+      const amended = `${current.stdout.trimEnd()}\n\n${reason}`;
+      await withMessageFile(amended, (file) =>
+        git(this.repo, ['commit', '--amend', '-F', file, '--cleanup=whitespace']),
+      );
+    } catch {
+      /* the revert already succeeded; losing the reason trailer is not a revert failure */
     }
   }
 

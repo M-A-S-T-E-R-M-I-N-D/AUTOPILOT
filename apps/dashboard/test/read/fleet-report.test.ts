@@ -89,9 +89,36 @@ describe('summarizeFirings', () => {
       shipped: 2,
       died: 0,
       costUsd: 6,
+      unpriced: 0,
       costPerShipUsd: 3,
       medianMinutes: 10,
     });
+  });
+
+  // Epic 0036: a Codex or Gemini run reports no priced figure, and its
+  // record says `costUsd: null` — the metrics column stores that as 0, so a
+  // report summing it priced every such ship at $0.00.
+  it('leaves an unpriced firing out of the cost and the cost per ship, and counts it', () => {
+    const s = summarizeFirings([
+      base,
+      { ...base, costUsd: null },
+      { ...base, shipped: false, costUsd: 1 },
+      { ...base, shipped: false, died: 'timeout', costUsd: null },
+    ]);
+    expect(s).toMatchObject({ firings: 4, shipped: 2, costUsd: 3, unpriced: 2 });
+    expect(s.costPerShipUsd).toBe(3);
+  });
+
+  it('has no cost per ship when no priced firing shipped', () => {
+    const codex = { ...base, costUsd: null };
+    expect(summarizeFirings([codex, codex])).toMatchObject({
+      costUsd: 0,
+      unpriced: 2,
+      costPerShipUsd: null,
+    });
+    expect(
+      summarizeFirings([codex, { ...base, shipped: false, costUsd: 4 }]).costPerShipUsd,
+    ).toBeNull();
   });
 
   it('has no cost per ship when nothing shipped, and a median of an even count', () => {
@@ -184,6 +211,33 @@ describe('renderFleetReport', () => {
     expect(lines[1]).toBe(
       `  ${'all'.padEnd(18)}    3 firings  shipped 100%  died   0%  $   6.00  per ship   $2.00  median 10.0 min`,
     );
+  });
+});
+
+describe('renderFleetReport unpriced firings (epic 0036)', () => {
+  const codex: ReportFiring = {
+    ...base,
+    firingId: 'fly-autopilot--fleet-2:firing-2',
+    costUsd: null,
+    model: 'gpt-5-codex',
+  };
+
+  it('prints a lane whose engine reports no price as unpriced, never as $0.00', () => {
+    const lines = renderFleetReport([base, codex, codex], [], 'w');
+    const row = lines.find((l) => l.startsWith('  gpt-5-codex '));
+    expect(row).toBe(
+      `  ${'gpt-5-codex'.padEnd(18)}    2 firings  shipped 100%  died   0%         -  per ship       -  median 10.0 min  unpriced 2`,
+    );
+    expect(lines.join('\n')).not.toMatch(/gpt-5-codex .*\$0\.00/);
+  });
+
+  it('prices a mixed group by its priced firings alone, and says how many it left out', () => {
+    const lines = renderFleetReport([base, codex, codex], [], 'w');
+    expect(lines[1]).toBe(
+      `  ${'all'.padEnd(18)}    3 firings  shipped 100%  died   0%  $   2.00  per ship   $2.00  median 10.0 min  unpriced 2`,
+    );
+    const claude = lines.find((l) => l.startsWith('  claude-sonnet-5 '));
+    expect(claude).not.toContain('unpriced');
   });
 });
 

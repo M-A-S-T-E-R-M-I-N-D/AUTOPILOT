@@ -912,9 +912,35 @@ function livePhasePill(phase) {
   phasePill.setAttribute('data-i18n-name', phase);
   return phasePill;
 }
+// The engine chip both live cards carry once their lane flies a named engine
+// (epic 0036, GitHub #21 slice S1): the CLI, and for Claude Code the backend
+// its CLI is routed to, an endpoint by its host — the fly bar row's clause.
+// The card's laneEngines (read/lane-engines.ts) is keyed as the engine keys
+// the lane's firing ids. A Codex or Gemini model is the model chip's to name.
+var LANE_ENGINE_KEYS = { claude: 'engineClaude', codex: 'engineCodex', gemini: 'engineGemini' };
+var LANE_BACKEND_KEYS = { bedrock: 'authModeBedrock', vertex: 'authModeVertex', endpoint: 'authModeEndpoint' };
+function laneEngineChip(laneEngines, firingId) {
+  var own = Object.prototype.hasOwnProperty;
+  var cut = firingId ? firingId.lastIndexOf(':firing-') : -1;
+  var lane = cut > 0 && laneEngines && own.call(laneEngines, firingId.slice(0, cut)) ? laneEngines[firingId.slice(0, cut)] : null;
+  if (!lane || !own.call(LANE_ENGINE_KEYS, lane.engine)) return null;
+  // ADR 0012's census: each key reaches tr() in a variable, never as a bracket
+  // lookup composed inline, so the scan reads the key maps' literals above and
+  // keeps their English in core. Two inline lookups here reverted this chip twice.
+  var engineKey = LANE_ENGINE_KEYS[lane.engine];
+  var backendKey = own.call(LANE_BACKEND_KEYS, lane.backend) ? LANE_BACKEND_KEYS[lane.backend] : null;
+  var engine = tr(engineKey);
+  var backend = lane.backendHost || (backendKey ? tr(backendKey) : '');
+  var text = backend ? tr('laneEngineChip', { engine: engine, backend: backend }) : engine;
+  var chip = tipChip(text, tr('laneEngineTip'), tr('laneEngineAria', text), 'live-engine');
+  chip.setAttribute('data-i18n-tip', 'laneEngineTip');
+  chip.setAttribute('data-i18n-aria-template', 'laneEngineAria');
+  chip.setAttribute('data-i18n-name', text);
+  return chip;
+}
 function liveWorkerCard(c) {
   var lives = liveFirings(c);
-  if (lives.length > 1) return laneGridCard(lives, c.id);
+  if (lives.length > 1) return laneGridCard(lives, c.id, c.laneEngines);
   var live = liveFiring(c);
   if (!live) return null;
   var wrap = el('div', 'live-worker');
@@ -952,6 +978,8 @@ function liveWorkerCard(c) {
       'chip-model live-model'
     ));
   }
+  var engineChip = laneEngineChip(c.laneEngines, live.firingId);
+  if (engineChip) head.appendChild(engineChip);
   if (live.orientFixation) {
     var fixationMeta = orientFixationChipMeta(live.turnsSeen);
     var fixationChip = tipChip(
@@ -1142,7 +1170,7 @@ wireRoving('.live-worker [tabindex]', '.live-worker');
 // detail N times. Reuses the exact same i18n'd helpers (liveWorkerHeadMeta,
 // tr(), OFFICE_TIPS) liveWorkerCard already uses, so it needs no new STRINGS
 // keys and can't drift from their translations.
-function laneCard(live, projectId) {
+function laneCard(live, projectId, laneEngines) {
   var wrap = el('div', 'lane-card');
   wrap.id = laneAnchorId(projectId, live.callsign);
   wrap.setAttribute('tabindex', '-1');
@@ -1163,6 +1191,8 @@ function laneCard(live, projectId) {
       'chip-model live-model'
     ));
   }
+  var engineChip = laneEngineChip(laneEngines, live.firingId);
+  if (engineChip) head.appendChild(engineChip);
   wrap.appendChild(head);
   var taskKey = live.focusTask ? 'liveFocusTask' : (live.probableTask ? 'liveProbableTask' : null);
   if (taskKey) {
@@ -1219,11 +1249,11 @@ function laneCard(live, projectId) {
 // in sync. STABILITY LAW (epic 0018): bounded by .lane-grid's own max-height
 // scroll container (layout-css.ts) rather than letting a busy fleet's card
 // grow the page underneath it.
-function laneGridCard(lives, projectId) {
+function laneGridCard(lives, projectId, laneEngines) {
   var grid = el('div', 'lane-grid');
   grid.setAttribute('role', 'group');
   grid.setAttribute('aria-label', tr('liveWorkers'));
-  for (var i = 0; i < lives.length; i++) grid.appendChild(laneCard(lives[i], projectId));
+  for (var i = 0; i < lives.length; i++) grid.appendChild(laneCard(lives[i], projectId, laneEngines));
   return grid;
 }
 wireRoving('.lane-card [tabindex]', '.lane-card');

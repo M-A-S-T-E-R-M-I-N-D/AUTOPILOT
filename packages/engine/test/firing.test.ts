@@ -150,9 +150,11 @@ class FakeVcs implements VcsPort {
     }
     return Promise.resolve(this.opts.diffStats ?? []);
   };
-  revertLast(sinceRef?: string): Promise<void> {
+  revertReasons: (string | undefined)[] = [];
+  revertLast(sinceRef?: string, reason?: string): Promise<void> {
     this.revertCalls++;
     this.revertSinceRefs.push(sinceRef);
+    this.revertReasons.push(reason);
     if (this.opts.revertError !== undefined) {
       return Promise.reject(new Error(this.opts.revertError));
     }
@@ -203,10 +205,15 @@ class FakeGate implements GatePort {
   constructor(
     private readonly ok: boolean,
     private readonly crashed = false,
+    private readonly details?: string,
   ) {}
   run(): Promise<GateResult> {
     this.runs++;
-    return Promise.resolve({ ok: this.ok, ...(this.crashed ? { crashed: true } : {}) });
+    return Promise.resolve({
+      ok: this.ok,
+      ...(this.crashed ? { crashed: true } : {}),
+      ...(this.details !== undefined ? { details: this.details } : {}),
+    });
   }
 }
 
@@ -518,7 +525,7 @@ describe('runFiring', () => {
       last: { subject: 'feat: AP-2', shortSha: 'def' },
       existing: new Set(['def']),
     });
-    const gate = new FakeGate(false);
+    const gate = new FakeGate(false, false, 'pnpm run test failed (exit 1)\nFAIL src/a.test.ts');
     const store = new FakeStore();
 
     const out = await runFiring(deps(model, vcs, gate, store), DEFAULT_ENGINE_CONFIG, {
@@ -540,6 +547,13 @@ describe('runFiring', () => {
     // (and the diff is never even computed for a non-passed gate).
     expect(vcs.changedFilesCalls).toEqual([]);
     expect(out.record.filesTouched).toBeUndefined();
+    // verdict-quality, round 2 (this was the one 'reverted' path that recorded
+    // no reason at all — epic-0036's two relandings were reverted nine minutes
+    // after landing with the firing record saying only "reverted"): a plain
+    // gate failure's own details now ride into BOTH the telemetry record...
+    expect(out.record.gateError).toBe('pnpm run test failed (exit 1)\nFAIL src/a.test.ts');
+    // ...and the revert commit itself, so a reader never has to rediscover why.
+    expect(vcs.revertReasons).toEqual(['pnpm run test failed (exit 1)\nFAIL src/a.test.ts']);
   });
 
   it('does NOT revert a crashed gate (missing dep/OOM/tool error is not a real failure)', async () => {

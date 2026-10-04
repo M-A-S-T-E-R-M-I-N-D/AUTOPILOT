@@ -359,6 +359,19 @@ function planEditorSection(pid) {
     label.appendChild(control);
     return label;
   }
+  // An action leads with a decorative icon (epic 0025): Publish and Discard
+  // draft take ratify/dismiss's check and x, Undo the un-ratify chip's undo-2,
+  // Redo its redo-2. The tag stays on the button; setSweptText() keeps the icon.
+  function actionButton(action, key, icon, disabled) {
+    var b = el('button', 'plan-' + action);
+    b.type = 'button';
+    b.setAttribute('data-plan-' + action, '');
+    b.setAttribute('data-i18n', key);
+    b.appendChild(iconEl(icon));
+    b.appendChild(document.createTextNode(tr(key)));
+    b.disabled = disabled;
+    return b;
+  }
   // FOCUS ACROSS A REDRAW (epic 0024): render() rebuilds the body, and the
   // rebuild dropped keyboard focus to <body> on every edit. The focused control
   // is found again in the new drawing by its data-plan-* hook; one that came
@@ -445,30 +458,10 @@ function planEditorSection(pid) {
     status.setAttribute('role', 'status');
     body.appendChild(status);
     var actions = el('div', 'plan-actions');
-    var publish = el('button', 'plan-publish', tr('planEditorPublish'));
-    publish.type = 'button';
-    publish.setAttribute('data-plan-publish', '');
-    publish.setAttribute('data-i18n', 'planEditorPublish');
-    publish.disabled = !isDirty;
-    actions.appendChild(publish);
-    var undoBtn = el('button', 'plan-undo', tr('planEditorUndo'));
-    undoBtn.type = 'button';
-    undoBtn.setAttribute('data-plan-undo', '');
-    undoBtn.setAttribute('data-i18n', 'planEditorUndo');
-    undoBtn.disabled = state.past.length === 0;
-    actions.appendChild(undoBtn);
-    var redoBtn = el('button', 'plan-redo', tr('planEditorRedo'));
-    redoBtn.type = 'button';
-    redoBtn.setAttribute('data-plan-redo', '');
-    redoBtn.setAttribute('data-i18n', 'planEditorRedo');
-    redoBtn.disabled = state.future.length === 0;
-    actions.appendChild(redoBtn);
-    var discard = el('button', 'plan-discard', tr('planEditorDiscard'));
-    discard.type = 'button';
-    discard.setAttribute('data-plan-discard', '');
-    discard.setAttribute('data-i18n', 'planEditorDiscard');
-    discard.disabled = !isDirty;
-    actions.appendChild(discard);
+    actions.appendChild(actionButton('publish', 'planEditorPublish', 'check', !isDirty));
+    actions.appendChild(actionButton('undo', 'planEditorUndo', 'undo-2', state.past.length === 0));
+    actions.appendChild(actionButton('redo', 'planEditorRedo', 'redo-2', state.future.length === 0));
+    actions.appendChild(actionButton('discard', 'planEditorDiscard', 'x', !isDirty));
     body.appendChild(actions);
     refocus(hook);
   }

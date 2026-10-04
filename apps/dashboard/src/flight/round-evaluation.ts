@@ -157,7 +157,14 @@ export function roundCommitHeader(s: RoundSummary): string {
   // time is session detail the commitlint rule no-operator-private-context
   // flags. The evaluation document itself keeps the times — it is the record.
   const day = new Date(s.endedAt).toISOString().slice(0, 10);
-  const per = s.costPerShipUsd === null ? 'no ship' : `$${s.costPerShipUsd.toFixed(2)} per ship`;
+  // No cost per ship beside a ship means no priced firing shipped: a round
+  // flown on an engine that reports no price (epic 0036).
+  const per =
+    s.costPerShipUsd !== null
+      ? `$${s.costPerShipUsd.toFixed(2)} per ship`
+      : s.shipped === 0
+        ? 'no ship'
+        : 'unpriced';
   return `docs(evaluation): a round of ${s.firings} firings on ${day}, ${s.shipped} shipped, ${per}`;
 }
 

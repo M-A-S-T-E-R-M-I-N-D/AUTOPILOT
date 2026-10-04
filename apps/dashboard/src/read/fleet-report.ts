@@ -26,7 +26,10 @@ export interface ReportFiring {
   readonly died: string | null;
   readonly noopClass: string | null;
   readonly gateResult: string | null;
-  readonly costUsd: number;
+  /** `null` when the firing's record carries no priced cost: a Codex or
+   *  Gemini run, whose CLI reports none, or a run killed before its envelope.
+   *  Unknown, never $0 (epic 0036's cost rule). */
+  readonly costUsd: number | null;
   readonly durationMs: number;
   readonly model: string | null;
 }
@@ -87,8 +90,13 @@ export interface FiringSummary {
   readonly firings: number;
   readonly shipped: number;
   readonly died: number;
+  /** What the priced firings cost; an unpriced one adds nothing it never reported. */
   readonly costUsd: number;
-  /** `null` when nothing shipped — a cost per zero ships is not a number. */
+  /** Firings whose cost is unknown, left out of both cost figures. */
+  readonly unpriced: number;
+  /** The priced firings' cost over their own ships, so a lane whose engine
+   *  reports no price neither looks free nor cheapens the others' ships.
+   *  `null` when no priced firing shipped — a cost per zero ships is not a number. */
   readonly costPerShipUsd: number | null;
   readonly medianMinutes: number;
 }
@@ -101,14 +109,16 @@ function median(values: readonly number[]): number {
 }
 
 export function summarizeFirings(firings: readonly ReportFiring[]): FiringSummary {
-  const shipped = firings.filter((f) => f.shipped).length;
-  const costUsd = firings.reduce((sum, f) => sum + f.costUsd, 0);
+  const priced = firings.filter((f) => f.costUsd !== null);
+  const pricedShips = priced.filter((f) => f.shipped).length;
+  const costUsd = priced.reduce((sum, f) => sum + f.costUsd!, 0);
   return {
     firings: firings.length,
-    shipped,
+    shipped: firings.filter((f) => f.shipped).length,
     died: firings.filter((f) => f.died !== null).length,
     costUsd,
-    costPerShipUsd: shipped === 0 ? null : costUsd / shipped,
+    unpriced: firings.length - priced.length,
+    costPerShipUsd: pricedShips === 0 ? null : costUsd / pricedShips,
     medianMinutes: median(firings.map((f) => f.durationMs / 60_000)),
   };
 }
@@ -201,11 +211,18 @@ const LABEL_WIDTH = 18;
 function summaryLine(label: string, s: FiringSummary, width = LABEL_WIDTH): string {
   const pct = (n: number): string => `${Math.round((n / Math.max(1, s.firings)) * 100)}%`;
   const perShip = s.costPerShipUsd === null ? '-' : `$${s.costPerShipUsd.toFixed(2)}`;
+  // A group no firing of which reported a price has no cost to print: a
+  // $0.00 there would read as free.
+  const cost =
+    s.firings > 0 && s.unpriced === s.firings
+      ? '-'.padStart(8)
+      : `$${s.costUsd.toFixed(2).padStart(7)}`;
   return (
     `  ${label.padEnd(width)} ${String(s.firings).padStart(4)} firings  ` +
     `shipped ${pct(s.shipped).padStart(4)}  died ${pct(s.died).padStart(4)}  ` +
-    `$${s.costUsd.toFixed(2).padStart(7)}  per ship ${perShip.padStart(7)}  ` +
-    `median ${s.medianMinutes.toFixed(1)} min`
+    `${cost}  per ship ${perShip.padStart(7)}  ` +
+    `median ${s.medianMinutes.toFixed(1)} min` +
+    (s.unpriced > 0 ? `  unpriced ${s.unpriced}` : '')
   );
 }
 

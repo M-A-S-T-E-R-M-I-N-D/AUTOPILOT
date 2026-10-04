@@ -168,6 +168,25 @@ describe('scanSource — el(tag, cls, text) DOM-builder calls (issue #16 scanner
       { file: 'shell.ts', line: 1, kind: 'text', tag: 'button', text: 'Open' },
     ]);
   });
+
+  it('does not flag an el() call whose data-i18n tag sits 5 lines down, past two comment lines (discussions-triage.ts:107, 2026-10-04)', () => {
+    // The real shape that produced a false positive: two doc-comment lines
+    // between the el() call and an unrelated statement push the actual
+    // setAttribute('data-i18n', …) call to the 5th line after the el() call —
+    // one line past TAG_LOOKAHEAD_LINES's 4-line window.
+    const source = [
+      "var execBtn = el('button', 'discussions-triage-execute', 'Run KEEPER Discussions triage');",
+      '// Epic 0025 slice 2 (execute buttons): leads with the panel heading’s',
+      '// message-circle, decorative; setSweptText() keeps it through a sweep.',
+      "execBtn.prepend(iconEl('message-circle'));",
+      "execBtn.type = 'button';",
+      "execBtn.setAttribute('data-i18n', 'discussionsTriageExecute');",
+    ].join('\n');
+
+    const findings = scanSource(source, 'discussions-triage.ts');
+
+    expect(findings).toEqual([]);
+  });
 });
 
 describe('scanSource — el() fixture meta-test (pins the combined contract in one realistic pass)', () => {

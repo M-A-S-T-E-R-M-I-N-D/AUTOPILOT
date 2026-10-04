@@ -474,7 +474,17 @@ propagation, and the filled style does not match the nav.
    `setSweptText()` keeps it across a locale switch and every later tick
    (`apps/dashboard/test/web/tasks-heading-icon.test.ts`). The "Inbox"
    heading below it stays bare words, since the "Drop a note" summary under
-   it already draws `inbox`.
+   it already draws `inbox`. **Plan editor actions 2026-10-04 (slice 2):** the
+   Plan tab's editor headed with `pen-line` and joined its steps with
+   `arrow-right`, but its Publish, Undo, Redo and Discard draft buttons were
+   bare words beside the SOUL card's iconed ratify, dismiss and un-ratify.
+   Publish and Discard draft are the decision over a draft that ratify and
+   dismiss are over a proposal, so they take that pair's `check` and `x`;
+   Undo takes the un-ratify chip's `undo-2` and Redo a newly vendored
+   `redo-2`, both mirrored under `dir="rtl"` like that chip. Each icon is
+   decorative, so a button's name stays its words; the `data-i18n` tag stays
+   on the button and `setSweptText()` keeps the icon across a locale switch
+   (`apps/dashboard/test/web/plan-editor-action-icons.test.ts`).
 
 ## Related
 

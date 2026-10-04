@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-10-04 | [VERDICT blocked `ap-muszt3qy-0`: the hook that blocks `eslint.config.js` is the operator's own Claude Code hook, outside every flight's containment — the allowlist/override is an operator decision, not a repo change](2026-10-04-verdict-ap-muszt3qy-0-config-protection-hook-operator-owned.md) |
 | 2026-10-04 | [Re-verifying `ap-musvu2gp-1`: `dossier-posted` is still 404 live, but `--labels-only` (`082ca978`) now lets the operator create it without the unwanted starter milestones](2026-10-04-verdict-ap-musvu2gp-1-labels-only-resolves-milestone-concern.md) |
 | 2026-10-03 | [Closing `ap-mui04ldw-0`: `status: needs-format` already exists on the live repo, but `dossier-posted` is still missing](2026-10-03-verdict-ap-mui04ldw-0-needs-format-already-live.md) |
 | 2026-10-03 | [Closing `docfresh-docs-flight-containment-md-1790945497000`: the doc caught up to its subject four hours later](2026-10-03-docfresh-flight-containment-caught-up-closed.md) |

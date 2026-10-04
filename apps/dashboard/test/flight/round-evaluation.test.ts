@@ -76,6 +76,18 @@ describe('the round section', () => {
     expect(roundHeadline({ ...SUMMARY, shipped: 0, costPerShipUsd: null })).toContain('- per ship');
   });
 
+  // Epic 0036: a round flown on Codex or Gemini alone ships with no priced
+  // firing, so it has no cost per ship — but it did ship.
+  it('calls a round whose ships carry no price unpriced, not shipless', () => {
+    const codex = { ...SUMMARY, costUsd: 0, costPerShipUsd: null };
+    expect(roundCommitHeader(codex)).toBe(
+      'docs(evaluation): a round of 10 firings on 2026-09-27, 9 shipped, unpriced',
+    );
+    expect(roundCommitHeader({ ...codex, shipped: 0 })).toBe(
+      'docs(evaluation): a round of 10 firings on 2026-09-27, 0 shipped, no ship',
+    );
+  });
+
   it("creates the month once with the repo's OWN licence header, then appends", () => {
     const root = mkdtempSync(join(tmpdir(), 'ap-round-doc-'));
     try {
