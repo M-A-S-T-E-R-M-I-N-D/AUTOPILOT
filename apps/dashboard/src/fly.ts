@@ -266,8 +266,9 @@ import {
   runStaleClaimSweep,
 } from './flight/post-flight-sweeps.js';
 import { runOwnedWorkSweep } from './flight/owned-work-reconcile.js';
-import { runSocialFlightPass } from './flight/social-flight-pass.js';
-import { isBetweenFirings } from './flight/social-flight-trigger.js';
+import { runSocialFlightPass, type SocialFlightPassOutcome } from './flight/social-flight-pass.js';
+import { isBetweenFirings, type SocialFlightPhase } from './flight/social-flight-trigger.js';
+import { socialFlightDebriefLine, socialFlightDebriefOf } from './flight/social-flight-debrief.js';
 import { composeSoulWithFleetWisdom } from './flight/fleet-wisdom-mining.js';
 
 const DEFAULT_FIRINGS = 1;
@@ -1358,6 +1359,16 @@ async function main(): Promise<void> {
     // (below), where the interval social pass asks whether another firing is
     // still to come (the loop keeps its own iteration count private).
     let firingsCompletedThisFlight = 0;
+    // SOCIAL DEBRIEF (epic 0016 slice 5/6, board web-mtpzzxw4-au1b6x): every
+    // woven-in social pass — start, each interval, end — runs through this
+    // one helper, so its outcome is kept for the flight's end-of-flight
+    // SOCIAL line (flight/social-flight-debrief.ts), printed after the end pass.
+    const socialPasses: SocialFlightPassOutcome[] = [];
+    const flySocialPass = async (phase: SocialFlightPhase): Promise<void> => {
+      socialPasses.push(
+        await runSocialFlightPass(phase, process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target }),
+      );
+    };
     // Commit-time independent review (BACKLOG-999 C5): one tool-less call on a
     // cheap model per gate-passed firing, non-blocking — see commit-review.ts.
     const reviewModel = resolveCommitReviewModel(process.env);
@@ -2010,7 +2021,7 @@ async function main(): Promise<void> {
         // pass; both are reads, so the cost is one extra flight-log line.
         firingsCompletedThisFlight += 1;
         if (isBetweenFirings(firingsCompletedThisFlight, firings)) {
-          await runSocialFlightPass('interval', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target });
+          await flySocialPass('interval');
         }
       },
     };
@@ -2064,7 +2075,7 @@ async function main(): Promise<void> {
     // best-effort: never fatal to the flight. The interval phase runs from
     // onFiringComplete (above, between firings); the end phase runs with the
     // other end-of-flight sweeps below.
-    await runSocialFlightPass('start', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target });
+    await flySocialPass('start');
 
     // LANE DEMOTION (epic 0036): a non-Claude lane whose work the gate keeps
     // reverting stops taking new work instead of spending every firing.
@@ -2493,7 +2504,12 @@ async function main(): Promise<void> {
     await runStaleClaimSweep(now, undefined, target);
 
     // SOCIAL FLIGHT weave-in, end phase — the start phase's twin (see above).
-    await runSocialFlightPass('end', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target });
+    await flySocialPass('end');
+    // SOCIAL DEBRIEF (epic 0016 slice 5/6): the whole flight's passes in one
+    // line, after the end pass so it counts too. Silent when the toggle was
+    // off all flight — the same expected case the pass itself keeps quiet.
+    const socialDebrief = socialFlightDebriefOf(socialPasses);
+    if (socialDebrief) out(`  🗣 ${socialFlightDebriefLine(socialDebrief)}`);
 
     runSoulMiningSweep(store, projectId, now);
 
