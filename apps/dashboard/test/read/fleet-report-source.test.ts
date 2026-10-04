@@ -119,6 +119,35 @@ describe('readReportFirings', () => {
       'error',
     ]);
   });
+
+  // Epic 0036: the metrics column stores a record's unknown cost as 0, so
+  // only the firing record itself tells an unpriced run from a free one.
+  it("reads a firing whose record carries no priced cost as unpriced, not as the column's 0", () => {
+    const record = (firingId: string, payload: string): void => {
+      store.db
+        .prepare(
+          `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+           VALUES ('fly-a', ?, 'firing', ?, 100)`,
+        )
+        .run(firingId, payload);
+    };
+    firing('fly-a', 'fly-a:firing-1', null, 1, 100);
+    record('fly-a:firing-1', JSON.stringify({ costUsd: null, model: 'gpt-5-codex' }));
+    firing('fly-a', 'fly-a:firing-2', null, 1, 100);
+    record('fly-a:firing-2', JSON.stringify({ costUsd: 1.5 }));
+    firing('fly-a', 'fly-a:firing-3', null, 1, 100); // no firing record at all
+    firing('fly-a', 'fly-a:firing-4', null, 1, 100);
+    record('fly-a:firing-4', 'not json');
+    firing('fly-a', 'fly-a:firing-5', null, 1, 100);
+    record('fly-a:firing-5', JSON.stringify({ shipped: true })); // a record that names no cost
+    expect(readReportFirings(store.db, 'fly-a', 100).map((r) => r.costUsd)).toEqual([
+      null,
+      1.5,
+      1.5,
+      1.5,
+      1.5,
+    ]);
+  });
 });
 
 describe('readReportConvergence', () => {
