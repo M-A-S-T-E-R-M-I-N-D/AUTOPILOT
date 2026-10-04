@@ -1588,6 +1588,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .card-remove:not(:disabled):hover, .card-remove:not(:disabled):focus-visible { color: var(--color-accent-text); background: var(--color-sev-high); border-color: var(--color-sev-high); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .card-remove:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .card-remove:disabled { opacity: 0.6; cursor: default; }
+.card-remove > .icon { margin-inline-end: 0.35em; }
 .soul-proposal { width: 100%; margin-bottom: var(--space-2); border: 1px solid var(--color-needs-you); border-radius: var(--shape-extra-small); padding: var(--space-2); }
 /* SOUL-surface controls (COCKPIT 4/6): the same MX shape-morph + elevation
    hover/active pair the board's task buttons and the flight-log toggles

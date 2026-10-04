@@ -484,7 +484,16 @@ propagation, and the filled style does not match the nav.
    `redo-2`, both mirrored under `dir="rtl"` like that chip. Each icon is
    decorative, so a button's name stays its words; the `data-i18n` tag stays
    on the button and `setSweptText()` keeps the icon across a locale switch
-   (`apps/dashboard/test/web/plan-editor-action-icons.test.ts`).
+   (`apps/dashboard/test/web/plan-editor-action-icons.test.ts`). **Fleet
+   card Remove 2026-10-04 (slice 2):** the task row's delete draws `trash-2`
+   and Start over and Sync to GitHub lead with their own strokes, but the
+   fleet card's Remove, which drops a whole project from the dashboard, was
+   bare words. It leads with the same `trash-2` now, decorative, so its
+   aria-label stays its name; nothing is newly vendored. Its busy
+   "Removing…" and the restored "Remove" swap through `setTaggedLabel()`, as
+   Start over's do, so the icon survives a refused delete and a sweep
+   mid-request repaints the busy words, not the idle ones
+   (`apps/dashboard/test/web/card-remove-icon.test.ts`).
 
 ## Related
 
