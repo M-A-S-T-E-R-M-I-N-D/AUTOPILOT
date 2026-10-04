@@ -77,6 +77,29 @@ describe('queueForecastMeta', () => {
     expect(meta?.tip).toContain('the last 1 firing');
     expect(meta?.tip).toContain('1 open task');
   });
+
+  // Epic 0036: a Codex or Gemini firing reports no price and its cost column
+  // reads 0, so averaged in it halved this $2.00 lane's pace to $1.00/firing.
+  const unpriced = (completion: string | null) => ({ cost: 0, completion, costUnpriced: true });
+
+  it('averages cost over the priced firings alone, naming the unpriced ones it left out', () => {
+    // 2 completes over 4 firings = 0.5/firing; 2 open tasks → 4 firings.
+    const log = [firing('complete', 2), unpriced('complete'), firing('slice', 2), unpriced(null)];
+    const meta = queueForecastMeta(2, log, fmtCost);
+    expect(meta?.text).toBe('Queue drains in ~4 firings / ~$8.00');
+    expect(meta?.tip).toContain('2 tasks completed at $2.00/firing average');
+    expect(meta?.tip).toContain('(2 unpriced left out, no price was reported)');
+    expect(meta?.tip).toContain('so 2 open tasks ≈ 4 firings ≈ $8.00.');
+  });
+
+  it('reads the cost as unpriced when no firing in the window reported a price', () => {
+    const meta = queueForecastMeta(1, [unpriced('complete'), unpriced('slice')], fmtCost);
+    expect(meta?.text).toBe('Queue drains in ~2 firings / cost unpriced');
+    expect(meta?.tip).toContain(
+      '1 task completed, none reported a price, so 1 open task ≈ 2 firings at an unknown cost.',
+    );
+    expect(meta?.tip).not.toContain('$');
+  });
 });
 
 describe('taskFocusActive', () => {

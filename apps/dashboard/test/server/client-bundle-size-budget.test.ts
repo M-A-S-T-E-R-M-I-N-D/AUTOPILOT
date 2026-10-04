@@ -381,7 +381,11 @@ import {
 // fly bar: a select and model field per lane, their restore, the submit's
 // laneEngines, four English keys — measured 256791B raw, 233 bytes UNDER the
 // old 257024B line; two KB for the margin the entries above keep.
-const CORE_RAW_BUDGET = 253 * 1024;
+// Then core raw 253→255KB (2026-10-04), epic 0036's queue forecast over
+// unpriced firings: queueForecastMeta averages cost over the priced firings
+// alone and names the ones it left out — measured 259225B raw against the
+// old 259072B line, 153 bytes over; two KB for the same margin.
+const CORE_RAW_BUDGET = 255 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.

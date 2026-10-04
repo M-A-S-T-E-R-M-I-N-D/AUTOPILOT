@@ -283,7 +283,13 @@ $1.50 per ship and could win Opus a tier on cost. `readRoutedFirings` now reads 
 as NULL (`UNPRICED_FIRING_SQL`), `ArmStats.pricedShipped` counts the ships whose cost is known,
 `leaderOf` divides by them, so an arm with none never leads on cost, the printed scoreboard names
 the ships it left out (`per ship $3.00 (2 unpriced left out)`, or `unpriced`), and the benchmark
-page's tier arms divide the same way (`scoreboardTiers`). Since
+page's tier arms divide the same way (`scoreboardTiers`). Until a later 2026-10-04 commit the Tasks
+card's QUEUE FORECAST averaged them in as free too: a $2.00 Claude firing beside a Codex one read
+$1.00 per firing, so the open queue looked half as costly to drain. `queueForecastMeta`
+(`web/task-queue.ts`) now reads the flight-log entry's `costUnpriced`, still counts such a firing
+toward the completion pace, and averages cost over the priced firings alone; its tip names the ones
+it left out (`2 unpriced left out, no price was reported`), and a window with none priced
+reads `cost unpriced`, never `~$0.00`. Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
