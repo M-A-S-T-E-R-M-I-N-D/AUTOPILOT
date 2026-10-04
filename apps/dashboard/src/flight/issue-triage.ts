@@ -350,7 +350,10 @@ const DUPLICATE_THRESHOLD = 0.5;
  *  (`.github/labels.json`'s convention) — its presence on a later pass means
  *  the issue was already triaged. Exported so `pool-client.ts` (epic 0007
  *  slice 6) can recognize a pool-labeled issue without re-deriving the same
- *  prefix convention. */
+ *  prefix convention. Read in any casing, as the pool reads it (pool-client.ts
+ *  carriedPoolLabel, restated in {@link planIssueTriage} rather than imported
+ *  back into a cycle): `--add-label "pool: ux"` lands as `Pool: UX` on a repo
+ *  whose label reads so. */
 export const POOL_LABEL_PREFIX = 'pool: ';
 
 /** GitHub's stock `duplicate` label marks an issue a previous pass already
@@ -706,7 +709,8 @@ export function planIssueTriage(
     // and leaves the door open (claim it and the fleet steps back).
     releasedFromHumansAfterDays = ageDays;
   }
-  const poolLabel = labels.find((label) => label.startsWith(POOL_LABEL_PREFIX));
+  const poolPrefix = POOL_LABEL_PREFIX.toLowerCase();
+  const poolLabel = labels.find((label) => label.toLowerCase().startsWith(poolPrefix));
   if (poolLabel) {
     return {
       decision: 'skip',
