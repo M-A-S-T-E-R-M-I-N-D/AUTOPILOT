@@ -89,6 +89,16 @@ into a per-project ritual any instance can run on any repo it owns.
   the issue carries it. A comment-only release, an issue without the label,
   and an issue another assignee still holds are unchanged. Covered by
   `test/flight/mirror-pass-claimed-label.test.ts`.
+  **GitHub's close reasons 2026-10-04 (same law):** closing an issue as not
+  planned or as a duplicate is the page's own "no", the native form of
+  `declined`. The pass never read why an issue was closed, so a board task
+  still queued from an issue the maintainer closed that way had the issue
+  reopened as "a false-close". `fetchIssueState` now reads `stateReason` in
+  the same `gh issue view` call, and the reconcile plans no reopen for an
+  issue closed as not planned or as a duplicate. A close as completed, or with
+  no reason read, is reopened as before. A claimant's close still settles its
+  claimed task whatever the reason, and a landed commit is still noted on the
+  closed issue. Covered by `test/flight/mirror-pass-close-reason.test.ts`.
 - **S4 — operator routing console:** the dashboard surfaces "what the
   page says" (milestone progress, label queues, claims) next to the
   board, so steering happens from either side with one truth.

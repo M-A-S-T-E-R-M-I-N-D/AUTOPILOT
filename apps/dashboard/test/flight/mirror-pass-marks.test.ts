@@ -99,7 +99,9 @@ describe('the mirror pass × the maintainer marks (regression, epic 0019 additiv
       assignees: [],
       labels: ['declined', 'area: web'],
     });
-    expect(calls).toEqual([['issue', 'view', '42', '--json', 'number,state,assignees,labels']]);
+    expect(calls).toEqual([
+      ['issue', 'view', '42', '--json', 'number,state,assignees,labels,stateReason'],
+    ]);
   });
 
   it.each(markedFindingCases)(

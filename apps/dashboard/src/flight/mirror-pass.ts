@@ -131,6 +131,22 @@ export interface MirrorPassIssueState {
    *  maintainer declined or put on hold ({@link isHeldByMaintainer}). Absent
    *  = not fetched (pure callers), which reads as unmarked. */
   readonly labels?: readonly string[];
+  /** Why GitHub says a closed issue was closed (`stateReason`). Read so a
+   *  close given as a "no" ({@link isClosedAsNo}) is told apart from a close
+   *  as done. Absent = open, not fetched, or no reason GitHub defines. */
+  readonly closedAs?: MirrorPassCloseReason;
+}
+
+/** GitHub's three close reasons (`IssueStateReason` minus `REOPENED`, which
+ *  only an open issue carries). */
+export type MirrorPassCloseReason = 'completed' | 'not-planned' | 'duplicate';
+
+/** EPIC 0019 law 2, the native form of the `declined` label: an issue closed
+ *  as not planned or as a duplicate was answered no on the page, so the pass
+ *  never reopens it as a "false-close". A close as completed, or one with no
+ *  reason read, is reconciled as before. */
+function isClosedAsNo(issue: MirrorPassIssueState): boolean {
+  return issue.closedAs === 'not-planned' || issue.closedAs === 'duplicate';
 }
 
 /** EPIC 0019 law 2, the maintainer's mark outranks the pass: an issue they
@@ -226,7 +242,9 @@ export type MirrorPassFinding =
  * it — reopened rather than left standing as a stale false-close. An issue
  * the maintainer declined or put on hold ({@link isHeldByMaintainer}) is also
  * `null`: their mark outranks the board, so a declined issue they closed is
- * never reopened as a "false-close".
+ * never reopened as a "false-close". Nor is one closed as not planned or as a
+ * duplicate ({@link isClosedAsNo}); a claimant's close still settles its
+ * claimed task whatever the reason.
  */
 /** Is `login` one of the issue's assignees? Logins compare case-insensitively,
  *  the same way `social-pass.ts` decides the viewer's role. */
@@ -298,7 +316,7 @@ export function planMirrorPassReconcile(
     };
   }
 
-  if (task.status !== 'done' && issue.state === 'closed') {
+  if (task.status !== 'done' && issue.state === 'closed' && !isClosedAsNo(issue)) {
     return {
       action: 'reopen-honestly',
       taskId: task.id,
@@ -426,7 +444,7 @@ export function planMirrorPassBatch(
 }
 
 /** One github-issue-view entry as `gh issue view --json
- *  number,state,assignees,labels` emits
+ *  number,state,assignees,labels,stateReason` emits
  *  it — untrusted process output, parsed defensively rather than trusted as
  *  already shaped like {@link MirrorPassIssueState}. */
 interface RawGithubIssueState {
@@ -434,19 +452,36 @@ interface RawGithubIssueState {
   readonly labels?: unknown;
   readonly number?: unknown;
   readonly state?: unknown;
+  readonly stateReason?: unknown;
+}
+
+/** `gh`'s `stateReason` (GraphQL `IssueStateReason`) → {@link
+ *  MirrorPassCloseReason}, in any casing. `REOPENED`, an empty or null
+ *  reason, and anything GitHub does not define read as no reason. */
+const CLOSE_REASONS: Readonly<Record<string, MirrorPassCloseReason>> = {
+  COMPLETED: 'completed',
+  NOT_PLANNED: 'not-planned',
+  DUPLICATE: 'duplicate',
+};
+
+function parseCloseReason(value: unknown): MirrorPassCloseReason | undefined {
+  if (typeof value !== 'string') return undefined;
+  const key = value.toUpperCase();
+  return Object.hasOwn(CLOSE_REASONS, key) ? CLOSE_REASONS[key] : undefined;
 }
 
 /**
  * Fetches one issue's live open/closed state via `gh issue view <n> --json
- * number,state,assignees,labels`, run through the injectable `exec` — the same `CliExec`
+ * number,state,assignees,labels,stateReason`, run through the injectable `exec` — the same `CliExec`
  * shape `issue-triage.ts`'s `fetchOpenIssues` uses, so this stays
  * deterministically testable without a real `gh` on PATH. Returns `null` on
  * a non-zero exit (issue not found, `gh` not authenticated, etc.) or
  * unparseable/malformed JSON rather than throwing — {@link
  * planMirrorPassReconcile} already treats a missing issue as "don't guess",
- * never as a signal to act on. The labels ride the same call, so reading the
- * maintainer's marks costs no extra `gh` call; a payload without a `labels`
- * list leaves the field absent.
+ * never as a signal to act on. The labels and the close reason ride the same
+ * call, so reading the maintainer's marks costs no extra `gh` call; a payload
+ * without a `labels` list leaves the field absent, and so does an open issue
+ * or an unread reason for `closedAs`.
  */
 export async function fetchIssueState(
   exec: CliExec,
@@ -457,7 +492,7 @@ export async function fetchIssueState(
     'view',
     String(issueNumber),
     '--json',
-    'number,state,assignees,labels',
+    'number,state,assignees,labels,stateReason',
   ]);
   if (code !== 0) return null;
 
@@ -479,11 +514,13 @@ export async function fetchIssueState(
         )
         .filter((login): login is string => typeof login === 'string' && login !== '')
     : [];
+  const closedAs = state === 'CLOSED' ? parseCloseReason(raw.stateReason) : undefined;
   return {
     number: raw.number,
     state: state === 'OPEN' ? 'open' : 'closed',
     assignees,
     ...(Array.isArray(raw.labels) ? { labels: parseIssueLabels(raw.labels) } : {}),
+    ...(closedAs ? { closedAs } : {}),
   };
 }
 
