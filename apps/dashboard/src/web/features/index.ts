@@ -43,6 +43,7 @@ import { releaseJs } from './release.js';
 import { reportCaptureClientJs } from './report-capture-client.js';
 import { reportMenuJs } from './report-menu.js';
 import { roundPanelJs } from './round-panel.js';
+import { routingConsoleJs } from './routing-console.js';
 import { searchJs } from './search.js';
 import { snackbarJs } from './snackbar.js';
 import { subjectNavJs } from './subject-nav.js';
@@ -93,6 +94,7 @@ export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [
   reportCaptureClientJs,
   reportMenuJs,
   roundPanelJs,
+  routingConsoleJs,
   searchJs,
   snackbarJs,
   subjectNavJs,
@@ -151,6 +153,7 @@ export const FEATURE_MODULE_FUNCTIONS_BY_BASENAME: Readonly<Record<string, () =>
   'report-capture-client': reportCaptureClientJs,
   'report-menu': reportMenuJs,
   'round-panel': roundPanelJs,
+  'routing-console': routingConsoleJs,
   search: searchJs,
   snackbar: snackbarJs,
   'subject-nav': subjectNavJs,

@@ -261,7 +261,21 @@ average, so resume looked cheaper than it was. `warmSessionSavings` and `extende
 (`packages/store/src/warm-sessions.ts`) now average cost over a group's priced firings alone
 (`PRICED_METRICS_SQL`: a firing whose record says `costUsd: null` has no `known_cost`, by the
 `recordsNoPrice` rule), its tokens and turns still counted, and a group with no priced firing has no
-cost average, so its cost tiles read `—`. Since
+cost average, so its cost tiles read `—`. Until a later 2026-10-04 commit the fleet's `cost / shipped`
+tile and the What's new page's cost per shipped divided by every ship too, so one $2.00 Claude ship
+beside two Codex ships read $0.67. `firingStats` (`packages/store/src/read.ts`) now counts
+`pricedShipped`, the ships whose record carries a price (`UNPRICED_FIRING_SQL`, the predicate the
+warm-sessions averages read), `buildFleetView` (`read/fleet.ts`) and `readRoundInfo`
+(`read/project-detail.ts`) divide by it, a fleet with no priced ship reads `—`, and the tile's tip
+and label name the ships left out (`2 unpriced left out, no price was reported`). Until a later
+2026-10-04 commit THE PROMPT-VERSION GATE did the same: `aggregateEvalRows`
+(`packages/store/src/eval-gate.ts`) left an unpriced firing's cost out of the total but divided it
+by every ship, so one $2.00 Claude ship beside two Codex ships read $0.67 per solve, and a costlier
+prompt could pass `evaluatePromptVersionGate`'s cost-per-solved check. `evalRegressionByPickSource`
+read the metrics column, counting such a firing as $0 in its variance too. Both now divide by the
+priced ships alone (`costPerSolvedOf`), the pick-source query reads a firing whose record says
+`costUsd: null` as NULL (`UNPRICED_FIRING_SQL`), and a group with no priced ship has no cost per
+solved, so the gate skips that check rather than judge it on a $0. Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the

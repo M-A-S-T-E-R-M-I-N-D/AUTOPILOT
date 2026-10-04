@@ -911,8 +911,17 @@ flight-log line, with the caps visible per epic law 4:
 
 The pass is best-effort: a `gh` hiccup is logged as a skip and never fails the flight. A flight
 that stops early (pause, budget, STOP) may print one `interval` line right before its `end`
-line — both are reads, so nothing is said twice on GitHub. Not yet built: the fly-bar toggle in
-the dashboard.
+line — both are reads, so nothing is said twice on GitHub.
+
+**Fly GitHub alone (`AUTOPILOT_FLY_TARGET=github`):** a flight that flies the GitHub surface
+and never the code tree — `AUTOPILOT_FLY_TARGET=github pnpm dashboard:fly <folder>` runs ONE
+social pass and stops. No onboarding (its backup writes git refs), no worktree, no firings, no
+store or lock. Choosing this target is the opt-in, so `AUTOPILOT_SOCIAL_FLIGHT` is not
+consulted. The self-target guard and the gh check still apply. The log prints the pass line and
+then the `🗣 SOCIAL debrief:` line. The process exits 1 when the pass was refused, since the
+flight did nothing. Unset or empty means `code`, which is every ordinary flight. Any other value,
+including a wrong case, refuses to take off: a misspelt `github` must not turn into a flight that
+edits the tree. The dashboard does not have a fly-bar choice for this target yet.
 
 ## 14. Quick reference
 

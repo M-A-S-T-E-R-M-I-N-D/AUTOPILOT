@@ -105,6 +105,7 @@ export const DEFERRED_OPERATOR_FEATURES: readonly string[] = [
   'publicity',
   'contributor-standing',
   'collaboration',
+  'routing-console',
   'foundation',
   'tour',
   'onboarding',

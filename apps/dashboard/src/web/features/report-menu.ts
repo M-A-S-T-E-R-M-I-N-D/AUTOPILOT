@@ -459,6 +459,9 @@ function paintReportDialog(pid, capture) {
   composeBtn.type = 'button';
   composeBtn.className = 'report-compose';
   composeBtn.textContent = tr('reportComposeAi');
+  // Epic 0025 slice 2: a model rewrites the note, so this leads with the
+  // sparkles the board's proposed chip draws on a model-written task.
+  composeBtn.prepend(iconEl('sparkles'));
   composeBtn.setAttribute('data-tip', tr('reportComposeAiTip'));
   dialog.appendChild(composeBtn);
   var composeStatusEl = document.createElement('p');
@@ -517,6 +520,9 @@ function paintReportDialog(pid, capture) {
   previewBtn.type = 'button';
   previewBtn.className = 'report-preview';
   previewBtn.textContent = tr('reportPreview');
+  // Lays the capture out as the plan it would run, so it leads with the
+  // list-tree the per-firing trace heads its step list with.
+  previewBtn.prepend(iconEl('list-tree'));
   previewBtn.setAttribute('data-tip', tr('reportPreviewTip'));
   dialog.appendChild(previewBtn);
   var planEl = el('div', 'report-plan');

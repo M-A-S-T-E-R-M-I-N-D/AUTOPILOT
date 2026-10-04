@@ -39,9 +39,30 @@ export function getIndexMeta(db: Db, projectId: string): ProjectIndexMetaRow | n
   return row ?? null;
 }
 
+/**
+ * SQL that is true when the firing of metrics row `m` has a record saying its
+ * cost is unknown (epic 0036). A Codex or Gemini run reports no price, and a
+ * run killed before its envelope has none (`firing.ts`, DEATH-COST): the
+ * record says `costUsd: null` and the column stores 0. A record that is
+ * missing, unreadable or silent on cost leaves the column's figure standing,
+ * the rule the dashboard's `recordsNoPrice` reads. `EXISTS`, not a join, so a
+ * record written twice cannot count its firing twice; `json_valid` gates
+ * `json_type` inside a CASE, since `json_type` throws on malformed JSON.
+ * `warm-sessions.ts`'s `PRICED_METRICS_SQL` reads the same clause, and
+ * `eval-gate.ts`'s `evalRegressionByPickSource` reads this one.
+ */
+export const UNPRICED_FIRING_SQL = `EXISTS (
+  SELECT 1 FROM events e
+   WHERE e.firing_id = m.firing_id AND e.type = 'firing'
+     AND json_type(CASE WHEN json_valid(e.payload) THEN e.payload END, '$.costUsd') = 'null'
+)`;
+
 export interface FiringStats {
   readonly firings: number;
   readonly shipped: number;
+  /** The ships whose cost is known ({@link UNPRICED_FIRING_SQL}): what a
+   *  cost per ship divides by, since an unpriced ship's 0 is not a price. */
+  readonly pricedShipped: number;
   readonly cost: number;
   /** Cost semantics v3 (epic 0013) — summed `real_cost_usd` across the same
    *  window, ignoring rows where it is unset. `null` (never `0`) when NOT ONE
@@ -64,19 +85,21 @@ export interface FiringStats {
  * second query shape to show "this round" next to "all-time".
  */
 export function firingStats(db: Db, projectId: string, sinceAt?: number): FiringStats {
-  const cutoff = typeof sinceAt === 'number' ? 'AND created_at >= @sinceAt' : '';
+  const cutoff = typeof sinceAt === 'number' ? 'AND m.created_at >= @sinceAt' : '';
   return db
     .prepare(
       `SELECT COUNT(*) AS firings,
-              COALESCE(SUM(shipped), 0) AS shipped,
-              COALESCE(SUM(cost_usd), 0) AS cost,
-              SUM(real_cost_usd) AS realCost,
-              COALESCE(SUM(input_tokens), 0) AS tokensIn,
-              COALESCE(SUM(output_tokens), 0) AS tokensOut,
-              COALESCE(SUM(cache_read_tokens), 0) AS cacheReadTokens,
-              COALESCE(SUM(cache_write_tokens), 0) AS cacheWriteTokens,
-              COALESCE(SUM(turns), 0) AS turns
-         FROM metrics WHERE project_id = @projectId ${cutoff}`,
+              COALESCE(SUM(m.shipped), 0) AS shipped,
+              COALESCE(SUM(CASE WHEN m.shipped = 1 AND NOT ${UNPRICED_FIRING_SQL} THEN 1 ELSE 0 END), 0)
+                AS pricedShipped,
+              COALESCE(SUM(m.cost_usd), 0) AS cost,
+              SUM(m.real_cost_usd) AS realCost,
+              COALESCE(SUM(m.input_tokens), 0) AS tokensIn,
+              COALESCE(SUM(m.output_tokens), 0) AS tokensOut,
+              COALESCE(SUM(m.cache_read_tokens), 0) AS cacheReadTokens,
+              COALESCE(SUM(m.cache_write_tokens), 0) AS cacheWriteTokens,
+              COALESCE(SUM(m.turns), 0) AS turns
+         FROM metrics m WHERE m.project_id = @projectId ${cutoff}`,
     )
     .get({ projectId, sinceAt: sinceAt ?? 0 }) as FiringStats;
 }

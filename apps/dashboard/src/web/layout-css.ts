@@ -1204,6 +1204,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .report-preview:not(:disabled):hover, .report-preview:not(:disabled):focus-visible, .report-compose:not(:disabled):hover, .report-compose:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .report-preview:not(:disabled):active, .report-compose:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .report-preview:disabled, .report-compose:disabled { opacity: 0.6; cursor: default; }
+.report-preview > .icon, .report-compose > .icon { margin-inline-end: 0.35em; }
 .report-compose-status { margin: 0; font-size: var(--text-sm); }
 .report-compose-status:empty { display: none; }
 .report-compose-ok { color: var(--color-success); }
@@ -1308,9 +1309,18 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    chunk draws its own cards inside. */
 .benchmark-panel { margin-block: var(--space-3); }
 .benchmark-panel .bm-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
-.collaboration-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); margin-bottom: var(--space-3); }
-.collaboration-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
-.collaboration-group-title { margin: var(--space-3) 0 var(--space-1); font-size: var(--text-sm); color: var(--color-text-muted); }
+.collaboration-panel, .routing-console-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); margin-bottom: var(--space-3); }
+.collaboration-title, .routing-console-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
+.collaboration-group-title, .routing-console-group-title { margin: var(--space-3) 0 var(--space-1); font-size: var(--text-sm); color: var(--color-text-muted); }
+/* Routing console (epic 0019 S4): one row per milestone, queue or claim —
+   its name, then the issue numbers it holds. */
+body > .routing-console-panel { margin-inline: var(--page-inline); }
+.routing-console-list { list-style: none; margin: 0; padding: 0; }
+.routing-console-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); padding: var(--space-1) 0; border-top: 1px solid var(--color-border); }
+.routing-console-row:first-child { border-top: none; }
+.routing-console-name { font-weight: 600; min-inline-size: 12ch; }
+.routing-console-issues { font-family: var(--font-mono); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.routing-console-row progress { inline-size: 8rem; accent-color: var(--color-accent); }
 .collaboration-group-title:first-of-type { margin-top: var(--space-2); }
 .collaboration-item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) 0; border-top: 1px solid var(--color-border); }
 .collaboration-item:first-of-type { border-top: none; }
@@ -2153,6 +2163,11 @@ html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .iss
 .tour-dot[aria-current='true'] { background: var(--color-accent); }
 .tour-actions { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
 .tour-nav { display: flex; gap: var(--space-2); }
+/* Epic 0025: Back leads and Next trails with the replay's chevrons, mirrored
+   under dir=rtl like that pair, where "back" points right. */
+.tour-nav button > .icon:first-child { margin-inline-end: 0.25em; }
+.tour-nav button > .icon:last-child { margin-inline-start: 0.25em; }
+[dir='rtl'] .tour-nav button > .icon { transform: scaleX(-1); }
 /* Tour CTA designed states (COCKPIT 6/6): the same MX shape-morph + elevation
    hover/active pair .fly-flight-actions button carries. Rest radius swaps
    --radius-sm for --shape-extra-small (both 4px) so the state tokens pair

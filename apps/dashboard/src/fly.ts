@@ -268,8 +268,16 @@ import {
   runStaleClaimSweep,
 } from './flight/post-flight-sweeps.js';
 import { runOwnedWorkSweep } from './flight/owned-work-reconcile.js';
-import { runSocialFlightPass, type SocialFlightPassOutcome } from './flight/social-flight-pass.js';
-import { isBetweenFirings, type SocialFlightPhase } from './flight/social-flight-trigger.js';
+import {
+  runGithubOnlyFlight,
+  runSocialFlightPass,
+  type SocialFlightPassOutcome,
+} from './flight/social-flight-pass.js';
+import {
+  isBetweenFirings,
+  parseFlyTarget,
+  type SocialFlightPhase,
+} from './flight/social-flight-trigger.js';
 import {
   SOCIAL_DEBRIEF_EVENT,
   socialFlightDebriefLine,
@@ -314,6 +322,31 @@ async function main(): Promise<void> {
   if (!existsSync(target)) {
     out(`target folder not found: ${target}`);
     process.exitCode = 1;
+    return;
+  }
+
+  // FLY GITHUB (epic 0016 slice 4/6, board web-mtpzzxn4-69csqx): the
+  // standalone target is decided before anything below can touch the code
+  // tree — no onboarding (its backup writes git refs), no worktree, no
+  // firings, no store or lock (the pass is read-only today). An unrecognized
+  // value refuses to take off rather than guess either way.
+  const flyTarget = parseFlyTarget(process.env['AUTOPILOT_FLY_TARGET']);
+  if (flyTarget === null) {
+    out(
+      `⛔ AUTOPILOT_FLY_TARGET=${JSON.stringify(process.env['AUTOPILOT_FLY_TARGET'])} is neither ` +
+        `"code" nor "github" — refusing to take off rather than guess whether this flight may ` +
+        `edit the code tree.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  if (flyTarget === 'github') {
+    out(`Fly GitHub: ${target} — the social pass alone; no firings, no code-tree edits.`);
+    const outcome = await runGithubOnlyFlight({ target });
+    const debrief = socialFlightDebriefOf([outcome]);
+    if (debrief) out(`  🗣 ${socialFlightDebriefLine(debrief)}`);
+    // Its one pass refused (foreign target, gh not connected): it flew nothing.
+    if (!outcome.ran) process.exitCode = 1;
     return;
   }
 

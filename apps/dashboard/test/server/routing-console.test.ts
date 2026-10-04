@@ -24,7 +24,9 @@ function readBody(res: { end: ReturnType<typeof vi.fn> }): unknown {
 }
 
 const snapshot: RoutingConsoleSnapshot = {
-  milestones: [{ title: 'V1', openIssues: 1, closedIssues: 3, dueOn: null, percentDone: 75 }],
+  milestones: [
+    { title: 'V1', openIssues: 1, closedIssues: 3, dueOn: null, url: null, percentDone: 75 },
+  ],
   labelQueues: [{ label: 'priority: high', issues: [4] }],
   unprioritized: [2],
   claims: [{ login: 'amy', issues: [4] }],

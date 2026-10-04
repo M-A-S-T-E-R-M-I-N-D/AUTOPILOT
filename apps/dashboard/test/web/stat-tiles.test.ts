@@ -301,6 +301,32 @@ describe('statTileItems', () => {
     ]);
   });
 
+  it("names the unpriced ships cost / shipped leaves out in the tile's tip (epic 0036)", () => {
+    const totals = {
+      projects: 2,
+      flying: 0,
+      firings: 3,
+      shipped: 3,
+      unpricedShipped: 2,
+      cost: 2,
+      openFindings: 0,
+      needsYou: 0,
+      costPerShipped: 2,
+      shipRate: 1,
+      currentStreak: 3,
+      avgTurns: 5,
+      cacheReadShare: 0.5,
+    };
+    expect(statTileItems(totals, fmtCost)[0]).toEqual([
+      '$2.00',
+      'cost / shipped',
+      'Average spend per firing that actually shipped; 2 unpriced left out, no price was reported',
+    ]);
+    expect(statTileItems({ ...totals, unpricedShipped: 0 }, fmtCost)[0]?.[2]).toBe(
+      'Average spend per firing that actually shipped',
+    );
+  });
+
   it('falls back to an em dash instead of a fake 0 when a rate has no firings yet', () => {
     const items = statTileItems(
       {

@@ -18,10 +18,12 @@
  * testable without a real `gh` on PATH.
  *
  * `help wanted` is a single literal label like `roadmap`, not the
- * `pool: <dimension>` family, so `--label` filters correctly server-side
+ * `pool: <dimension>` family, so `--label` filters server-side
  * (`roadmap-items.ts`'s own reasoning) — unlike `contributor-issue-list.ts`,
  * which ORs `good first issue`/`help wanted` and so cannot use `--label` at
- * all. {@link isHelpWantedItem} still re-checks it defensively rather than
+ * all. That search never matches across a hyphen, so the hyphenated spelling
+ * gets a read of its own ({@link HELP_WANTED_SEARCHES}).
+ * {@link isHelpWantedItem} still re-checks it defensively rather than
  * trusting that filter blindly, the same belt-and-suspenders
  * `roadmap-items.ts`'s `isRoadmapItem` applies, and normalizes casing/hyphen
  * spelling the way `contributor-issue-list.ts`'s own `normalizeLabel` does —
@@ -43,6 +45,16 @@ import { isMaintainerMarked } from './contributor-issue-list.js';
  *  not a locally-defined one), so {@link isHelpWantedItem} normalizes
  *  casing/hyphenation rather than trusting an exact string match. */
 export const HELP_WANTED_LABEL = 'help wanted';
+
+/** The two names gh is asked for. `--label` runs a GitHub search, which
+ *  matches a label name in any casing but never across a hyphen, so a repo
+ *  whose label reads `help-wanted` (a common spelling) returned nothing for
+ *  {@link isHelpWantedItem} to fold. These two cover every spelling it
+ *  accepts. */
+const HELP_WANTED_SEARCHES: readonly string[] = [
+  HELP_WANTED_LABEL,
+  HELP_WANTED_LABEL.replace(/ /g, '-'),
+];
 
 /** One open, `help wanted`-labeled GitHub issue — the subset `gh issue list`
  *  reports that the dashboard needs to show what's up for grabs (or already
@@ -91,32 +103,17 @@ interface RawHelpWantedItem {
   readonly assignees?: unknown;
 }
 
-/**
- * Lists every open issue carrying the `help wanted` label (up to
- * `MAX_ISSUE_LIST`) via `gh issue list --state open --label "help wanted"
- * --json number,title,url,labels,assignees`, run through the injectable
- * `exec` — the same `CliExec` shape
- * `roadmap-items.ts`'s `fetchRoadmapItems` and `pool-client.ts`'s
- * `fetchPoolIssues` use. Returns `[]` on a non-zero exit or
- * unparseable/non-array stdout rather than throwing — no open help-wanted
- * issues is a valid outcome, and a flaky `gh` call shouldn't crash the read.
- * Rows that are not objects (a `null` included) and entries missing a
- * numeric `number`, string `title`, or string `url` are dropped rather than
- * passed through malformed, the same defensive shape `roadmap-items.ts`'s
- * `fetchRoadmapItems` uses. Assignees are carried
- * through as-is (including empty) rather than filtered — the caller's claim
- * state, unlike `contributor-issue-list.ts`'s pick list, which drops
- * already-assigned issues instead. An unassigned issue the maintainer has
- * declined or put on hold is dropped ({@link isMarkedAndUnclaimed}).
- */
-export async function fetchHelpWantedItems(exec: CliExec): Promise<HelpWantedItem[]> {
+/** One `gh issue list --state open --label <label> --json
+ *  number,title,url,labels,assignees` read, parsed defensively. `[]` on a
+ *  non-zero exit or unparseable/non-array stdout. */
+async function listLabeled(exec: CliExec, label: string): Promise<HelpWantedItem[]> {
   const { code, stdout } = await exec('gh', [
     'issue',
     'list',
     '--state',
     'open',
     '--label',
-    HELP_WANTED_LABEL,
+    label,
     '--limit',
     String(MAX_ISSUE_LIST),
     '--json',
@@ -146,6 +143,37 @@ export async function fetchHelpWantedItems(exec: CliExec): Promise<HelpWantedIte
       url: raw.url as string,
       labels: parseIssueLabels(raw.labels),
       assignees: parseAssignees(raw.assignees),
-    }))
-    .filter((item) => isHelpWantedItem(item.labels) && !isMarkedAndUnclaimed(item));
+    }));
+}
+
+/**
+ * Lists every open issue carrying the `help wanted` label (up to
+ * `MAX_ISSUE_LIST` per spelling) via `gh issue list --state open --label
+ * "help wanted" --json number,title,url,labels,assignees`, plus the same read
+ * for `help-wanted` ({@link HELP_WANTED_SEARCHES}), run through the injectable
+ * `exec` — the same `CliExec` shape
+ * `roadmap-items.ts`'s `fetchRoadmapItems` and `pool-client.ts`'s
+ * `fetchPoolIssues` use. The first read's issues come first, in gh order,
+ * then any the second read adds; an issue both return is listed once. Each
+ * read degrades to `[]` on its own on a non-zero exit or unparseable/non-array
+ * stdout rather than throwing — no open help-wanted issues is a valid
+ * outcome, and a flaky `gh` call shouldn't crash the read.
+ * Rows that are not objects (a `null` included) and entries missing a
+ * numeric `number`, string `title`, or string `url` are dropped rather than
+ * passed through malformed, the same defensive shape `roadmap-items.ts`'s
+ * `fetchRoadmapItems` uses. Assignees are carried
+ * through as-is (including empty) rather than filtered — the caller's claim
+ * state, unlike `contributor-issue-list.ts`'s pick list, which drops
+ * already-assigned issues instead. An unassigned issue the maintainer has
+ * declined or put on hold is dropped ({@link isMarkedAndUnclaimed}).
+ */
+export async function fetchHelpWantedItems(exec: CliExec): Promise<HelpWantedItem[]> {
+  const reads = await Promise.all(HELP_WANTED_SEARCHES.map((label) => listLabeled(exec, label)));
+  const byNumber = new Map<number, HelpWantedItem>();
+  for (const item of reads.flat()) {
+    if (!byNumber.has(item.number)) byNumber.set(item.number, item);
+  }
+  return [...byNumber.values()].filter(
+    (item) => isHelpWantedItem(item.labels) && !isMarkedAndUnclaimed(item),
+  );
 }

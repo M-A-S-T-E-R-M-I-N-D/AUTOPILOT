@@ -593,7 +593,41 @@ propagation, and the filled style does not match the nav.
    whole `textContent`. Each icon is decorative, so a button's name stays its
    words (`apps/dashboard/test/web/settings-menu-icons.test.ts`, axe-clean).
    The board's Columns/List toggle stays bare words: it wants a vendored
-   `list`, and core sits about 200 bytes under its raw line.
+   `list`, and core sits about 200 bytes under its raw line. **What's new
+   Close 2026-10-04 (slice 2):** the message's title and section headings and
+   its Settings row lead with a stroke icon, but the accent-filled Close in
+   its footer was bare words. It leads with the `x` the Docs editor's Cancel
+   and the Plan editor's Discard draft draw, since it puts the message away;
+   nothing is newly vendored. The chunk splices the shape through the same
+   icon map as its headings, so core does not grow. The icon is decorative,
+   so the button's name stays its words, in Hebrew too, and the button still
+   takes focus when the message opens
+   (`apps/dashboard/test/web/whats-new-close-icon.test.ts`, axe-clean).
+   **Report dialog's Compose and Preview 2026-10-04 (slice 2):** the
+   right-click "Report from here" dialog's title, menu item and Execute all
+   lead with `flag`, but Compose with AI and Preview, the two buttons that
+   come before Execute, were bare words. Compose hands the note to a model to
+   rewrite, so it takes the `sparkles` the board's proposed chip draws on a
+   task the model wrote itself; Preview lays the capture out as the plan it
+   would run, what gets filed where, so it takes the `list-tree` the
+   per-firing trace heads its step list with. Nothing is newly vendored, and
+   each icon is decorative, so a button's name stays its words. The dialog
+   is built fresh on every open, so a Hebrew page paints its words beside the
+   same icons, and a compose or preview only disables its button, so the
+   icon survives both. `report-menu.ts` rides `/panels.js`, so core does not
+   grow (`apps/dashboard/test/web/report-dialog-action-icons.test.ts`,
+   axe-clean). **Tour Back and Next 2026-10-04 (slice 2):** the guided tour
+   headed every stop with the `compass` its overflow item draws, but stepped
+   between stops with bare-word Back and Next, where the Firing Replay steps
+   through its actions with chevrons. Back leads with that replay's
+   `chevron-left` and Next trails with its `chevron-right`, both mirrored
+   under `dir="rtl"`, where "back" points right, like the replay's pair.
+   Nothing is newly vendored, and `tour.ts` rides `/panels.js`, so core does
+   not grow. Each icon is decorative, so a button's name stays its words, and
+   `paintTour()` rebuilds both with `tr()` on every stop, so a Hebrew page
+   paints its words beside the same chevrons; the last stop's "Start the
+   checklist" hand-over stays bare words
+   (`apps/dashboard/test/web/tour-nav-chevrons.test.ts`, axe-clean).
 
 ## Related
 

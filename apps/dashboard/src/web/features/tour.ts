@@ -250,10 +250,14 @@ function paintTour() {
   skip.addEventListener('click', closeTour);
   actions.appendChild(skip);
   var nav = el('div', 'tour-nav');
+  // Epic 0025: Back leads and Next trails with the Firing Replay's decorative
+  // chevrons, so a button's name stays its words; CSS mirrors both under
+  // dir=rtl, where "back" points right.
   if (!isFirst) {
     var back = document.createElement('button');
     back.type = 'button';
-    back.textContent = tr('tourBack');
+    back.appendChild(iconEl('chevron-left'));
+    back.appendChild(document.createTextNode(tr('tourBack')));
     back.setAttribute('data-tip', tr('tourBackTip'));
     back.addEventListener('click', function () { tourAdvance(-1); });
     nav.appendChild(back);
@@ -262,7 +266,8 @@ function paintTour() {
     var next = document.createElement('button');
     next.type = 'button';
     next.className = 'tour-next';
-    next.textContent = tr('tourNext');
+    next.appendChild(document.createTextNode(tr('tourNext')));
+    next.appendChild(iconEl('chevron-right'));
     next.setAttribute('data-tip', tr('tourNextTip'));
     next.addEventListener('click', function () { tourAdvance(1); });
     nav.appendChild(next);
