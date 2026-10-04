@@ -265,6 +265,11 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M9 14 4 9l5-5' }],
     ['path', { d: 'M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11' }],
   ],
+  // The Plan editor's Redo, beside its Undo's undo-2
+  'redo-2': [
+    ['path', { d: 'm15 14 5-5-5-5' }],
+    ['path', { d: 'M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13' }],
+  ],
   repeat: [
     ['path', { d: 'm17 2 4 4-4 4' }],
     ['path', { d: 'M3 11v-1a4 4 0 0 1 4-4h14' }],
