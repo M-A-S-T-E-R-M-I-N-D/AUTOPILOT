@@ -594,6 +594,20 @@ propagation, and the filled style does not match the nav.
    words (`apps/dashboard/test/web/settings-menu-icons.test.ts`, axe-clean).
    The board's Columns/List toggle stays bare words: it wants a vendored
    `list`, and core sits about 200 bytes under its raw line.
+   **Report dialog's Compose and Preview 2026-10-04 (slice 2):** the
+   right-click "Report from here" dialog's title, menu item and Execute all
+   lead with `flag`, but Compose with AI and Preview, the two buttons that
+   come before Execute, were bare words. Compose hands the note to a model to
+   rewrite, so it takes the `sparkles` the board's proposed chip draws on a
+   task the model wrote itself; Preview lays the capture out as the plan it
+   would run, what gets filed where, so it takes the `list-tree` the
+   per-firing trace heads its step list with. Nothing is newly vendored, and
+   each icon is decorative, so a button's name stays its words. The dialog
+   is built fresh on every open, so a Hebrew page paints its words beside the
+   same icons, and a compose or preview only disables its button, so the
+   icon survives both. `report-menu.ts` rides `/panels.js`, so core does not
+   grow (`apps/dashboard/test/web/report-dialog-action-icons.test.ts`,
+   axe-clean).
 
 ## Related
 

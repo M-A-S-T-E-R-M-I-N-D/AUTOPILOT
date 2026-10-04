@@ -1204,6 +1204,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .report-preview:not(:disabled):hover, .report-preview:not(:disabled):focus-visible, .report-compose:not(:disabled):hover, .report-compose:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .report-preview:not(:disabled):active, .report-compose:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .report-preview:disabled, .report-compose:disabled { opacity: 0.6; cursor: default; }
+.report-preview > .icon, .report-compose > .icon { margin-inline-end: 0.35em; }
 .report-compose-status { margin: 0; font-size: var(--text-sm); }
 .report-compose-status:empty { display: none; }
 .report-compose-ok { color: var(--color-success); }
