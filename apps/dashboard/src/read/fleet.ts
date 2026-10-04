@@ -380,6 +380,10 @@ export interface ProjectAggregate {
   readonly soulPrevious: string | null;
   readonly firings: number;
   readonly shipped: number;
+  /** The ships whose cost is known (`FiringStats.pricedShipped`, epic 0036):
+   *  a Codex or Gemini ship reports no price. Optional so fixtures predating
+   *  it still type-check; absent, every ship counts as priced. */
+  readonly pricedShipped?: number;
   readonly cost: number;
   /** Cost semantics v3 (epic 0013) — this project's summed `realCostUsd` across
    *  its firings (`packages/store/src/read.ts`'s `FiringStats.realCost`); `null`
@@ -583,8 +587,13 @@ export interface FleetTotals {
    *  fleet-wide carries a real-cost figure, so an unconfigured fleet reads as "no
    *  data" rather than a fabricated zero spend. */
   readonly realCost: number | null;
-  /** cost / shipped — null when nothing has shipped yet (never divide by zero into a lie). */
+  /** cost / priced ships — null when no ship carries a price yet (never
+   *  divide by zero into a lie). An unpriced ship's metrics column reads 0,
+   *  so counting it would cheapen every other ship (epic 0036). */
   readonly costPerShipped: number | null;
+  /** The ships {@link costPerShipped} leaves out because their run reported
+   *  no price. Optional so fixtures predating it still type-check. */
+  readonly unpricedShipped?: number;
   /** shipped / firings across the whole fleet — null with no firings yet. */
   readonly shipRate: number | null;
   /** Consecutive shipped firings counting back from the fleet's most recent, across
@@ -721,6 +730,7 @@ export function buildFleetView(now: number, projects: readonly ProjectAggregate[
   const cards = projects.map(toCard);
   const firings = cards.reduce((sum, c) => sum + c.firings, 0);
   const shipped = cards.reduce((sum, c) => sum + c.shipped, 0);
+  const pricedShipped = cards.reduce((sum, c) => sum + (c.pricedShipped ?? c.shipped), 0);
   const cost = cards.reduce((sum, c) => sum + c.cost, 0);
   const realCostValues = cards
     .map((c) => c.realCost)
@@ -740,7 +750,8 @@ export function buildFleetView(now: number, projects: readonly ProjectAggregate[
     openFindings: cards.reduce((sum, c) => sum + c.openFindings, 0),
     cost,
     realCost,
-    costPerShipped: shipped > 0 ? cost / shipped : null,
+    costPerShipped: pricedShipped > 0 ? cost / pricedShipped : null,
+    unpricedShipped: shipped - pricedShipped,
     shipRate: firings > 0 ? shipped / firings : null,
     currentStreak: fleetStreak(cards),
     avgTurns: firings > 0 ? turns / firings : null,
