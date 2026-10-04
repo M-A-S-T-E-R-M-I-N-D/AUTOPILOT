@@ -230,6 +230,8 @@ export interface FleetTotalsLike {
   readonly openFindings: number;
   readonly needsYou: number;
   readonly costPerShipped: number | null;
+  /** Ships `costPerShipped` leaves out because their run reported no price. */
+  readonly unpricedShipped?: number;
   readonly shipRate: number | null;
   readonly currentStreak: number;
   readonly avgTurns: number | null;
@@ -307,11 +309,16 @@ export function statTileItems(
   t: FleetTotalsLike,
   fmtCost: (n: number) => string,
 ): readonly StatTileItem[] {
+  // The cost / shipped tip names the unpriced ships it leaves out (epic 0036).
+  // Inline: shell.ts splices this function's own source, so a helper would not
+  // reach the page.
+  const unpriced = t.unpricedShipped || 0;
   return [
     [
       typeof t.costPerShipped === 'number' ? fmtCost(t.costPerShipped) : '—',
       'cost / shipped',
-      'Average spend per firing that actually shipped',
+      'Average spend per firing that actually shipped' +
+        (unpriced ? '; ' + unpriced + ' unpriced left out, no price was reported' : ''),
     ],
     [
       typeof t.shipRate === 'number' ? Math.round(t.shipRate * 100) + '%' : '—',

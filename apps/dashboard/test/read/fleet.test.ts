@@ -1405,6 +1405,32 @@ describe('buildFleetView', () => {
     expect(view.totals.realCost).toBeCloseTo(1);
   });
 
+  it('divides cost by priced ships alone, so an unpriced ship cannot cheapen cost / shipped (epic 0036)', () => {
+    // One $2.00 Claude ship beside two Codex ships, whose runs report no price:
+    // dividing by every ship read $0.67 per ship.
+    const view = buildFleetView(1, [
+      aggregate({ id: 'claude', firings: 1, shipped: 1, pricedShipped: 1, cost: 2 }),
+      aggregate({ id: 'codex', firings: 2, shipped: 2, pricedShipped: 0, cost: 0 }),
+    ]);
+    expect(view.totals.shipped).toBe(3);
+    expect(view.totals.costPerShipped).toBeCloseTo(2);
+    expect(view.totals.unpricedShipped).toBe(2);
+  });
+
+  it('reads cost / shipped as unknown, not $0.00, when no ship carries a price', () => {
+    const view = buildFleetView(1, [
+      aggregate({ firings: 2, shipped: 2, pricedShipped: 0, cost: 0 }),
+    ]);
+    expect(view.totals.costPerShipped).toBeNull();
+    expect(view.totals.unpricedShipped).toBe(2);
+  });
+
+  it('counts every ship of an aggregate that names no priced count as priced', () => {
+    const view = buildFleetView(1, [aggregate({ shipped: 3, cost: 1.5 })]);
+    expect(view.totals.costPerShipped).toBeCloseTo(0.5);
+    expect(view.totals.unpricedShipped).toBe(0);
+  });
+
   it('reports null rate/average totals (not 0) with no firings anywhere', () => {
     const view = buildFleetView(1, [
       aggregate({

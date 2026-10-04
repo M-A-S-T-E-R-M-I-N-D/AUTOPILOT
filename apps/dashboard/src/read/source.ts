@@ -525,6 +525,7 @@ function gather(store: Store, now: number): ProjectAggregate[] {
       soulPrevious: p.soul_previous,
       firings: stats.firings,
       shipped: stats.shipped,
+      pricedShipped: stats.pricedShipped,
       cost: stats.cost,
       realCost: stats.realCost,
       tokensIn: stats.tokensIn,
