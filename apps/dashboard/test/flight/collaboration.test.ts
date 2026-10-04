@@ -102,15 +102,18 @@ describe('fetchCollaborationSnapshot', () => {
     expect(snapshot.helpWanted.map((item) => item.assignees)).toEqual([['octocat']]);
   });
 
-  it('runs exactly one gh read per label — read-only issue lists, nothing else', async () => {
+  // Help wanted is read in both of its spellings: `--label` never matches
+  // across a hyphen (help-wanted-items-hyphen.test.ts).
+  it('runs exactly one gh read per label spelling — read-only issue lists, nothing else', async () => {
     const exec = vi.fn<CliExec>().mockResolvedValue({ code: 0, stdout: '[]' });
 
     await fetchCollaborationSnapshot(exec);
 
-    expect(exec).toHaveBeenCalledTimes(2);
+    expect(exec).toHaveBeenCalledTimes(3);
     expect(exec.mock.calls.map(([cmd, args]) => [cmd, args.slice(0, 2), labelOf(args)])).toEqual([
       ['gh', ['issue', 'list'], ROADMAP_LABEL],
       ['gh', ['issue', 'list'], HELP_WANTED_LABEL],
+      ['gh', ['issue', 'list'], 'help-wanted'],
     ]);
   });
 });

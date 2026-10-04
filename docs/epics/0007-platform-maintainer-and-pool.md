@@ -1299,6 +1299,21 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    (four spellings each read as the ux pool, get claimed and queue under
    `ux`; a `Pool: Data` issue is listed by `fetchPoolIssues`; written first,
    13 of the new checks failed against the old exact match).
+   Refined 2026-10-04 (epic 0019's additive-only law, the claim flow's
+   listings): the Collaboration panel's help-wanted group asked `gh issue
+   list` for `--label "help wanted"` only. That flag runs a GitHub search,
+   which matches a label name in any casing but never across a hyphen, so on
+   a repo whose label reads `help-wanted` (GitHub's default is not seeded
+   here, and the hyphen is a common spelling) the group read empty, while
+   the Good-first list, which lists every open issue and folds the hyphen,
+   showed the same issues as help wanted. `fetchHelpWantedItems` keeps that
+   read unchanged and adds the same read for `help-wanted`: the first read's
+   issues come first in gh order, an issue both return is listed once, and
+   each read degrades to empty on its own. Widening only: every issue listed
+   before is still listed, and `help_wanted` or `helpwanted` still are not.
+   The panel's poll now runs three reads instead of two. Covered by
+   `test/flight/help-wanted-items-hyphen.test.ts`, whose fake gh filters
+   `--label` the way the search does (written first, 9 of 15 checks failed).
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable
