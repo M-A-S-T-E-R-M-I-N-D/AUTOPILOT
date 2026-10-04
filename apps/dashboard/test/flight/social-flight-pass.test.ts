@@ -302,19 +302,27 @@ describe('runSocialFlightPass — the read-only pass', () => {
 describe('fly.ts weaves the pass in at its start, interval and end phases', () => {
   it('calls runSocialFlightPass for all three phases from the raw env toggle, self-target guarded', () => {
     const fly = readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');
-    expect(fly).toContain(
-      "runSocialFlightPass('start', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target })",
+    // One recording helper runs every phase, so each outcome reaches the
+    // SOCIAL debrief (epic 0016 slice 5/6) at the flight's end.
+    expect(fly).toMatch(
+      /socialPasses\.push\(\s*await runSocialFlightPass\(phase, process\.env\['AUTOPILOT_SOCIAL_FLIGHT'\], \{ target \}\),?\s*\)/,
     );
-    expect(fly).toContain(
-      "runSocialFlightPass('interval', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target })",
-    );
-    expect(fly).toContain(
-      "runSocialFlightPass('end', process.env['AUTOPILOT_SOCIAL_FLIGHT'], { target })",
-    );
+    expect(fly).toContain("await flySocialPass('start');");
+    expect(fly).toContain("await flySocialPass('interval');");
+    expect(fly).toContain("await flySocialPass('end');");
   });
 
   it('gates the interval call on isBetweenFirings, so the last firing never doubles with the end pass', () => {
     const fly = readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');
     expect(fly).toContain('if (isBetweenFirings(firingsCompletedThisFlight, firings))');
+  });
+
+  it('prints the SOCIAL debrief after the end pass, so the end pass counts in it too', () => {
+    const fly = readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');
+    const endPass = fly.indexOf("await flySocialPass('end');");
+    const debrief = fly.indexOf('socialFlightDebriefOf(socialPasses)');
+    expect(endPass).toBeGreaterThan(-1);
+    expect(debrief).toBeGreaterThan(endPass);
+    expect(fly).toContain('out(`  🗣 ${socialFlightDebriefLine(socialDebrief)}`)');
   });
 });

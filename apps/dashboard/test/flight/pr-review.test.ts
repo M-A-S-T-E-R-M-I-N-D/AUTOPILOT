@@ -319,6 +319,11 @@ const BENIGN_FLIGHT = new Set([
   // execute wiring (once a candidate source exists) is a follow-up slice
   // that will need its own marker once it ships one.
   'social-flight-pass.ts',
+  // SOCIAL FLIGHT observability 5/6 (board web-mtpzzxw4-au1b6x):
+  // socialFlightDebriefOf/socialFlightDebriefLine are pure sums and text over
+  // the outcomes social-flight-pass.ts already returned — no I/O, no gh call,
+  // no decision; fly.ts only prints the line they render.
+  'social-flight-debrief.ts',
   // discussions-triage.ts needs no entry any more: once it grew reply-posting
   // and labeling (board web-mtlsiac0-v8rksh's later slices) it earned the
   // `flight/discussions-triage` marker, which also covers its `-execute`
