@@ -2088,7 +2088,7 @@ async function main(): Promise<void> {
         : { demoteAfterGateFailures: NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES }),
     });
     // Recorded for the fleet report, which names the lane, engine and model.
-    const demotion = laneDemotionOf(engineRoute, summary);
+    const demotion = laneDemotionOf(engineRoute, summary, instanceId);
     if (demotion !== null) {
       try {
         store.db

@@ -190,9 +190,10 @@ function parseEscalationPayload(
 /**
  * Every lane demoted since the moment, oldest first: the `lane-demoted`
  * events `fly.ts` writes when the gate reverted a lane's firings off Claude
- * twice in a row (epic 0036). The lane is read off the project id the event
- * was recorded under, as a firing's is off its id. A payload it cannot read
- * still counts, its engine `unrecorded`.
+ * twice in a row (epic 0036). The lane is the one the event names, since
+ * every lane records its events under the base project id; an event naming
+ * none has its lane read off that project id. A payload it cannot read still
+ * counts, its engine `unrecorded`.
  */
 export function readReportDemotions(
   db: Db,
@@ -213,10 +214,11 @@ export function readReportDemotions(
   }[];
   return rows.map((r) => {
     const p = payloadFieldsOf(r.payload);
+    const lane = p?.['lane'];
     const engine = p?.['engine'];
     const model = p?.['model'];
     return {
-      lane: laneOf(r.project_id),
+      lane: typeof lane === 'string' && lane !== '' ? lane : laneOf(r.project_id),
       engine: typeof engine === 'string' ? engine : 'unrecorded',
       model: typeof model === 'string' ? model : null,
       reverted: integerOrNull(p?.['reverted']),

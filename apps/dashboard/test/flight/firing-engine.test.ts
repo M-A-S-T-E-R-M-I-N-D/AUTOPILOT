@@ -21,13 +21,20 @@ import {
 describe('laneDemotionOf', () => {
   const codex = { engine: 'codex', model: 'gpt-5-codex' } as const;
 
-  it('names the engine, the model, the reverts in a row and the firings flown', () => {
-    expect(laneDemotionOf(codex, { firings: 3, stoppedBy: 'demoted' })).toEqual({
+  it('names the lane, the engine, the model, the reverts in a row and the firings flown', () => {
+    expect(laneDemotionOf(codex, { firings: 3, stoppedBy: 'demoted' }, 'fleet-2')).toEqual({
+      lane: 'fleet-2',
       engine: 'codex',
       model: 'gpt-5-codex',
       reverted: NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES,
       firings: 3,
     });
+  });
+
+  // Every lane records its events under the base project id; only its firing
+  // ids carry the lane, so the event must name it or every lane reads `base`.
+  it('names the base lane for a flight with no instance id', () => {
+    expect(laneDemotionOf(codex, { firings: 2, stoppedBy: 'demoted' })?.lane).toBe('base');
   });
 
   it('records nothing for a flight that ended any other way', () => {
