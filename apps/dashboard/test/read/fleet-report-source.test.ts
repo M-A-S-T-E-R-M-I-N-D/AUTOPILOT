@@ -255,6 +255,22 @@ describe('readReportDemotions (epic 0036)', () => {
     ]);
   });
 
+  // fly.ts records every lane's events under the base project id (only a
+  // firing's id carries its lane), so the lane the payload names wins.
+  it('reads the lane the event names, not the base project id it was recorded under', () => {
+    const codex = { engine: 'codex', model: 'gpt-5-codex', reverted: 2, firings: 3 };
+    event('lane-demoted', { ...codex, lane: 'fleet-3' }, 100);
+    event('lane-demoted', { ...codex, lane: 'base' }, 110);
+    event('lane-demoted', { ...codex, lane: '' }, 120); // blank: read off the project id
+    event('lane-demoted', { ...codex, lane: 3 }, 130, 'fly-a--fleet-2'); // not a name
+    expect(readReportDemotions(store.db, 'fly-a', 100).map((d) => d.lane)).toEqual([
+      'fleet-3',
+      'base',
+      'base',
+      'fleet-2',
+    ]);
+  });
+
   it('still counts a demotion whose payload it cannot read, naming no engine it never saw', () => {
     event('lane-demoted', 'not json', 100);
     event('lane-demoted', 'null', 110);

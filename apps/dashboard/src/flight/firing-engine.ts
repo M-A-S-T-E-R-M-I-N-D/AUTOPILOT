@@ -46,9 +46,13 @@ export const NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES = 2;
  *  (`readReportDemotions`). The flight log's DEMOTED line is its only other trace. */
 export const LANE_DEMOTED_EVENT = 'lane-demoted';
 
-/** What a demoted lane records: the engine and model it flew on, the reverted
- *  firings in a row that stopped it, and how many firings it flew. */
+/** What a demoted lane records: the lane, the engine and model it flew on,
+ *  the reverted firings in a row that stopped it, and how many firings it
+ *  flew. Every lane writes its events under the base project id (only its
+ *  firing ids carry the lane, `firingIdOf`), so the record names the lane
+ *  itself: `base`, or its instance id (`fleet-2`). */
 export interface LaneDemotion {
+  readonly lane: string;
   readonly engine: NonClaudeEngine;
   readonly model: string;
   readonly reverted: number;
@@ -60,9 +64,11 @@ export interface LaneDemotion {
 export function laneDemotionOf(
   route: FiringEngineRoute,
   summary: LoopSummary,
+  instanceId?: string,
 ): LaneDemotion | null {
   if (route.engine === 'claude' || summary.stoppedBy !== 'demoted') return null;
   return {
+    lane: instanceId ?? 'base',
     engine: route.engine,
     model: route.model,
     reverted: NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES,
