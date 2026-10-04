@@ -119,7 +119,7 @@ describe('taskBurnOf', () => {
       { item: 't1', cost: 2.34, durationMs: 120000 },
       { item: 'other', cost: 99, durationMs: 999999 },
     ];
-    expect(taskBurnOf('t1', log)).toEqual({ slices: 2, cost: 3.84, wallMs: 180000 });
+    expect(taskBurnOf('t1', log)).toEqual({ slices: 2, cost: 3.84, wallMs: 180000, unpriced: 0 });
   });
 
   it('returns all-zero burn for a task with no claiming firings', () => {
@@ -127,6 +127,7 @@ describe('taskBurnOf', () => {
       slices: 0,
       cost: 0,
       wallMs: 0,
+      unpriced: 0,
     });
   });
 
@@ -135,12 +136,25 @@ describe('taskBurnOf', () => {
       slices: 1,
       cost: 0,
       wallMs: 0,
+      unpriced: 0,
     });
   });
 
   it('returns all-zero burn for null/undefined log', () => {
-    expect(taskBurnOf('t4', null)).toEqual({ slices: 0, cost: 0, wallMs: 0 });
-    expect(taskBurnOf('t4', undefined)).toEqual({ slices: 0, cost: 0, wallMs: 0 });
+    expect(taskBurnOf('t4', null)).toEqual({ slices: 0, cost: 0, wallMs: 0, unpriced: 0 });
+    expect(taskBurnOf('t4', undefined)).toEqual({ slices: 0, cost: 0, wallMs: 0, unpriced: 0 });
+  });
+
+  // epic 0036: a Codex or Gemini firing's record carries no price, and the
+  // metrics column stores it as 0 — summing it in read two Codex slices
+  // beside a $2.00 Claude one as "$2.00", with no word of the two.
+  it('counts an unpriced firing as unpriced, still a slice with its wall time, never $0', () => {
+    const log = [
+      { item: 't5', cost: 2, durationMs: 60000 },
+      { item: 't5', cost: 0, durationMs: 30000, costUnpriced: true },
+      { item: 't5', cost: 0.7, durationMs: 30000, costUnpriced: true },
+    ];
+    expect(taskBurnOf('t5', log)).toEqual({ slices: 3, cost: 2, wallMs: 120000, unpriced: 2 });
   });
 });
 

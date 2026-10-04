@@ -302,7 +302,12 @@ sparkline's label gave a total with no word of the firings it could not price. `
 caption such a firing `unpriced`, and the sparkline's label names them (`total $2.00, 1 unpriced
 left out`). Until a 2026-10-05 commit the fleet-wide cost tile's sparkline read it as `$0.00`
 too; `fleetCostSpark` (`shell.ts`) now reads `costUnpriced` the same way (`total $0.40, 1 unpriced
-left out`). Since 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
+left out`). Until a later 2026-10-05 commit the Tasks card's TASK BURN chip summed such a firing in
+as free too: two Codex slices beside one $2.00 Claude slice read `3 slices · $2.00`, and a task
+flown on Codex alone read `$0.00`. `taskBurnOf` (`web/flight-metrics.ts`) now counts it in
+`unpriced`, still a slice with its wall time, and `taskBurnLabel` (`web/task-queue.ts`) names them
+beside the priced total (`3 slices · $2.00 + 2 unpriced`), or reads `unpriced` when none was priced,
+its tip saying no price was reported. Since 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
 firings `by engine` before `by model`, so a Codex lane's ship and revert rates read beside Claude's
