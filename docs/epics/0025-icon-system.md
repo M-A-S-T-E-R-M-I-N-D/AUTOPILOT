@@ -524,6 +524,16 @@ propagation, and the filled style does not match the nav.
    button's name stays its aria-label; the row is rebuilt on every render and
    the locale sweep keeps the icon
    (`apps/dashboard/test/web/firing-diff-toggle-icon.test.ts`, axe-clean).
+   **Exit focus pill 2026-10-04 (slice 2):** the rail's Focus button leads
+   with `maximize`, but the Exit focus pill, the one control left on screen
+   once focus mode hides the chrome, was bare words. It leads with a newly
+   vendored `minimize` now, the same four corners pulled in, so the way out
+   reads as the way in reversed. The icon is decorative, so the button's name
+   stays its words, and the label already sat in an inner `[data-i18n]` span,
+   so a locale switch rewrites the words beside the icon. A margin spaces it:
+   a `display` on the pill would beat the UA's `[hidden]{display:none}` and
+   leave it on screen outside focus mode
+   (`apps/dashboard/test/web/focus-exit-icon.test.ts`, axe-clean).
 
 ## Related
 

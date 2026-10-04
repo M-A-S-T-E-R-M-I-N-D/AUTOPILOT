@@ -612,6 +612,14 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M3 16v3a2 2 0 0 0 2 2h3' }],
     ['path', { d: 'M16 21h3a2 2 0 0 0 2-2v-3' }],
   ],
+  // Epic 0025 continuation (board web-mtywp7zq-55f3o9): focus mode's Exit
+  // focus pill, the maximize corners pulled in (lucide-static 1.51.0).
+  minimize: [
+    ['path', { d: 'M8 3v3a2 2 0 0 1-2 2H3' }],
+    ['path', { d: 'M21 8h-3a2 2 0 0 1-2-2V3' }],
+    ['path', { d: 'M3 16h3a2 2 0 0 1 2 2v3' }],
+    ['path', { d: 'M16 21v-3a2 2 0 0 1 2-2h3' }],
+  ],
   // Epic 0025 continuation (board web-mtywp7zq-55f3o9, law 1): the subject
   // rail's links and the project tabs drop their hand-copied Feather table.
   // Keeper, Community and Docs reuse inbox, users and book-open above.
