@@ -10,6 +10,7 @@ import { createServer, DEFAULT_PORT, LOOPBACK_HOST } from './server.js';
 import { openBrowser } from '../browser.js';
 import { resolveDbPath } from '../read/config.js';
 import { readFleetFromStore } from '../read/source.js';
+import { withLaneEngines } from '../read/lane-engines.js';
 import { readPipelineSpans } from '../read/pipeline-spans.js';
 import { gitLastTouchedAt } from '../flight/doc-freshness.js';
 import { spansToGraph } from '../read/pipeline-graph.js';
@@ -674,7 +675,15 @@ async function cachedDiskClass(target: string): Promise<DiskClass> {
 }
 
 const server = createServer({
-  readState: () => ({ ...readFleetFromStore(dbPath, Date.now()), otlpConfigured }),
+  // Epic 0036 (GitHub #21 slice S1): each project card also carries the
+  // engine its running lanes fly, from the registry, so a lane card can name
+  // it as the fly bar's row does.
+  readState: () =>
+    withLaneEngines(
+      { ...readFleetFromStore(dbPath, Date.now()), otlpConfigured },
+      flightApi.statusAll?.() ?? [],
+      deriveFlyProjectId,
+    ),
   // The Fly bar's 🍀 "I'm feeling lucky" button (GET /api/lucky): assemble
   // the live probe — CPU/RAM/cores from the OS, running flights from the
   // registry, queued tasks from the target folder's board via the same
