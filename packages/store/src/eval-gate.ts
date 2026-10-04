@@ -10,6 +10,7 @@
  */
 
 import type Database from 'better-sqlite3';
+import { UNPRICED_FIRING_SQL } from './read.js';
 import { median } from './stats.js';
 
 type Db = Database.Database;
@@ -25,8 +26,9 @@ export interface PromptVersionEval {
   /** Population variance of `costUsd` across all firings — a consistency signal
    *  distinct from the median (SOTA-MAP H3's "variance across runs"). */
   readonly costVariance: number | null;
-  /** Total cost across all firings in this version ÷ shipped count — what a
-   *  solved task actually costs, including failed attempts. Null when nothing shipped. */
+  /** Total cost across all priced firings in this version ÷ priced ships — what
+   *  a solved task actually costs, including failed attempts. Null when no
+   *  priced firing shipped (see {@link costPerSolvedOf}). */
   readonly costPerSolved: number | null;
 }
 
@@ -39,9 +41,45 @@ function variance(values: readonly number[]): number | null {
 interface PromptVersionAccumulator {
   firings: number;
   shipped: number;
+  /** Ships whose cost is known — what cost per solved divides by. */
+  pricedShipped: number;
   turns: number[];
   costs: number[];
   totalCost: number;
+}
+
+/**
+ * The priced cost over the priced ships (epic 0036). A Codex or Gemini run
+ * reports no price, so its cost is left out of the total; dividing that total
+ * by every ship read one $2.00 Claude ship beside two such ships as $0.67 per
+ * solve, and a costlier prompt passed {@link evaluatePromptVersionGate}.
+ */
+function costPerSolvedOf(g: PromptVersionAccumulator): number | null {
+  return g.pricedShipped > 0 ? g.totalCost / g.pricedShipped : null;
+}
+
+function emptyAccumulator(): PromptVersionAccumulator {
+  return { firings: 0, shipped: 0, pricedShipped: 0, turns: [], costs: [], totalCost: 0 };
+}
+
+/** Counts one firing into its group; a cost that is not a number is unpriced. */
+function accumulate(
+  g: PromptVersionAccumulator,
+  shipped: boolean,
+  turns: unknown,
+  cost: unknown,
+): void {
+  const isPriced = typeof cost === 'number' && Number.isFinite(cost);
+  g.firings += 1;
+  if (shipped) {
+    g.shipped += 1;
+    if (isPriced) g.pricedShipped += 1;
+  }
+  if (typeof turns === 'number' && Number.isFinite(turns)) g.turns.push(turns);
+  if (isPriced) {
+    g.costs.push(cost);
+    g.totalCost += cost;
+  }
 }
 
 /** Shared aggregation for both {@link evalRegressionByPromptVersion} and
@@ -60,22 +98,8 @@ function aggregateEvalRows(rows: readonly { payload: string | null }[]): PromptV
     const version = parsed['promptVersion'];
     if (typeof version !== 'string' || version.length === 0) continue;
 
-    const group = groups.get(version) ?? {
-      firings: 0,
-      shipped: 0,
-      turns: [],
-      costs: [],
-      totalCost: 0,
-    };
-    group.firings += 1;
-    if (parsed['shipped'] === true) group.shipped += 1;
-    const turns = parsed['numTurns'];
-    if (typeof turns === 'number' && Number.isFinite(turns)) group.turns.push(turns);
-    const cost = parsed['costUsd'];
-    if (typeof cost === 'number' && Number.isFinite(cost)) {
-      group.costs.push(cost);
-      group.totalCost += cost;
-    }
+    const group = groups.get(version) ?? emptyAccumulator();
+    accumulate(group, parsed['shipped'] === true, parsed['numTurns'], parsed['costUsd']);
     groups.set(version, group);
   }
 
@@ -87,7 +111,7 @@ function aggregateEvalRows(rows: readonly { payload: string | null }[]): PromptV
       passRate: g.firings > 0 ? g.shipped / g.firings : 0,
       medianTurns: median(g.turns),
       costVariance: variance(g.costs),
-      costPerSolved: g.shipped > 0 ? g.totalCost / g.shipped : null,
+      costPerSolved: costPerSolvedOf(g),
     }))
     .sort((a, b) => b.firings - a.firings);
 }
@@ -262,10 +286,13 @@ function pickSourceOf(item: string | null, taskSource: string | null): PickSourc
  * section this feeds, docs/SELF-STUDY/PAPER.md §6).
  */
 export function evalRegressionByPickSource(db: Db, projectId: string): PickSourceEval[] {
+  // A firing whose record says its cost is unknown reads NULL, not the
+  // column's 0 (epic 0036), so it stays out of the cost numbers.
   const rows = db
     .prepare(
-      `SELECT m.item AS item, m.shipped AS shipped, m.cost_usd AS costUsd, m.turns AS turns,
-              t.source AS taskSource
+      `SELECT m.item AS item, m.shipped AS shipped,
+              CASE WHEN ${UNPRICED_FIRING_SQL} THEN NULL ELSE m.cost_usd END AS costUsd,
+              m.turns AS turns, t.source AS taskSource
          FROM metrics m
          LEFT JOIN tasks t ON t.id = m.item AND t.project_id = m.project_id
         WHERE m.project_id = ?`,
@@ -273,7 +300,7 @@ export function evalRegressionByPickSource(db: Db, projectId: string): PickSourc
     .all(projectId) as {
     item: string | null;
     shipped: number;
-    costUsd: number;
+    costUsd: number | null;
     turns: number;
     taskSource: string | null;
   }[];
@@ -281,14 +308,8 @@ export function evalRegressionByPickSource(db: Db, projectId: string): PickSourc
   const groups = new Map<PickSource, PromptVersionAccumulator>();
   for (const row of rows) {
     const key = pickSourceOf(row.item, row.taskSource);
-    const group = groups.get(key) ?? { firings: 0, shipped: 0, turns: [], costs: [], totalCost: 0 };
-    group.firings += 1;
-    if (row.shipped === 1) group.shipped += 1;
-    if (typeof row.turns === 'number' && Number.isFinite(row.turns)) group.turns.push(row.turns);
-    if (typeof row.costUsd === 'number' && Number.isFinite(row.costUsd)) {
-      group.costs.push(row.costUsd);
-      group.totalCost += row.costUsd;
-    }
+    const group = groups.get(key) ?? emptyAccumulator();
+    accumulate(group, row.shipped === 1, row.turns, row.costUsd);
     groups.set(key, group);
   }
 
@@ -300,7 +321,7 @@ export function evalRegressionByPickSource(db: Db, projectId: string): PickSourc
       passRate: g.firings > 0 ? g.shipped / g.firings : 0,
       medianTurns: median(g.turns),
       costVariance: variance(g.costs),
-      costPerSolved: g.shipped > 0 ? g.totalCost / g.shipped : null,
+      costPerSolved: costPerSolvedOf(g),
     }))
     .sort((a, b) => b.firings - a.firings);
 }
