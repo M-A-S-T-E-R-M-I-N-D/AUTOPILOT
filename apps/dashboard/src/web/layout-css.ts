@@ -64,6 +64,7 @@ body {
 .update-banner-go:hover, .update-banner-go:focus-visible { border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .update-banner-later { font: inherit; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .update-banner-later:hover, .update-banner-later:focus-visible { color: var(--color-text); border-color: var(--color-text-muted); }
+.update-banner-go > .icon, .update-banner-later > .icon { margin-inline-end: 0.35em; }
 .masthead {
   /* Two rows of 44px touch targets (the coarse-pointer floor) plus the old
      8px padding and row gap put the sticky chrome at 113px on a phone — over

@@ -534,6 +534,18 @@ propagation, and the filled style does not match the nav.
    a `display` on the pill would beat the UA's `[hidden]{display:none}` and
    leave it on screen outside focus mode
    (`apps/dashboard/test/web/focus-exit-icon.test.ts`, axe-clean).
+   **Update banner 2026-10-04 (slice 2):** the strip that appears above the
+   masthead once a newer release is out offered "Update now" and "Later" as
+   bare words beside the iconed execute buttons. Update now leads with the
+   `rocket` the What's new message titles with, the message this update
+   brings up next, and Later with the Versions heading's `clock`, since it
+   puts the offer off for the session; a refused update's retry draws the
+   same rocket. Nothing is newly vendored, and each icon is decorative, so a
+   button's name stays its words. The words moved into an inner `[data-i18n]`
+   span, so a locale switch now rewrites them beside the icon instead of
+   leaving English behind (`apps/dashboard/test/web/update-banner-icons.test.ts`,
+   axe-clean). The version menu's "Run the latest" button stays bare words:
+   its label is repainted through `textContent` on every check.
 
 ## Related
 
