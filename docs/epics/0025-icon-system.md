@@ -628,6 +628,17 @@ propagation, and the filled style does not match the nav.
    paints its words beside the same chevrons; the last stop's "Start the
    checklist" hand-over stays bare words
    (`apps/dashboard/test/web/tour-nav-chevrons.test.ts`, axe-clean).
+   **Foundation Copy address 2026-10-04 (slice 2):** the masthead heart's
+   disclosure lists each verified donation address beside its QR, and the
+   button that copies one was bare words. It leads with the vendored `copy`
+   the issue triage's duplicate verdict draws, and a copy that lands swaps
+   it for the `check` the Docs editor's Save draws while the words read
+   "Copied!", then puts both back after 2s; a refused copy changes nothing.
+   Nothing is newly vendored. The words used to replace the button's whole
+   `textContent`; they now go through `setSweptText()`, so the icon stays
+   first. `foundation.ts` rides `/panels.js`, so core does not grow. The
+   icon is decorative, so the button's name stays its words, in Hebrew too
+   (`apps/dashboard/test/web/foundation-copy-icon.test.ts`, axe-clean).
 
 ## Related
 
