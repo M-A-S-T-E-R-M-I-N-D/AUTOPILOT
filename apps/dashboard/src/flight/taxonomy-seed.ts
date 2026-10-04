@@ -282,12 +282,17 @@ export const MILESTONE_PAGE_SIZE = 100;
  *  ceiling {@link MAX_LABEL_LIST} puts on the label read. */
 export const MAX_MILESTONE_PAGES = 10;
 
-/** One page of the milestone list, or `undefined` on a non-zero exit,
- *  unparseable stdout or a non-array payload. */
-async function fetchMilestonePage(exec: CliExec, page: number): Promise<unknown[] | undefined> {
+/** One page of the milestone list in `state` (every milestone by default),
+ *  or `undefined` on a non-zero exit, unparseable stdout or a non-array
+ *  payload. Exported for `routing-console.ts`'s open-milestone read. */
+export async function fetchMilestonePage(
+  exec: CliExec,
+  page: number,
+  state: 'all' | 'open' = 'all',
+): Promise<unknown[] | undefined> {
   const { code, stdout } = await exec('gh', [
     'api',
-    `repos/{owner}/{repo}/milestones?state=all&per_page=${MILESTONE_PAGE_SIZE}&page=${page}`,
+    `repos/{owner}/{repo}/milestones?state=${state}&per_page=${MILESTONE_PAGE_SIZE}&page=${page}`,
   ]);
   if (code !== 0) return undefined;
   let parsed: unknown;
