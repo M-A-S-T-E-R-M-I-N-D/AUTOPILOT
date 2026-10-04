@@ -3369,6 +3369,26 @@ touch only already-extracted modules or orthogonal feature work — no new
 whole-region moves landed. No code changed this pass; gate green
 (typecheck/lint/format:check/build; docs-only freshness update).
 
+Freshness check (2026-10-04): `web/features/index.ts` gained one import since
+the 2026-10-01 check — `routing-console.ts` (`6d780f72`, epic 0019 S4's
+Routing console panel) — with a matching `chunks.ts` deferred-panel entry in
+the same commit; this is the module-adding cut this entry's watch exists to
+catch, not UI churn. `web/features/` now holds exactly 48 discoverable
+modules (49 files on disk minus the barrel itself, `index.ts`), which happens
+to match the Status line's 2026-10-03 figure above, written one commit early
+— the tree still held 47 at that commit, and today's cut is what actually
+brings it to 48. `shared/` and `scripts/codemod/generate-splice-manifest.mjs`
+are untouched since the last check. `web/shell.ts` is now at 5,990 lines
+(+80 since 2026-10-03), `server/server.ts` at 4,746 (+52) and `fly.ts` at
+2,643 (+86); the twelve commits in this window are epic 0025's icon-system
+button swaps, epic 0036's fly-bar engine/backend additions and a flight-log
+pricing fix, and the routing-console panel's own four call-site lines in
+shell.ts — none of it a decomposition regression. No acceptance criterion
+changes: feature modules are still discovered and spliced automatically,
+shared pure-logic modules still live once, and the decomposition sits no
+closer to or further from the 800-line law than the 2026-10-03 check already
+described. Gate green (typecheck/lint/format:check/build; docs-only update).
+
 ## Related
 
 - `docs/EVALUATION-2026-08.md` (the data), BUNDLE DIET board item (subsumed DELIVERABLE),
