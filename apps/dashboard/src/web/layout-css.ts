@@ -532,6 +532,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 #ask-go:not(:disabled):hover, #ask-go:not(:disabled):focus-visible { border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 #ask-go:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 #ask-go:disabled { cursor: default; opacity: 0.6; }
+#search-go > .icon, #ask-go > .icon { margin-inline-end: 0.35em; }
 .ask-answer:empty { display: none; }
 .ask-answer { margin-top: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-accent); border-radius: var(--radius-sm); background: var(--color-surface-raised); font-size: var(--text-sm); word-break: break-word; }
 .ask-answer > :first-child { margin-top: 0; }

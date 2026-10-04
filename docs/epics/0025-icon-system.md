@@ -650,7 +650,19 @@ propagation, and the filled style does not match the nav.
    Each icon is decorative, so a button's name stays its words, in Hebrew
    too (`apps/dashboard/test/web/onboarding-head-icons.test.ts`, axe-clean).
    The minimised strip's "Go social: connect GitHub" stays bare words: the
-   Connect popover it opens draws no icon to borrow.
+   Connect popover it opens draws no icon to borrow. **Search bar's Search
+   and Ask 2026-10-04 (slice 2):** the command palette's title leads with
+   `search` and the Ask corner button and its sheet with `message-circle`,
+   but the search bar's own Search and Ask, where a code question starts,
+   were bare words. Search leads with the palette's `search` and Ask with
+   the corner button's `message-circle`, since it asks the same model.
+   Nothing is newly vendored, and both are server-printed markup the locale
+   sweep keeps a leading icon in. Ask's "Asking…" and the restored "Ask"
+   used to replace the button's whole `textContent`; they go through
+   `setSweptText()` now, so the icon survives a run and a failed one (core
+   grows 57 bytes for it, 253.2KB raw). Each icon is decorative, so a button's name stays its words, in
+   Hebrew too (`apps/dashboard/test/web/search-ask-button-icons.test.ts`,
+   axe-clean).
 
 ## Related
 
