@@ -323,6 +323,8 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 .connect-form button:hover, .connect-form button:focus-visible, .connect-login:hover, .connect-login:focus-visible, .task-add button:hover, .task-add button:focus-visible, .inbox-add button:hover, .inbox-add button:focus-visible, .soul-editor-form button:hover, .soul-editor-form button:focus-visible { box-shadow: var(--elevation-level-2); }
 .connect-form button:active, .connect-login:active, .task-add button:active, .inbox-add button:active, .soul-editor-form button:active { box-shadow: var(--elevation-level-0); }
 .connect-form button:disabled, .connect-login:disabled, .task-add button:disabled, .inbox-add button:disabled, .soul-editor-form button:disabled { box-shadow: none; }
+/* Epic 0025: Add, Drop note and Propose edit lead with a decorative icon. */
+.task-add button > .icon, .inbox-add button > .icon, .soul-editor-form button > .icon { margin-inline-end: 0.35em; }
 
 .totals {
   display: flex; flex-wrap: wrap; gap: var(--space-4) var(--space-5);

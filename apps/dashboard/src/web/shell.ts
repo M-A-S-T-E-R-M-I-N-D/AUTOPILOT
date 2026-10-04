@@ -1866,7 +1866,10 @@ function soulEditorPanel(projectId, soulText) {
   // data-tip only, no aria-label: the visible (translated) text stays the
   // accessible name.
   unlock.setAttribute('data-tip', 'The live SOUL is locked against accidental edits — unlock it to write a proposed change');
+  // Epic 0025: leads with the pencil its summary draws, beside the unlock
+  // toggle's lock.
   var btn = el('button', null, 'Propose edit');
+  btn.prepend(iconEl('pencil'));
   btn.setAttribute('data-i18n', 'soulEditorSubmit');
   btn.setAttribute('type', 'submit');
   btn.disabled = true;
@@ -3530,7 +3533,10 @@ function tasksSection(c) {
   input.placeholder = 'what should this autopilot do?';
   input.setAttribute('data-i18n-placeholder', 'taskNewPlaceholder');
   input.autocomplete = 'off';
+  // Epic 0025: leads with the zoom bar's plus, decorative beside the words;
+  // a submit only disables it, and the locale sweep keeps a leading icon.
   var btn = el('button', null, 'Add');
+  btn.prepend(iconEl('plus'));
   btn.setAttribute('type', 'submit');
   btn.setAttribute('data-i18n', 'taskAdd');
   // One key for both: the button's tip IS its accessible name
@@ -3582,7 +3588,10 @@ function tasksSection(c) {
   inboxTextarea.rows = 3;
   inboxTextarea.placeholder = 'context, a plan, a correction — read fresh at the start of the next firing';
   inboxTextarea.setAttribute('data-i18n-placeholder', 'inboxNotePlaceholder');
+  // Epic 0025: leads with the inbox its summary draws, the way the triage
+  // runs take their heading's icon.
   var inboxBtn = el('button', null, 'Drop note');
+  inboxBtn.prepend(iconEl('inbox'));
   inboxBtn.setAttribute('type', 'submit');
   inboxBtn.setAttribute('data-i18n', 'inboxDropNote');
   // One key for both: the button's tip IS its accessible name
