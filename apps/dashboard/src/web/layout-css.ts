@@ -2587,6 +2587,7 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 .ob-tour-link:hover, .ob-tour-link:focus-visible { text-decoration-thickness: 2px; outline: none; }
 .ob-snooze {  font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border: 1px solid transparent; border-radius: var(--shape-extra-small); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .ob-snooze:hover, .ob-snooze:focus-visible { color: var(--color-text); border-color: var(--color-border); outline: none; }
+.ob-tour-link > .icon, .ob-snooze > .icon { margin-inline-end: 0.35em; }
 
 /* Progress: a hairline, not a chunky meter — it reports, it does not shout. */
 .ob-progress { margin-block-start: var(--space-3); block-size: 4px; border-radius: var(--radius-full); background: var(--color-border); overflow: hidden; }

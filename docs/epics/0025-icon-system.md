@@ -639,6 +639,18 @@ propagation, and the filled style does not match the nav.
    first. `foundation.ts` rides `/panels.js`, so core does not grow. The
    icon is decorative, so the button's name stays its words, in Hebrew too
    (`apps/dashboard/test/web/foundation-copy-icon.test.ts`, axe-clean).
+   **Getting started head 2026-10-04 (slice 2):** the checklist headed with
+   `compass` and folded with an `arrow-left`, but the two buttons between
+   them were bare words. "What do these words mean?" opens the guided tour,
+   so it leads with the `compass` the overflow menu's Tour item and the
+   tour's title draw; "Remind me later" puts the checklist off for the day,
+   so it leads with the `clock` the update banner's Later draws for the same
+   kind of put-off. Nothing is newly vendored, and both are server-printed
+   markup the locale sweep keeps a leading icon in, so core does not grow.
+   Each icon is decorative, so a button's name stays its words, in Hebrew
+   too (`apps/dashboard/test/web/onboarding-head-icons.test.ts`, axe-clean).
+   The minimised strip's "Go social: connect GitHub" stays bare words: the
+   Connect popover it opens draws no icon to borrow.
 
 ## Related
 
