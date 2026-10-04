@@ -98,15 +98,28 @@ export interface PoolIssue {
 }
 
 /**
+ * The first of `labels` that starts with {@link POOL_LABEL_PREFIX} in any
+ * casing, spelled as the issue or discussion carries it, or `undefined` when
+ * none does. `gh issue edit --add-label "pool: ux"` matches a label name in
+ * any casing, so on a repo whose label reads `Pool: UX` that is the spelling
+ * an accepted issue carries. Exported so the Discussions ritual's idempotency
+ * skip (discussions-triage.ts) reads its pool label the same way.
+ */
+export function carriedPoolLabel(labels: readonly string[]): string | undefined {
+  const prefix = POOL_LABEL_PREFIX.toLowerCase();
+  return labels.find((entry) => entry.toLowerCase().startsWith(prefix));
+}
+
+/**
  * The `pool: <dimension>` label's dimension suffix (e.g. `'ux'` from `'pool:
- * ux'`), or `undefined` when `labels` carries no pool label at all. Pure
+ * ux'`), lowercased (`'ux'` from `'Pool: UX'` too), or `undefined` when
+ * `labels` carries no pool label at all ({@link carriedPoolLabel}). Pure
  * string derivation off {@link POOL_LABEL_PREFIX} — the same convention
  * `issue-triage.ts`'s `planIssueTriageCommands` writes onto an accepted
  * issue, read back here rather than re-derived from title/body text.
  */
 export function poolDimension(labels: readonly string[]): string | undefined {
-  const label = labels.find((entry) => entry.startsWith(POOL_LABEL_PREFIX));
-  return label?.slice(POOL_LABEL_PREFIX.length);
+  return carriedPoolLabel(labels)?.toLowerCase().slice(POOL_LABEL_PREFIX.length);
 }
 
 /** True when `labels` carries a `pool: <dimension>` label — the issue has

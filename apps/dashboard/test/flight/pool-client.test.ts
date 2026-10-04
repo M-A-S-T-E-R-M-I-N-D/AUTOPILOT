@@ -1113,3 +1113,62 @@ describe("planClaimPoolIssue × the maintainer's marks in any casing (regression
     }
   });
 });
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the claim flow ×
+// the pool label in another casing. KEEPER triage accepts an issue with `gh
+// issue edit --add-label "pool: ux"`, which matches a label name in any
+// casing, so on a repo whose label reads `Pool: UX` the accepted issue carries
+// that spelling. The pool read the prefix exactly, so the issue dropped out of
+// the pool browse and the claim refused it as never accepted.
+describe('the pool label in any casing (regression, epic 0019 additive-only law)', () => {
+  const variants = ['Pool: UX', 'POOL: UX', 'Pool: ux', 'pool: Ux'] as const;
+  const issue = (labels: readonly string[]): PoolIssue => ({
+    number: 7,
+    title: 'Fix the thing',
+    url: 'https://github.com/example/repo/issues/7',
+    labels,
+    assignees: [],
+  });
+
+  it('reads variants of the label triage writes, not the label itself', () => {
+    for (const label of variants) {
+      expect(label).not.toBe('pool: ux');
+      expect(label.toLowerCase()).toBe('pool: ux');
+    }
+  });
+
+  it.each(variants)('reads "%s" as the ux pool', (label) => {
+    expect(poolDimension([label])).toBe('ux');
+    expect(isPoolIssue(['bug', label])).toBe(true);
+  });
+
+  it.each(variants)('claims an issue labeled "%s" and queues it under its dimension', (label) => {
+    const labeled = issue([label]);
+
+    const decision = planClaimPoolIssue(labeled, 'octocat');
+
+    expect(decision.decision).toBe('claim');
+    expect(planPoolIssueTask(labeled, decision, 'p1', 100)?.dimension).toBe('ux');
+  });
+
+  it('lists an issue labeled "Pool: Data" in the pool browse', async () => {
+    const exec: CliExec = vi.fn().mockResolvedValue({
+      code: 0,
+      stdout: JSON.stringify([
+        { number: 1, title: 'Pooled', url: 'u1', labels: [{ name: 'Pool: Data' }] },
+        { number: 2, title: 'Not pooled', url: 'u2', labels: [{ name: 'bug' }] },
+      ]),
+    });
+
+    const issues = await fetchPoolIssues(exec);
+
+    expect(issues.map((listed) => [listed.number, listed.labels])).toEqual([[1, ['Pool: Data']]]);
+  });
+
+  it('still reads no pool off a label that only resembles one', () => {
+    for (const label of ['no pool: ux', 'pool:ux', 'Pool:UX', 'carpool: ux', 'pool']) {
+      expect(isPoolIssue([label])).toBe(false);
+      expect(planClaimPoolIssue(issue([label]), 'octocat').decision).toBe('skip');
+    }
+  });
+});
