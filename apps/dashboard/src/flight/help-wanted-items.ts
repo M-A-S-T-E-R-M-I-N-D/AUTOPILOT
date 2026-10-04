@@ -39,6 +39,8 @@
 import type { CliExec } from '../connection/cli-probe.js';
 import { MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
 import { isMaintainerMarked } from './contributor-issue-list.js';
+import { parsePoolComments } from './pool-client.js';
+import { claimLedger } from './claim-ledger.js';
 
 /** GitHub's default "help wanted" label — the only label this module reads
  *  by. Not seeded by this repo's own `taxonomy-seed.ts` (a GitHub default,
@@ -65,6 +67,14 @@ export interface HelpWantedItem {
   readonly url: string;
   readonly labels: readonly string[];
   readonly assignees: readonly string[];
+  /** Logins holding the issue by a live claim comment alone, with no
+   *  assignment behind it, oldest claim first: THE CLAIMS LEDGER
+   *  (claim-ledger.ts) read the way the pool reads it. An outside
+   *  contributor's pool claim is often its comment alone, because the assign
+   *  after it needs triage rights on the repo (#27). Present only when the
+   *  ledger names someone {@link assignees} does not, so an issue with no
+   *  such claim keeps the shape it always had. */
+  readonly claimedByComment?: readonly string[];
 }
 
 /** Lowercases and folds hyphens to spaces — the same normalization
@@ -87,25 +97,43 @@ export function isHelpWantedItem(labels: readonly string[]): boolean {
  *  is open to claim, while the pool claim and the Good-first list both skip
  *  it (epic 0019 law 2: the maintainer's mark outranks a listing). A marked
  *  issue someone holds stays listed: "Claimed by" is still true, and the
- *  holder's My claims filter still finds it. */
+ *  holder's My claims filter still finds it. A claim comment holds it as an
+ *  assignment does ({@link HelpWantedItem.claimedByComment}). */
 function isMarkedAndUnclaimed(item: HelpWantedItem): boolean {
-  return item.assignees.length === 0 && isMaintainerMarked(item.labels);
+  const held = item.assignees.length > 0 || (item.claimedByComment ?? []).length > 0;
+  return !held && isMaintainerMarked(item.labels);
 }
 
 /** One issue entry as `gh issue list --json number,title,url,labels,
- *  assignees` emits it — untrusted process output, parsed defensively
- *  rather than trusted as already shaped like {@link HelpWantedItem}. */
+ *  assignees,comments` emits it — untrusted process output, parsed
+ *  defensively rather than trusted as already shaped like {@link
+ *  HelpWantedItem}. */
 interface RawHelpWantedItem {
   readonly number?: unknown;
   readonly title?: unknown;
   readonly url?: unknown;
   readonly labels?: unknown;
   readonly assignees?: unknown;
+  readonly comments?: unknown;
+}
+
+/** The ledger's claimants GitHub does not list as assignees, as {@link
+ *  HelpWantedItem.claimedByComment} carries them; `{}` when there are none.
+ *  An assignee the ledger reads as released still shows in `assignees`, as
+ *  the routing console shows it: GitHub still lists them. */
+function commentClaims(
+  assignees: readonly string[],
+  comments: unknown,
+): Pick<HelpWantedItem, 'claimedByComment'> {
+  const logins = claimLedger(assignees, parsePoolComments(comments))
+    .map((claim) => claim.login)
+    .filter((login) => !assignees.includes(login));
+  return logins.length > 0 ? { claimedByComment: logins } : {};
 }
 
 /** One `gh issue list --state open --label <label> --json
- *  number,title,url,labels,assignees` read, parsed defensively. `[]` on a
- *  non-zero exit or unparseable/non-array stdout. */
+ *  number,title,url,labels,assignees,comments` read, parsed defensively. `[]`
+ *  on a non-zero exit or unparseable/non-array stdout. */
 async function listLabeled(exec: CliExec, label: string): Promise<HelpWantedItem[]> {
   const { code, stdout } = await exec('gh', [
     'issue',
@@ -117,7 +145,7 @@ async function listLabeled(exec: CliExec, label: string): Promise<HelpWantedItem
     '--limit',
     String(MAX_ISSUE_LIST),
     '--json',
-    'number,title,url,labels,assignees',
+    'number,title,url,labels,assignees,comments',
   ]);
   if (code !== 0) return [];
 
@@ -137,19 +165,23 @@ async function listLabeled(exec: CliExec, label: string): Promise<HelpWantedItem
         typeof raw.title === 'string' &&
         typeof raw.url === 'string',
     )
-    .map((raw) => ({
-      number: raw.number as number,
-      title: raw.title as string,
-      url: raw.url as string,
-      labels: parseIssueLabels(raw.labels),
-      assignees: parseAssignees(raw.assignees),
-    }));
+    .map((raw) => {
+      const assignees = parseAssignees(raw.assignees);
+      return {
+        number: raw.number as number,
+        title: raw.title as string,
+        url: raw.url as string,
+        labels: parseIssueLabels(raw.labels),
+        assignees,
+        ...commentClaims(assignees, raw.comments),
+      };
+    });
 }
 
 /**
  * Lists every open issue carrying the `help wanted` label (up to
  * `MAX_ISSUE_LIST` per spelling) via `gh issue list --state open --label
- * "help wanted" --json number,title,url,labels,assignees`, plus the same read
+ * "help wanted" --json number,title,url,labels,assignees,comments`, plus the same read
  * for `help-wanted` ({@link HELP_WANTED_SEARCHES}), run through the injectable
  * `exec` — the same `CliExec` shape
  * `roadmap-items.ts`'s `fetchRoadmapItems` and `pool-client.ts`'s
@@ -164,7 +196,10 @@ async function listLabeled(exec: CliExec, label: string): Promise<HelpWantedItem
  * `fetchRoadmapItems` uses. Assignees are carried
  * through as-is (including empty) rather than filtered — the caller's claim
  * state, unlike `contributor-issue-list.ts`'s pick list, which drops
- * already-assigned issues instead. An unassigned issue the maintainer has
+ * already-assigned issues instead. The comments are read for the claims
+ * ledger alone, the fields `pool-client.ts`'s `fetchPoolIssues` asks for: a
+ * claim held only by its comment rides {@link HelpWantedItem.claimedByComment},
+ * so the panel says who holds it. An issue nobody holds that the maintainer has
  * declined or put on hold is dropped ({@link isMarkedAndUnclaimed}).
  */
 export async function fetchHelpWantedItems(exec: CliExec): Promise<HelpWantedItem[]> {

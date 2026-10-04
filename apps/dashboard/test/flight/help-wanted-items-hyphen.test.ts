@@ -114,7 +114,7 @@ describe('fetchHelpWantedItems × a hyphenated help-wanted label (regression, ep
       '--limit',
       String(MAX_ISSUE_LIST),
       '--json',
-      'number,title,url,labels,assignees',
+      'number,title,url,labels,assignees,comments',
     ]);
     expect(exec).toHaveBeenCalledWith('gh', [
       'issue',
@@ -126,7 +126,7 @@ describe('fetchHelpWantedItems × a hyphenated help-wanted label (regression, ep
       '--limit',
       String(MAX_ISSUE_LIST),
       '--json',
-      'number,title,url,labels,assignees',
+      'number,title,url,labels,assignees,comments',
     ]);
   });
 

@@ -1327,6 +1327,21 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    again. Covered by `test/flight/contributor-issue-list.test.ts`, whose
    fake gh returns only the fields `--json` asked for (written first, 3 of the
    new checks failed).
+   Refined 2026-10-04 (same law, the claims ledger × the Collaboration
+   panel): the help-wanted group read assignees only, so an issue held by a
+   pool claim comment alone showed as "Unclaimed" under what's open to claim,
+   and its claimant's My claims filter never found it. Both of
+   `fetchHelpWantedItems`'s reads now ask gh for `comments` too, the fields
+   `fetchPoolIssues` reads, and an item carries `claimedByComment`: the
+   ledger's live claimants GitHub does not list as assignees, present only
+   when there is one. The panel's claim-state line, its badge and My claims
+   read every assignee, then those claimants, and a marked issue such a claim
+   holds stays listed, as an assigned one does. Widening only: an item with no
+   such claim keeps the shape it had, every assignee still shows, and a claim
+   handed back with `/unclaim` reads Unclaimed again. Covered by
+   `test/flight/help-wanted-items-claim-comment.test.ts`, whose fake gh
+   returns only the fields `--json` asked for (written first, 6 of its 9
+   checks failed). The roadmap group still reads assignees alone.
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable
