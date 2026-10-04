@@ -1314,6 +1314,19 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    The panel's poll now runs three reads instead of two. Covered by
    `test/flight/help-wanted-items-hyphen.test.ts`, whose fake gh filters
    `--label` the way the search does (written first, 9 of 15 checks failed).
+   Refined 2026-10-04 (same law, the claims ledger): an outside contributor's
+   pool claim is often its comment alone, because the assign after it needs
+   triage rights on the repo (`claim-ledger.ts`, #27). The pool reads that
+   comment as a claim and warns the next claimant, but the Good-first list
+   skipped an issue only when it had an assignee, so it offered the claimed
+   issue to the next visitor as free. `fetchContributorFacingIssues` now asks
+   gh for `comments` too, the same fields `fetchPoolIssues` reads, and
+   carries each issue's `claimLedger`; `planContributorIssueList` skips an
+   issue with an assignee or a live claim. Narrowing only: an assigned issue
+   still stays out, and a claim handed back with `/unclaim` lists the issue
+   again. Covered by `test/flight/contributor-issue-list.test.ts`, whose
+   fake gh returns only the fields `--json` asked for (written first, 3 of the
+   new checks failed).
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable

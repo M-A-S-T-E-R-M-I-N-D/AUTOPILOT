@@ -628,6 +628,29 @@ propagation, and the filled style does not match the nav.
    paints its words beside the same chevrons; the last stop's "Start the
    checklist" hand-over stays bare words
    (`apps/dashboard/test/web/tour-nav-chevrons.test.ts`, axe-clean).
+   **Foundation Copy address 2026-10-04 (slice 2):** the masthead heart's
+   disclosure lists each verified donation address beside its QR, and the
+   button that copies one was bare words. It leads with the vendored `copy`
+   the issue triage's duplicate verdict draws, and a copy that lands swaps
+   it for the `check` the Docs editor's Save draws while the words read
+   "Copied!", then puts both back after 2s; a refused copy changes nothing.
+   Nothing is newly vendored. The words used to replace the button's whole
+   `textContent`; they now go through `setSweptText()`, so the icon stays
+   first. `foundation.ts` rides `/panels.js`, so core does not grow. The
+   icon is decorative, so the button's name stays its words, in Hebrew too
+   (`apps/dashboard/test/web/foundation-copy-icon.test.ts`, axe-clean).
+   **Getting started head 2026-10-04 (slice 2):** the checklist headed with
+   `compass` and folded with an `arrow-left`, but the two buttons between
+   them were bare words. "What do these words mean?" opens the guided tour,
+   so it leads with the `compass` the overflow menu's Tour item and the
+   tour's title draw; "Remind me later" puts the checklist off for the day,
+   so it leads with the `clock` the update banner's Later draws for the same
+   kind of put-off. Nothing is newly vendored, and both are server-printed
+   markup the locale sweep keeps a leading icon in, so core does not grow.
+   Each icon is decorative, so a button's name stays its words, in Hebrew
+   too (`apps/dashboard/test/web/onboarding-head-icons.test.ts`, axe-clean).
+   The minimised strip's "Go social: connect GitHub" stays bare words: the
+   Connect popover it opens draws no icon to borrow.
 
 ## Related
 

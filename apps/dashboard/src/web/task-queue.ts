@@ -497,6 +497,9 @@ export const QUEUE_FORECAST_WINDOW = 20;
 export interface ForecastLogEntry {
   readonly cost: number;
   readonly completion: string | null;
+  /** The firing record carries no price (`FlightEntry.costUnpriced`): a
+   *  Codex or Gemini run reports none, so its `cost` column reads 0. */
+  readonly costUnpriced?: boolean;
 }
 
 /** {@link queueForecastMeta}'s result: the QUEUE FORECAST line's visible
@@ -513,6 +516,9 @@ export interface QueueForecastMeta {
  *  ship-rate forecast would overpromise. Null with an empty queue or no
  *  recorded firings (nothing honest to project); zero completions in the
  *  window degrades to an explicit "unknown" line rather than ∞ or a guess.
+ *  The $/firing average reads the priced firings alone: an unpriced one
+ *  (`costUnpriced`, epic 0036) still counts toward the completion pace but
+ *  not the cost, and a window with none priced reads "cost unpriced".
  *  `fmtCost` is caller-injected, same reason as {@link taskBurnLabel}. */
 export function queueForecastMeta(
   openCount: number,
@@ -523,9 +529,11 @@ export function queueForecastMeta(
   const recent = log.slice(0, QUEUE_FORECAST_WINDOW);
   let completes = 0;
   let cost = 0;
+  let unpriced = 0;
   for (const f of recent) {
     if (f.completion === 'complete') completes++;
-    cost += f.cost;
+    if (f.costUnpriced === true) unpriced++;
+    else cost += f.cost;
   }
   const n = recent.length;
   const windowPhrase = 'the last ' + n + (n === 1 ? ' firing' : ' firings');
@@ -542,25 +550,29 @@ export function queueForecastMeta(
     };
   }
   const firings = Math.ceil(openCount / (completes / n));
-  const avgCost = cost / n;
-  const est = firings * avgCost;
+  const priced = n - unpriced;
+  const avgCost = priced ? cost / priced : 0;
+  const est = fmtCost(firings * avgCost);
   const firingsPhrase = firings + (firings === 1 ? ' firing' : ' firings');
   return {
-    text: 'Queue drains in ~' + firingsPhrase + ' / ~' + fmtCost(est),
+    text: 'Queue drains in ~' + firingsPhrase + ' / ' + (priced ? '~' + est : 'cost unpriced'),
     tip:
       'Queue forecast: over ' +
       windowPhrase +
       ', ' +
       completes +
       (completes === 1 ? ' task' : ' tasks') +
-      ' completed at ' +
-      fmtCost(avgCost) +
-      '/firing average, so ' +
+      (priced
+        ? ' completed at ' +
+          fmtCost(avgCost) +
+          '/firing average' +
+          (unpriced ? ' (' + unpriced + ' unpriced left out, no price was reported)' : '')
+        : ' completed, none reported a price') +
+      ', so ' +
       openPhrase +
       ' ≈ ' +
       firingsPhrase +
-      ' ≈ ' +
-      fmtCost(est) +
+      (priced ? ' ≈ ' + est : ' at an unknown cost') +
       '. A pace extrapolation, not a promise — task sizes vary, so this moves every firing.',
   };
 }

@@ -488,6 +488,19 @@ reads a board, SOUL or backlog row across projects or opens a new write path. `f
 and `flight/registry.ts` are unchanged. None of the four locks below changes; all six slices remain
 unchanged and live in production.
 
+Freshness check (2026-10-04, evening): `fly.ts` gained one more commit since the check
+above — `6029919c` (epic 0016 slice 4/6), which adds a standalone `AUTOPILOT_FLY_TARGET=github`
+mode. `parseFlyTarget` reads the env var before the engine lock, the store, onboarding and the
+worktree are ever touched, and an unrecognized value refuses to take off rather than guess. When
+the target is `'github'`, `main()` calls `runGithubOnlyFlight` — a thin wrapper over the same
+`runSocialFlightPass` the 2026-09-26 afternoon check above already verified carries the
+self-target guard (`'foreign-target'` refusal) and is pinned by `cross-project-leak.test.ts` —
+prints the debrief line, and returns before any of the four locks below are taken. This is a new
+caller of already-guarded machinery, not a new read or write path: no board, SOUL or backlog row
+crosses projects because of it, and the code tree is untouched in this mode (the commit's own
+smoke test confirms it). `flight/runner.ts` and `flight/registry.ts` are unchanged. None of the
+four locks below changes; all six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
