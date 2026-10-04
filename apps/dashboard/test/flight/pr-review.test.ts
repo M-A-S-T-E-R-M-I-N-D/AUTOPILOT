@@ -369,6 +369,13 @@ const BENIGN_FLIGHT = new Set([
   // filtering) that will render this snapshot is a separate, later slice
   // that will need its own marker once it ships.
   'collaboration.ts',
+  // EPIC 0019 S4 routing console, the model (board web-mtrh1hn3-8x9f0z):
+  // planRoutingConsole is a pure derivation over already-fetched milestones
+  // and issues, and fetchOpenMilestones only GETs the open milestones through
+  // taxonomy-seed.ts's page read (flagged with its seeder). No label, assign,
+  // milestone or comment write exists here; the API route and the panel
+  // beside the board are later slices that will need their own markers.
+  'routing-console.ts',
 ]);
 
 /** Adapter files with no write/decide power of their own, so the coverage
