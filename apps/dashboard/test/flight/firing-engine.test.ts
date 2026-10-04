@@ -327,14 +327,19 @@ describe('firingConfigForEngine', () => {
     },
   };
 
-  it('hands a Claude lane the flight config itself', () => {
-    expect(firingConfigForEngine(config, { engine: 'claude' })).toBe(config);
+  it("hands a Claude lane the flight config, naming the engine its firings' records carry", () => {
+    expect(firingConfigForEngine(config, { engine: 'claude' })).toEqual({
+      ...config,
+      engine: 'claude',
+    });
+    expect(config.engine).toBeUndefined();
   });
 
   it('puts every model slot of a codex lane on its model and keeps the rest', () => {
     const codex = firingConfigForEngine(config, { engine: 'codex', model: 'gpt-5-codex' });
     expect(codex).toEqual({
       ...config,
+      engine: 'codex',
       primaryModel: 'gpt-5-codex',
       fallbackModel: 'gpt-5-codex',
       resilience: {
@@ -350,6 +355,7 @@ describe('firingConfigForEngine', () => {
 
   it('puts every model slot of a gemini lane on its model', () => {
     const gemini = firingConfigForEngine(config, { engine: 'gemini', model: 'gemini-2.5-pro' });
+    expect(gemini.engine).toBe('gemini');
     expect([
       gemini.primaryModel,
       gemini.fallbackModel,

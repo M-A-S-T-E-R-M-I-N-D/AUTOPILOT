@@ -190,16 +190,19 @@ export function firingEngineEnv(route: FiringEngineRoute): Record<string, string
   return { AUTOPILOT_ENGINE: route.engine, AUTOPILOT_ENGINE_MODEL: route.model };
 }
 
-/** The config a lane's firings run under: Claude's untouched, or every model
- *  slot (the primary, the quota fallback and resilience's pair) on the
- *  engine's model, so no firing hands another CLI a Claude alias. */
+/** The config a lane's firings run under: Claude's models untouched, or every
+ *  model slot (the primary, the quota fallback and resilience's pair) on the
+ *  engine's model, so no firing hands another CLI a Claude alias. Either way
+ *  it names the engine, which each firing's record carries to the fleet
+ *  report's "by engine" section. */
 export function firingConfigForEngine(
   config: EngineConfig,
   route: FiringEngineRoute,
 ): EngineConfig {
-  if (route.engine === 'claude') return config;
+  if (route.engine === 'claude') return { ...config, engine: 'claude' };
   return {
     ...config,
+    engine: route.engine,
     primaryModel: route.model,
     fallbackModel: route.model,
     resilience: { ...config.resilience, primaryModel: route.model, fallbackModel: route.model },

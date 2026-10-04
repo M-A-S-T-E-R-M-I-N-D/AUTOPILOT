@@ -29,6 +29,7 @@ const base: ReportFiring = {
   costUsd: 2,
   durationMs: 10 * 60_000,
   model: 'claude-sonnet-5',
+  engine: 'claude',
 };
 
 describe('taskClass', () => {
@@ -238,6 +239,43 @@ describe('renderFleetReport unpriced firings (epic 0036)', () => {
     );
     const claude = lines.find((l) => l.startsWith('  claude-sonnet-5 '));
     expect(claude).not.toContain('unpriced');
+  });
+});
+
+// Epic 0036 (GitHub #21's per-provider quality telemetry): a fleet whose
+// lanes fly different CLIs is judged engine by engine, on the same rows.
+describe('renderFleetReport by engine (epic 0036)', () => {
+  const codex: ReportFiring = {
+    ...base,
+    firingId: 'fly-autopilot--fleet-2:firing-2',
+    shipped: false,
+    gateResult: 'reverted',
+    costUsd: null,
+    model: 'gpt-5-codex',
+    engine: 'codex',
+  };
+
+  it('groups the firings by the engine they flew on, after the lanes and before the models', () => {
+    const lines = renderFleetReport([base, base, codex], [], 'w');
+    const start = lines.indexOf('by engine');
+    expect(start).toBeGreaterThan(lines.indexOf('by lane'));
+    expect(start).toBeLessThan(lines.indexOf('by model'));
+    expect(lines.slice(start + 1, lines.indexOf('', start))).toEqual([
+      `  ${'claude'.padEnd(18)}    2 firings  shipped 100%  died   0%  $   4.00  per ship   $2.00  median 10.0 min`,
+      `  ${'codex'.padEnd(18)}    1 firings  shipped   0%  died   0%         -  per ship       -  median 10.0 min  unpriced 1`,
+    ]);
+  });
+
+  it('names a firing recorded before the engine was an unrecorded one, never a guessed engine', () => {
+    const text = renderFleetReport([{ ...base, engine: null }], [], 'w').join('\n');
+    expect(text).toMatch(/^by engine\n {2}unrecorded +1 firings/m);
+  });
+
+  it('leaves out a firing the account quota killed, as the model sections do', () => {
+    const quota = { ...base, shipped: false, died: 'quota', costUsd: 0 };
+    const text = renderFleetReport([base, quota], [], 'w').join('\n');
+    expect(text).toMatch(/^by engine\n {2}claude +1 firings {2}shipped 100%/m);
+    expect(text).toContain('  left out: 1 firing the account quota killed\n\nby model\n');
   });
 });
 
