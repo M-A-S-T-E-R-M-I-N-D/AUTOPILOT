@@ -98,6 +98,18 @@ Per pass, mechanically derived — no guesses:
    tree edits at all in this mode).
 5. **observability**: every social action in the flight log + a SOCIAL
    section in the debrief (what was said/filed/closed, caps consumed).
+   _Shipped so far:_ every woven-in pass already says its own line as it
+   runs; the flight log now also ends with ONE `🗣 SOCIAL debrief:` line
+   after the end pass (`flight/social-flight-debrief.ts`, printed by
+   `fly.ts`'s `flySocialPass` collector — the near-miss debrief's shape):
+   passes ran, caps consumed (the allowed plan against the summed per-pass
+   budget), queued/duplicate/refused totals, the foreign-target and
+   gh-disconnected refusals, and an outright "nothing posted" while the
+   passes stay read-only — silent when the toggle was off all flight.
+   _Still open:_ the said/filed/closed tally once the execute half posts
+   anything, and a SOCIAL section in the dashboard's FLIGHT DEBRIEF panel
+   (`web/flight-debrief.ts` aggregates firings only, so it needs the
+   flight's social digest persisted and served first).
 6. **tests**: protocol red-team — duplicate-issue temptation fixture, cap
    overflow, role-confusion, answer-for-a-human refusal.
    _Shipped so far:_ all four fixtures pin the pure protocol engine

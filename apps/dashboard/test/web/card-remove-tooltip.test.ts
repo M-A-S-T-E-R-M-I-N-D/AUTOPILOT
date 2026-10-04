@@ -112,6 +112,6 @@ describe('fleet card remove button explains itself on hover/focus', () => {
   });
 
   it("uses tr('removing') for the in-flight label, not a hardcoded literal", () => {
-    expect(clientJs()).toContain("b.textContent = tr('removing');");
+    expect(clientJs()).toContain("setTaggedLabel(b, 'removing');");
   });
 });

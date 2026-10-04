@@ -61,6 +61,13 @@ export interface EngineConfig {
    * solo (unnamed) flight — the overwhelming majority of firings today.
    */
   readonly instanceId: string | null;
+  /**
+   * The CLI this flight's firings fly on (`claude`, `codex` or `gemini`,
+   * epic 0036), carried onto `FiringRecord.engine` so the fleet report
+   * can judge each engine on its own firings. Absent when the launcher names
+   * none, and the record then names none either.
+   */
+  readonly engine?: string;
 }
 
 /** Tools a flying autopilot may use (ported from the proven v2.4 args). */

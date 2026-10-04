@@ -175,10 +175,12 @@ describe('flyJs', () => {
 
   it("builds each flight row's Pause/Stop/Cancel/Resume button text from the STRINGS table, not an English literal", () => {
     const out = flyJs();
-    expect(out).toContain("el('button', 'fly-flight-pause', tr('pause'))");
-    expect(out).toContain("el('button', 'fly-flight-stop', tr('stop'))");
-    expect(out).toContain("el('button', 'fly-flight-stop', tr('cancel'))");
-    expect(out).toContain("el('button', 'fly-flight-resume', tr('resume'))");
+    // Epic 0025: one builder leads each with a decorative icon beside tr(key).
+    expect(out).toContain('b.appendChild(document.createTextNode(tr(key)));');
+    expect(out).toContain("flightActionBtn('fly-flight-pause', 'circle-pause', 'pause')");
+    expect(out).toContain("flightActionBtn('fly-flight-stop', 'circle-stop', 'stop')");
+    expect(out).toContain("flightActionBtn('fly-flight-stop', 'x', 'cancel')");
+    expect(out).toContain("flightActionBtn('fly-flight-resume', 'play', 'resume')");
   });
 
   it("wires the 🍀 I'm-feeling-lucky button: rolls GET /api/lucky and fills Lanes/Firings/$ from the calibrated plan", () => {

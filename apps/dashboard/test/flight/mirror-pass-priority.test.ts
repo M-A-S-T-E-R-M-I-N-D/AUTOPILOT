@@ -144,10 +144,12 @@ describe('planMirrorPassPriorityFollow', () => {
     ).toBeNull();
   });
 
-  it('matches priority labels exactly — a re-cased or re-spaced label never steers', () => {
-    expect(
-      planMirrorPassPriorityFollow(task(), OPEN, ['Priority: High', 'priority:high']),
-    ).toBeNull();
+  it('matches priority labels in any casing — the seeder keeps an existing label spelled Priority: High', () => {
+    expect(planMirrorPassPriorityFollow(task(), OPEN, ['Priority: High'])).toMatchObject({
+      label: 'Priority: High',
+      priority: 100,
+    });
+    expect(planMirrorPassPriorityFollow(task(), OPEN, ['priority:high'])).toBeNull();
   });
 
   it.each(['queued', 'in_progress', 'needs_approval', 'deferred'] as const)(

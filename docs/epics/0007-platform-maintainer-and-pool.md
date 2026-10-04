@@ -308,6 +308,27 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    seeder's, each accepted with no needs-format label and the epic label
    left on, plus a check that the lucky roll and triage agree on every
    spelling; written first, 6 of 9 checks failed against the exact match).
+   The good-first-issue reservation's own label followed the same day
+   (fa878a56, epic 0019's additive-only law, the KEEPER triage flow). A
+   `good first issue` stays reserved for a human for
+   `RESERVED_FOR_HUMANS_DAYS` (14) days unless it carries `agent-ok`, the
+   label KEEPER adds once the reservation expires unclaimed and a
+   maintainer may set by hand to open the issue to the fleet at once. The
+   read matched the seeder's `agent-ok` exactly, and `gh issue edit
+   --add-label` matches a label name in any casing, so on a repo whose label
+   reads `Agent-OK` triage ignored the maintainer's opening: a fresh issue
+   stayed reserved, and one older than 14 days got a public comment saying
+   KEEPER had opened it to the fleet after it went unclaimed. The
+   reservation check now reads `agent-ok` through `carriedMark`, the fold
+   above: any casing, surrounding space trimmed, a hyphen read as a space.
+   The label KEEPER writes on an expired reservation is unchanged, and the
+   read only lifts a reservation the maintainer has already lifted. Covered
+   by `test/flight/issue-triage-agent-ok-casing.test.ts` — four spellings
+   besides the seeder's, each boarding a fresh issue with no second release
+   and leaving an old one with no "opened to the fleet" comment and no added
+   label; a good first issue with no `agent-ok` still reserved; and `agent`,
+   `agent-ok-later`, `not agent-ok` and `agents-ok` still keeping the
+   reservation.
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure

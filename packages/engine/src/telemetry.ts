@@ -674,6 +674,13 @@ export interface FiringRecord {
    * until now).
    */
   readonly instanceId: string | null;
+  /**
+   * The CLI this firing flew on (`claude`, `codex` or `gemini`), as the
+   * flight's `EngineConfig.engine` names it (epic 0036). Absent on a record
+   * from a flight that named none, which is every record before the field
+   * existed, so a reader never takes an absent engine for Claude's.
+   */
+  readonly engine?: string;
 }
 
 /**

@@ -32,6 +32,9 @@ export interface ReportFiring {
   readonly costUsd: number | null;
   readonly durationMs: number;
   readonly model: string | null;
+  /** The CLI the firing flew on (`claude`, `codex`, `gemini`), or `null` for
+   *  a record that names none: one written before the field existed. */
+  readonly engine: string | null;
 }
 
 /** One convergence gate verdict after a sync-back. */
@@ -89,6 +92,9 @@ export function laneOf(firingId: string): string {
 export interface FiringSummary {
   readonly firings: number;
   readonly shipped: number;
+  /** Firings whose commit the gate reverted: the failures a lane off Claude
+   *  is demoted on after two in a row (epic 0036, `demoteAfterGateFailures`). */
+  readonly reverted: number;
   readonly died: number;
   /** What the priced firings cost; an unpriced one adds nothing it never reported. */
   readonly costUsd: number;
@@ -115,6 +121,7 @@ export function summarizeFirings(firings: readonly ReportFiring[]): FiringSummar
   return {
     firings: firings.length,
     shipped: firings.filter((f) => f.shipped).length,
+    reverted: firings.filter((f) => f.gateResult === 'reverted').length,
     died: firings.filter((f) => f.died !== null).length,
     costUsd,
     unpriced: firings.length - priced.length,
@@ -219,7 +226,8 @@ function summaryLine(label: string, s: FiringSummary, width = LABEL_WIDTH): stri
       : `$${s.costUsd.toFixed(2).padStart(7)}`;
   return (
     `  ${label.padEnd(width)} ${String(s.firings).padStart(4)} firings  ` +
-    `shipped ${pct(s.shipped).padStart(4)}  died ${pct(s.died).padStart(4)}  ` +
+    `shipped ${pct(s.shipped).padStart(4)}  reverted ${pct(s.reverted).padStart(4)}  ` +
+    `died ${pct(s.died).padStart(4)}  ` +
     `${cost}  per ship ${perShip.padStart(7)}  ` +
     `median ${s.medianMinutes.toFixed(1)} min` +
     (s.unpriced > 0 ? `  unpriced ${s.unpriced}` : '')
@@ -273,10 +281,14 @@ export function renderFleetReport(
   section('what it worked on', (f) => taskClass(f.title, f.subject));
   section('outcome', firingOutcome);
   section('lane', (f) => laneOf(f.firingId));
-  // A firing the account-wide quota killed says nothing about the model it
-  // was routed to, so the model sections leave it out — as the model
-  // scoreboard and the benchmark do.
+  // A firing the account-wide quota killed says nothing about the engine or
+  // the model it was routed to, so the engine and model sections leave it
+  // out — as the model scoreboard and the benchmark do.
   const judged = firings.filter((f) => f.died !== QUOTA_DEATH);
+  // Epic 0036: lanes of one fleet can fly different CLIs, each judged on
+  // its own firings. A record that names no engine stays unrecorded, never
+  // taken for Claude's.
+  section('engine', (f) => f.engine ?? 'unrecorded', judged);
   section('model', (f) => f.model ?? 'unrecorded', judged);
   // THE MODEL BENCHMARK (2026-09-25): arms compared on the same kind of work,
   // so a model is not credited for the easier tasks it happened to draw.

@@ -484,7 +484,27 @@ propagation, and the filled style does not match the nav.
    `redo-2`, both mirrored under `dir="rtl"` like that chip. Each icon is
    decorative, so a button's name stays its words; the `data-i18n` tag stays
    on the button and `setSweptText()` keeps the icon across a locale switch
-   (`apps/dashboard/test/web/plan-editor-action-icons.test.ts`).
+   (`apps/dashboard/test/web/plan-editor-action-icons.test.ts`). **Fleet
+   card Remove 2026-10-04 (slice 2):** the task row's delete draws `trash-2`
+   and Start over and Sync to GitHub lead with their own strokes, but the
+   fleet card's Remove, which drops a whole project from the dashboard, was
+   bare words. It leads with the same `trash-2` now, decorative, so its
+   aria-label stays its name; nothing is newly vendored. Its busy
+   "Removing…" and the restored "Remove" swap through `setTaggedLabel()`, as
+   Start over's do, so the icon survives a refused delete and a sweep
+   mid-request repaints the busy words, not the idle ones
+   (`apps/dashboard/test/web/card-remove-icon.test.ts`). **Flight console
+   actions 2026-10-04 (slice 2):** each live flight row's Pause, Stop,
+   Cancel (a queued folder) and Resume (a paused one) were bare words beside
+   the iconed execute buttons. One `flightActionBtn()` leads each with a
+   decorative stroke now: Pause the `circle-pause` the fleet card's status
+   pill draws for a paused project, Stop a newly vendored `circle-stop`
+   beside it, Cancel the dismiss pair's `x` and Resume the replay toggle's
+   `play`. Each button's aria-label, which names the folder, stays its name;
+   the row is rebuilt on every state change, so no busy swap can drop the
+   icon (`apps/dashboard/test/web/fly-flight-action-icons.test.ts`, axe-clean).
+   The fly bar's legacy `#fly-pause`/`#fly-stop`, shown only for an older
+   single-flight FlightApi, stay bare words.
 
 ## Related
 

@@ -548,6 +548,7 @@ export async function runFiring(
     ...(extended ? { extended: true } : {}),
     ...(timedOut ? { timedOut: true } : {}),
     ...(review !== null ? { review } : {}),
+    ...(config.engine !== undefined ? { engine: config.engine } : {}),
   };
   // Same reasoning as the gate port's catch above: loop.ts has no try/catch
   // around runFiring, and this save runs after the model has been paid for.

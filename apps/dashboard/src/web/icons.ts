@@ -374,6 +374,11 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['line', { x1: '10', x2: '10', y1: '15', y2: '9' }],
     ['line', { x1: '14', x2: '14', y1: '15', y2: '9' }],
   ],
+  // The Flight console's Stop, beside its circle-pause Pause.
+  'circle-stop': [
+    ['circle', { cx: '12', cy: '12', r: '10' }],
+    ['rect', { x: '9', y: '9', width: '6', height: '6', rx: '1' }],
+  ],
   compass: [
     ['circle', { cx: '12', cy: '12', r: '10' }],
     [

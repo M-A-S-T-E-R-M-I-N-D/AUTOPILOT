@@ -101,6 +101,36 @@ describe('isRepoReadingTest', () => {
     }
   });
 
+  // Under jsdom, import.meta.url is an http: URL, not file:, so a suite that
+  // needs the DOM resolves a workspace source read from process.cwd()
+  // instead. main.ts's two repo-binding guards and the icon-system emoji
+  // census rode along on no change to the file they pin (2026-10-04).
+  it('spots a workspace source read resolved from process.cwd(), not import.meta.url', () => {
+    for (const source of [
+      "readFileSync(join(process.cwd(), 'apps/dashboard/src/server/main.ts'), 'utf8');",
+      // a census that scans a whole source folder, read as text by cwd
+      "readdirSync(join(process.cwd(), 'apps/dashboard/src/web'));",
+      [
+        'const MAIN = readFileSync(',
+        "  join(process.cwd(), 'apps/dashboard/src/server/main.ts'),",
+        "  'utf8',",
+        ');',
+      ].join('\n'),
+    ]) {
+      expect(isRepoReadingTest(source), source).toBe(true);
+    }
+  });
+
+  it('leaves a test alone whose cwd-joined path is not under a src/ folder', () => {
+    for (const source of [
+      "readFileSync(join(process.cwd(), 'node_modules/fake/pkg.json'));",
+      'readFileSync(join(process.cwd(), path));',
+      "const dir = process.cwd(); readFileSync(join(dir, 'tmp/output.json'));",
+    ]) {
+      expect(isRepoReadingTest(source), source).toBe(false);
+    }
+  });
+
   it('never splices the text around a removed config argv into a path', () => {
     // A slash before the argv and a folder name right after it must not
     // meet once the argv is gone.
@@ -127,6 +157,10 @@ describe('censusTestFiles', () => {
     ]) {
       expect(files).toContain(`apps/dashboard/test/flight/${flyCensus}.test.ts`);
     }
+    // the cwd-joined source-text suites a main.ts/web edit never selected (2026-10-04)
+    expect(files).toContain('apps/dashboard/test/flight/mirror-pass-preview-repo-gate.test.ts');
+    expect(files).toContain('apps/dashboard/test/flight/issue-triage-repo-unbound.test.ts');
+    expect(files).toContain('apps/dashboard/test/web/icon-system-emoji-census.test.ts');
     expect([...files].sort()).toEqual(files);
     expect(new Set(files).size).toBe(files.length);
   });

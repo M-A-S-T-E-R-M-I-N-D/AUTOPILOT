@@ -148,6 +148,38 @@ describe('readReportFirings', () => {
       1.5,
     ]);
   });
+
+  // Epic 0036: only the firing record names the engine a firing flew on; a
+  // record from before it did, or one that cannot be read, names none.
+  it('reads the engine off the firing record, and none where the record names none', () => {
+    const record = (firingId: string, payload: string): void => {
+      store.db
+        .prepare(
+          `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+           VALUES ('fly-a', ?, 'firing', ?, 100)`,
+        )
+        .run(firingId, payload);
+    };
+    firing('fly-a', 'fly-a:firing-1', null, 1, 100);
+    record('fly-a:firing-1', JSON.stringify({ engine: 'codex' }));
+    firing('fly-a', 'fly-a:firing-2', null, 1, 100);
+    record('fly-a:firing-2', JSON.stringify({ costUsd: 1.5 })); // recorded before the engine was
+    firing('fly-a', 'fly-a:firing-3', null, 1, 100); // no firing record at all
+    firing('fly-a', 'fly-a:firing-4', null, 1, 100);
+    record('fly-a:firing-4', 'not json');
+    firing('fly-a', 'fly-a:firing-5', null, 1, 100);
+    record('fly-a:firing-5', JSON.stringify({ engine: 7 }));
+    firing('fly-a', 'fly-a:firing-6', null, 1, 100);
+    record('fly-a:firing-6', 'null');
+    expect(readReportFirings(store.db, 'fly-a', 100).map((r) => r.engine)).toEqual([
+      'codex',
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
+  });
 });
 
 describe('readReportConvergence', () => {

@@ -40,6 +40,7 @@
 
 import type { CliExec } from '../connection/cli-probe.js';
 import { parseIssueLabels } from './issue-triage.js';
+import { normalizeLabel } from './pool-client.js';
 import {
   issueNumberFromTaskId,
   type MirrorPassTaskCandidate,
@@ -50,13 +51,25 @@ import {
  *  `HOUSE_TAXONOMY_LABELS`) → the board's own numeric priority band (lower =
  *  sooner, `packages/store`'s `TaskRow.priority`). Bands leave gaps of 100
  *  so a task manually reordered within a band never forces renumbering the
- *  whole scheme. */
+ *  whole scheme. Read in any casing ({@link priorityBandOf}): GitHub keeps
+ *  one label per name in any casing, and the seeder's `gh label create
+ *  --force` keeps an existing label's casing, so a repo's label may read
+ *  `Priority: High`. */
 export const PRIORITY_LABEL_BAND: Readonly<Record<string, number>> = {
   'priority: critical': 0,
   'priority: high': 100,
   'priority: medium': 200,
   'priority: low': 300,
 };
+
+/** The band `label` names, or `undefined` when it is none of {@link
+ *  PRIORITY_LABEL_BAND}'s four. Compared the way the maintainer's other marks
+ *  are (pool-client.ts normalizeLabel), and only against the table's own
+ *  keys, so a label named `constructor` is never a band. */
+function priorityBandOf(label: string): number | undefined {
+  const name = normalizeLabel(label);
+  return Object.hasOwn(PRIORITY_LABEL_BAND, name) ? PRIORITY_LABEL_BAND[name] : undefined;
+}
 
 /** The subset of a board task this planner needs beyond {@link
  *  MirrorPassTaskCandidate}'s `id`/`status` — its current priority band and
@@ -82,10 +95,11 @@ export interface MirrorPassPriorityFollowFinding {
  * the maintainer marks priority: high outranks triage"). `null` when the
  * task isn't github-sourced, the issue fetch failed, the task already
  * landed (`'done'` — nothing left to steer), `labels` carries none of
- * {@link PRIORITY_LABEL_BAND}'s four names, or the board already matches
- * (same band AND already pinned). When two priority labels are somehow both
- * present, the first one found in `labels`' own order wins — never guessed
- * at by trying to combine them.
+ * {@link PRIORITY_LABEL_BAND}'s four names in any casing, or the board
+ * already matches (same band AND already pinned). When two priority labels
+ * are somehow both present, the first one found in `labels`' own order wins
+ * — never guessed at by trying to combine them. The finding names the label
+ * as the issue carries it.
  */
 export function planMirrorPassPriorityFollow(
   task: MirrorPassPriorityCandidate,
@@ -96,10 +110,10 @@ export function planMirrorPassPriorityFollow(
   if (issueNumber === null || !issue) return null;
   if (task.status === 'done') return null;
 
-  const priorityLabel = labels.find((label) => label in PRIORITY_LABEL_BAND);
+  const priorityLabel = labels.find((label) => priorityBandOf(label) !== undefined);
   if (priorityLabel === undefined) return null;
 
-  const priority = PRIORITY_LABEL_BAND[priorityLabel]!;
+  const priority = priorityBandOf(priorityLabel)!;
   if (task.priority === priority && task.priorityPinned) return null;
 
   return {
