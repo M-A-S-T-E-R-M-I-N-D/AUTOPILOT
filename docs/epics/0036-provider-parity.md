@@ -223,7 +223,14 @@ no priced figure, only raw tokenUsage" (`openai/codex`-adjacent tooling issue tr
 search 2026-09-27). Per the never-invent-a-cost rule above, a `CodexCliModel` MUST report
 `costUsd: null`, never a locally-priced estimate — which degrades every cost-based telemetry surface
 (per-firing $, the MACHINE-WIDE 30d-equiv denominator, evaluation scorecards) for any lane flown on
-it. That degradation is a real, accepted cost of adding this adapter, not a bug to fix in it. Two usage traps, read from the Rust source
+it. That degradation is a real, accepted cost of adding this adapter, not a bug to fix in it.
+Since 2026-10-04 the fleet report keeps it unknown as well. The metrics column stores a null cost as
+0, so `dashboard:fleet-report` priced every Codex or Gemini ship at $0.00, and a mixed round's cost
+per ship fell with each one (one $2.00 Claude ship beside two Codex ships read $0.67).
+`readReportFirings` (`read/fleet-report-source.ts`) now reads the firing record's own `costUsd`, a
+null one as unpriced, and `summarizeFirings` (`read/fleet-report.ts`) prices a group by its priced
+firings alone, prints `-` for a group with none, and counts the rest (`unpriced 2`). The round
+evaluation's commit header calls a round whose ships carry no price `unpriced`, not shipless. Two usage traps, read from the Rust source
 (`codex-rs/exec/src/event_processor_with_jsonl_output.rs`, `codex-rs/protocol/src/protocol.rs`,
 2026-09-27): `usage` is the thread's running total, not a per-turn delta, so the last
 `turn.completed` wins and a sum would double-count; and `input_tokens` includes

@@ -61,10 +61,26 @@ export function readReportFirings(db: Db, baseProjectId: string, sinceMs: number
     died: r.shipped === 1 || r.gate_result === 'reverted' ? null : firingDeath(r.payload),
     noopClass: parseNoopClass(r.gate_result, r.payload),
     gateResult: r.gate_result,
-    costUsd: r.cost_usd,
+    costUsd: recordsNoPrice(r.payload) ? null : r.cost_usd,
     durationMs: r.duration_ms,
     model: r.model,
   }));
+}
+
+/**
+ * Whether the firing record says its cost is unknown (`costUsd: null`): a
+ * Codex or Gemini run reports no price, and a run killed before its envelope
+ * has none (epic 0036; `firing.ts`, DEATH-COST). The metrics column stores
+ * that as 0, so only the record tells it from a free run. A record that is
+ * missing, unreadable or silent on cost leaves the column's figure standing.
+ */
+function recordsNoPrice(payload: string | null): boolean {
+  try {
+    const record = JSON.parse(payload ?? 'null') as { costUsd?: unknown } | null;
+    return record !== null && typeof record === 'object' && record.costUsd === null;
+  } catch {
+    return false;
+  }
 }
 
 /** How a firing died: a quota death when the account-wide quota killed it
