@@ -32,6 +32,9 @@ export interface ReportFiring {
   readonly costUsd: number | null;
   readonly durationMs: number;
   readonly model: string | null;
+  /** The CLI the firing flew on (`claude`, `codex`, `gemini`), or `null` for
+   *  a record that names none: one written before the field existed. */
+  readonly engine: string | null;
 }
 
 /** One convergence gate verdict after a sync-back. */
@@ -273,10 +276,14 @@ export function renderFleetReport(
   section('what it worked on', (f) => taskClass(f.title, f.subject));
   section('outcome', firingOutcome);
   section('lane', (f) => laneOf(f.firingId));
-  // A firing the account-wide quota killed says nothing about the model it
-  // was routed to, so the model sections leave it out — as the model
-  // scoreboard and the benchmark do.
+  // A firing the account-wide quota killed says nothing about the engine or
+  // the model it was routed to, so the engine and model sections leave it
+  // out — as the model scoreboard and the benchmark do.
   const judged = firings.filter((f) => f.died !== QUOTA_DEATH);
+  // Epic 0036: lanes of one fleet can fly different CLIs, each judged on
+  // its own firings. A record that names no engine stays unrecorded, never
+  // taken for Claude's.
+  section('engine', (f) => f.engine ?? 'unrecorded', judged);
   section('model', (f) => f.model ?? 'unrecorded', judged);
   // THE MODEL BENCHMARK (2026-09-25): arms compared on the same kind of work,
   // so a model is not credited for the easier tasks it happened to draw.

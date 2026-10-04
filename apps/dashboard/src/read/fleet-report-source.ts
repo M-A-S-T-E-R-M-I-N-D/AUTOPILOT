@@ -64,7 +64,18 @@ export function readReportFirings(db: Db, baseProjectId: string, sinceMs: number
     costUsd: recordsNoPrice(r.payload) ? null : r.cost_usd,
     durationMs: r.duration_ms,
     model: r.model,
+    engine: recordedEngine(r.payload),
   }));
+}
+
+/** The firing record's fields, or `null` for a missing or unreadable one. */
+function firingRecordOf(payload: string | null): { costUsd?: unknown; engine?: unknown } | null {
+  try {
+    const record = JSON.parse(payload ?? 'null') as unknown;
+    return record !== null && typeof record === 'object' ? record : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -75,12 +86,15 @@ export function readReportFirings(db: Db, baseProjectId: string, sinceMs: number
  * missing, unreadable or silent on cost leaves the column's figure standing.
  */
 function recordsNoPrice(payload: string | null): boolean {
-  try {
-    const record = JSON.parse(payload ?? 'null') as { costUsd?: unknown } | null;
-    return record !== null && typeof record === 'object' && record.costUsd === null;
-  } catch {
-    return false;
-  }
+  return firingRecordOf(payload)?.costUsd === null;
+}
+
+/** The CLI the firing record says it flew on (epic 0036). No metrics column
+ *  holds it, so a record that is missing, unreadable or written before the
+ *  field existed names none. */
+function recordedEngine(payload: string | null): string | null {
+  const engine = firingRecordOf(payload)?.engine;
+  return typeof engine === 'string' ? engine : null;
 }
 
 /** How a firing died: a quota death when the account-wide quota killed it

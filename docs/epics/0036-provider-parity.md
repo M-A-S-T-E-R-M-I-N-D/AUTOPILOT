@@ -230,7 +230,12 @@ per ship fell with each one (one $2.00 Claude ship beside two Codex ships read $
 `readReportFirings` (`read/fleet-report-source.ts`) now reads the firing record's own `costUsd`, a
 null one as unpriced, and `summarizeFirings` (`read/fleet-report.ts`) prices a group by its priced
 firings alone, prints `-` for a group with none, and counts the rest (`unpriced 2`). The round
-evaluation's commit header calls a round whose ships carry no price `unpriced`, not shipless. Two usage traps, read from the Rust source
+evaluation's commit header calls a round whose ships carry no price `unpriced`, not shipless. Since
+2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
+firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
+`firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
+firings `by engine` before `by model`, so a Codex lane's ship and revert rates read beside Claude's
+on the same round. A record written before the field names none and reads `unrecorded`, never Claude. Two usage traps, read from the Rust source
 (`codex-rs/exec/src/event_processor_with_jsonl_output.rs`, `codex-rs/protocol/src/protocol.rs`,
 2026-09-27): `usage` is the thread's running total, not a per-turn delta, so the last
 `turn.completed` wins and a sum would double-count; and `input_tokens` includes

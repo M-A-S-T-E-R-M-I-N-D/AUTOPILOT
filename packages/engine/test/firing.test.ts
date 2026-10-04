@@ -292,6 +292,29 @@ describe('runFiring', () => {
     expect(vcs.changedFilesCalls).toEqual([['h0', 'h1']]);
     expect(out.record.filesTouched).toEqual(['src/a.ts', 'docs/b.md']);
     expect(store.records).toHaveLength(1);
+    // A config that names no engine records none, never a guessed one.
+    expect(out.record).not.toHaveProperty('engine');
+  });
+
+  // Epic 0036: the fleet report compares engines on the record each firing
+  // leaves, so a lane flown on Codex says so there, not only in its flight log.
+  it('records the engine its config names', async () => {
+    const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
+    const vcs = new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: 'feat: AP-1', shortSha: 'abc' },
+      existing: new Set(['abc']),
+    });
+    const store = new FakeStore();
+
+    const out = await runFiring(
+      deps(model, vcs, new FakeGate(true), store),
+      { ...DEFAULT_ENGINE_CONFIG, engine: 'codex' },
+      { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+    );
+
+    expect(out.record.engine).toBe('codex');
+    expect(store.records[0]).toMatchObject({ engine: 'codex' });
   });
 
   it('DIFF-SIZE GATE (BACKLOG-999 C4): a warn-tier oversize LANDS with a loud check label', async () => {
