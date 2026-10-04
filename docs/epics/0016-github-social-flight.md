@@ -106,10 +106,15 @@ Per pass, mechanically derived — no guesses:
    budget), queued/duplicate/refused totals, the foreign-target and
    gh-disconnected refusals, and an outright "nothing posted" while the
    passes stay read-only — silent when the toggle was off all flight.
+   The digest is persisted too: `fly.ts` writes it verbatim as one
+   `social-debrief` event per flight that printed the line (best-effort,
+   the `near-miss-debrief` row's twin), and `parseSocialFlightDebrief`
+   reads a row back whole or not at all.
    _Still open:_ the said/filed/closed tally once the execute half posts
    anything, and a SOCIAL section in the dashboard's FLIGHT DEBRIEF panel
-   (`web/flight-debrief.ts` aggregates firings only, so it needs the
-   flight's social digest persisted and served first).
+   (`web/flight-debrief.ts` aggregates firings only, so the persisted
+   digest still needs serving — bounded by the flight's own start, since a
+   silent flight writes no row — and rendering).
 6. **tests**: protocol red-team — duplicate-issue temptation fixture, cap
    overflow, role-confusion, answer-for-a-human refusal.
    _Shipped so far:_ all four fixtures pin the pure protocol engine

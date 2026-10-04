@@ -12,8 +12,11 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  SOCIAL_DEBRIEF_EVENT,
+  parseSocialFlightDebrief,
   socialFlightDebriefLine,
   socialFlightDebriefOf,
+  type SocialFlightDebrief,
 } from '../../src/flight/social-flight-debrief.js';
 import type {
   SocialFlightPassOutcome,
@@ -154,5 +157,51 @@ describe('socialFlightDebriefLine — the SOCIAL section of the flight log', () 
       'SOCIAL debrief: 0 pass(es) ran; 2 skipped (gh not connected); ' +
         'nothing posted (read-only passes).',
     );
+  });
+});
+
+describe('parseSocialFlightDebrief — the persisted digest reads back whole, or not at all', () => {
+  const DIGEST: SocialFlightDebrief = {
+    passesRan: 3,
+    skippedForeignTarget: 1,
+    skippedGhDisconnected: 0,
+    newIssuesAllowed: 1,
+    newIssueBudget: 3,
+    commentsAllowed: 2,
+    commentBudget: 9,
+    queued: 1,
+    duplicate: 0,
+    refused: 2,
+  };
+
+  it('names the event type fly.ts persists the digest under', () => {
+    expect(SOCIAL_DEBRIEF_EVENT).toBe('social-debrief');
+  });
+
+  it('round-trips the digest fly.ts writes verbatim', () => {
+    expect(parseSocialFlightDebrief(JSON.stringify(DIGEST))).toEqual(DIGEST);
+  });
+
+  it('keeps only the digest fields, never a stray key from the payload', () => {
+    const parsed = parseSocialFlightDebrief(JSON.stringify({ ...DIGEST, posted: 4 }));
+    expect(parsed).toEqual(DIGEST);
+  });
+
+  it('refuses a missing, non-JSON or non-object payload', () => {
+    for (const payload of [null, '', 'not json', 'null', '7', '"x"', '[]']) {
+      expect(parseSocialFlightDebrief(payload), String(payload)).toBeNull();
+    }
+  });
+
+  it('refuses a partial digest rather than reading a missing count as zero', () => {
+    const { refused: _dropped, ...partial } = DIGEST;
+    expect(parseSocialFlightDebrief(JSON.stringify(partial))).toBeNull();
+  });
+
+  it('refuses a count that is not a non-negative whole number', () => {
+    for (const bad of ['3', -1, 1.5, null, true]) {
+      const payload = JSON.stringify({ ...DIGEST, queued: bad });
+      expect(parseSocialFlightDebrief(payload), JSON.stringify(bad)).toBeNull();
+    }
   });
 });

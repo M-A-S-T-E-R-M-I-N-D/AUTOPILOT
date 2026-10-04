@@ -322,7 +322,8 @@ const BENIGN_FLIGHT = new Set([
   // SOCIAL FLIGHT observability 5/6 (board web-mtpzzxw4-au1b6x):
   // socialFlightDebriefOf/socialFlightDebriefLine are pure sums and text over
   // the outcomes social-flight-pass.ts already returned — no I/O, no gh call,
-  // no decision; fly.ts only prints the line they render.
+  // no decision; fly.ts only prints the line they render and stores the
+  // digest, which parseSocialFlightDebrief reads back without any I/O either.
   'social-flight-debrief.ts',
   // discussions-triage.ts needs no entry any more: once it grew reply-posting
   // and labeling (board web-mtlsiac0-v8rksh's later slices) it earned the
