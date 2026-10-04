@@ -425,6 +425,20 @@ describe('flightCostAgoMeta', () => {
     expect(meta.realCostAriaLabel).toBeNull();
   });
 
+  it("gives a priced firing's chip its formatted cost as its text", () => {
+    const meta = flightCostAgoMeta('cost tip', 'ago tip', 0.5, 1000, fmtCost, fmtAgo, null, false);
+    expect(meta.costText).toBe('$0.50');
+    expect(meta.costAriaLabel).toBe('cost: $0.50');
+  });
+
+  it('reads an unpriced firing as unpriced, never $0.00 (epic 0036)', () => {
+    // A Codex or Gemini run reports no price, and its metrics row stores 0.
+    const meta = flightCostAgoMeta('cost tip', 'ago tip', 0, 1000, fmtCost, fmtAgo, null, true);
+    expect(meta.costText).toBe('unpriced');
+    expect(meta.costAriaLabel).toBe('cost: unpriced, no price was reported');
+    expect(meta.costText).not.toContain('$');
+  });
+
   it('surfaces the real-cost chip NEXT TO, not instead of, the list-price cost', () => {
     const meta = flightCostAgoMeta('cost tip', 'ago tip', 0.5, 1000, fmtCost, fmtAgo, 0.12);
     expect(meta.costAriaLabel).toBe('cost: $0.50');

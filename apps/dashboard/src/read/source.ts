@@ -294,6 +294,23 @@ function parseGuardDenials(payload: string | null): number {
 }
 
 /**
+ * Whether the firing record says its cost is unknown (`costUsd: null`): a
+ * Codex or Gemini run reports no price, and a run killed before its envelope
+ * has none (epic 0036; `firing.ts`, DEATH-COST). The metrics column stores
+ * that as 0, so only the record tells it from a free run. A record that is
+ * missing, unreadable or silent on cost leaves the column's figure standing.
+ */
+export function recordsNoPrice(payload: string | null): boolean {
+  if (payload === null) return false;
+  try {
+    const record = JSON.parse(payload) as { costUsd?: unknown } | null;
+    return typeof record === 'object' && record !== null && record.costUsd === null;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * WHY a no-commit firing died, from the full firing record (events.payload):
  * `timedOut` means the CLI driver's OWN wall-clock cap killed it (THIRD CAP
  * surfacing, board web-mt1w1ime-pohh9d — the cap that killed firings
@@ -406,6 +423,7 @@ export function mapFlightEntries(
     shipped: f.shipped === 1,
     gateResult: f.gate_result,
     cost: f.cost_usd,
+    costUnpriced: recordsNoPrice(f.payload),
     realCostUsd: f.real_cost_usd,
     tokensIn: f.input_tokens,
     tokensOut: f.output_tokens,

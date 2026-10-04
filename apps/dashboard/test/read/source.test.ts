@@ -614,6 +614,30 @@ describe('readFleet', () => {
     expect(card.flightLog[1]?.guardDenials).toBe(0);
   });
 
+  it('marks a firing whose record reports no price costUnpriced, since its metrics row stores 0 (epic 0036)', () => {
+    project('p1', 'alpha', 'flying');
+    firing('p1', 'p1:codex', 'AP-1', 1, 100, store, 'passed');
+    firing('p1', 'p1:claude', 'AP-2', 1, 200, store, 'passed');
+    firing('p1', 'p1:silent', 'AP-3', 1, 300, store, 'passed');
+    firing('p1', 'p1:garbled', 'AP-4', 1, 400, store, 'passed');
+    const insert = store.db.prepare(
+      `INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, 'firing', ?, ?)`,
+    );
+    insert.run('p1', 'p1:codex', JSON.stringify({ engine: 'codex', costUsd: null }), 100);
+    insert.run('p1', 'p1:claude', JSON.stringify({ engine: 'claude', costUsd: 0.4 }), 200);
+    insert.run('p1', 'p1:silent', JSON.stringify({ item: 'AP-3' }), 300);
+    insert.run('p1', 'p1:garbled', 'not valid json {{{', 400);
+
+    const log = readFleet(store, 1).projects[0]!.flightLog;
+    const unpriced = (id: string): boolean | undefined =>
+      log.find((f) => f.id === id)?.costUnpriced;
+    expect(unpriced('p1:codex')).toBe(true);
+    expect(unpriced('p1:claude')).toBe(false);
+    // A record silent on cost, or unreadable, leaves the column's figure standing.
+    expect(unpriced('p1:silent')).toBe(false);
+    expect(unpriced('p1:garbled')).toBe(false);
+  });
+
   it('carries the commit-time review from the firing record onto its flight-log row (BACKLOG C5)', () => {
     project('p1', 'alpha', 'flying');
     firing('p1', 'p1:firing-1', 'AP-1', 1, 100, store, 'passed');

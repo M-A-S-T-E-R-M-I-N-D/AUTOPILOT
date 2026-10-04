@@ -230,7 +230,12 @@ per ship fell with each one (one $2.00 Claude ship beside two Codex ships read $
 `readReportFirings` (`read/fleet-report-source.ts`) now reads the firing record's own `costUsd`, a
 null one as unpriced, and `summarizeFirings` (`read/fleet-report.ts`) prices a group by its priced
 firings alone, prints `-` for a group with none, and counts the rest (`unpriced 2`). The round
-evaluation's commit header calls a round whose ships carry no price `unpriced`, not shipless. Since
+evaluation's commit header calls a round whose ships carry no price `unpriced`, not shipless. Until a
+later 2026-10-04 commit the dashboard's flight log still read such a firing as free: its cost chip
+printed the metrics column's `$0.00`. A flight-log row now carries `costUnpriced` (`FlightEntry`,
+read by `read/source.ts`'s `recordsNoPrice`, the reading the report uses), and the chip of a flat
+row or a slice group's member reads `unpriced`, its label `cost: unpriced, no price was reported`
+(`flightCostAgoMeta`, `web/flight-log-rows.ts`). Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
