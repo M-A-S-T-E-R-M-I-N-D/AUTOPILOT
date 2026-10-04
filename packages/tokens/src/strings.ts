@@ -1428,6 +1428,10 @@ const EN_STRINGS = {
   // each h3 heading (panelHeading(), award and map icons) has its own key.
   contributorStandingTitle: 'Contributor standing',
   collaborationTitle: 'Collaboration',
+  // Epic 0019 S4: the routing console beside the board — the section's
+  // aria-label, then its h3 (panelHeading(), compass icon).
+  routingConsolePanel: 'Routing console',
+  routingConsoleTitle: 'Routing console',
   // APP SHELL (epic 0021): the subject navigation — a bottom bar on a phone,
   // a rail from tablet width up. Each subject is a place in the app.
   subjectNav: 'Sections',
@@ -3044,6 +3048,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     contributorIssueListTitle: 'בעיות טובות למתחילים',
     contributorStandingTitle: 'מעמד תורמים',
     collaborationTitle: 'שיתוף פעולה',
+    routingConsolePanel: 'מסוף ניתוב',
+    routingConsoleTitle: 'מסוף ניתוב',
     subjectNav: 'אזורים',
     subjectFleet: 'צי',
     subjectOverview: 'סקירה',

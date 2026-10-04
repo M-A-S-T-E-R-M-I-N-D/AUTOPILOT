@@ -92,6 +92,7 @@ import { releaseJs } from '../../src/web/features/release.js';
 import { reportCaptureClientJs } from '../../src/web/features/report-capture-client.js';
 import { reportMenuJs } from '../../src/web/features/report-menu.js';
 import { roundPanelJs } from '../../src/web/features/round-panel.js';
+import { routingConsoleJs } from '../../src/web/features/routing-console.js';
 import { searchJs } from '../../src/web/features/search.js';
 import { snackbarJs } from '../../src/web/features/snackbar.js';
 import { subjectNavJs } from '../../src/web/features/subject-nav.js';
@@ -179,6 +180,7 @@ const RELEASE_TS = featureTs('release');
 const REPORT_CAPTURE_CLIENT_TS = featureTs('report-capture-client');
 const REPORT_MENU_TS = featureTs('report-menu');
 const ROUND_PANEL_TS = featureTs('round-panel');
+const ROUTING_CONSOLE_TS = featureTs('routing-console');
 const SEARCH_TS = featureTs('search');
 const SNACKBAR_TS = featureTs('snackbar');
 const SUBJECT_NAV_TS = featureTs('subject-nav');
@@ -1453,6 +1455,7 @@ describe('discoverFeatureModules against the real src/web/features directory —
     'report-capture-client.ts': ['reportCaptureClientJs'],
     'report-menu.ts': ['reportMenuJs'],
     'round-panel.ts': ['roundPanelJs'],
+    'routing-console.ts': ['routingConsoleJs'],
     'search.ts': ['searchJs'],
     'snackbar.ts': ['snackbarJs'],
     'subject-nav.ts': ['subjectNavJs'],
@@ -1705,6 +1708,9 @@ describe('discoverFeatureModules against the real src/web/features directory —
       directReportCaptureClientManifest,
       directReportMenuManifest,
       directRoundPanelManifest,
+      buildAssemblyManifest(readFileSync(ROUTING_CONSOLE_TS, 'utf8'), ROUTING_CONSOLE_TS, [
+        'routingConsoleJs',
+      ]),
       directSearchManifest,
       buildAssemblyManifest(snackbarSource, SNACKBAR_TS, ['snackbarJs']),
       directSubjectNavManifest,
@@ -2125,7 +2131,10 @@ describe('generateFeatureModulesIndexSource', () => {
       source.indexOf("'./report-menu.js'"),
     );
     expect(source.indexOf("'./report-menu.js'")).toBeLessThan(source.indexOf("'./round-panel.js'"));
-    expect(source.indexOf("'./round-panel.js'")).toBeLessThan(source.indexOf("'./search.js'"));
+    expect(source.indexOf("'./round-panel.js'")).toBeLessThan(
+      source.indexOf("'./routing-console.js'"),
+    );
+    expect(source.indexOf("'./routing-console.js'")).toBeLessThan(source.indexOf("'./search.js'"));
     expect(source.indexOf("'./search.js'")).toBeLessThan(source.indexOf("'./snackbar.js'"));
     expect(source.indexOf("'./snackbar.js'")).toBeLessThan(source.indexOf("'./subject-nav.js'"));
     expect(source.indexOf("'./subject-nav.js'")).toBeLessThan(source.indexOf("'./switcher.js'"));
@@ -2133,7 +2142,7 @@ describe('generateFeatureModulesIndexSource', () => {
     expect(source.indexOf("'./tour.js'")).toBeLessThan(source.indexOf("'./update.js'"));
     expect(source.indexOf("'./update.js'")).toBeLessThan(source.indexOf("'./versions.js'"));
     expect(source).toContain(
-      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, collaborationJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineStateJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, onboardingJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, searchJs, snackbarJs, subjectNavJs, switcherJs, tourJs, updateJs, versionsJs];',
+      'export const FEATURE_MODULE_FUNCTIONS: Array<() => string> = [activityHeatmapJs, activityJs, askSheetJs, backlogJs, busyJs, ciStatusJs, collaborationJs, connectJs, contributorIssueListJs, contributorStandingJs, coordinationJs, discussionsTriageJs, docsViewerJs, evolutionJs, firingTimelineStateJs, firingTimelineJs, flightConsoleJs, flightSummaryJs, flyJs, foundationJs, issueTriageJs, landingJs, localeDataJs, localeJs, metricsJs, mirrorPassJs, notificationsJs, officeMapJs, onboardingJs, pipelineJs, poolClientJs, popoversJs, prReviewJs, prefsJs, processHealthJs, publicityJs, releaseJs, reportCaptureClientJs, reportMenuJs, roundPanelJs, routingConsoleJs, searchJs, snackbarJs, subjectNavJs, switcherJs, tourJs, updateJs, versionsJs];',
     );
 
     const result = ts.transpileModule(source, {
@@ -3872,6 +3881,44 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
   });
 
   /**
+   * routingConsoleJs's own reconstruction, from its real file under
+   * web/features/. It carries two real relative-import splices of its own
+   * (routingMilestoneProgressText/routingIssueListText from
+   * ../routing-console-panel.js), resolved against web/features/, and no
+   * non-splice slots — mirrorPassJs's shape above, with two splices.
+   */
+  async function reconstructRoutingConsoleJs(): Promise<string> {
+    const routingConsoleSource = readFileSync(ROUTING_CONSOLE_TS, 'utf8');
+    const spliceEntries = findSpliceManifest(routingConsoleSource, ROUTING_CONSOLE_TS);
+    const resolvedBindings = await resolveManifestBindings(spliceEntries, FEATURES_DIR);
+    return (
+      await assembleFunctionFromManifest(
+        routingConsoleSource,
+        'routingConsoleJs',
+        resolvedBindings,
+        undefined,
+        ROUTING_CONSOLE_TS,
+      )
+    ).trim();
+  }
+
+  it('routingConsoleJs: assembleFunctionFromManifest reproduces the real function output exactly, from web/features/routing-console.ts', async () => {
+    expect(await reconstructRoutingConsoleJs()).toBe(routingConsoleJs());
+  });
+
+  it('routingConsoleJs: assembleFromManifest reproduces the real function output from a pre-built manifest built off routing-console.ts', async () => {
+    const routingConsoleSource = readFileSync(ROUTING_CONSOLE_TS, 'utf8');
+    const manifest = buildAssemblyManifest(routingConsoleSource, ROUTING_CONSOLE_TS, [
+      'routingConsoleJs',
+    ]);
+    const resolvedBindings = await resolveManifestBindings(manifest.entries, FEATURES_DIR);
+    const reassembled = (
+      await assembleFromManifest(manifest, 'routingConsoleJs', resolvedBindings)
+    ).trim();
+    expect(reassembled).toBe(routingConsoleJs());
+  });
+
+  /**
    * issueTriageJs's own reconstruction, from its real file under
    * web/features/. It carries four real relative-import splices of its own
    * (issueTriageDecisionLabel/issueTriageConfirmMessage/
@@ -4436,6 +4483,7 @@ describe("reconstructing shell.ts's one remaining bundle-composing function byte
     nestedOutputs.set('reportCaptureClientJs', await reconstructReportCaptureClientJs());
     nestedOutputs.set('reportMenuJs', await reconstructReportMenuJs());
     nestedOutputs.set('roundPanelJs', await reconstructRoundPanelJs());
+    nestedOutputs.set('routingConsoleJs', await reconstructRoutingConsoleJs());
     nestedOutputs.set('searchJs', await reconstructSearchJs());
     nestedOutputs.set('subjectNavJs', await reconstructSubjectNavJs());
     nestedOutputs.set('tourJs', await reconstructTourJs());
