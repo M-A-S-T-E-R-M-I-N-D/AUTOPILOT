@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isBetweenFirings,
+  parseFlyTarget,
   parseSocialFlightToggle,
   parseSocialInterests,
   shouldRunSocialFlight,
@@ -86,6 +87,28 @@ describe('isBetweenFirings — the interval phase is BETWEEN firings, never afte
 
   it('is false, never a negative gap, when completed somehow exceeds planned', () => {
     expect(isBetweenFirings(4, 3)).toBe(false);
+  });
+});
+
+describe('parseFlyTarget — the standalone "Fly GitHub" target (epic 0016 slice 4/6)', () => {
+  it('parses each of the two recognized targets as itself', () => {
+    expect(parseFlyTarget('code')).toBe('code');
+    expect(parseFlyTarget('github')).toBe('github');
+  });
+
+  it('is the code flight every launch before this slice was, when unset or empty', () => {
+    expect(parseFlyTarget(undefined)).toBe('code');
+    expect(parseFlyTarget('')).toBe('code');
+  });
+
+  it('is null — refuse to take off — for a misspelt or unknown target, never a guess either way', () => {
+    expect(parseFlyTarget('githb')).toBeNull();
+    expect(parseFlyTarget('social')).toBeNull();
+  });
+
+  it('is null for the wrong case or stray whitespace (exact values only, like the toggle)', () => {
+    expect(parseFlyTarget('GitHub')).toBeNull();
+    expect(parseFlyTarget(' github')).toBeNull();
   });
 });
 

@@ -213,3 +213,20 @@ export async function runSocialFlightPass(
     return skipped('gh-disconnected');
   }
 }
+
+/**
+ * The standalone "Fly GitHub" flight (epic 0016 slice 4/6): what `fly.ts`
+ * runs INSTEAD of a code flight when `AUTOPILOT_FLY_TARGET=github` — one
+ * social pass and nothing else. Choosing the GitHub target is itself the
+ * operator's opt-in, so `AUTOPILOT_SOCIAL_FLIGHT` is never consulted: the
+ * pass runs as `'full'`, the whole social flight, and with no firings to be
+ * between, that is exactly one takeoff (`'start'`) pass. Every other law
+ * still holds — the self-target guard, the clean refusal when gh is not
+ * connected, the caps, read-only (nothing posted) until the execute half is
+ * wired.
+ */
+export function runGithubOnlyFlight(
+  options: SocialFlightPassOptions = {},
+): Promise<SocialFlightPassOutcome> {
+  return runSocialFlightPass('start', 'full', options);
+}
