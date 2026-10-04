@@ -110,8 +110,18 @@ into a per-project ritual any instance can run on any repo it owns.
   priority label routes yet, and claims by assignee.
   `fetchOpenMilestones` is its one new read, and a failed page reads as
   unknown, never as "no milestones" (`test/flight/routing-console.test.ts`).
-  _Still open:_ the API route and the panel beside the board, which also
-  adds each milestone's link with the href that renders it.
+  `GET /api/routing-console` serves it read-only (`server/routing-console.ts`).
+  The **Routing console** panel renders it (`web/features/routing-console.ts`,
+  formatting in `web/routing-console-panel.ts`): adopted right after the
+  tasks board on a project page, with the community panels on the home
+  page. It shows each milestone's progress bar and "7 of 10 closed (70%) ·
+  due" line, every queue (an empty one reads "None"), the issues with no
+  priority yet, and each claim plus the unclaimed issues. Unreadable
+  milestones say so (`test/web/features/routing-console.test.ts`, axe-clean).
+  _Still open:_ each milestone's link with the href that renders it;
+  steering from the dashboard's side (the panel only reads); and scoping
+  the read to a project page's own repository, since it reads the
+  dashboard's repository the way the Collaboration panel does.
 - **S5 — steward for THEIR project:** the per-project page (any
   onboarded folder) gets the same steward actions against that
   project's own repo (GITHUB 2/5's `sync any project` is the

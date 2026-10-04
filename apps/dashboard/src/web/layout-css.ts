@@ -1308,9 +1308,18 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
    chunk draws its own cards inside. */
 .benchmark-panel { margin-block: var(--space-3); }
 .benchmark-panel .bm-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
-.collaboration-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); margin-bottom: var(--space-3); }
-.collaboration-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
-.collaboration-group-title { margin: var(--space-3) 0 var(--space-1); font-size: var(--text-sm); color: var(--color-text-muted); }
+.collaboration-panel, .routing-console-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); margin-bottom: var(--space-3); }
+.collaboration-title, .routing-console-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
+.collaboration-group-title, .routing-console-group-title { margin: var(--space-3) 0 var(--space-1); font-size: var(--text-sm); color: var(--color-text-muted); }
+/* Routing console (epic 0019 S4): one row per milestone, queue or claim —
+   its name, then the issue numbers it holds. */
+body > .routing-console-panel { margin-inline: var(--page-inline); }
+.routing-console-list { list-style: none; margin: 0; padding: 0; }
+.routing-console-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); padding: var(--space-1) 0; border-top: 1px solid var(--color-border); }
+.routing-console-row:first-child { border-top: none; }
+.routing-console-name { font-weight: 600; min-inline-size: 12ch; }
+.routing-console-issues { font-family: var(--font-mono); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.routing-console-row progress { inline-size: 8rem; accent-color: var(--color-accent); }
 .collaboration-group-title:first-of-type { margin-top: var(--space-2); }
 .collaboration-item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) 0; border-top: 1px solid var(--color-border); }
 .collaboration-item:first-of-type { border-top: none; }

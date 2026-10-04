@@ -4567,6 +4567,9 @@ function renderProjectPage(state, pid) {
   var tasksEl = tasksSection(c);
   tasksEl.setAttribute(REPORT_REGION_ATTR_VALUE, 'tasks');
   fleet.appendChild(subj(tasksEl, 'board'));
+  // Routing console (epic 0019 S4): what the GitHub page says — milestone
+  // progress, label queues, claims — right beside the board it steers.
+  adoptPanels(fleet, ['routing-console-panel']);
   // KEEPER issue triage: incoming GitHub issues judged accept-or-duplicate
   // against this project's board/backlog — sits right before Detected
   // backlog, since an accepted issue becomes a new task that panel itself
@@ -5952,6 +5955,7 @@ ${contextRailHtml(project)}
   <nav class="publicity-panel" id="publicity-panel" aria-label="Publicity" data-i18n-aria="publicityPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></nav>
   <section class="contributor-standing-panel" id="contributor-standing-panel" aria-label="Contributor standing" data-i18n-aria="contributorStandingPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
   <section class="collaboration-panel" id="collaboration-panel" aria-label="Collaboration" data-i18n-aria="collaborationPanel" data-subject="${project !== undefined ? 'keeper' : 'community'}" hidden></section>
+  <section class="routing-console-panel" id="routing-console-panel" aria-label="Routing console" data-i18n-aria="routingConsolePanel" data-subject="${project !== undefined ? 'board' : 'community'}" hidden></section>
 ${benchmarkSubjectHtml(project)}  <div class="snackbar-host" id="snackbar-host" aria-live="polite" aria-atomic="false"></div>
   <button type="button" class="ask-fab" id="ask-fab" aria-expanded="false" aria-controls="ask-sheet" aria-label="Ask" data-i18n-aria="askFab" data-tip="Ask Architect or Genius about this page — opens beside it" data-i18n-tip="askFabTip">${iconSvg('message-circle')}</button>
   <aside class="ask-sheet" id="ask-sheet" role="dialog" aria-modal="false" aria-labelledby="ask-sheet-title" hidden>

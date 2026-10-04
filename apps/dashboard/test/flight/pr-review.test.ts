@@ -373,8 +373,8 @@ const BENIGN_FLIGHT = new Set([
   // planRoutingConsole is a pure derivation over already-fetched milestones
   // and issues, and fetchOpenMilestones only GETs the open milestones through
   // taxonomy-seed.ts's page read (flagged with its seeder). No label, assign,
-  // milestone or comment write exists here; the panel beside the board is a
-  // later slice that will need its own marker. fetchRoutingConsole only
+  // milestone or comment write exists here; the panel beside the board
+  // (web/features/routing-console.ts) has its own entry below. fetchRoutingConsole only
   // composes that GET with issue-triage.ts's read-only fetchOpenIssues for
   // GET /api/routing-console (server/, already flagged by its bare marker).
   'routing-console.ts',
@@ -1107,6 +1107,10 @@ const BENIGN_WEB = new Set([
   // (board web-mtpzqrxl-z7jgbu) — no HTML building, no I/O, the same class
   // as the other pure icon/label/badge text-math files above.
   'collaboration-panel.ts',
+  // routing-console-panel.ts: pure progress-line and issue-list text for the
+  // routing console (epic 0019 S4) — no HTML building, no I/O, the same
+  // class as collaboration-panel.ts above.
+  'routing-console-panel.ts',
   // versions-panel.ts: pure row math for the VERSIONS panel (board
   // ap-mui2h3s1-1 slice 4) — flattens an already-fetched MYTH/LEGACY/flight
   // timeline newest first and picks each row's older neighbour to diff
@@ -1235,6 +1239,10 @@ const BENIGN_WEB_FEATURES = new Set([
   // viewer login for its "my-claims" filter rides the already-flagged
   // socialIdentity() resolver, not a fetch of its own.
   'collaboration.ts',
+  // routing-console.ts (epic 0019 S4): GET /api/routing-console only —
+  // read-only, no execute pair, and no href at all: milestone titles, label
+  // names, logins and issue numbers all render as textContent via el().
+  'routing-console.ts',
   // locale-data.ts: no fetch, no I/O — the non-English half of the
   // build-time STRINGS table (board ap-mtk2tgvh-0's BUNDLE DIET),
   // Object.assign'd into core's already-benign locale.ts data.
