@@ -248,7 +248,13 @@ every-firing chart leaves out a firing with no cost and says how many it left ou
 averaged such firings in as well: three Codex firings beside five $1.00 Claude ones made a $2.00
 Claude firing read as a spike. `costSpike` (`read/anomalies.ts`) now builds its baseline from the
 five priced firings before the latest, reaching past the unpriced ones, and its evidence says how
-many it left out (`average of the last 5 priced firings (2 unpriced left out)`). Since
+many it left out (`average of the last 5 priced firings (2 unpriced left out)`). Until a later
+2026-10-04 commit the landing card's FLIGHT DEBRIEF summed them as free too: its spend chip added
+each firing's metrics column, so one $2.00 Claude ship beside two Codex ships read `$2.00`.
+`flightDebriefOf` (`web/flight-debrief.ts`) now reads the flight-log entry's `costUnpriced`, counts
+such a firing in `unpriced` and leaves it out of the total, the best and the worst, and
+`flightDebriefChipItems` names them beside the priced total (`$2.00 + 2 unpriced`), or alone when
+none was priced (`2 unpriced`), its tip saying a Codex or Gemini run reports no price. Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the

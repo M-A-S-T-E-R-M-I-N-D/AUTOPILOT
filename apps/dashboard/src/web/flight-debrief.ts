@@ -23,6 +23,9 @@
 export interface FlightDebriefEntry {
   readonly shipped: boolean;
   readonly cost: number;
+  /** The firing record carries no price (`FlightEntry.costUnpriced`): a
+   *  Codex or Gemini run reports none, so its `cost` column reads 0. */
+  readonly costUnpriced?: boolean;
   readonly durationMs?: number | null;
   readonly guardDenials?: number;
   readonly autoformatRescued?: boolean;
@@ -37,7 +40,10 @@ export interface FlightDebrief<F> {
   readonly firings: number;
   readonly shipped: number;
   readonly deaths: number;
+  /** Spend of the priced firings alone. */
   readonly totalCost: number;
+  /** Firings whose record carries no price, left out of {@link totalCost}. */
+  readonly unpriced: number;
   readonly totalDurationMs: number;
   readonly guardDenials: number;
   readonly remediations: number;
@@ -56,7 +62,10 @@ export interface FlightDebrief<F> {
  * that kind. A firing whose cost is unknown (recorded as 0 — an
  * envelope-less death, a resumed checkpoint) competes for neither: "🏆 Best
  * $0.00" was the debrief crowning a firing whose spend nobody measured
- * (operator, 2026-09-17). Returns `null` for an empty log rather than a
+ * (operator, 2026-09-17). A firing whose record carries no price
+ * (`costUnpriced`, epic 0036) is counted in `unpriced` and left out of
+ * `totalCost`, whatever its cost column holds, so a Codex lane's ships no
+ * longer read as free. Returns `null` for an empty log rather than a
  * digest of zeroes — nothing to debrief yet.
  */
 export function flightDebriefOf<F extends FlightDebriefEntry>(
@@ -67,6 +76,7 @@ export function flightDebriefOf<F extends FlightDebriefEntry>(
   let shipped = 0;
   let deaths = 0;
   let totalCost = 0;
+  let unpriced = 0;
   let totalDurationMs = 0;
   let guardDenials = 0;
   let remediations = 0;
@@ -82,11 +92,12 @@ export function flightDebriefOf<F extends FlightDebriefEntry>(
       verdict === 'errored'
     )
       deaths++;
-    totalCost += f.cost || 0;
+    if (f.costUnpriced === true) unpriced++;
+    else totalCost += f.cost || 0;
     totalDurationMs += f.durationMs || 0;
     guardDenials += f.guardDenials || 0;
     if (f.autoformatRescued) remediations++;
-    const costKnown = typeof f.cost === 'number' && f.cost > 0;
+    const costKnown = f.costUnpriced !== true && typeof f.cost === 'number' && f.cost > 0;
     if (f.shipped && costKnown && (!best || f.cost < best.cost)) best = f;
     if (!f.shipped && costKnown && (!worst || f.cost > worst.cost)) worst = f;
   }
@@ -95,6 +106,7 @@ export function flightDebriefOf<F extends FlightDebriefEntry>(
     shipped,
     deaths,
     totalCost,
+    unpriced,
     totalDurationMs,
     guardDenials,
     remediations,
@@ -120,6 +132,9 @@ export type FlightDebriefStringKey =
   | 'flightDebriefDeathTip'
   | 'flightDebriefTotalSpendTip'
   | 'flightDebriefTotalSpendAria'
+  | 'flightDebriefTotalSpendPartlyUnpriced'
+  | 'flightDebriefTotalSpendAllUnpriced'
+  | 'flightDebriefTotalSpendUnpricedTip'
   | 'flightDebriefTotalDurationTip'
   | 'flightDebriefTotalDurationAria'
   | 'flightDebriefGuardDenialSingular'
@@ -155,7 +170,10 @@ export type FlightDebriefTranslator = (
 /** The FLIGHT DEBRIEF panel's stat-chip triples (shipped, died, total spend,
  *  total duration), in the panel's fixed render order. Takes
  *  `fmtCost`/`fmtDuration` via injection rather than importing them from
- *  `./format.ts`, the same `roundStatItems`/`doraTileItems` pattern. */
+ *  `./format.ts`, the same `roundStatItems`/`doraTileItems` pattern. The
+ *  spend chip names the firings that reported no price beside the priced
+ *  total (`$2.00 + 2 unpriced`), or alone when none was priced, rather than
+ *  a total that reads them as free (epic 0036). */
 export function flightDebriefChipItems<F>(
   d: FlightDebrief<F>,
   fmtCost: (n: number) => string,
@@ -164,14 +182,23 @@ export function flightDebriefChipItems<F>(
 ): readonly FlightDebriefChipItem[] {
   const shippedText = tr('flightDebriefShippedCount', { count: d.shipped });
   const deathText = tr('flightDebriefDeathCount', { count: d.deaths });
-  const spendText = fmtCost(d.totalCost);
+  const priced = d.firings - d.unpriced;
+  const spendText =
+    d.unpriced === 0
+      ? fmtCost(d.totalCost)
+      : priced === 0
+        ? tr('flightDebriefTotalSpendAllUnpriced', { count: d.unpriced })
+        : tr('flightDebriefTotalSpendPartlyUnpriced', {
+            amount: fmtCost(d.totalCost),
+            count: d.unpriced,
+          });
   const durationText = fmtDuration(d.totalDurationMs);
   return [
     [shippedText, tr('flightDebriefShippedTip'), shippedText],
     [deathText, tr('flightDebriefDeathTip'), deathText],
     [
       spendText,
-      tr('flightDebriefTotalSpendTip'),
+      tr(d.unpriced === 0 ? 'flightDebriefTotalSpendTip' : 'flightDebriefTotalSpendUnpricedTip'),
       tr('flightDebriefTotalSpendAria', { amount: spendText }),
     ],
     [
