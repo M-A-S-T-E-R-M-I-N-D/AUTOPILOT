@@ -627,7 +627,11 @@ const CORE_GZIP_BUDGET = 76 * 1024;
 // viewer's six remaining literals render through tr() with data-i18n tags.
 // Measured 129229B raw against the 129024B line: 205 bytes over — the
 // margin every entry above refuses. About two KB of margin, as above.
-const PROJECT_RAW_BUDGET = 128 * 1024;
+// Then project raw 128→131KB (2026-10-04, epic 0016 slice 5/6): the FLIGHT
+// DEBRIEF panel's SOCIAL line and its fourteen English keys. Measured
+// 132298B raw against the 131072B line: 1226 bytes over. About two KB of
+// margin, as above; gzip (35602B) untouched.
+const PROJECT_RAW_BUDGET = 131 * 1024;
 const PANELS_RAW_BUDGET = 255 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a

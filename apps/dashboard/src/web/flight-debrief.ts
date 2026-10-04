@@ -127,7 +127,20 @@ export type FlightDebriefStringKey =
   | 'flightDebriefGuardDenialTip'
   | 'flightDebriefRemediationSingular'
   | 'flightDebriefRemediationPlural'
-  | 'flightDebriefRemediationTip';
+  | 'flightDebriefRemediationTip'
+  | 'flightDebriefSocialPassSingular'
+  | 'flightDebriefSocialPassPlural'
+  | 'flightDebriefSocialPassTip'
+  | 'flightDebriefSocialCaps'
+  | 'flightDebriefSocialCapsTip'
+  | 'flightDebriefSocialVerdicts'
+  | 'flightDebriefSocialVerdictsTip'
+  | 'flightDebriefSocialSkippedForeign'
+  | 'flightDebriefSocialSkippedForeignTip'
+  | 'flightDebriefSocialSkippedGh'
+  | 'flightDebriefSocialSkippedGhTip'
+  | 'flightDebriefSocialReadOnly'
+  | 'flightDebriefSocialReadOnlyTip';
 
 /** The bundle's `tr(key, subs)` (`web/features/locale.ts`), injected rather
  *  than imported — a `.toString()`-spliced helper carries no free variables
@@ -196,5 +209,64 @@ export function flightDebriefNotableItems<F>(
     );
     items.push([text, tr('flightDebriefRemediationTip'), text]);
   }
+  return items;
+}
+
+/** The served SOCIAL digest (`GET /api/landing`'s `socialDebrief`) — the
+ *  panel's own restatement of `flight/social-flight-debrief.ts`'s
+ *  `SocialFlightDebrief`, the `FixCommitProposalLike` route: no web module
+ *  imports a flight one. */
+export interface SocialFlightDebriefLike {
+  readonly passesRan: number;
+  readonly skippedForeignTarget: number;
+  readonly skippedGhDisconnected: number;
+  readonly newIssuesAllowed: number;
+  readonly newIssueBudget: number;
+  readonly commentsAllowed: number;
+  readonly commentBudget: number;
+  readonly queued: number;
+  readonly duplicate: number;
+  readonly refused: number;
+}
+
+/** The FLIGHT DEBRIEF panel's SOCIAL line (epic 0016 slice 5/6) — the flight
+ *  log's end-of-flight `SOCIAL debrief:` line as tip-bearing chips, in the
+ *  same order and under the same rules: caps and verdict totals only when a
+ *  pass ran (a 0/0 budget is not a reading), each refusal only when it
+ *  happened, and an outright "nothing posted" while the passes stay
+ *  read-only, never a said/filed/closed tally that could only read zero. */
+export function flightDebriefSocialItems(
+  s: SocialFlightDebriefLike,
+  tr: FlightDebriefTranslator,
+): readonly FlightDebriefChipItem[] {
+  const items: FlightDebriefChipItem[] = [];
+  const passes = tr(
+    s.passesRan === 1 ? 'flightDebriefSocialPassSingular' : 'flightDebriefSocialPassPlural',
+    { count: s.passesRan },
+  );
+  items.push([passes, tr('flightDebriefSocialPassTip'), passes]);
+  if (s.passesRan > 0) {
+    const caps = tr('flightDebriefSocialCaps', {
+      issues: s.newIssuesAllowed + '/' + s.newIssueBudget,
+      comments: s.commentsAllowed + '/' + s.commentBudget,
+    });
+    items.push([caps, tr('flightDebriefSocialCapsTip'), caps]);
+    const verdicts = tr('flightDebriefSocialVerdicts', {
+      queued: s.queued,
+      duplicate: s.duplicate,
+      refused: s.refused,
+    });
+    items.push([verdicts, tr('flightDebriefSocialVerdictsTip'), verdicts]);
+  }
+  if (s.skippedForeignTarget > 0) {
+    const text = tr('flightDebriefSocialSkippedForeign', { count: s.skippedForeignTarget });
+    items.push([text, tr('flightDebriefSocialSkippedForeignTip'), text]);
+  }
+  if (s.skippedGhDisconnected > 0) {
+    const text = tr('flightDebriefSocialSkippedGh', { count: s.skippedGhDisconnected });
+    items.push([text, tr('flightDebriefSocialSkippedGhTip'), text]);
+  }
+  const readOnly = tr('flightDebriefSocialReadOnly');
+  items.push([readOnly, tr('flightDebriefSocialReadOnlyTip'), readOnly]);
   return items;
 }

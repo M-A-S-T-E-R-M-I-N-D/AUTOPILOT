@@ -2165,6 +2165,27 @@ const EN_STRINGS = {
   flightDebriefRemediationSingular: '{count} auto-remediation',
   flightDebriefRemediationPlural: '{count} auto-remediations',
   flightDebriefRemediationTip: 'Mechanical RemediatingGate auto-fixes this flight',
+  // web/flight-debrief.ts's flightDebriefSocialItems + its label (epic 0016
+  // slice 5/6) — the flight log's end-of-flight SOCIAL debrief, as chips.
+  landingDebriefSocialLabel: 'Social: ',
+  flightDebriefSocialPassSingular: '{count} social pass',
+  flightDebriefSocialPassPlural: '{count} social passes',
+  flightDebriefSocialPassTip: 'GitHub social passes that ran this flight (AUTOPILOT_SOCIAL_FLIGHT)',
+  flightDebriefSocialCaps: 'caps: {issues} new issues, {comments} comments',
+  flightDebriefSocialCapsTip:
+    'What the anti-spam protocol allowed, against every pass’s caps summed (allowed/budget)',
+  flightDebriefSocialVerdicts: '{queued} queued, {duplicate} duplicate, {refused} refused',
+  flightDebriefSocialVerdictsTip:
+    'Held for a human, matched to a thread that already exists, or refused by the protocol',
+  flightDebriefSocialSkippedForeign: '{count} skipped (foreign target)',
+  flightDebriefSocialSkippedForeignTip:
+    'Passes refused because the flown folder is not this engine checkout — a pass speaks only for its own repository',
+  flightDebriefSocialSkippedGh: '{count} skipped (gh not connected)',
+  flightDebriefSocialSkippedGhTip:
+    'Passes refused because gh could not resolve an authenticated identity for this repo',
+  flightDebriefSocialReadOnly: 'nothing posted',
+  flightDebriefSocialReadOnlyTip:
+    'The passes only read and plan today — nothing was said, filed or closed on GitHub',
   projectNotFound: 'Project not found',
   projectNotFoundBody: 'It may have been removed from the dashboard. Head back to the fleet.',
   // web/features/flight-console.ts (board web-msnsndki-dz3vn1): the project
@@ -3606,6 +3627,24 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightDebriefRemediationSingular: '{count} תיקון אוטומטי',
     flightDebriefRemediationPlural: '{count} תיקונים אוטומטיים',
     flightDebriefRemediationTip: 'תיקוני RemediatingGate מכניים בטיסה הזו',
+    landingDebriefSocialLabel: 'חברתי: ',
+    flightDebriefSocialPassSingular: '{count} מעבר חברתי',
+    flightDebriefSocialPassPlural: '{count} מעברים חברתיים',
+    flightDebriefSocialPassTip: 'מעברים חברתיים ב־GitHub שרצו בטיסה הזו (AUTOPILOT_SOCIAL_FLIGHT)',
+    flightDebriefSocialCaps: 'מכסות: {issues} אישיוז חדשים, {comments} תגובות',
+    flightDebriefSocialCapsTip:
+      'מה שפרוטוקול נגד הספאם התיר, מול סכום המכסות של כל המעברים (הותר/תקציב)',
+    flightDebriefSocialVerdicts: '{queued} בהמתנה, {duplicate} כפולים, {refused} נדחו',
+    flightDebriefSocialVerdictsTip:
+      'הועברו לאדם, הותאמו לשרשור שכבר קיים, או נדחו על ידי הפרוטוקול',
+    flightDebriefSocialSkippedForeign: '{count} דולגו (יעד זר)',
+    flightDebriefSocialSkippedForeignTip:
+      'מעברים שנדחו כי התיקייה הנטוסה אינה העותק של המנוע הזה — מעבר מדבר רק בשם המאגר שלו',
+    flightDebriefSocialSkippedGh: '{count} דולגו (gh לא מחובר)',
+    flightDebriefSocialSkippedGhTip: 'מעברים שנדחו כי gh לא הצליח לזהות זהות מאומתת למאגר הזה',
+    flightDebriefSocialReadOnly: 'שום דבר לא פורסם',
+    flightDebriefSocialReadOnlyTip:
+      'המעברים רק קוראים ומתכננים כרגע — שום דבר לא נאמר, הוגש או נסגר ב־GitHub',
     projectNotFound: 'הפרויקט לא נמצא',
     projectNotFoundBody: 'ייתכן שהוא הוסר מלוח הבקרה. חזרו לצי.',
     consoleEmpty: 'עדיין אין פלט מסוף.',

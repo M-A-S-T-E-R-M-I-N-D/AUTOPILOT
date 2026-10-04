@@ -76,6 +76,7 @@ import {
   flightDebriefOf,
   flightDebriefChipItems,
   flightDebriefNotableItems,
+  flightDebriefSocialItems,
 } from '../flight-debrief.js';
 
 /** The post-flight LANDING card cluster client — vanilla, external (keeps CSP script-src 'self'). */
@@ -186,12 +187,34 @@ function landingCommitGroupNode(row, groupId) {
 ${flightDebriefOf.toString()}
 ${flightDebriefChipItems.toString()}
 ${flightDebriefNotableItems.toString()}
-function flightDebriefSection(flightLog, tasks) {
+${flightDebriefSocialItems.toString()}
+// SOCIAL line (epic 0016 slice 5/6): the latest flight's persisted SOCIAL
+// debrief, served beside the landing preview on GET /api/landing — the flight log's
+// end-of-flight SOCIAL line as chips (flightDebriefSocialItems).
+function flightDebriefSocialLine(social) {
+  var line = el('p', 'flight-debrief-social');
+  line.appendChild(iconEl('message-circle'));
+  line.appendChild(el('span', 'flight-debrief-label', tr('landingDebriefSocialLabel')));
+  var items = flightDebriefSocialItems(social, tr);
+  for (var si = 0; si < items.length; si++) {
+    if (si > 0) line.appendChild(document.createTextNode(' · '));
+    line.appendChild(tipChip(items[si][0], items[si][1], items[si][2]));
+  }
+  seedRoving(line, '.chip');
+  return line;
+}
+function flightDebriefSection(flightLog, tasks, social) {
   var digest = flightDebriefOf(flightLog || [], flightVerdictOf);
-  if (!digest) return null;
-  var taskById = taskMap(tasks);
+  if (!digest && !social) return null;
   var wrap = el('div', 'flight-debrief');
   wrap.appendChild(panelHeading('h4', 'flight-debrief-title', 'landingDebriefTitle', 'clipboard-list'));
+  // A flight that fired nothing can still have spoken (or been refused) on
+  // GitHub — its SOCIAL line stands alone under the title.
+  if (!digest) {
+    wrap.appendChild(flightDebriefSocialLine(social));
+    return wrap;
+  }
+  var taskById = taskMap(tasks);
   var chips = el('p', 'flight-debrief-chips');
   var chipItems = flightDebriefChipItems(digest, fmtCost, fmtDuration, tr);
   chips.appendChild(tipChip(chipItems[0][0], chipItems[0][1], chipItems[0][2], 'flight-debrief-ship'));
@@ -244,11 +267,12 @@ function flightDebriefSection(flightLog, tasks) {
     seedRoving(notableP, '.chip');
     wrap.appendChild(notableP);
   }
+  if (social) wrap.appendChild(flightDebriefSocialLine(social));
   return wrap;
 }
-function renderLandingBody(body, landing, pid, flightLog, tasks) {
+function renderLandingBody(body, landing, pid, flightLog, tasks, social) {
   body.replaceChildren();
-  var debrief = flightDebriefSection(flightLog, tasks);
+  var debrief = flightDebriefSection(flightLog, tasks, social);
   if (debrief) body.appendChild(debrief);
   // Checked BEFORE the "nothing to land" early return: this card previously
   // only ever read the checked-out branch, so a checkout that looked level
@@ -521,7 +545,7 @@ function landingSection(pid, flightLog, tasks) {
       // request was in flight — appending into a detached node is a stale
       // paint at best and a DOM error at worst. Bail if we're orphaned.
       if (!body.isConnected) return;
-      renderLandingBody(body, data && data.landing, pid, flightLog, tasks);
+      renderLandingBody(body, data && data.landing, pid, flightLog, tasks, data && data.socialDebrief);
     })
     .catch(function () {
       if (!body.isConnected) return;
