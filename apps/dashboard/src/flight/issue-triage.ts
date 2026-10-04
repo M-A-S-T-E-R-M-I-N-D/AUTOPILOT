@@ -315,8 +315,10 @@ function templateKindOf(issue: IncomingIssue, headings: readonly string[]): Issu
     TEMPLATE_SECTIONS[kind].some((section) => headings.some((h) => section.matches.test(h)));
   if (hasAny('feature')) return 'feature';
   if (hasAny('bug')) return 'bug';
+  // In any casing: feature_request.yml files with `enhancement`, and GitHub
+  // applies a repo's own `Enhancement` label for that name instead.
   const labels = issue.labels ?? [];
-  if (labels.some((label) => /^(enhancement|feature)/.test(label))) return 'feature';
+  if (labels.some((label) => /^(enhancement|feature)/i.test(label))) return 'feature';
   return /\b(feature|request|proposal|idea|add|support)\b/i.test(issue.title) ? 'feature' : 'bug';
 }
 
