@@ -739,6 +739,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .docs-editor-save, .docs-editor-cancel { font: inherit; font-size: var(--text-xs); cursor: pointer; padding: 2px var(--space-2); border-radius: var(--shape-extra-small); background: transparent; transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .docs-editor-save { border: 1px solid var(--color-accent); color: var(--color-accent); }
 .docs-editor-cancel { border: 1px solid var(--color-border); color: var(--color-text-muted); }
+.docs-editor-save > .icon, .docs-editor-cancel > .icon { margin-inline-end: 0.35em; }
 .docs-editor-save:not(:disabled):hover, .docs-editor-save:not(:disabled):focus-visible { background: color-mix(in srgb, var(--color-accent) 15%, transparent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .docs-editor-cancel:hover, .docs-editor-cancel:focus-visible { color: var(--color-text); border-color: var(--color-text-muted); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .docs-editor-save:active, .docs-editor-cancel:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
