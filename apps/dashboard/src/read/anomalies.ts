@@ -41,17 +41,43 @@ const COST_SPIKE_FLOOR_USD = 1;
 /** How far above the recent baseline counts as a spike. */
 const COST_SPIKE_MULTIPLIER = 3;
 
+/**
+ * The {@link COST_SPIKE_WINDOW} priced firings before the latest one, and how
+ * many unpriced firings sat among them. A Codex or Gemini firing reports no
+ * price and the metrics column stores it as 0 (epic 0036), so averaged in it
+ * would drag the baseline down and make an ordinary firing beside it read as
+ * a spike; the baseline reaches past it instead, as the fleet report and the
+ * benchmark price a group by its priced firings alone.
+ */
+function pricedBaseline(earlier: readonly FlightEntry[]): {
+  readonly baseline: readonly FlightEntry[];
+  readonly leftOut: number;
+} {
+  let baseline: readonly FlightEntry[] = [];
+  let leftOut = 0;
+  for (const f of earlier) {
+    if (baseline.length === COST_SPIKE_WINDOW) break;
+    if (f.costUnpriced === true) leftOut += 1;
+    else baseline = [...baseline, f];
+  }
+  return { baseline, leftOut };
+}
+
 /** The latest firing's cost multiples over the recent baseline average. */
 function costSpike(log: readonly FlightEntry[]): Anomaly | null {
-  if (log.length <= COST_SPIKE_WINDOW) return null;
   const latest = log[0];
   if (!latest || latest.cost < COST_SPIKE_FLOOR_USD) return null;
-  const baseline = log.slice(1, 1 + COST_SPIKE_WINDOW);
+  const { baseline, leftOut } = pricedBaseline(log.slice(1));
+  if (baseline.length < COST_SPIKE_WINDOW) return null;
   const avg = baseline.reduce((sum, f) => sum + f.cost, 0) / baseline.length;
   if (avg <= 0 || latest.cost < avg * COST_SPIKE_MULTIPLIER) return null;
+  const firings =
+    leftOut === 0
+      ? `${baseline.length} firings`
+      : `${baseline.length} priced firings (${leftOut} unpriced left out)`;
   return {
     kind: 'cost-spike',
-    evidence: `Firing cost $${latest.cost.toFixed(2)} vs ~$${avg.toFixed(2)} average of the last ${baseline.length} firings.`,
+    evidence: `Firing cost $${latest.cost.toFixed(2)} vs ~$${avg.toFixed(2)} average of the last ${firings}.`,
   };
 }
 

@@ -244,7 +244,11 @@ alone, as the fleet report prices a group: `costUsd` is `null` when none was pri
 counts the rest, and `costPerShipUsd` divides by priced ships only. The page's leaderboard then
 reads `unpriced` in its cost-per-ship and spent columns, such a model has no bubble, and the
 every-firing chart leaves out a firing with no cost and says how many it left out
-(`benchmark-page.ts`). Since
+(`benchmark-page.ts`). Until a later 2026-10-04 commit the project card's `cost-spike` anomaly
+averaged such firings in as well: three Codex firings beside five $1.00 Claude ones made a $2.00
+Claude firing read as a spike. `costSpike` (`read/anomalies.ts`) now builds its baseline from the
+five priced firings before the latest, reaching past the unpriced ones, and its evidence says how
+many it left out (`average of the last 5 priced firings (2 unpriced left out)`). Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
