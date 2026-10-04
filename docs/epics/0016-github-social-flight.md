@@ -110,11 +110,20 @@ Per pass, mechanically derived — no guesses:
    `social-debrief` event per flight that printed the line (best-effort,
    the `near-miss-debrief` row's twin), and `parseSocialFlightDebrief`
    reads a row back whole or not at all.
+   The dashboard's FLIGHT DEBRIEF panel now shows it: `GET /api/landing`
+   serves the latest flight's digest as `socialDebrief` beside `landing`
+   (`read/project-detail.ts`'s `readSocialFlightDebrief`, and independently
+   of it, so a branch with nothing to land still debriefs). The store's
+   `latestSocialDebriefEvent` bounds the row by the project's newest firing,
+   because a silent flight writes no row and must not show its
+   predecessor's digest. The panel renders it as a **Social:** line of
+   tipped chips in the flight log line's own order
+   (`web/flight-debrief.ts`'s `flightDebriefSocialItems`, en + he): passes,
+   caps, verdicts, refusals and "nothing posted". A flight that fired
+   nothing still gets its line (`test/web/landing-social-debrief.test.ts`,
+   axe-clean; `test/read/social-debrief-read.test.ts`).
    _Still open:_ the said/filed/closed tally once the execute half posts
-   anything, and a SOCIAL section in the dashboard's FLIGHT DEBRIEF panel
-   (`web/flight-debrief.ts` aggregates firings only, so the persisted
-   digest still needs serving — bounded by the flight's own start, since a
-   silent flight writes no row — and rendering).
+   anything.
 6. **tests**: protocol red-team — duplicate-issue temptation fixture, cap
    overflow, role-confusion, answer-for-a-human refusal.
    _Shipped so far:_ all four fixtures pin the pure protocol engine

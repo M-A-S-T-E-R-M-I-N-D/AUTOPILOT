@@ -894,6 +894,8 @@ main.project-mode { grid-template-columns: 1fr; }
 .flight-debrief-best > .icon, .flight-debrief-worst > .icon { margin-inline-end: var(--space-2); }
 .flight-debrief-label { font-weight: 600; }
 .flight-debrief-notable { margin: var(--space-1) 0 0; font-size: var(--text-xs); }
+.flight-debrief-social { margin: var(--space-1) 0 0; font-size: var(--text-sm); }
+.flight-debrief-social > .icon { margin-inline-end: var(--space-2); }
 .landing-overlaps { list-style: none; margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); border: 1px solid var(--color-sev-medium); border-radius: var(--shape-extra-small); background: color-mix(in srgb, var(--color-sev-medium) 12%, transparent); }
 .landing-overlap { font-size: var(--text-sm); color: var(--color-sev-medium); }
 .landing-worktree-divergence { margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--color-sev-high); border: 1px solid var(--color-sev-high); border-radius: var(--shape-extra-small); background: color-mix(in srgb, var(--color-sev-high) 12%, transparent); }

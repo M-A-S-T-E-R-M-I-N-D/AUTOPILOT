@@ -59,8 +59,13 @@ describe('landingJs', () => {
     const out = landingJs();
     expect(out).toContain('function landingCommitRow(commit) {');
     expect(out).toContain('function landingCommitGroupNode(row, groupId) {');
-    expect(out).toContain('function flightDebriefSection(flightLog, tasks) {');
-    expect(out).toContain('function renderLandingBody(body, landing, pid, flightLog, tasks) {');
+    // The SOCIAL line (epic 0016 slice 5/6) rides the /api/landing response's
+    // socialDebrief through renderLandingBody into the debrief section.
+    expect(out).toContain('function flightDebriefSocialLine(social) {');
+    expect(out).toContain('function flightDebriefSection(flightLog, tasks, social) {');
+    expect(out).toContain(
+      'function renderLandingBody(body, landing, pid, flightLog, tasks, social) {',
+    );
     expect(out).toContain('function landingSection(pid, flightLog, tasks) {');
   });
 

@@ -168,6 +168,7 @@ import {
 import type { InboxAddResult } from '../inbox/add.js';
 import type { DocsWriteApiResult, DocsWriteApiRejection } from '../docs/write.js';
 import type { PrReviewPlan } from '../flight/pr-review.js';
+import type { SocialFlightDebrief } from '../flight/social-flight-debrief.js';
 import {
   isPrReviewDecisionKind,
   type PrReviewDecisionKind,
@@ -486,6 +487,13 @@ export type BrowseFolderApi = (path: string | null) => BrowseFolderResult | null
 
 /** One project's LANDING preview (injected; reads only, shells to git on demand). */
 export type LandingApi = (projectId: string) => Promise<LandingInfo | null>;
+
+/** One project's latest flight SOCIAL debrief (injected; a store read only —
+ *  epic 0016 slice 5/6). Served beside `landing` on the LANDING preview's
+ *  own response, since the FLIGHT DEBRIEF section it renders in lives on
+ *  that card — and independently of it: a branch with nothing to land still
+ *  had a flight worth debriefing. */
+export type SocialDebriefApi = (projectId: string) => SocialFlightDebrief | null;
 
 /** One project's CURRENT ROUND totals (injected; reads only, shells to git on demand). */
 export type RoundApi = (projectId: string) => Promise<RoundInfo | null>;
@@ -844,6 +852,7 @@ export interface ServerDeps extends RouteDeps {
   readonly docsWrite?: DocsWriteApi;
   readonly browseFolder?: BrowseFolderApi;
   readonly landing?: LandingApi;
+  readonly socialDebrief?: SocialDebriefApi;
   readonly landingExecute?: LandingExecuteApi;
   /** Live state of this project's landing job — what the LAND button is
    *  actually doing right now, readable by any renderer at any time (see
@@ -1812,13 +1821,17 @@ function handleFlightLog(
  * on demand (see `readLandingInfo`), so it is deliberately NOT folded into
  * `/api/state`/`/api/stream`. Responds `{ landing: null }` when there is
  * nothing to preview (unknown project, no repo, no discoverable base branch)
- * or the read itself fails; never crashes the dashboard.
+ * or the read itself fails; never crashes the dashboard. Adds `socialDebrief`
+ * beside it only when the injected {@link SocialDebriefApi} has a digest —
+ * read on its own, so a failed git read never drops it and a failed store
+ * read never drops `landing`.
  */
 async function handleLanding(
   req: IncomingMessage,
   res: ServerResponse,
   api: LandingApi | undefined,
   headers: Record<string, string>,
+  socialApi?: SocialDebriefApi,
 ): Promise<void> {
   const send = (status: number, body: unknown): void => sendJson(res, headers, status, body);
   if (!api) {
@@ -1835,11 +1848,19 @@ async function handleLanding(
     send(400, { error: 'a project id is required' });
     return;
   }
+  let landing: LandingInfo | null;
   try {
-    send(200, { landing: await api(project) });
+    landing = await api(project);
   } catch {
-    send(200, { landing: null });
+    landing = null;
   }
+  let socialDebrief: SocialFlightDebrief | null;
+  try {
+    socialDebrief = socialApi ? socialApi(project) : null;
+  } catch {
+    socialDebrief = null;
+  }
+  send(200, socialDebrief ? { landing, socialDebrief } : { landing });
 }
 
 /**
@@ -4199,7 +4220,7 @@ export function createServer(deps: ServerDeps = {}): Server {
     }
 
     if (path === '/api/landing') {
-      void handleLanding(req, res, deps.landing, headers);
+      void handleLanding(req, res, deps.landing, headers, deps.socialDebrief);
       return;
     }
 

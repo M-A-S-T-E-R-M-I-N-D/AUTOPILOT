@@ -22,6 +22,7 @@ import {
   firingCommitRef,
   recentTasks,
   queuedTaskCount,
+  latestSocialDebriefEvent,
   SqliteSearchStore,
   type Store,
   type SearchHit,
@@ -44,6 +45,10 @@ import { deriveFlyProjectId, flightLogFileName } from '../flight/lock.js';
 import { deriveWorktreePlan } from '../flight/worktree.js';
 import { findReconciliationCandidates, type ReconciliationCandidate } from './reconcile.js';
 import { buildFleetDigest } from '../flight/fleet-digest.js';
+import {
+  parseSocialFlightDebrief,
+  type SocialFlightDebrief,
+} from '../flight/social-flight-debrief.js';
 import {
   FLIGHT_LOG_PAGE_SIZE,
   mapFlightEntries,
@@ -272,6 +277,32 @@ export async function readLandingInfo(
     // call, and the read-only handle opened at the top is all it needs.
     const halfSteps = gatherLaneHalfSteps(store, projectId, commits);
     return { branch, base, commits, diffstat, overlaps, halfSteps, worktreeAhead };
+  } catch {
+    return null;
+  } finally {
+    store?.close();
+  }
+}
+
+/**
+ * The project's latest flight's SOCIAL debrief (epic 0016 slice 5/6), read
+ * back from the `social-debrief` row fly.ts persists at flight end — the
+ * FLIGHT DEBRIEF panel's SOCIAL line. Store-only (no git), and bounded by
+ * `latestSocialDebriefEvent` to the latest flight, so a silent flight never
+ * shows its predecessor's digest. Returns null for an unknown project, no
+ * row, a malformed row, or any read failure — never crashes the dashboard.
+ */
+export function readSocialFlightDebrief(
+  dbPath: string,
+  projectId: string,
+): SocialFlightDebrief | null {
+  if (!existsSync(dbPath)) return null;
+  let store: Store | undefined;
+  try {
+    store = openStore(dbPath, { readonly: true });
+    if (!listProjects(store.db).some((p) => p.id === projectId)) return null;
+    const row = latestSocialDebriefEvent(store.db, projectId);
+    return row ? parseSocialFlightDebrief(row.payload) : null;
   } catch {
     return null;
   } finally {

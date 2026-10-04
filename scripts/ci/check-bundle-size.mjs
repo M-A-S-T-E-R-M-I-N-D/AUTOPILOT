@@ -526,7 +526,14 @@ const CORE_GZIP_BUDGET = 75 * 1024;
 // Measured 129229B raw against the 129024B line: 205 bytes over -- the
 // margin every entry above refuses. About two KB of margin, as above. Gzip
 // stays under PROJECT_GZIP_BUDGET untouched.
-const PROJECT_RAW_BUDGET = 128 * 1024;
+// Then project raw 128->131KB (2026-10-04, board web-mtpzzxw4-au1b6x, epic
+// 0016 slice 5/6): the FLIGHT DEBRIEF panel's SOCIAL line -- the spliced
+// flightDebriefSocialItems + its line renderer, and fourteen English keys
+// (a label, seven chip texts, six tips; ~1.2KB) that head /project.js with
+// the code that reads them. Measured 132298B raw against the 131072B line:
+// 1226 bytes over. About two KB of margin, as above. Gzip (35602B) stays
+// under PROJECT_GZIP_BUDGET untouched, with 238 bytes to spare.
+const PROJECT_RAW_BUDGET = 131 * 1024;
 const PANELS_RAW_BUDGET = 255 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.

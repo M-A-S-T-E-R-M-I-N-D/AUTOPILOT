@@ -29,6 +29,7 @@ import {
   recentActivityEventsPerFiring,
   activityEventsForFiring,
   nearMissDebriefEvents,
+  latestSocialDebriefEvent,
   nearMissRecurringEvents,
   familyRunawayEvents,
   intentCollisionEvents,
@@ -1098,6 +1099,66 @@ describe('nearMissDebriefEvents', () => {
 
   it('returns an empty array for a project with no near-miss-debrief events', () => {
     expect(nearMissDebriefEvents(store.db, 'nmd')).toEqual([]);
+  });
+});
+
+describe('latestSocialDebriefEvent', () => {
+  const insertSocialDebrief = (projectId: string, payload: string, at: number): void => {
+    store.db
+      .prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES (?, NULL, 'social-debrief', ?, ?)`,
+      )
+      .run(projectId, payload, at);
+  };
+
+  beforeEach(() => {
+    insertProject('sd', 'sd', 'flying', 1);
+  });
+
+  it("returns the newest social-debrief row written at or after the project's newest firing", () => {
+    insertMetric('f1', 'sd', 1, 0, 0, 0, 0, 0, 0, 100);
+    insertSocialDebrief('sd', '{"passesRan":1}', 150);
+    insertSocialDebrief('sd', '{"passesRan":2}', 200);
+    insertEvent('sd', 300); // type 'firing' — must not leak in
+    expect(latestSocialDebriefEvent(store.db, 'sd')).toEqual({
+      payload: '{"passesRan":2}',
+      created_at: 200,
+    });
+  });
+
+  it('counts a row written in the same millisecond as the last firing as that flight’s', () => {
+    insertMetric('f1', 'sd', 1, 0, 0, 0, 0, 0, 0, 100);
+    insertSocialDebrief('sd', '{"passesRan":1}', 100);
+    expect(latestSocialDebriefEvent(store.db, 'sd')?.created_at).toBe(100);
+  });
+
+  it('never hands a later silent flight its predecessor’s digest', () => {
+    // Flight 1 fired, then wrote its SOCIAL debrief at flight end…
+    insertMetric('f1', 'sd', 1, 0, 0, 0, 0, 0, 0, 100);
+    insertSocialDebrief('sd', '{"passesRan":1}', 150);
+    // …flight 2 (toggle off) fired after it and wrote none.
+    insertMetric('f2', 'sd', 0, 0, 0, 0, 0, 0, 0, 400);
+    expect(latestSocialDebriefEvent(store.db, 'sd')).toBeUndefined();
+  });
+
+  it('serves a row for a project with no firings at all', () => {
+    insertSocialDebrief('sd', '{"passesRan":1}', 150);
+    expect(latestSocialDebriefEvent(store.db, 'sd')?.payload).toBe('{"passesRan":1}');
+  });
+
+  it('scopes both the row and the firing bound to the given project', () => {
+    insertProject('sd-other', 'sd-other', 'flying', 1);
+    insertSocialDebrief('sd', '{"passesRan":1}', 150);
+    // Another project's newer firing never retires this project's digest…
+    insertMetric('o1', 'sd-other', 1, 0, 0, 0, 0, 0, 0, 900);
+    // …and its own digest never leaks in.
+    insertSocialDebrief('sd-other', '{"passesRan":9}', 950);
+    expect(latestSocialDebriefEvent(store.db, 'sd')?.payload).toBe('{"passesRan":1}');
+  });
+
+  it('returns undefined for a project with no social-debrief events', () => {
+    expect(latestSocialDebriefEvent(store.db, 'sd')).toBeUndefined();
   });
 });
 
