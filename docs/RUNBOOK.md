@@ -921,7 +921,14 @@ consulted. The self-target guard and the gh check still apply. The log prints th
 then the `🗣 SOCIAL debrief:` line. The process exits 1 when the pass was refused, since the
 flight did nothing. Unset or empty means `code`, which is every ordinary flight. Any other value,
 including a wrong case, refuses to take off: a misspelt `github` must not turn into a flight that
-edits the tree. The dashboard does not have a fly-bar choice for this target yet.
+edits the tree.
+
+**Per flight, from the fly bar:** the gear's launch settings carry a **Fly target** select —
+`default`, `the code tree` (`code`), `GitHub only` (`github`). Anything but `default` sets
+`AUTOPILOT_FLY_TARGET` for that one flight only (sent as `flyTarget` on `POST /api/fly`, which
+refuses a value it cannot read before any spawn); `default` sends nothing, so the flight inherits
+the dashboard's own env. A multi-lane launch (Lanes above 1) refuses a non-default choice instead
+of dropping it, since `/api/fleet` carries no fly target. The select locks while a flight runs.
 
 ## 14. Quick reference
 

@@ -5870,6 +5870,12 @@ ${contextRailHtml(project)}
           <input type="number" id="fly-budget" name="budget" min="0.5" step="0.5" value="10" />
           <label for="fly-lanes" data-i18n="lanes">Lanes</label>
           <input type="number" id="fly-lanes" name="lanes" min="1" max="8" value="1" />
+          <label for="fly-target" data-i18n="flyTarget">Fly target</label>
+          <select id="fly-target" name="target">
+            <option value="" selected data-i18n="flyTargetDefault">default</option>
+            <option value="code" data-i18n="flyTargetCode">the code tree</option>
+            <option value="github" data-i18n="flyTargetGithub">GitHub only</option>
+          </select>
           <label for="fly-social" data-i18n="socialPass">Social pass</label>
           <select id="fly-social" name="social">
             <option value="" selected data-i18n="socialPassDefault">default</option>
@@ -5891,7 +5897,7 @@ ${contextRailHtml(project)}
       </div>
       <button type="button" id="fly-lucky" aria-label="I'm feeling lucky — probe this machine and fill a calibrated launch" data-i18n-aria="flyLuckyAria">${iconSvg('clover')}</button>
       <button type="submit" id="fly-go" data-i18n="flyIt">Fire</button>
-      <button type="button" class="fly-options-toggle" id="fly-options-toggle" aria-expanded="false" aria-controls="fly-options" aria-label="Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes, social pass, engine" data-i18n-aria="flyOptionsAria" data-tip="Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes, social pass, engine" data-i18n-tip="flyOptionsTip">${iconSvg('settings')}</button>
+      <button type="button" class="fly-options-toggle" id="fly-options-toggle" aria-expanded="false" aria-controls="fly-options" aria-label="Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes, fly target, social pass, engine" data-i18n-aria="flyOptionsAria" data-tip="Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes, fly target, social pass, engine" data-i18n-tip="flyOptionsTip">${iconSvg('settings')}</button>
       <button type="button" id="fly-pause" data-i18n="pause" hidden>Pause</button>
       <button type="button" id="fly-stop" data-i18n="stop" hidden>Stop</button>
       <span class="fly-status" id="fly-status" role="status" aria-live="polite"></span>
@@ -5924,12 +5930,12 @@ ${contextRailHtml(project)}
       <select id="search-project" name="project"></select>
       <input type="search" id="search-q" name="q" list="search-history" placeholder="find code — or ask a question…" data-i18n-placeholder="searchPlaceholder" aria-label="Search query or question" data-i18n-aria="searchQueryAria" autocomplete="off" spellcheck="false" />
       <datalist id="search-history"></datalist>
-      <button type="submit" id="search-go" data-i18n="search" data-i18n-tip="searchTip" data-tip="Find matching code in the selected project — hits list the file, line, and surrounding excerpt.">Search</button>
+      <button type="submit" id="search-go" data-i18n="search" data-i18n-tip="searchTip" data-tip="Find matching code in the selected project — hits list the file, line, and surrounding excerpt.">${iconSvg('search')}Search</button>
       <label for="ask-deep" class="ask-deep-label" data-i18n-tip="askDeepTip" data-tip="Escalate to a read-only agentic session (Read/Grep/Glob, up to 10 turns) that can go looking for the answer instead of relying on the indexed excerpts">
         <input type="checkbox" id="ask-deep" />
         <span data-i18n="deep">Deep</span>
       </label>
-      <button type="button" id="ask-go" data-i18n="ask" data-i18n-tip="askTip" data-tip="Ask the question instead of searching — an AI answer built from the indexed code streams in below.">Ask</button>
+      <button type="button" id="ask-go" data-i18n="ask" data-i18n-tip="askTip" data-tip="Ask the question instead of searching — an AI answer built from the indexed code streams in below.">${iconSvg('message-circle')}Ask</button>
       <span class="switch ask-persona" id="ask-persona" role="group" aria-label="Ask persona" data-i18n-aria="askPersona">
         <button type="button" data-persona-btn="genius" aria-pressed="true" data-i18n="personaGenius" data-i18n-tip="personaGeniusTip" data-tip="Read-only persona (default): answers questions but never touches the dashboard.">GENIUS</button>
         <button type="button" data-persona-btn="architect" aria-pressed="false" data-i18n="personaArchitect" data-i18n-tip="personaArchitectTip" data-tip="Can propose dashboard actions for you to approve — opt-in per session, resets to GENIUS on reload.">ARCHITECT</button>

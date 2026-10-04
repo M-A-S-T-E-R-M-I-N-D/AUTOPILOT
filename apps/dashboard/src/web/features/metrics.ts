@@ -64,14 +64,18 @@ export function metricsJs(): string {
 // stay inline in fleetJs(), shared with fleetCostSpark/fleetTurnsSpark/
 // fleetFormSpark/fleetCacheSpark) — this is the per-PROJECT cost trend the
 // Metrics detail panel renders, called by name as a hoisted bundle
-// identifier.
+// identifier. A firing whose record carries no price (costUnpriced, a Codex
+// or Gemini run, epic 0036) is a zero-height bar captioned unpriced, never
+// $0.00, and the label's total names how many it left out.
 function costSparkline(log, tasks) {
+  var unpriced = 0;
+  for (var i = 0; i < log.length; i++) if (log[i].costUnpriced === true) unpriced++;
   return metricSparkline(
     log,
     tasks,
-    function (f) { return f.cost || 0; },
-    function (f) { return fmtCost(f.cost || 0); },
-    function (n, total) { return 'Cost per firing over ' + n + ' firings, total ' + fmtCost(total) + ' — tab through bars for detail'; },
+    function (f) { return f.costUnpriced === true ? 0 : f.cost || 0; },
+    function (f) { return f.costUnpriced === true ? 'unpriced' : fmtCost(f.cost || 0); },
+    function (n, total) { return 'Cost per firing over ' + n + ' firings, total ' + fmtCost(total) + (unpriced > 0 ? ', ' + unpriced + ' unpriced left out' : '') + ' — tab through bars for detail'; },
     svgNode, sparkBars, taskMap, flightBarMeta, flightHeadlineOf,
   );
 }
@@ -105,7 +109,8 @@ function flightTimelineStrip(log, tasks, pid) {
     rect.setAttribute('y', '0');
     rect.setAttribute('width', String(seg.width));
     rect.setAttribute('height', String(H));
-    var costLabel = fmtCost(f.cost || 0);
+    // An unpriced firing (epic 0036) reads unpriced, as costSparkline's bar does.
+    var costLabel = f.costUnpriced === true ? 'unpriced' : fmtCost(f.cost || 0);
     var meta = flightBarMeta(f, taskById, costLabel, flightHeadlineOf);
     rect.setAttribute('class', meta.barClass);
     // Roving tabindex (D1 TAB-STOP ROVING, board web-mtd1wyte-ssntzi): only

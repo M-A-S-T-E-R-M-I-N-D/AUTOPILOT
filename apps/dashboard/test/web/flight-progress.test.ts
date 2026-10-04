@@ -78,6 +78,43 @@ describe('flightProgressOf', () => {
     expect(result?.etaBit).toBe(' · ETA ~7m 0s');
   });
 
+  it('paces the total-spend ETA by the priced firings alone, never an unpriced one as $0 (epic 0036)', () => {
+    // A Codex or Gemini run reports no price, and the metrics column stores
+    // that as 0: averaged in, two such firings beside one $2.00 Claude
+    // firing read $0.67 per firing, so the $8 left looked like 12 more.
+    const result = flightProgressOf(
+      { totalBudgetUsd: 10 },
+      [
+        { cost: 0, costUnpriced: true, durationMs: 60_000 },
+        { cost: 0, costUnpriced: true, durationMs: 60_000 },
+        { cost: 2, durationMs: 60_000 },
+      ],
+      null,
+      fmtCost,
+      fmtDuration,
+      enTr,
+    );
+
+    expect(result?.pct).toBe(20);
+    expect(result?.progressBit).toBe('$2.00 of $10 total');
+    // avg $2 per priced firing, $8 remaining -> 4 more firings * 60s avg = 4m 0s
+    expect(result?.etaBit).toBe(' · ETA ~4m 0s');
+  });
+
+  it('gives no total-spend ETA while no firing this session reported a price', () => {
+    const result = flightProgressOf(
+      { totalBudgetUsd: 10 },
+      [{ cost: 0, costUnpriced: true, durationMs: 60_000 }],
+      null,
+      fmtCost,
+      fmtDuration,
+      enTr,
+    );
+
+    expect(result?.progressBit).toBe('$0.00 of $10 total');
+    expect(result?.etaBit).toBe('');
+  });
+
   it('falls back to the historical average duration before any firing lands this session', () => {
     const result = flightProgressOf({ firings: 4 }, [], 50_000, fmtCost, fmtDuration, enTr);
 

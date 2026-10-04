@@ -603,15 +603,19 @@ const EN_STRINGS = {
   browse: 'Browse…',
   flyOptions: 'Options',
   flyOptionsAria:
-    'Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes, social pass, engine',
+    'Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes, fly target, social pass, engine',
   flyOptionsTip:
-    'Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes, social pass, engine',
+    'Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes, fly target, social pass, engine',
   byCount: 'by count',
   byTotal: 'by total $',
   firings: 'Firings',
   stopAtTotal: 'Stop at total $',
   perFiringBudget: '$ / firing',
   lanes: 'Lanes',
+  flyTarget: 'Fly target',
+  flyTargetDefault: 'default',
+  flyTargetCode: 'the code tree',
+  flyTargetGithub: 'GitHub only',
   socialPass: 'Social pass',
   socialPassDefault: 'default',
   socialPassOff: 'off',
@@ -1844,6 +1848,8 @@ const EN_STRINGS = {
   flyTotalTip: 'Stops the flight once total spend across all firings reaches this amount.',
   flyLanesTip:
     'More than 1 splits the open board across that many parallel lanes with disjoint task scopes (the same hub-aware partitioner dashboard fleet uses) instead of flying a single lane.',
+  flyTargetTip:
+    "What this flight flies: the code tree, where firings edit and commit, or GitHub only, one read-only social pass that never touches the code tree. Default follows the dashboard's AUTOPILOT_FLY_TARGET.",
   flySocialTip:
     "When this flight runs the read-only GitHub social pass: at takeoff, at landing, or both plus between firings. Default follows the dashboard's AUTOPILOT_SOCIAL_FLIGHT; the pass skips itself when gh is not connected.",
   flyEngineTip:
@@ -1894,6 +1900,8 @@ const EN_STRINGS = {
   luckyFitSourcePeople: 'Good first — by hand',
   lanesFixedFiringCount:
     'Lanes launch with a fixed firing count — switch off total-spend mode first.',
+  flyTargetSingleLane:
+    'The fly target choice applies to a single-lane flight — set Lanes to 1 or the fly target to default.',
   socialPassSingleLane:
     'The social pass choice applies to a single-lane flight — set Lanes to 1 or the social pass to default.',
   engineModelNeeded: 'Codex and Gemini need the model that CLI runs — fill in Engine model.',
@@ -2529,15 +2537,19 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     browse: 'עיון…',
     flyOptions: 'אפשרויות',
     flyOptionsAria:
-      'הצגה או הסתרה של הגדרות השיגור: עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים, מעבר חברתי, מנוע',
+      'הצגה או הסתרה של הגדרות השיגור: עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים, יעד הטיסה, מעבר חברתי, מנוע',
     flyOptionsTip:
-      'הצגה או הסתרה של הגדרות השיגור — עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים, מעבר חברתי, מנוע',
+      'הצגה או הסתרה של הגדרות השיגור — עיון, מצב תקציב, הפעלות, $ להפעלה, נתיבים, יעד הטיסה, מעבר חברתי, מנוע',
     byCount: 'לפי כמות',
     byTotal: 'לפי סכום כולל',
     firings: 'הפעלות',
     stopAtTotal: 'עצור בסכום כולל של $',
     perFiringBudget: '$ / הפעלה',
     lanes: 'נתיבים',
+    flyTarget: 'יעד הטיסה',
+    flyTargetDefault: 'ברירת מחדל',
+    flyTargetCode: 'עץ הקוד',
+    flyTargetGithub: 'GitHub בלבד',
     socialPass: 'מעבר חברתי',
     socialPassDefault: 'ברירת מחדל',
     socialPassOff: 'כבוי',
@@ -3402,6 +3414,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flyTotalTip: 'עוצר את הטיסה כשההוצאה הכוללת בכל ההפעלות מגיעה לסכום הזה.',
     flyLanesTip:
       'יותר מ-1 מפצל את הלוח הפתוח למספר הזה של נתיבים מקבילים עם תחומי משימות נפרדים (אותו מחלק המודע למרכז שבו משתמש "dashboard fleet"), במקום לטוס בנתיב בודד.',
+    flyTargetTip:
+      'מה הטיסה הזו מטיסה: את עץ הקוד, שבו ההפעלות עורכות ומבצעות commit, או GitHub בלבד, מעבר חברתי אחד לקריאה בלבד שלעולם לא נוגע בעץ הקוד. ברירת המחדל עוקבת אחרי AUTOPILOT_FLY_TARGET של לוח הבקרה.',
     flySocialTip:
       'מתי הטיסה הזו מריצה את המעבר החברתי ב-GitHub (קריאה בלבד): בהמראה, בנחיתה, או בשתיהן וגם בין הפעלות. ברירת המחדל עוקבת אחרי AUTOPILOT_SOCIAL_FLIGHT של לוח הבקרה; המעבר מדלג על עצמו כש-gh אינו מחובר.',
     flyEngineTip:
@@ -3448,6 +3462,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     luckyFitSourcePool: 'מאגר — הטייס שלכם יכול להטיס',
     luckyFitSourcePeople: 'צעד ראשון — ביד',
     lanesFixedFiringCount: 'נתיבים משוגרים עם מספר הפעלות קבוע — כבו קודם את מצב ההוצאה הכוללת.',
+    flyTargetSingleLane:
+      'בחירת יעד הטיסה חלה על טיסה בנתיב בודד — הגדירו נתיבים ל-1 או את יעד הטיסה לברירת מחדל.',
     socialPassSingleLane:
       'בחירת המעבר החברתי חלה על טיסה בנתיב בודד — הגדירו נתיבים ל-1 או את המעבר החברתי לברירת מחדל.',
     engineModelNeeded: 'Codex ו-Gemini צריכים את המודל שה-CLI מריץ — מלאו את מודל המנוע.',

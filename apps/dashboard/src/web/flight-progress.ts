@@ -17,6 +17,9 @@
  *  (the firings landed since the flight's own `startedAt`). */
 export interface SessionFiring {
   readonly cost?: number | null;
+  /** The firing record carries no price (`FlightEntry.costUnpriced`): a
+   *  Codex or Gemini run reports none, so its `cost` column reads 0. */
+  readonly costUnpriced?: boolean;
   readonly durationMs?: number | null;
 }
 
@@ -101,7 +104,10 @@ export interface SessionFlightData {
  *  never passes its firing count, nor spends past a total whose remainder
  *  can't fund another firing (`flight/budget.ts`), so any overshoot is
  *  sibling lanes' firings pooled in the one shared project flight log
- *  (ap-muh80db4-0). This note lives up here, outside the body, because
+ *  (ap-muh80db4-0). The total-spend ETA paces by the priced firings alone:
+ *  an unpriced one (`costUnpriced`, epic 0036) still counts toward the
+ *  duration average but not the $/firing one, and with none priced there is
+ *  no ETA. These notes live up here, outside the body, because
  *  `.toString()` ships the body into `/app.js` against its size budget. */
 export function flightProgressOf(
   s: FlightProgressTarget,
@@ -112,7 +118,12 @@ export function flightProgressOf(
   tr: FlightProgressTranslator,
 ): FlightProgress | null {
   let spentSoFar = 0;
-  for (const f of sessionFirings) spentSoFar += f.cost || 0;
+  let priced = 0;
+  for (const f of sessionFirings) {
+    if (f.costUnpriced === true) continue;
+    priced++;
+    spentSoFar += f.cost || 0;
+  }
   const firingsCompleted = sessionFirings.length;
 
   let pct: number | null = null;
@@ -146,8 +157,8 @@ export function flightProgressOf(
 
   let remainingFirings: number | null = null;
   if (s.totalBudgetUsd) {
-    if (firingsCompleted > 0 && spentSoFar > 0) {
-      const avgCost = spentSoFar / firingsCompleted;
+    if (spentSoFar > 0) {
+      const avgCost = spentSoFar / priced;
       remainingFirings = Math.max(0, Math.floor((s.totalBudgetUsd - spentSoFar) / avgCost));
     }
   } else if (s.firings) {

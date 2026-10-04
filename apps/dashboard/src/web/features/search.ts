@@ -796,9 +796,10 @@ ${applyAskStreamFrame.toString()}
   // The button is tagged data-i18n="ask" in the shell HTML, so a fixed tag
   // would let renderFleet()'s per-tick sweep repaint the idle "Ask" over
   // "Asking…" mid-request — the same trap the flight log's Load-older button
-  // closed. The label is tagged with whichever key matches its state.
+  // closed. The label is tagged with whichever key matches its state;
+  // setSweptText() keeps its leading icon (epic 0025).
   function setAskLabel(key) {
-    askBtn.textContent = tr(key);
+    setSweptText(askBtn, tr(key));
     askBtn.setAttribute('data-i18n', key);
   }
   if (askBtn) askBtn.addEventListener('click', function () {

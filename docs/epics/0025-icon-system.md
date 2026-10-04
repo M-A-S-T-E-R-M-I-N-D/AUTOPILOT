@@ -650,7 +650,28 @@ propagation, and the filled style does not match the nav.
    Each icon is decorative, so a button's name stays its words, in Hebrew
    too (`apps/dashboard/test/web/onboarding-head-icons.test.ts`, axe-clean).
    The minimised strip's "Go social: connect GitHub" stays bare words: the
-   Connect popover it opens draws no icon to borrow.
+   Connect popover it opens draws no icon to borrow. **Search bar's Search
+   and Ask 2026-10-04 (slice 2):** the command palette's title leads with
+   `search` and the Ask corner button and its sheet with `message-circle`,
+   but the search bar's own Search and Ask, where a code question starts,
+   were bare words. Search leads with the palette's `search` and Ask with
+   the corner button's `message-circle`, since it asks the same model.
+   Nothing is newly vendored, and both are server-printed markup the locale
+   sweep keeps a leading icon in. Ask's "Asking…" and the restored "Ask"
+   used to replace the button's whole `textContent`; they go through
+   `setSweptText()` now, so the icon survives a run and a failed one (core
+   grows 57 bytes for it, 253.2KB raw). Each icon is decorative, so a button's name stays its words, in
+   Hebrew too (`apps/dashboard/test/web/search-ask-button-icons.test.ts`,
+   axe-clean). **Replay Exit 2026-10-04 (slice 2):** the Firing Replay's
+   toggle leads with `play` and its bar steps with chevron-led Prev and Next,
+   but the "Exit replay" button at the bar's end was bare words. It leads
+   with the `x` the What's new Close and the Docs editor's Cancel draw now,
+   since it puts the replay away and brings the full trace list back; nothing
+   is newly vendored, and `x` is symmetric, so it takes no `dir="rtl"` mirror
+   the chevrons need. The icon is decorative, so the button's name stays its
+   words, in Hebrew too. The bar is rebuilt on every step and the locale sweep
+   keeps a leading icon, so neither a step nor a switch drops it
+   (`apps/dashboard/test/web/replay-exit-icon.test.ts`, axe-clean).
 
 ## Related
 

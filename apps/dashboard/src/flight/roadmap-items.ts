@@ -32,6 +32,7 @@ import type { CliExec } from '../connection/cli-probe.js';
 import { MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
 import { isMaintainerMarked } from './contributor-issue-list.js';
 import { normalizeLabel } from './pool-client.js';
+import { commentClaims } from './help-wanted-items.js';
 
 /** The label `taxonomy-seed.ts` seeds for "tracks a docs/ROADMAP.md
  *  direction item" — the only label this module reads by. Read in any casing
@@ -50,6 +51,16 @@ export interface RoadmapItem {
   readonly url: string;
   readonly labels: readonly string[];
   readonly assignees: readonly string[];
+  /** Logins holding the issue by a live claim comment alone, with no
+   *  assignment behind it, oldest claim first: THE CLAIMS LEDGER
+   *  (claim-ledger.ts) read the way the pool reads it, as the help-wanted
+   *  group beside this one reads it (help-wanted-items.ts). A roadmap issue
+   *  in the pool is claimed like any other, and an outside contributor's
+   *  claim is often its comment alone, because the assign after it needs
+   *  triage rights on the repo (#27). Present only when the ledger names
+   *  someone {@link assignees} does not, so an issue with no such claim keeps
+   *  the shape it always had. */
+  readonly claimedByComment?: readonly string[];
 }
 
 /** True when `labels` carries the `roadmap` label, in any casing, compared
@@ -65,26 +76,30 @@ export function isRoadmapItem(labels: readonly string[]): boolean {
  *  (help-wanted-items.ts), the pool claim and the Good-first list all skip it
  *  (epic 0019 law 2: the maintainer's mark outranks a listing). A marked item
  *  someone holds stays listed: "Claimed by" is still true, and the holder's My
- *  claims filter still finds it. */
+ *  claims filter still finds it. A claim comment holds it as an assignment
+ *  does ({@link RoadmapItem.claimedByComment}). */
 function isMarkedAndUnclaimed(item: RoadmapItem): boolean {
-  return item.assignees.length === 0 && isMaintainerMarked(item.labels);
+  const held = item.assignees.length > 0 || (item.claimedByComment ?? []).length > 0;
+  return !held && isMaintainerMarked(item.labels);
 }
 
 /** One issue entry as `gh issue list --json number,title,url,labels,
- *  assignees` emits it — untrusted process output, parsed defensively
- *  rather than trusted as already shaped like {@link RoadmapItem}. */
+ *  assignees,comments` emits it — untrusted process output, parsed
+ *  defensively rather than trusted as already shaped like {@link
+ *  RoadmapItem}. */
 interface RawRoadmapItem {
   readonly number?: unknown;
   readonly title?: unknown;
   readonly url?: unknown;
   readonly labels?: unknown;
   readonly assignees?: unknown;
+  readonly comments?: unknown;
 }
 
 /**
  * Lists every open issue carrying the `roadmap` label (up to
  * `MAX_ISSUE_LIST`) via `gh issue list --state open --label roadmap --json
- * number,title,url,labels,assignees`, run through the injectable `exec` —
+ * number,title,url,labels,assignees,comments`, run through the injectable `exec` —
  * the same `CliExec` shape `issue-triage.ts`'s `fetchOpenIssues` and
  * `pool-client.ts`'s `fetchPoolIssues` use. Returns `[]` on a non-zero exit or
  * unparseable/non-array stdout rather than throwing — an empty roadmap is a
@@ -93,8 +108,11 @@ interface RawRoadmapItem {
  * `number`, string `title`, or string `url` are dropped rather than passed
  * through malformed — a single bad row must not throw, because
  * `collaboration.ts` composes this read with `help-wanted-items.ts`'s and a
- * throw there would blank both panels. An unassigned issue the maintainer has
- * declined or put on hold is dropped ({@link isMarkedAndUnclaimed}).
+ * throw there would blank both panels. The comments are read for the claims
+ * ledger alone, the fields `pool-client.ts`'s `fetchPoolIssues` asks for: a
+ * claim held only by its comment rides {@link RoadmapItem.claimedByComment},
+ * so the panel says who holds it. An issue nobody holds that the maintainer
+ * has declined or put on hold is dropped ({@link isMarkedAndUnclaimed}).
  */
 export async function fetchRoadmapItems(exec: CliExec): Promise<RoadmapItem[]> {
   const { code, stdout } = await exec('gh', [
@@ -107,7 +125,7 @@ export async function fetchRoadmapItems(exec: CliExec): Promise<RoadmapItem[]> {
     '--limit',
     String(MAX_ISSUE_LIST),
     '--json',
-    'number,title,url,labels,assignees',
+    'number,title,url,labels,assignees,comments',
   ]);
   if (code !== 0) return [];
 
@@ -127,12 +145,16 @@ export async function fetchRoadmapItems(exec: CliExec): Promise<RoadmapItem[]> {
         typeof raw.title === 'string' &&
         typeof raw.url === 'string',
     )
-    .map((raw) => ({
-      number: raw.number as number,
-      title: raw.title as string,
-      url: raw.url as string,
-      labels: parseIssueLabels(raw.labels),
-      assignees: parseAssignees(raw.assignees),
-    }))
+    .map((raw) => {
+      const assignees = parseAssignees(raw.assignees);
+      return {
+        number: raw.number as number,
+        title: raw.title as string,
+        url: raw.url as string,
+        labels: parseIssueLabels(raw.labels),
+        assignees,
+        ...commentClaims(assignees, raw.comments),
+      };
+    })
     .filter((item) => isRoadmapItem(item.labels) && !isMarkedAndUnclaimed(item));
 }
