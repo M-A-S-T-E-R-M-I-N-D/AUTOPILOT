@@ -38,9 +38,11 @@ export interface WarmSessionGroupStats {
   readonly avgFreshInputTokens: number | null;
   readonly avgCacheReadTokens: number | null;
   readonly avgCacheWriteTokens: number | null;
+  /** Mean cost over the group's PRICED firings ({@link PRICED_METRICS_SQL}):
+   *  null when none of them names a price. */
   readonly avgCostUsd: number | null;
   readonly avgTurns: number | null;
-  /** Mean of each firing's OWN `cost_usd / turns` ratio — not group-total cost
+  /** Mean of each priced firing's OWN `cost_usd / turns` ratio — not group-total cost
    *  over group-total turns, which would collapse a mix of cheap-short and
    *  expensive-long firings into one misleading average. The confound-controlled
    *  metric epic 0009 still needed: raw `avgCostUsd` conflates resume's effect
@@ -96,6 +98,29 @@ function delta(cold: number | null, resumed: number | null): number | null {
 }
 
 /**
+ * A project's metrics rows, each with `known_cost`: its `cost_usd`, or NULL
+ * when its firing record says the cost is unknown, so `AVG` leaves it out
+ * rather than averaging it in as free (epic 0036). A Codex or Gemini run
+ * reports no price, and a run killed before its envelope has none
+ * (`firing.ts`, DEATH-COST): the record says `costUsd: null` and the column
+ * stores 0. A record that is missing, unreadable or silent on cost leaves the
+ * column's figure standing, the rule the dashboard's `recordsNoPrice` reads.
+ * `EXISTS`, not a join, so a record written twice cannot count its firing
+ * twice; `json_valid` gates `json_type` inside a CASE, since `json_type`
+ * throws on malformed JSON.
+ */
+const PRICED_METRICS_SQL = `(
+  SELECT m.*,
+         CASE WHEN EXISTS (
+                SELECT 1 FROM events e
+                 WHERE e.firing_id = m.firing_id AND e.type = 'firing'
+                   AND json_type(CASE WHEN json_valid(e.payload) THEN e.payload END, '$.costUsd') = 'null'
+              ) THEN NULL ELSE m.cost_usd END AS known_cost
+    FROM metrics m
+   WHERE m.project_id = ?
+)`;
+
+/**
  * Per-firing cost anatomy grouped by resume disposition, over a project's full
  * recorded history. Reads the queryable `metrics.resumed` projection (written
  * by `SqliteFiringStore.recordFiring`) — same plain-SQL-over-`metrics` shape as
@@ -113,11 +138,10 @@ export function warmSessionSavings(db: Db, projectId: string): WarmSessionSaving
               AVG(input_tokens) AS avgFreshInputTokens,
               AVG(cache_read_tokens) AS avgCacheReadTokens,
               AVG(cache_write_tokens) AS avgCacheWriteTokens,
-              AVG(cost_usd) AS avgCostUsd,
+              AVG(known_cost) AS avgCostUsd,
               AVG(turns) AS avgTurns,
-              AVG(CASE WHEN turns > 0 THEN CAST(cost_usd AS REAL) / turns END) AS avgCostPerTurn
-         FROM metrics
-        WHERE project_id = ?
+              AVG(CASE WHEN turns > 0 THEN CAST(known_cost AS REAL) / turns END) AS avgCostPerTurn
+         FROM ${PRICED_METRICS_SQL}
         GROUP BY grp`,
     )
     .all(projectId) as GroupRow[];
@@ -181,11 +205,10 @@ export function extendedFiringSavings(db: Db, projectId: string): ExtendedFiring
               AVG(input_tokens) AS avgFreshInputTokens,
               AVG(cache_read_tokens) AS avgCacheReadTokens,
               AVG(cache_write_tokens) AS avgCacheWriteTokens,
-              AVG(cost_usd) AS avgCostUsd,
+              AVG(known_cost) AS avgCostUsd,
               AVG(turns) AS avgTurns,
-              AVG(CASE WHEN turns > 0 THEN CAST(cost_usd AS REAL) / turns END) AS avgCostPerTurn
-         FROM metrics
-        WHERE project_id = ?
+              AVG(CASE WHEN turns > 0 THEN CAST(known_cost AS REAL) / turns END) AS avgCostPerTurn
+         FROM ${PRICED_METRICS_SQL}
         GROUP BY grp`,
     )
     .all(projectId) as ExtendedGroupRow[];

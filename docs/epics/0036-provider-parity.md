@@ -254,7 +254,14 @@ each firing's metrics column, so one $2.00 Claude ship beside two Codex ships re
 `flightDebriefOf` (`web/flight-debrief.ts`) now reads the flight-log entry's `costUnpriced`, counts
 such a firing in `unpriced` and leaves it out of the total, the best and the worst, and
 `flightDebriefChipItems` names them beside the priced total (`$2.00 + 2 unpriced`), or alone when
-none was priced (`2 unpriced`), its tip saying a Codex or Gemini run reports no price. Since
+none was priced (`2 unpriced`), its tip saying a Codex or Gemini run reports no price. Until a later
+2026-10-04 commit the WARM SESSIONS panel, epic 0009's resumed-against-cold comparison, averaged them
+in as free too: one resumed $3.00 Claude firing beside one resumed Codex firing read a $1.50 resumed
+average, so resume looked cheaper than it was. `warmSessionSavings` and `extendedFiringSavings`
+(`packages/store/src/warm-sessions.ts`) now average cost over a group's priced firings alone
+(`PRICED_METRICS_SQL`: a firing whose record says `costUsd: null` has no `known_cost`, by the
+`recordsNoPrice` rule), its tokens and turns still counted, and a group with no priced firing has no
+cost average, so its cost tiles read `—`. Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
