@@ -4,7 +4,12 @@
 import type { ClaudeBackend } from '../connection/config.js';
 import { firingEngineFromRequest, type FiringEngineRoute } from './firing-engine.js';
 import { preflightRefusal, preflightWarnings, type PreflightReport } from './preflight.js';
-import { parseSocialFlightToggle, type SocialFlightToggle } from './social-flight-trigger.js';
+import {
+  parseFlyTarget,
+  parseSocialFlightToggle,
+  type FlyTarget,
+  type SocialFlightToggle,
+} from './social-flight-trigger.js';
 
 /**
  * The FlightRunner — the dashboard's "fly this folder" backing service. It owns a
@@ -114,6 +119,15 @@ export interface FlightRunnerDeps {
      * inherits this dashboard process's own env, as before.
      */
     engine?: FiringEngineRoute,
+    /**
+     * Epic 0016 slice 4/6's standalone "Fly GitHub" choice (board
+     * web-mtpzzxn4-69csqx): what THIS flight flies, already read through
+     * `parseFlyTarget` by `start()`. A real implementation sets the child's
+     * `AUTOPILOT_FLY_TARGET` to exactly this value when given. Undefined
+     * when the launch chose none: the child inherits this dashboard
+     * process's own env, as before.
+     */
+    flyTarget?: FlyTarget,
   ) => SpawnedFlight;
   /** Does the target folder exist (and is usable as a flight target)? */
   readonly folderExists: (folder: string) => boolean;
@@ -280,6 +294,15 @@ export interface StartFlightInput {
    */
   readonly engine?: string;
   readonly engineModel?: string;
+  /**
+   * Epic 0016 slice 4/6's standalone "Fly GitHub" choice: `code` or
+   * `github`. Raw HTTP input like `socialFlight`, but no default is safe
+   * here (see `parseFlyTarget`), so `start()` refuses anything it cannot
+   * read rather than guess which way the flight may go. Omitted (every
+   * existing caller): the child inherits this dashboard process's own
+   * `AUTOPILOT_FLY_TARGET`, exactly as before.
+   */
+  readonly flyTarget?: string;
 }
 
 export interface StartFlightResult {
@@ -355,6 +378,14 @@ function engineStatus(
     backend: backend.kind,
     ...(backend.host ? { backendHost: backend.host } : {}),
   };
+}
+
+/** `StartFlightInput.flyTarget` read off an untrusted HTTP body: omitted is
+ *  `undefined` (the child inherits), a string reads through `parseFlyTarget`,
+ *  and anything else is `null` — a refusal, never a guess at either target. */
+function flyTargetFromRequest(raw: unknown): FlyTarget | undefined | null {
+  if (raw === undefined) return undefined;
+  return typeof raw === 'string' ? parseFlyTarget(raw) : null;
 }
 
 /** Floored at `budgetUsd` — a total target below one firing's cost is nonsense. */
@@ -503,6 +534,16 @@ export class FlightRunner {
       return { started: false, message: engineRequest.reason, status: IDLE };
     }
     const engine = engineRequest.route;
+    const flyTarget = flyTargetFromRequest(input.flyTarget);
+    if (flyTarget === null) {
+      return {
+        started: false,
+        message:
+          `fly target ${JSON.stringify(input.flyTarget)} is neither "code" nor "github" — ` +
+          'refusing to take off rather than guess whether this flight may edit the code tree',
+        status: IDLE,
+      };
+    }
     let warnings: string | null = null;
     if (this.deps.preflight) {
       const report = this.deps.preflight(folder, input.instanceId?.trim() || undefined, engine);
@@ -549,6 +590,7 @@ export class FlightRunner {
       undefined,
       socialFlight,
       engine,
+      flyTarget,
     );
     this.#child = child;
     this.#status = {

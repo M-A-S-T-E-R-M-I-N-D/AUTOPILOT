@@ -348,6 +348,50 @@ describe('createSpawnFlight', () => {
     });
   });
 
+  describe('flyTarget choice (epic 0016 "The GitHub Social Flight", slice 4/6 standalone)', () => {
+    const originalFlyTarget = process.env['AUTOPILOT_FLY_TARGET'];
+    afterEach(() => {
+      if (originalFlyTarget === undefined) delete process.env['AUTOPILOT_FLY_TARGET'];
+      else process.env['AUTOPILOT_FLY_TARGET'] = originalFlyTarget;
+    });
+
+    function spawnWith(flyTarget?: Parameters<ReturnType<typeof createSpawnFlight>>[9]): object {
+      spawnMock.mockReturnValue(fakeChild());
+      createSpawnFlight('/repo/dist/fly.js', () => join(dir, 'flight.log'))(
+        '/target',
+        2,
+        5,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        flyTarget,
+      );
+      const [, , options] = spawnMock.mock.calls[0] as [string, string[], { env: object }];
+      return options.env;
+    }
+
+    it('rides a chosen target as AUTOPILOT_FLY_TARGET, over whatever this process inherited', () => {
+      process.env['AUTOPILOT_FLY_TARGET'] = 'code';
+
+      expect(spawnWith('github')).toMatchObject({ AUTOPILOT_FLY_TARGET: 'github' });
+    });
+
+    it('names code outright when code was chosen, so an inherited github target cannot win', () => {
+      process.env['AUTOPILOT_FLY_TARGET'] = 'github';
+
+      expect(spawnWith('code')).toMatchObject({ AUTOPILOT_FLY_TARGET: 'code' });
+    });
+
+    it('leaves the inherited target untouched when none was chosen', () => {
+      process.env['AUTOPILOT_FLY_TARGET'] = 'github';
+
+      expect(spawnWith()).toMatchObject({ AUTOPILOT_FLY_TARGET: 'github' });
+    });
+  });
+
   describe('engine choice (epic 0036, per-lane pilot)', () => {
     const saved = {
       engine: process.env['AUTOPILOT_ENGINE'],

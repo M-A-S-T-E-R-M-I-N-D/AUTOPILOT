@@ -106,10 +106,18 @@ Per pass, mechanically derived — no guesses:
    as `code` and any other value as a refusal to take off, never a guess
    (`test/flight/social-flight-trigger.test.ts`,
    `test/flight/social-flight-pass.test.ts`; RUNBOOK §13).
-   _Still open:_ the fly-bar choice and its `POST /api/fly` field (the
+   The `POST /api/fly` field is shipped too: `flyTarget` takes the
    `socialFlight` path through `runner.ts` → `registry.ts` →
-   `spawn-flight.ts`), and persisting the standalone digest for the FLIGHT
-   DEBRIEF panel, which needs the store this mode skips today.
+   `spawn-flight.ts` and reaches the child as `AUTOPILOT_FLY_TARGET`. A
+   launch that names none still inherits the dashboard process's own value.
+   `start()` reads the field through `parseFlyTarget`, and it refuses a
+   value it cannot read, or a non-string one, before the preflight or any
+   spawn. That is fly.ts's own no-guess rule
+   (`test/flight/runner.test.ts`, `test/flight/registry.test.ts`,
+   `test/flight/spawn-flight.test.ts`).
+   _Still open:_ the fly-bar control that sends `flyTarget`, and persisting
+   the standalone digest for the FLIGHT DEBRIEF panel, which needs the
+   store this mode skips today.
 5. **observability**: every social action in the flight log + a SOCIAL
    section in the debrief (what was said/filed/closed, caps consumed).
    _Shipped so far:_ every woven-in pass already says its own line as it
