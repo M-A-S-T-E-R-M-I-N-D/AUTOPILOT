@@ -15,6 +15,7 @@ import {
   summarizeConvergence,
   summarizeEscalations,
   renderFleetReport,
+  type ReportDemotion,
   type ReportFiring,
 } from '../../src/read/fleet-report.js';
 
@@ -303,6 +304,58 @@ describe('renderFleetReport by engine (epic 0036)', () => {
     const text = renderFleetReport([base, quota], [], 'w').join('\n');
     expect(text).toMatch(/^by engine\n {2}claude +1 firings {2}shipped 100%/m);
     expect(text).toContain('  left out: 1 firing the account quota killed\n\nby model\n');
+  });
+});
+
+// Epic 0036: a demoted lane stops taking work, which the engine section's
+// rates alone never say — it names which lane, on which engine, stopped.
+describe('renderFleetReport demoted lanes (epic 0036)', () => {
+  const codex: ReportFiring = {
+    ...base,
+    firingId: 'fly-autopilot--fleet-2:firing-2',
+    model: 'gpt-5-codex',
+    engine: 'codex',
+  };
+  const demoted: ReportDemotion = {
+    lane: 'fleet-2',
+    engine: 'codex',
+    model: 'gpt-5-codex',
+    reverted: 2,
+    firings: 3,
+  };
+
+  it('names each demoted lane, its engine and model, right after the engine section', () => {
+    const lines = renderFleetReport([base, codex], [], 'w', [], [], [demoted]);
+    const start = lines.indexOf('demoted lanes');
+    expect(start).toBeGreaterThan(lines.indexOf('by engine'));
+    expect(lines[start - 1]).toBe('');
+    expect(lines.slice(start + 1, lines.indexOf('', start))).toEqual([
+      '  fleet-2 codex (gpt-5-codex)  demoted after 3 firings, 2 reverted in a row',
+    ]);
+    expect(lines.indexOf('', start) + 1).toBe(lines.indexOf('by model'));
+  });
+
+  it('lines the lanes up, and leaves out what an unreadable record never said', () => {
+    const demotions: ReportDemotion[] = [
+      { ...demoted, lane: 'base', firings: 1 },
+      { lane: 'fleet-12', engine: 'unrecorded', model: null, reverted: null, firings: null },
+    ];
+    const lines = renderFleetReport([base], [], 'w', [], [], demotions);
+    const start = lines.indexOf('demoted lanes');
+    expect(lines.slice(start + 1, start + 3)).toEqual([
+      '  base     codex (gpt-5-codex)  demoted after 1 firing, 2 reverted in a row',
+      '  fleet-12 unrecorded  demoted',
+    ]);
+  });
+
+  it('says none when a lane flew off Claude and none was demoted', () => {
+    const text = renderFleetReport([base, codex], [], 'w').join('\n');
+    expect(text).toContain('\n\ndemoted lanes\n  none\n\nby model\n');
+  });
+
+  it('prints no section for a fleet that flew Claude alone, which is never demoted', () => {
+    const text = renderFleetReport([base, { ...base, engine: null }], [], 'w').join('\n');
+    expect(text).not.toContain('demoted lanes');
   });
 });
 
