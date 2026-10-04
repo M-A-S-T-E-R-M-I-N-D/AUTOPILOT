@@ -48,9 +48,10 @@ export function getIndexMeta(db: Db, projectId: string): ProjectIndexMetaRow | n
  * the rule the dashboard's `recordsNoPrice` reads. `EXISTS`, not a join, so a
  * record written twice cannot count its firing twice; `json_valid` gates
  * `json_type` inside a CASE, since `json_type` throws on malformed JSON.
- * `warm-sessions.ts`'s `PRICED_METRICS_SQL` reads the same clause.
+ * `warm-sessions.ts`'s `PRICED_METRICS_SQL` reads the same clause, and
+ * `eval-gate.ts`'s `evalRegressionByPickSource` reads this one.
  */
-const UNPRICED_FIRING_SQL = `EXISTS (
+export const UNPRICED_FIRING_SQL = `EXISTS (
   SELECT 1 FROM events e
    WHERE e.firing_id = m.firing_id AND e.type = 'firing'
      AND json_type(CASE WHEN json_valid(e.payload) THEN e.payload END, '$.costUsd') = 'null'

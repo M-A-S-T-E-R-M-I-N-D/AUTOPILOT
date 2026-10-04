@@ -104,6 +104,26 @@ describe('evalRegressionByPromptVersion', () => {
     const [row] = evalRegressionByPromptVersion(store.db, 'p1');
     expect(row).toMatchObject({ firings: 1, shipped: 0, passRate: 0, costPerSolved: null });
   });
+
+  // Epic 0036: a Codex or Gemini run reports no price (`costUsd: null`).
+  // Dividing the priced total by every ship read one $2.00 Claude ship beside
+  // two such ships as $0.67 per solve, so a costlier prompt passed the gate.
+  it('divides cost per solved by the priced ships alone, not an unpriced ship as $0', () => {
+    insertProject('p1', 'alpha', 'flying', 100);
+    insertFiringEvent('p1', 'v1', true, 10, 2);
+    insertFiringEvent('p1', 'v1', true, 10, null);
+    insertFiringEvent('p1', 'v1', true, 10, null);
+    const [row] = evalRegressionByPromptVersion(store.db, 'p1');
+    expect(row).toMatchObject({ firings: 3, shipped: 3, costPerSolved: 2, costVariance: 0 });
+  });
+
+  it('reports no cost per solved when no ship carries a price', () => {
+    insertProject('p1', 'alpha', 'flying', 100);
+    insertFiringEvent('p1', 'v1', true, 10, null);
+    insertFiringEvent('p1', 'v1', false, 10, 1);
+    const [row] = evalRegressionByPromptVersion(store.db, 'p1');
+    expect(row).toMatchObject({ firings: 2, shipped: 1, costPerSolved: null });
+  });
 });
 
 describe('verifiedKnownGoodFirings', () => {
@@ -379,6 +399,51 @@ describe('evalRegressionByPickSource', () => {
     const rows = evalRegressionByPickSource(store.db, 'p1');
     expect(rows.map((r) => r.pickSource)).toEqual(['free-pick', 'operator-assigned']);
     expect(rows.map((r) => r.firings)).toEqual([3, 1]);
+  });
+
+  function insertFiringRecord(projectId: string, firingId: string, payload: string): void {
+    store.db
+      .prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES (?, ?, 'firing', ?, 1)`,
+      )
+      .run(projectId, firingId, payload);
+  }
+
+  // Epic 0036: the metrics column stores an unpriced run's `costUsd: null` as
+  // 0, so only the firing record tells a Codex or Gemini ship from a free one.
+  it('leaves a ship whose record says its cost is unknown out of the cost numbers', () => {
+    insertProject('p1', 'alpha', 'flying', 100);
+    insertMetricForPick('p1', 'f1', null, 1, 2, 10);
+    insertMetricForPick('p1', 'f2', null, 1, 0, 10);
+    insertMetricForPick('p1', 'f3', null, 1, 0, 10);
+    insertFiringRecord('p1', 'f1', JSON.stringify({ costUsd: 2 }));
+    insertFiringRecord('p1', 'f2', JSON.stringify({ costUsd: null }));
+    insertFiringRecord('p1', 'f3', JSON.stringify({ costUsd: null }));
+
+    const [row] = evalRegressionByPickSource(store.db, 'p1');
+    expect(row).toMatchObject({ firings: 3, shipped: 3, costPerSolved: 2, costVariance: 0 });
+  });
+
+  it('keeps the column cost when the record is missing, malformed or silent on cost', () => {
+    insertProject('p1', 'alpha', 'flying', 100);
+    insertMetricForPick('p1', 'f1', null, 1, 1, 10);
+    insertMetricForPick('p1', 'f2', null, 1, 1, 10);
+    insertMetricForPick('p1', 'f3', null, 1, 1, 10);
+    insertFiringRecord('p1', 'f2', 'not json');
+    insertFiringRecord('p1', 'f3', JSON.stringify({ shipped: true }));
+
+    const [row] = evalRegressionByPickSource(store.db, 'p1');
+    expect(row).toMatchObject({ firings: 3, shipped: 3, costPerSolved: 1 });
+  });
+
+  it('reports no cost per solved when no ship carries a price', () => {
+    insertProject('p1', 'alpha', 'flying', 100);
+    insertMetricForPick('p1', 'f1', null, 1, 0, 10);
+    insertFiringRecord('p1', 'f1', JSON.stringify({ costUsd: null }));
+
+    const [row] = evalRegressionByPickSource(store.db, 'p1');
+    expect(row).toMatchObject({ firings: 1, shipped: 1, costPerSolved: null, costVariance: null });
   });
 });
 
