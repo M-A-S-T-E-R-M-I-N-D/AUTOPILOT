@@ -399,6 +399,21 @@ carries the digest). A silent flight writes no row. The change touches neither
 `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's
 snapshot/audit calls — no new path into `target`, no worktree wiring change.
 
+Freshness check (2026-10-04, yet again): `fly.ts` gained one more commit since the check above —
+`6029919c` (epic 0016 slice 4/6), which adds a standalone `AUTOPILOT_FLY_TARGET=github` mode.
+`parseFlyTarget` reads the env var at the top of `main()`, before the lock, the store, onboarding
+(its backup writes git refs) and the worktree. Unset or empty parses to `'code'` — every flight
+before this change, and the only target that ever reaches `deriveWorktreePlan`/`ensureWorktree`.
+`'github'` instead runs `runGithubOnlyFlight` (one read-only social pass), prints the debrief line,
+and returns — the worktree is never derived or created in this mode, because nothing in it needs
+to touch the code tree at all. Anything else refuses to take off rather than guess, also before the
+worktree exists, so a misspelled target can't fall through to editing `target` unguarded. Because
+this mode returns before `deriveWorktreePlan` is ever called, it touches neither that function,
+`ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's snapshot/audit calls — the same
+shape as the onboarding/backup carve-out (see Out of scope), just opt-in via an env var rather than
+unconditional. The isolation boundary for the `'code'` target, the one this epic covers, is
+unchanged.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a
