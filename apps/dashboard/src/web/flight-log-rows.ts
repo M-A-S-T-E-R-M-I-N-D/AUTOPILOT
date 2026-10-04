@@ -237,6 +237,9 @@ export function flightGroupHeadMeta(
 
 /** A flight-log row's cost/relative-timestamp chip tip+aria-label pair. */
 export interface FlightCostAgoMeta {
+  /** The cost chip's visible text: the formatted cost, or `unpriced` for a
+   *  firing whose engine reported no price (epic 0036). */
+  readonly costText: string;
   readonly costTip: string;
   readonly costAriaLabel: string;
   /** Cost semantics v3 (epic 0013) — the real-cost chip's visible text, null
@@ -264,7 +267,10 @@ export interface FlightCostAgoMeta {
  *  injection, the same `flightGroupHeadMeta` pattern. `realCostUsd` (cost
  *  semantics v3, epic 0013 slice 3) is surfaced NEXT TO `cost`, never in
  *  place of it — an operator on a flat-rate subscription sees both the
- *  API list-price and its real, subscription-apportioned share. */
+ *  API list-price and its real, subscription-apportioned share.
+ *  `costUnpriced` marks a firing whose record carries no price (a Codex or
+ *  Gemini run, epic 0036): its `cost` is the metrics column's 0, so the chip
+ *  reads `unpriced` instead of a $0.00 that would call the run free. */
 export function flightCostAgoMeta(
   costTip: string,
   agoTip: string,
@@ -273,11 +279,14 @@ export function flightCostAgoMeta(
   fmtCost: (n: number) => string,
   fmtAgo: (at: number) => string,
   realCostUsd?: number | null,
+  costUnpriced?: boolean,
 ): FlightCostAgoMeta {
   const realCostText = typeof realCostUsd === 'number' ? 'real ' + fmtCost(realCostUsd) : null;
   return {
+    costText: costUnpriced === true ? 'unpriced' : fmtCost(cost),
     costTip,
-    costAriaLabel: 'cost: ' + fmtCost(cost),
+    costAriaLabel:
+      costUnpriced === true ? 'cost: unpriced, no price was reported' : 'cost: ' + fmtCost(cost),
     realCostText,
     realCostTip: realCostText
       ? 'Real cost: this spend apportioned by your subscription share, not API list-price'
