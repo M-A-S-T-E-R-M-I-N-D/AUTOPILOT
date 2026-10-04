@@ -329,6 +329,24 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    label; a good first issue with no `agent-ok` still reserved; and `agent`,
    `agent-ok-later`, `not agent-ok` and `agents-ok` still keeping the
    reservation.
+   The `area:`/`priority:` families followed (epic 0019's additive-only law,
+   the KEEPER triage flow; the mirror pass already read `Priority: High` as
+   the maintainer's band, 1ada0dad). Triage keeps a single family label a
+   person set (`handSetFamilyLabel`) and removes a contradicting sibling in
+   the same edit (`supersededFamilyLabels`). Both matched the seeder's
+   spelling exactly, so on a repo whose label reads `Area: Community` the
+   classifier's guess went on beside it and the re-cased label was never
+   removed: the issue wore two areas, the #21/#27/#28 contradiction. Both now
+   read a label name in any casing, surrounding space trimmed, and nothing
+   else folded: these reads decide what the edit removes, and a hyphen makes
+   a different GitHub label. The hand-set answer is the known spelling, which
+   gh lands on the re-cased label; a superseded label is removed as the issue
+   carries it, and a re-cased chosen label is never removed by the edit that
+   adds it back. Covered by `test/flight/issue-triage-family-casing.test.ts`
+   — three spellings of a hand-set pair kept with no guess added and nothing
+   removed, re-cased contradicting siblings cleared as carried, and
+   `Area: Nonsense`, `Areas: Community` and `Area:Community` still ignored
+   (written first, 13 of 22 checks failed).
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure
