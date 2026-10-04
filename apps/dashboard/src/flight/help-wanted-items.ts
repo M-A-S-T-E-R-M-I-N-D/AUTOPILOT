@@ -120,8 +120,9 @@ interface RawHelpWantedItem {
 /** The ledger's claimants GitHub does not list as assignees, as {@link
  *  HelpWantedItem.claimedByComment} carries them; `{}` when there are none.
  *  An assignee the ledger reads as released still shows in `assignees`, as
- *  the routing console shows it: GitHub still lists them. */
-function commentClaims(
+ *  the routing console shows it: GitHub still lists them. The roadmap group
+ *  beside this one (roadmap-items.ts) reads its claims the same way. */
+export function commentClaims(
   assignees: readonly string[],
   comments: unknown,
 ): Pick<HelpWantedItem, 'claimedByComment'> {

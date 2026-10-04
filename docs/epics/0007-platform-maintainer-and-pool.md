@@ -1341,7 +1341,15 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    handed back with `/unclaim` reads Unclaimed again. Covered by
    `test/flight/help-wanted-items-claim-comment.test.ts`, whose fake gh
    returns only the fields `--json` asked for (written first, 6 of its 9
-   checks failed). The roadmap group still reads assignees alone.
+   checks failed).
+   Refined 2026-10-04 (same law, the roadmap group beside it): a roadmap
+   issue in the pool is claimed like any other, but `fetchRoadmapItems` read
+   assignees only, so the same comment-only claim showed as "Unclaimed" there.
+   It now asks gh for `comments` too and carries `claimedByComment` through
+   the help-wanted read's own `commentClaims`, so both groups read the ledger
+   one way; the panel already reads the field on any entry. Widening only, as
+   above. Covered by `test/flight/roadmap-items-claim-comment.test.ts`
+   (written first, 5 of its 8 checks failed).
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable
