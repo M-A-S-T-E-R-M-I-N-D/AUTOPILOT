@@ -27,8 +27,10 @@ describe('isRoadmapItem', () => {
     expect(isRoadmapItem([])).toBe(false);
   });
 
-  it('matches the seeded spelling exactly — unlike the GitHub-default help wanted label, roadmap is ours', () => {
-    expect(isRoadmapItem(['Roadmap', 'roadmap: v2', ' roadmap'])).toBe(false);
+  it('matches the roadmap label in any casing — the seeder keeps an existing label spelled Roadmap', () => {
+    expect(isRoadmapItem(['Roadmap'])).toBe(true);
+    expect(isRoadmapItem([' roadmap'])).toBe(true);
+    expect(isRoadmapItem(['roadmap: v2'])).toBe(false);
   });
 });
 

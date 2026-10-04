@@ -31,9 +31,14 @@
 import type { CliExec } from '../connection/cli-probe.js';
 import { MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
 import { isMaintainerMarked } from './contributor-issue-list.js';
+import { normalizeLabel } from './pool-client.js';
 
 /** The label `taxonomy-seed.ts` seeds for "tracks a docs/ROADMAP.md
- *  direction item" — the only label this module reads by. */
+ *  direction item" — the only label this module reads by. Read in any casing
+ *  ({@link isRoadmapItem}): `gh issue list --label` runs a GitHub search,
+ *  which matches a label name in any casing, and the seeder's `gh label create
+ *  --force` keeps an existing label's casing, so a repo's label may read
+ *  `Roadmap`. */
 export const ROADMAP_LABEL = 'roadmap';
 
 /** One open, `roadmap`-labeled GitHub issue — the subset `gh issue list`
@@ -47,9 +52,11 @@ export interface RoadmapItem {
   readonly assignees: readonly string[];
 }
 
-/** True when `labels` carries the `roadmap` label. */
+/** True when `labels` carries the `roadmap` label, in any casing, compared
+ *  the way the help-wanted group beside it and the maintainer's marks are
+ *  (pool-client.ts normalizeLabel). */
 export function isRoadmapItem(labels: readonly string[]): boolean {
-  return labels.includes(ROADMAP_LABEL);
+  return labels.some((label) => normalizeLabel(label) === ROADMAP_LABEL);
 }
 
 /** True when nobody holds the item and the maintainer has declined it or put
