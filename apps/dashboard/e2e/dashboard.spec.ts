@@ -46,6 +46,11 @@ test.describe('dashboard boot smoke', () => {
       // publicity self-init poll — the panel extracted to web/features/ (epic
       // 0007 slice 7); the e2e server wires no publicity API by design.
       '404 /api/publicity',
+      // routing-console self-init poll (epic 0019 S4, round 84): the panel
+      // reads milestone progress and label queues from GitHub; the hermetic
+      // fixture wires none, and the panel treats the 404 as "not configured"
+      // and stays hidden, same class as the rest.
+      '404 /api/routing-console',
       '404 /api/social-identity',
       // update-banner self-init poll — the banner finally ships in panels.js
       // (the substitution-free-template discovery fix); update-check reads
