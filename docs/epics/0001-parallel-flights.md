@@ -474,6 +474,20 @@ the feature's own `docs/epics/0016-github-social-flight.md`. `flight/runner.ts` 
 `flight/registry.ts` are unchanged. None of the four locks below changes; all six slices remain
 unchanged and live in production.
 
+Freshness check (2026-10-04, later): `fly.ts` gained three more commits since the check above.
+`c889b2e5` and `c113d7ba` (epic 0036) record a lane that `runLoop` stopped as `demoted` as one
+`lane-demoted` event: `laneDemotionOf` (`flight/firing-engine.ts`) builds the record (engine, model,
+reverts in a row, firings flown, and the lane's own instance id), and the fleet report reads it
+back. `a2c1e7d4` (epic 0016) saves the SOCIAL debrief line the check above added as one
+`social-debrief` event per flight. Each change adds one best-effort INSERT under the flight's own
+`projectId`, through the same store handle the existing `near-miss-debrief` row already uses. So
+lock 3's shared store gains two event types but no new connection or writer. Every event still
+belongs to the project that wrote it. Within one project, all of a fleet's lanes write under the
+base project id, so the demotion record names its lane in the payload instead. None of the three
+reads a board, SOUL or backlog row across projects or opens a new write path. `flight/runner.ts`
+and `flight/registry.ts` are unchanged. None of the four locks below changes; all six slices remain
+unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this

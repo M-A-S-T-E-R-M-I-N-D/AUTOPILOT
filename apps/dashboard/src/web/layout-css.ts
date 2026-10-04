@@ -176,6 +176,7 @@ html[data-theme="terminal"] .pref-terminal { display: block; }
 .version-menu[data-update="current"] .version-dot { background: var(--color-success); }
 .version-menu[data-update="available"] .version-dot { background: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent); }
 .version-note { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--color-text-muted); }
+.version-run > .icon, .version-check > .icon { margin-inline-end: 0.35em; }
 .connect > summary { cursor: pointer; list-style: none; font-size: var(--text-sm); color: var(--color-text-muted); padding: var(--space-1) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-full); transition: box-shadow var(--duration-short2) var(--easing-standard); }
 .connect > summary::-webkit-details-marker { display: none; }
 /* Icon-only summaries (theme, language, bell, settings, foundation): the
@@ -322,6 +323,8 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 .connect-form button:hover, .connect-form button:focus-visible, .connect-login:hover, .connect-login:focus-visible, .task-add button:hover, .task-add button:focus-visible, .inbox-add button:hover, .inbox-add button:focus-visible, .soul-editor-form button:hover, .soul-editor-form button:focus-visible { box-shadow: var(--elevation-level-2); }
 .connect-form button:active, .connect-login:active, .task-add button:active, .inbox-add button:active, .soul-editor-form button:active { box-shadow: var(--elevation-level-0); }
 .connect-form button:disabled, .connect-login:disabled, .task-add button:disabled, .inbox-add button:disabled, .soul-editor-form button:disabled { box-shadow: none; }
+/* Epic 0025: Add, Drop note and Propose edit lead with a decorative icon. */
+.task-add button > .icon, .inbox-add button > .icon, .soul-editor-form button > .icon { margin-inline-end: 0.35em; }
 
 .totals {
   display: flex; flex-wrap: wrap; gap: var(--space-4) var(--space-5);

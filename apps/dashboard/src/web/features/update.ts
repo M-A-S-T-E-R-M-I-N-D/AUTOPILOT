@@ -168,8 +168,21 @@ function versionInit() {
         ? tr('versionAvailable', { from: check.current, to: check.latest })
         : tr('versionLatest', { version: check.current, time: fmtClock(check.checkedAt) });
     if (status.textContent !== text) status.textContent = text;
+    // The tag follows the label: an offered update is the versionRunUpdate
+    // template with its {to} slot, or translateDom()'s next sweep (every
+    // fleet tick) would paint "Run the latest" over it. setSweptText() keeps
+    // the button's leading rocket (epic 0025).
+    if (available) {
+      runBtn.removeAttribute('data-i18n');
+      runBtn.setAttribute('data-i18n-template', 'versionRunUpdate');
+      runBtn.setAttribute('data-i18n-args', JSON.stringify({ to: check.latest }));
+    } else {
+      runBtn.removeAttribute('data-i18n-template');
+      runBtn.removeAttribute('data-i18n-args');
+      runBtn.setAttribute('data-i18n', 'versionRunLatest');
+    }
     var label = available ? tr('versionRunUpdate', { to: check.latest }) : tr('versionRunLatest');
-    if (runBtn.textContent !== label) runBtn.textContent = label;
+    if (runBtn.textContent !== label) setSweptText(runBtn, label);
   }
   function load(force) {
     checkBtn.disabled = true;

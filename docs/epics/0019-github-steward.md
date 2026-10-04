@@ -80,6 +80,16 @@ into a per-project ritual any instance can run on any repo it owns.
 - **S4 — operator routing console:** the dashboard surfaces "what the
   page says" (milestone progress, label queues, claims) next to the
   board, so steering happens from either side with one truth.
+  _Shipped so far (board web-mtrh1hn3-8x9f0z):_ the console's model,
+  `flight/routing-console.ts`. `planRoutingConsole` derives it purely from
+  the open milestones and the open issues: milestone progress (soonest due
+  first, percent rounded down so an open issue never reads 100%), one queue
+  per house `priority:`/`status:` label in any casing, the issues no
+  priority label routes yet, and claims by assignee.
+  `fetchOpenMilestones` is its one new read, and a failed page reads as
+  unknown, never as "no milestones" (`test/flight/routing-console.test.ts`).
+  _Still open:_ the API route and the panel beside the board, which also
+  adds each milestone's link with the href that renders it.
 - **S5 — steward for THEIR project:** the per-project page (any
   onboarded folder) gets the same steward actions against that
   project's own repo (GITHUB 2/5's `sync any project` is the

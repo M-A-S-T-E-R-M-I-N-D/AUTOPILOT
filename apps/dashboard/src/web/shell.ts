@@ -1866,7 +1866,10 @@ function soulEditorPanel(projectId, soulText) {
   // data-tip only, no aria-label: the visible (translated) text stays the
   // accessible name.
   unlock.setAttribute('data-tip', 'The live SOUL is locked against accidental edits — unlock it to write a proposed change');
+  // Epic 0025: leads with the pencil its summary draws, beside the unlock
+  // toggle's lock.
   var btn = el('button', null, 'Propose edit');
+  btn.prepend(iconEl('pencil'));
   btn.setAttribute('data-i18n', 'soulEditorSubmit');
   btn.setAttribute('type', 'submit');
   btn.disabled = true;
@@ -3530,7 +3533,10 @@ function tasksSection(c) {
   input.placeholder = 'what should this autopilot do?';
   input.setAttribute('data-i18n-placeholder', 'taskNewPlaceholder');
   input.autocomplete = 'off';
+  // Epic 0025: leads with the zoom bar's plus, decorative beside the words;
+  // a submit only disables it, and the locale sweep keeps a leading icon.
   var btn = el('button', null, 'Add');
+  btn.prepend(iconEl('plus'));
   btn.setAttribute('type', 'submit');
   btn.setAttribute('data-i18n', 'taskAdd');
   // One key for both: the button's tip IS its accessible name
@@ -3582,7 +3588,10 @@ function tasksSection(c) {
   inboxTextarea.rows = 3;
   inboxTextarea.placeholder = 'context, a plan, a correction — read fresh at the start of the next firing';
   inboxTextarea.setAttribute('data-i18n-placeholder', 'inboxNotePlaceholder');
+  // Epic 0025: leads with the inbox its summary draws, the way the triage
+  // runs take their heading's icon.
   var inboxBtn = el('button', null, 'Drop note');
+  inboxBtn.prepend(iconEl('inbox'));
   inboxBtn.setAttribute('type', 'submit');
   inboxBtn.setAttribute('data-i18n', 'inboxDropNote');
   // One key for both: the button's tip IS its accessible name
@@ -5491,7 +5500,9 @@ export function assetVersion(): string {
 /** THE VERSION MENU (2026-09-13): the masthead chip that always shows the
  *  running version, and its popover (newest-release check, "Run the latest",
  *  "Check now") — see web/features/update.ts. Built by concatenation, not a
- *  template substitution, so the splice registry sees no new splice site. */
+ *  template substitution, so the splice registry sees no new splice site.
+ *  Epic 0025: each button leads with a decorative stroke (the banner's
+ *  rocket, the round panel's refresh-cw); the sweep keeps a leading icon. */
 export function versionMenuHtml(): string {
   return (
     `      <details class="connect version-menu" id="version-menu" name="masthead-popover">
@@ -5505,8 +5516,12 @@ export function versionMenuHtml(): string {
         <div class="connect-body version-body">
           <p class="connect-status version-status" id="version-status" role="status" aria-live="polite" data-i18n="versionChecking">checking for the newest release…</p>
           <div class="connect-actions">
-            <button type="button" class="connect-login version-run" id="version-run" data-i18n="versionRunLatest" data-tip="Pulls the newest release, reinstalls, rebuilds and restarts the dashboard — a clean reset onto the latest, even when you are already on it" data-i18n-tip="versionRunTip">Run the latest</button>
-            <button type="button" class="connect-test version-check" id="version-check" data-i18n="versionCheckNow">Check now</button>
+            <button type="button" class="connect-login version-run" id="version-run" data-i18n="versionRunLatest" data-tip="Pulls the newest release, reinstalls, rebuilds and restarts the dashboard — a clean reset onto the latest, even when you are already on it" data-i18n-tip="versionRunTip">` +
+    iconSvg('rocket') +
+    `Run the latest</button>
+            <button type="button" class="connect-test version-check" id="version-check" data-i18n="versionCheckNow">` +
+    iconSvg('refresh-cw') +
+    `Check now</button>
           </div>
           <p class="connect-hint version-note" data-i18n="versionRunNote">Local progress is never touched: with uncommitted changes you are asked before they are parked in git stash.</p>
         </div>
