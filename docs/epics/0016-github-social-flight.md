@@ -96,6 +96,20 @@ Per pass, mechanically derived — no guesses:
    before the execute half is wired.
 4. **standalone**: "Fly GitHub" as a target choice in the fly bar (no code
    tree edits at all in this mode).
+   _Shipped so far:_ the engine half. `AUTOPILOT_FLY_TARGET=github` makes
+   `fly.ts` run `flight/social-flight-pass.ts`'s `runGithubOnlyFlight` and
+   stop. That is one pass under `full`, with the weave-in toggle not
+   consulted because choosing the target is the opt-in. The SOCIAL debrief
+   line follows. The choice is made before the lock, the store, onboarding
+   or the worktree, so nothing in this mode touches the code tree.
+   `flight/social-flight-trigger.ts`'s `parseFlyTarget` reads unset or empty
+   as `code` and any other value as a refusal to take off, never a guess
+   (`test/flight/social-flight-trigger.test.ts`,
+   `test/flight/social-flight-pass.test.ts`; RUNBOOK §13).
+   _Still open:_ the fly-bar choice and its `POST /api/fly` field (the
+   `socialFlight` path through `runner.ts` → `registry.ts` →
+   `spawn-flight.ts`), and persisting the standalone digest for the FLIGHT
+   DEBRIEF panel, which needs the store this mode skips today.
 5. **observability**: every social action in the flight log + a SOCIAL
    section in the debrief (what was said/filed/closed, caps consumed).
    _Shipped so far:_ every woven-in pass already says its own line as it

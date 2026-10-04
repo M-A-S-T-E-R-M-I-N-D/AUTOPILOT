@@ -13,6 +13,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
+  runGithubOnlyFlight,
   runSocialFlightPass,
   SOCIAL_FLIGHT_PASS_CAPS,
 } from '../../src/flight/social-flight-pass.js';
@@ -296,6 +297,102 @@ describe('runSocialFlightPass — the read-only pass', () => {
     });
     // Allowed is a plan, not a post: this slice never executes a command.
     expect(calls.some(isWrite)).toBe(false);
+  });
+});
+
+describe('runGithubOnlyFlight — the standalone "Fly GitHub" flight (epic 0016 slice 4/6)', () => {
+  it('runs the pass with the weave-in toggle never consulted — choosing the target is the opt-in', async () => {
+    const calls: Array<readonly string[]> = [];
+    const exec = execFor(connectedGh('octocat', 'octocat'), calls);
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    const outcome = await runGithubOnlyFlight({ exec, target: ENGINE, engineRepo: ENGINE });
+
+    expect(outcome).toMatchObject({
+      ran: true,
+      phase: 'start',
+      toggle: 'full',
+      identity: { login: 'octocat', role: 'maintainer' },
+      caps: SOCIAL_FLIGHT_PASS_CAPS,
+      verdict: { allowed: [], queued: [], duplicate: [], refused: [] },
+    });
+    // Read-only like every pass today: inventories read, nothing written.
+    expect(calls.filter(isListRead)).toHaveLength(4);
+    expect(calls.some(isWrite)).toBe(false);
+    expect(write.mock.calls.map((c) => String(c[0])).join('')).toContain('nothing posted');
+  });
+
+  it('keeps the self-target guard: a foreign folder refuses before any gh call', async () => {
+    const calls: Array<readonly string[]> = [];
+    const exec = execFor(connectedGh('octocat', 'octocat'), calls);
+    vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    const outcome = await runGithubOnlyFlight({
+      exec,
+      target: '/some/other/folder',
+      engineRepo: ENGINE,
+    });
+
+    expect(outcome).toEqual({
+      ran: false,
+      phase: 'start',
+      toggle: 'full',
+      reason: 'foreign-target',
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it('refuses cleanly when gh is not connected, never thrown', async () => {
+    const exec = execFor({
+      ...connectedGh('octocat', 'octocat'),
+      'gh api user': { code: 1, stdout: '' },
+    });
+    vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await expect(runGithubOnlyFlight({ exec, engineRepo: ENGINE })).resolves.toMatchObject({
+      ran: false,
+      reason: 'gh-disconnected',
+    });
+  });
+});
+
+describe('fly.ts flies the GitHub target before anything can touch the code tree', () => {
+  const fly = (): string => readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');
+  /** The body of the `if (<condition>) {` block at two-space indent. */
+  const blockOf = (src: string, condition: string): string => {
+    const start = src.indexOf(`  if (${condition}) {`);
+    expect(start).toBeGreaterThan(-1);
+    return src.slice(start, src.indexOf('\n  }\n', start));
+  };
+
+  it('parses AUTOPILOT_FLY_TARGET before the lock, the store, onboarding and the worktree', () => {
+    const src = fly();
+    const parsed = src.indexOf("parseFlyTarget(process.env['AUTOPILOT_FLY_TARGET'])");
+    expect(parsed).toBeGreaterThan(-1);
+    for (const later of [
+      'lock.acquire()',
+      'openStore(dbPath)',
+      'await onboard(',
+      'deriveWorktreePlan(',
+    ]) {
+      expect(src.indexOf(later)).toBeGreaterThan(parsed);
+    }
+  });
+
+  it('refuses to take off on an unrecognized target instead of guessing', () => {
+    const refusal = blockOf(fly(), 'flyTarget === null');
+    expect(refusal).toContain('process.exitCode = 1;');
+    expect(refusal).toContain('return;');
+  });
+
+  it('the github branch runs the standalone pass, prints its SOCIAL debrief and returns — no firing, no onboarding', () => {
+    const branch = blockOf(fly(), "flyTarget === 'github'");
+    expect(branch).toContain('await runGithubOnlyFlight({ target })');
+    expect(branch).toContain('socialFlightDebriefLine(');
+    expect(branch).toContain('return;');
+    for (const codeTreeStep of ['onboard(', 'runLoop(', 'deriveWorktreePlan(', 'openStore(']) {
+      expect(branch).not.toContain(codeTreeStep);
+    }
   });
 });
 

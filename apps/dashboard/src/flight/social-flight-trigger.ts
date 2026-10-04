@@ -18,7 +18,8 @@
  * matching how `social-pass.ts`'s own laws each shipped as an isolated pure
  * planner before later slices wired them in. {@link parseSocialInterests}
  * reads the operator's interest keywords the same pure way, ahead of the
- * STANDING 4/5 suggestion pass that will match against them.
+ * STANDING 4/5 suggestion pass that will match against them, and {@link
+ * parseFlyTarget} reads slice 4/6's standalone "Fly GitHub" choice.
  *
  * The toggle has four values but three phases: `'full'` runs the pass at
  * every phase including `'interval'`, but `'interval'` is not itself a
@@ -76,6 +77,28 @@ export function shouldRunSocialFlight(
  *  plan, since a negative gap is not a gap. */
 export function isBetweenFirings(firingsCompleted: number, plannedFirings: number): boolean {
   return firingsCompleted < plannedFirings;
+}
+
+/** What one flight flies (epic 0016 slice 4/6, "standalone": "Fly GitHub"
+ *  as a target choice, "no code tree edits at all in this mode"). `'code'`
+ *  is every flight before that slice — firings over the code tree, with the
+ *  social pass woven in only behind `AUTOPILOT_SOCIAL_FLIGHT`. `'github'`
+ *  flies the GitHub surface alone: the social pass, and nothing that can
+ *  touch the tree. */
+export type FlyTarget = 'code' | 'github';
+
+const FLY_TARGETS: readonly FlyTarget[] = ['code', 'github'];
+
+/** Parses `process.env.AUTOPILOT_FLY_TARGET` (raw value in, pure, like
+ *  {@link parseSocialFlightToggle}). Unset or empty is `'code'`, the flight
+ *  every launch was before the variable existed; the two exact values parse
+ *  as themselves. Anything else is `null`, and `fly.ts` refuses to take off:
+ *  unlike the toggle, no default is safe here — a misspelt `github` read as
+ *  `'code'` would edit the tree the operator asked to leave alone, and a
+ *  stray value read as `'github'` would speak on GitHub uninvited. */
+export function parseFlyTarget(raw: string | undefined): FlyTarget | null {
+  if (raw === undefined || raw === '') return 'code';
+  return FLY_TARGETS.includes(raw as FlyTarget) ? (raw as FlyTarget) : null;
 }
 
 /** Parses `process.env.AUTOPILOT_SOCIAL_INTERESTS` — the "matches your
