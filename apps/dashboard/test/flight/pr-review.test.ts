@@ -373,8 +373,10 @@ const BENIGN_FLIGHT = new Set([
   // planRoutingConsole is a pure derivation over already-fetched milestones
   // and issues, and fetchOpenMilestones only GETs the open milestones through
   // taxonomy-seed.ts's page read (flagged with its seeder). No label, assign,
-  // milestone or comment write exists here; the API route and the panel
-  // beside the board are later slices that will need their own markers.
+  // milestone or comment write exists here; the panel beside the board is a
+  // later slice that will need its own marker. fetchRoutingConsole only
+  // composes that GET with issue-triage.ts's read-only fetchOpenIssues for
+  // GET /api/routing-console (server/, already flagged by its bare marker).
   'routing-console.ts',
 ]);
 
