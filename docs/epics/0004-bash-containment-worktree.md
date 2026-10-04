@@ -372,6 +372,14 @@ undefined, naming the wall clock alone. The change is confined to prompt-text co
 touches neither `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, nor the containment
 guard's snapshot/audit calls — it adds no new path into `target` and changes no worktree wiring.
 
+Freshness check (2026-10-04): `fly.ts` gained one more commit since the check above — `90734fa5`
+(epic 0016 slice 5/6), which adds a `flySocialPass` collector inside `main()` and a new
+`flight/social-flight-debrief.ts` module that folds a flight's social passes into one
+end-of-flight log line. The change is confined to collecting each pass's already-computed
+outcome and printing one more flight-log line; it touches neither `deriveWorktreePlan`,
+`ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's snapshot/audit calls — no new
+path into `target`, no worktree wiring change.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a

@@ -61,4 +61,11 @@ describe('ltsChipMeta', () => {
       text: 'you run v0.14.0 (ahead of upstream v0.13.0)',
     });
   });
+
+  it('strips only a leading "v", never one that appears later in the tag', () => {
+    expect(ltsChipMeta('1.0.0', '2.v0.5')).toEqual({
+      status: 'update-available',
+      text: 'v2.v0.5 available — you run v1.0.0',
+    });
+  });
 });

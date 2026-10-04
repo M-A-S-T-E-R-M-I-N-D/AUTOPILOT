@@ -22,6 +22,7 @@ import {
   isLocallyServed,
   resolveModelVendor,
   type EngineConfig,
+  type LoopSummary,
   type ModelVendorId,
 } from '@autopilot/engine';
 
@@ -40,6 +41,40 @@ export type FiringEngineChoice =
  *  the "quality gate that demotes a lane that fails twice" epic 0036 names
  *  (`runLoop`'s `demoteAfterGateFailures`). */
 export const NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES = 2;
+
+/** The store event a demoted lane writes, which the fleet report reads back
+ *  (`readReportDemotions`). The flight log's DEMOTED line is its only other trace. */
+export const LANE_DEMOTED_EVENT = 'lane-demoted';
+
+/** What a demoted lane records: the lane, the engine and model it flew on,
+ *  the reverted firings in a row that stopped it, and how many firings it
+ *  flew. Every lane writes its events under the base project id (only its
+ *  firing ids carry the lane, `firingIdOf`), so the record names the lane
+ *  itself: `base`, or its instance id (`fleet-2`). */
+export interface LaneDemotion {
+  readonly lane: string;
+  readonly engine: NonClaudeEngine;
+  readonly model: string;
+  readonly reverted: number;
+  readonly firings: number;
+}
+
+/** The record of a flight `runLoop` ended `stoppedBy: 'demoted'`, or `null`
+ *  for any other ending and for a Claude lane, which is never demoted. */
+export function laneDemotionOf(
+  route: FiringEngineRoute,
+  summary: LoopSummary,
+  instanceId?: string,
+): LaneDemotion | null {
+  if (route.engine === 'claude' || summary.stoppedBy !== 'demoted') return null;
+  return {
+    lane: instanceId ?? 'base',
+    engine: route.engine,
+    model: route.model,
+    reverted: NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES,
+    firings: summary.firings,
+  };
+}
 
 /** How each non-Claude engine is named in the flight log, a model it runs,
  *  the one publisher whose models it can reach when it has one, and whether

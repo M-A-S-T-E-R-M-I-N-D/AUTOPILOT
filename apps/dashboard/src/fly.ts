@@ -206,11 +206,13 @@ import { PRODUCT_VERSION } from './info.js';
 import { commitAttributionEnabled } from './flight/attribution.js';
 import { formatFlightDoneLine } from './flight/flight-summary.js';
 import {
+  LANE_DEMOTED_EVENT,
   NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES,
   firingConfigForEngine,
   firingEngineFromEnv,
   firingEngineLine,
   firingEngineTurnCap,
+  laneDemotionOf,
 } from './flight/firing-engine.js';
 import {
   deriveFlyProjectId,
@@ -2085,6 +2087,19 @@ async function main(): Promise<void> {
         ? {}
         : { demoteAfterGateFailures: NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES }),
     });
+    // Recorded for the fleet report, which names the lane, engine and model.
+    const demotion = laneDemotionOf(engineRoute, summary, instanceId);
+    if (demotion !== null) {
+      try {
+        store.db
+          .prepare(
+            'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+          )
+          .run(projectId, null, LANE_DEMOTED_EVENT, JSON.stringify(demotion), now());
+      } catch {
+        /* demotion telemetry is best-effort — the DEMOTED log line stands */
+      }
+    }
 
     // Reconciliation safety net: `onFiringComplete` (markTaskDoneIfShipped) already
     // closes the loop between firings, but this catches anything it couldn't —

@@ -464,7 +464,12 @@ function firingTraceSection(c) {
         var diffKey = diffOpen ? 'diffHide' : 'diffView';
         diffToggle.setAttribute('aria-label', diffOpen ? 'Hide diff' : 'View diff');
         diffToggle.setAttribute('data-i18n-aria', diffKey);
-        diffToggle.textContent = diffOpen ? 'Hide diff' : 'View diff';
+        // Epic 0025 (board web-mtywp7zq-55f3o9): the Versions panel's What
+        // changed git-compare, decorative — both open a commit's patch against
+        // the one before it. The row is rebuilt per render and setSweptText()
+        // keeps the icon across the [data-i18n] sweep.
+        diffToggle.appendChild(iconEl('git-compare'));
+        diffToggle.appendChild(document.createTextNode(diffOpen ? 'Hide diff' : 'View diff'));
         diffToggle.setAttribute('data-i18n', diffKey);
         wrap.appendChild(diffToggle);
         if (diffOpen) {

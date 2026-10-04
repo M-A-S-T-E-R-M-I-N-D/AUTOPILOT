@@ -56,7 +56,7 @@ import {
   parseIssueLabels,
   POOL_LABEL_PREFIX,
 } from './issue-triage.js';
-import { DECLINED_LABEL, normalizeLabel } from './pool-client.js';
+import { carriedPoolLabel, DECLINED_LABEL, normalizeLabel } from './pool-client.js';
 
 /** The subset of a GitHub Discussion this policy needs — title/body/category
  *  plus the two states (`isAnswered`, `locked`) that decide whether a reply
@@ -127,7 +127,8 @@ const MAINTAINER_MARKS: readonly string[] = [DECLINED_LABEL, ...HOLD_LABELS].map
  * ({@link MAINTAINER_MARKS}) plans `'skip'` after that. A discussion already
  * carrying a `pool: *` label from a previous pass plans `'skip'` last, the same
  * idempotency marker {@link POOL_LABEL_PREFIX} gives issues, reused here
- * since Discussions share the same repo label set. Pure: never fetches or
+ * since Discussions share the same repo label set, and read in any casing as
+ * the pool reads it ({@link carriedPoolLabel}). Pure: never fetches or
  * replies — a caller wires those once this decision is made, and no reply
  * text is drafted here either; that is deferred to a follow-on slice.
  */
@@ -162,7 +163,7 @@ export function planDiscussionTriage(discussion: IncomingDiscussion): Discussion
     };
   }
 
-  const poolLabel = labels.find((label) => label.startsWith(POOL_LABEL_PREFIX));
+  const poolLabel = carriedPoolLabel(labels);
   if (poolLabel) {
     return {
       decision: 'skip',

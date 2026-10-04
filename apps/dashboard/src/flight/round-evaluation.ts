@@ -33,6 +33,7 @@ import { renderFleetReport, summarizeConvergence, summarizeFirings } from '../re
 import {
   readParkedLanes,
   readReportConvergence,
+  readReportDemotions,
   readReportEscalations,
   readReportFirings,
 } from '../read/fleet-report-source.js';
@@ -111,6 +112,7 @@ export function evaluateRound(
     window,
     parkedLanesOrNone(target, projectId),
     readReportEscalations(store.db, projectId, startedAt),
+    readReportDemotions(store.db, projectId, startedAt),
   );
   const scoreboardLines = renderScoreboard(readRoutedFirings(store, projectId, endedAt));
   const f = summarizeFirings(firings);

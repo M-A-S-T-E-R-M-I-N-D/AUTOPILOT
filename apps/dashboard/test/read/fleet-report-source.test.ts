@@ -14,6 +14,7 @@ import {
   readReportFirings,
   readReportConvergence,
   readReportEscalations,
+  readReportDemotions,
   readParkedLanes,
 } from '../../src/read/fleet-report-source.js';
 import { execFileSync } from 'node:child_process';
@@ -233,6 +234,51 @@ describe('readReportEscalations (rung 4)', () => {
       { kind: 'unrecorded', details: '' },
       { kind: 'unrecorded', details: '' },
       { kind: 'agent-failed', details: '' },
+    ]);
+  });
+});
+
+// Epic 0036: a lane off Claude that the gate reverts twice in a row stops,
+// and the event it writes is the report's only trace of which one it was.
+describe('readReportDemotions (epic 0036)', () => {
+  it('reads each demoted lane in order, its lane off the project id it recorded under', () => {
+    const codex = { engine: 'codex', model: 'gpt-5-codex', reverted: 2, firings: 3 };
+    event('lane-demoted', codex, 100, 'fly-a--fleet-2');
+    event('lane-demoted', { ...codex, engine: 'gemini', model: 'gemini-2.5-pro' }, 150);
+    event('lane-demoted', codex, 50, 'fly-a--fleet-2'); // before the window
+    event('lane-demoted', codex, 300, 'fly-ab'); // another project
+    event('lane-demoted', codex, 300, 'fly_a--fleet-2'); // `_` is not a wildcard
+    event('merge-escalation', { kind: 'resolved' }, 300); // another event type
+    expect(readReportDemotions(store.db, 'fly-a', 100)).toEqual([
+      { lane: 'fleet-2', engine: 'codex', model: 'gpt-5-codex', reverted: 2, firings: 3 },
+      { lane: 'base', engine: 'gemini', model: 'gemini-2.5-pro', reverted: 2, firings: 3 },
+    ]);
+  });
+
+  // fly.ts records every lane's events under the base project id (only a
+  // firing's id carries its lane), so the lane the payload names wins.
+  it('reads the lane the event names, not the base project id it was recorded under', () => {
+    const codex = { engine: 'codex', model: 'gpt-5-codex', reverted: 2, firings: 3 };
+    event('lane-demoted', { ...codex, lane: 'fleet-3' }, 100);
+    event('lane-demoted', { ...codex, lane: 'base' }, 110);
+    event('lane-demoted', { ...codex, lane: '' }, 120); // blank: read off the project id
+    event('lane-demoted', { ...codex, lane: 3 }, 130, 'fly-a--fleet-2'); // not a name
+    expect(readReportDemotions(store.db, 'fly-a', 100).map((d) => d.lane)).toEqual([
+      'fleet-3',
+      'base',
+      'base',
+      'fleet-2',
+    ]);
+  });
+
+  it('still counts a demotion whose payload it cannot read, naming no engine it never saw', () => {
+    event('lane-demoted', 'not json', 100);
+    event('lane-demoted', 'null', 110);
+    event('lane-demoted', { engine: 7, model: null, reverted: '2', firings: 1.5 }, 120);
+    expect(readReportDemotions(store.db, 'fly-a', 100)).toEqual([
+      { lane: 'base', engine: 'unrecorded', model: null, reverted: null, firings: null },
+      { lane: 'base', engine: 'unrecorded', model: null, reverted: null, firings: null },
+      { lane: 'base', engine: 'unrecorded', model: null, reverted: null, firings: null },
     ]);
   });
 });

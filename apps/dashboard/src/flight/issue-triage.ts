@@ -964,6 +964,11 @@ export function planIssueTriageCommands(
  * own idempotency marker — re-labelling an issue that already has one is a
  * `skip`, so it never reaches here, and treating it as exclusive would let
  * a re-run strip a marker another pass depends on.
+ *
+ * Read in any casing ({@link labelName}), and returned as the issue carries
+ * them: a repo's label may read `Priority: High`. A re-cased sibling the edit
+ * missed stayed beside the new label, and a re-cased chosen label must never
+ * be removed by the same edit that adds it back.
  */
 /**
  * The label already on the issue from `family`, when there is exactly one.
@@ -980,6 +985,12 @@ export function planIssueTriageCommands(
  * `supersededFamilyLabels` exists to clear (found live on #21/#27/#28,
  * 2026-09-09) and nobody sets it on purpose, so there the classifier still
  * breaks the tie.
+ *
+ * Read in any casing ({@link labelName}): GitHub keeps one label per name in
+ * any casing, and the seeder's `gh label create --force` keeps an existing
+ * label's casing, so the maintainer's mark may read `Area: Community`. The
+ * answer is the known spelling, which `gh issue edit --add-label` lands on
+ * that same label.
  */
 /**
  * The milestone a triage edit should SET, or `undefined` for "leave it alone".
@@ -1004,13 +1015,21 @@ export function milestoneToSet(
   return available.includes(classified) ? classified : undefined;
 }
 
+/** A label name as GitHub tells two labels apart: in any casing, and nothing
+ *  else folded. Unlike {@link carriedMark} a hyphen is not read as a space,
+ *  because `area: flight engine` is a different label from `area:
+ *  flight-engine`, and these reads decide what the triage edit removes. */
+function labelName(label: string): string {
+  return label.toLowerCase().trim();
+}
+
 export function handSetFamilyLabel<T extends string>(
   current: readonly string[],
   family: string,
   known: readonly T[],
 ): T | undefined {
-  const prefix = `${family}: `;
-  const found = current.filter((label) => label.startsWith(prefix));
+  const prefix = `${family.toLowerCase()}: `;
+  const found = current.map(labelName).filter((label) => label.startsWith(prefix));
   if (found.length !== 1) return undefined;
   const only = found[0];
   // A label outside the known set is a typo, or a family this classifier
@@ -1023,13 +1042,12 @@ export function supersededFamilyLabels(
   current: readonly string[],
   chosen: readonly string[],
 ): readonly string[] {
-  const families = new Set(
-    chosen.map((label) => label.split(':')[0]).filter((f): f is string => Boolean(f)),
-  );
-  const keep = new Set(chosen);
+  const familyOf = (label: string): string | undefined => labelName(label).split(':')[0];
+  const families = new Set(chosen.map(familyOf).filter((f): f is string => Boolean(f)));
+  const keep = new Set(chosen.map(labelName));
   return current.filter((label) => {
-    const family = label.split(':')[0];
-    return family !== undefined && families.has(family) && !keep.has(label);
+    const family = familyOf(label);
+    return family !== undefined && families.has(family) && !keep.has(labelName(label));
   });
 }
 

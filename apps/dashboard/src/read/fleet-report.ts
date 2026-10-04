@@ -248,6 +248,24 @@ function grouped(
   );
 }
 
+/** A lane `runLoop` demoted (epic 0036): flown off Claude, it stopped taking
+ *  work once the gate reverted its firings `reverted` times in a row. A field
+ *  its record did not carry readably is `null`, and its engine `unrecorded`. */
+export interface ReportDemotion {
+  readonly lane: string;
+  readonly engine: string;
+  readonly model: string | null;
+  readonly reverted: number | null;
+  readonly firings: number | null;
+}
+
+function demotionLine(d: ReportDemotion, width: number): string {
+  const model = d.model === null ? '' : ` (${d.model})`;
+  const after = d.firings === null ? '' : ` after ${d.firings} firing${d.firings === 1 ? '' : 's'}`;
+  const run = d.reverted === null ? '' : `, ${d.reverted} reverted in a row`;
+  return `  ${d.lane.padEnd(width)} ${d.engine}${model}  demoted${after}${run}`;
+}
+
 /** A lane branch holding commits the flight branch does not have. */
 export interface ParkedLane {
   readonly branch: string;
@@ -259,13 +277,15 @@ export interface ParkedLane {
  *  that no landing can carry (2026-09-25: a whole flight of one lane's
  *  work sat parked behind an aborted sync-back). `escalations` is rung 4's
  *  record: how often the merge-escalation agent resolved a conflicting
- *  sync-back, and what stopped it when it did not. */
+ *  sync-back, and what stopped it when it did not. `demotions` are the lanes
+ *  the gate stopped off Claude (epic 0036). */
 export function renderFleetReport(
   firings: readonly ReportFiring[],
   convergence: readonly ReportConvergence[],
   window: string,
   parked: readonly ParkedLane[] = [],
   escalations: readonly ReportEscalation[] = [],
+  demotions: readonly ReportDemotion[] = [],
 ): string[] {
   const lines = [`fleet report — ${window}`, summaryLine('all', summarizeFirings(firings))];
   const section = (title: string, key: (f: ReportFiring) => string, pool = firings): void => {
@@ -289,6 +309,15 @@ export function renderFleetReport(
   // its own firings. A record that names no engine stays unrecorded, never
   // taken for Claude's.
   section('engine', (f) => f.engine ?? 'unrecorded', judged);
+  // A demoted lane stops taking work, which no rate above says. Only a lane
+  // off Claude can be demoted, so a Claude-only fleet prints no section.
+  const offClaude = judged.some((f) => f.engine !== null && f.engine !== 'claude');
+  if (demotions.length > 0 || offClaude) {
+    lines.push('', 'demoted lanes');
+    const width = Math.max(...demotions.map((d) => d.lane.length));
+    if (demotions.length === 0) lines.push('  none');
+    for (const d of demotions) lines.push(demotionLine(d, width));
+  }
   section('model', (f) => f.model ?? 'unrecorded', judged);
   // THE MODEL BENCHMARK (2026-09-25): arms compared on the same kind of work,
   // so a model is not credited for the easier tasks it happened to draw.

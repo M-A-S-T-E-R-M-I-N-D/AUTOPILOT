@@ -504,7 +504,26 @@ propagation, and the filled style does not match the nav.
    the row is rebuilt on every state change, so no busy swap can drop the
    icon (`apps/dashboard/test/web/fly-flight-action-icons.test.ts`, axe-clean).
    The fly bar's legacy `#fly-pause`/`#fly-stop`, shown only for an older
-   single-flight FlightApi, stay bare words.
+   single-flight FlightApi, stay bare words. **Versions row actions
+   2026-10-04 (slice 2):** the Versions panel headed with `clock`, but each
+   row's Restore and What changed were bare words. Restore leads with a newly
+   vendored `history`, the heading's clock turned back, and What changed with
+   a newly vendored `git-compare`, since it compares the version with the one
+   before it. Each icon is decorative, so a button's name stays its words and
+   short sha through `aria-labelledby`. Restore's busy "Restoring…" and the
+   toggle's "Hide changes" swap through `setTaggedLabel()`, not
+   `textContent`, so the icon survives every swap, a sweep mid-restore
+   repaints the busy words instead of the idle ones, and a finished restore
+   comes back in the current locale rather than the words it started in
+   (`apps/dashboard/test/web/versions-row-action-icons.test.ts`). **Firing
+   diff toggle 2026-10-04 (slice 2):** the per-firing trace's "View diff" /
+   "Hide diff" was bare words beside the row's iconed Step through. It leads
+   with the Versions toggle's `git-compare` now, since both open a commit's
+   patch against the one before it and share the `.diff-toggle` class and its
+   icon spacing; nothing is newly vendored. The icon is decorative, so the
+   button's name stays its aria-label; the row is rebuilt on every render and
+   the locale sweep keeps the icon
+   (`apps/dashboard/test/web/firing-diff-toggle-icon.test.ts`, axe-clean).
 
 ## Related
 

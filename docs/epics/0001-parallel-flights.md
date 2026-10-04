@@ -464,6 +464,16 @@ of them, and neither opens a new write path. `flight/fly.ts` and `flight/registr
 unchanged. None of the four locks below changes; all six slices remain unchanged and live in
 production.
 
+Freshness check (2026-10-04): `fly.ts` gained one more commit since the check above — `90734fa5`
+(epic 0016 slice 5/6), which folds a flight's social passes (start, each interval, end) into one
+end-of-flight SOCIAL debrief line through a new `flight/social-flight-debrief.ts` module and a
+`flySocialPass` collector inside `main()`. The collector only gathers each pass's own
+already-computed outcome and prints one additional flight-log line after the end pass; it reads
+no board, SOUL or backlog row across projects and opens no new write path — the detail lives in
+the feature's own `docs/epics/0016-github-social-flight.md`. `flight/runner.ts` and
+`flight/registry.ts` are unchanged. None of the four locks below changes; all six slices remain
+unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this

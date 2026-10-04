@@ -1850,7 +1850,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .diff-toggle:hover, .diff-toggle:focus-visible, .version-restore-btn:hover:not(:disabled), .version-restore-btn:focus-visible:not(:disabled) { border-color: var(--color-accent); color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .diff-toggle:active, .version-restore-btn:active:not(:disabled) { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .diff-toggle[aria-expanded="true"] { border-color: var(--color-accent); color: var(--color-text); }
-.diff-toggle > .icon { margin-inline-end: 0.35em; }
+.diff-toggle > .icon, .version-restore-btn > .icon { margin-inline-end: 0.35em; }
 .version-restore-btn:disabled { opacity: 0.4; cursor: default; }
 .firing-diff { margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); padding: var(--space-2); border-inline-start: 2px solid var(--color-border); background: var(--color-surface-raised); font-family: var(--font-mono); font-size: var(--text-xs); overflow-x: auto; white-space: pre; }
 .firing-diff-empty { margin-block: 0 var(--space-2); margin-inline-start: var(--space-3); }
