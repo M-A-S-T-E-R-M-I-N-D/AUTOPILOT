@@ -133,6 +133,7 @@ function flyInit() {
   var modeEl = document.getElementById('fly-mode');
   var totalEl = document.getElementById('fly-total');
   var lanesEl = document.getElementById('fly-lanes');
+  var targetEl = document.getElementById('fly-target');
   var socialEl = document.getElementById('fly-social');
   var engineEl = document.getElementById('fly-engine');
   var engineModelEl = document.getElementById('fly-engine-model');
@@ -616,6 +617,11 @@ ${flyHintText.toString()}
   // ever claim the same-area task, instead of every lane pulling from the
   // whole board unpartitioned.
   setTip(lanesEl, 'flyLanesTip');
+  // FLY TARGET (epic 0016 slice 4, board web-mtpzzxn4-69csqx): this one
+  // flight's AUTOPILOT_FLY_TARGET, sent as StartFlightInput.flyTarget — the
+  // code tree, or GitHub only. The empty default sends nothing, so the child
+  // inherits the dashboard's own env exactly as before this control.
+  setTip(targetEl, 'flyTargetTip');
   // SOCIAL PASS (epic 0016 slice 3, board web-mtpzzx7v-72q2dv): this one
   // flight's AUTOPILOT_SOCIAL_FLIGHT override, sent as
   // StartFlightInput.socialFlight. The empty default sends nothing, so the
@@ -973,6 +979,7 @@ ${sessionFlightDataFor.toString()}
       if (totalEl) totalEl.disabled = false;
       if (budgetEl) budgetEl.disabled = false;
       if (lanesEl) lanesEl.disabled = false;
+      if (targetEl) targetEl.disabled = false;
       if (socialEl) socialEl.disabled = false;
       if (engineEl) engineEl.disabled = false;
       if (engineModelEl) engineModelEl.disabled = false;
@@ -1009,6 +1016,7 @@ ${sessionFlightDataFor.toString()}
     if (totalEl) totalEl.disabled = running;
     if (budgetEl) budgetEl.disabled = running;
     if (lanesEl) lanesEl.disabled = running;
+    if (targetEl) targetEl.disabled = running;
     if (socialEl) socialEl.disabled = running;
     if (engineEl) engineEl.disabled = running;
     if (engineModelEl) engineModelEl.disabled = running;
@@ -1093,8 +1101,14 @@ ${sessionFlightDataFor.toString()}
       setMsg(tr('lanesFixedFiringCount'), 'err');
       return;
     }
-    // /api/fleet carries no per-lane social override, so a chosen one is
-    // refused here rather than silently dropped from a multi-lane launch.
+    // /api/fleet carries no fly target or per-lane social override, so a
+    // chosen one is refused here rather than silently dropped from a
+    // multi-lane launch.
+    var flyTarget = targetEl ? targetEl.value : '';
+    if (lanes > 1 && flyTarget) {
+      setMsg(tr('flyTargetSingleLane'), 'err');
+      return;
+    }
     var socialFlight = socialEl ? socialEl.value : '';
     if (lanes > 1 && socialFlight) {
       setMsg(tr('socialPassSingleLane'), 'err');
@@ -1164,6 +1178,7 @@ ${sessionFlightDataFor.toString()}
     if (isTotal) {
       payload = { folder: folder, budgetUsd: budgetUsd, totalBudgetUsd: totalUsd };
     }
+    if (flyTarget) payload.flyTarget = flyTarget;
     if (socialFlight) payload.socialFlight = socialFlight;
     if (engineChoice) payload.engine = engineChoice;
     if (engineNeedsModel()) payload.engineModel = engineModel;
