@@ -20,6 +20,14 @@
  * fly.ts edit selected zero tests at the per-firing gate
  * (docs/debriefs/2026-09-30-verdict-ap-mun9xrba-2-test-impacted-blast-radius-refuted.md).
  *
+ * The same read, spelled with `join(process.cwd(), …)` instead of `new
+ * URL(…, import.meta.url)`, is the same blind spot again (2026-10-04): under
+ * jsdom `import.meta.url` is an http: URL, not file:, so every suite that
+ * pins a workspace source file's text from a jsdom environment resolves it
+ * from `process.cwd()` instead — `main.ts`'s two repo-binding guards and the
+ * icon-system emoji census (which reads the whole `src/web/` folder this
+ * way) rode along on no change to the file they pin.
+ *
  * Usage: node scripts/ci/run-repo-census-tests.mjs [--list]
  */
 import { execFileSync } from 'node:child_process';
@@ -50,6 +58,11 @@ const REPO_PATH_RE = /['"`/](?:README\.md|CHANGELOG\.md|docs|config|\.github)(?:
 const SOURCE_URL_RE =
   /new URL\(\s*(['"`])\.\.\/(?:[^'"`]*\/)?src\/[^'"`]*\1\s*,\s*import\.meta\.url\b/;
 
+/** The same workspace-source-as-text read, resolved from `process.cwd()`
+ *  instead of `import.meta.url` — what a jsdom-environment suite must use,
+ *  since `import.meta.url` there is an http: URL, not file:. */
+const SOURCE_CWD_RE = /\bjoin\(\s*process\.cwd\(\)\s*,\s*(['"`])(?:[^'"`]*\/)?src\/[^'"`]*\1/;
+
 /** Git's `config` subcommand opening an argv array — `gitSync(dir, ['config',
  *  'user.email', …])`, the setup of every real-git suite. It names no path. */
 const GIT_CONFIG_ARGV_RE = /\[\s*(['"`])config\1/g;
@@ -63,7 +76,10 @@ export function isRepoReadingTest(source) {
   if (FS_READ_RE.test(source) && source.includes("'ls-files'")) return true;
   // A test that pins a module's wiring by its source text (2026-09-30): five
   // suites read fly.ts that way, and a fly.ts edit selected none of them.
-  if (FS_READ_RE.test(source) && SOURCE_URL_RE.test(source)) return true;
+  // The same read spelled via process.cwd() (2026-10-04) is the same case.
+  if (FS_READ_RE.test(source) && (SOURCE_URL_RE.test(source) || SOURCE_CWD_RE.test(source))) {
+    return true;
+  }
   // A `git config` argv is not the config/ directory (2026-09-28). Read as
   // one, it put five real-git suites that read no repository path into every
   // per-firing gate, and under fleet load their timeouts crashed the gate.
