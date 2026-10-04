@@ -2157,6 +2157,12 @@ const EN_STRINGS = {
     'Firings that reverted, hit the turn cap, timed out, or errored with nothing committed',
   flightDebriefTotalSpendTip: 'Total spend across this flight',
   flightDebriefTotalSpendAria: 'total spend: {amount}',
+  // A firing whose record carries no price (a Codex or Gemini run, epic 0036)
+  // is counted beside the priced total, never summed into it as $0.
+  flightDebriefTotalSpendPartlyUnpriced: '{amount} + {count} unpriced',
+  flightDebriefTotalSpendAllUnpriced: '{count} unpriced',
+  flightDebriefTotalSpendUnpricedTip:
+    'Spend of the priced firings. A Codex or Gemini run reports no price, so it is counted, not summed as $0',
   flightDebriefTotalDurationTip: 'Total wall-clock time across this flight',
   flightDebriefTotalDurationAria: 'total duration: {amount}',
   flightDebriefGuardDenialSingular: '{count} guard denial',
@@ -3619,6 +3625,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'הפעלות שבוטלו, חרגו ממכסת התורות, נתקלו בפסק זמן, או נכשלו בשגיאה בלי לבצע קומיט',
     flightDebriefTotalSpendTip: 'סך ההוצאה לאורך הטיסה הזו',
     flightDebriefTotalSpendAria: 'סך הוצאה: {amount}',
+    flightDebriefTotalSpendPartlyUnpriced: '{amount} + {count} ללא מחיר',
+    flightDebriefTotalSpendAllUnpriced: '{count} ללא מחיר',
+    flightDebriefTotalSpendUnpricedTip:
+      'הוצאת ההפעלות המתומחרות. הפעלת Codex או Gemini אינה מדווחת מחיר, ולכן נספרת ולא נסכמת כ-$0',
     flightDebriefTotalDurationTip: 'סך זמן הריצה לאורך הטיסה הזו',
     flightDebriefTotalDurationAria: 'סך משך זמן: {amount}',
     flightDebriefGuardDenialSingular: '{count} חסימת שמירה',

@@ -23,6 +23,7 @@ const DEBRIEF_TEXT: Record<string, string> = {
   flightDebriefDeathTip:
     'Firings that reverted, hit the turn cap, timed out, or errored with nothing committed',
   flightDebriefTotalSpendTip: 'Total spend across this flight',
+  flightDebriefTotalSpendUnpricedTip: 'Spend of the firings that reported a price',
   flightDebriefTotalDurationTip: 'Total wall-clock time across this flight',
   flightDebriefGuardDenialTip: 'PreToolUse containment/read-hygiene hits this flight',
   flightDebriefRemediationTip: 'Mechanical RemediatingGate auto-fixes this flight',
@@ -40,6 +41,10 @@ const tr: FlightDebriefTranslator = (key, subs) => {
       return `${count} died`;
     case 'flightDebriefTotalSpendAria':
       return `total spend: ${amount}`;
+    case 'flightDebriefTotalSpendPartlyUnpriced':
+      return `${amount} + ${count} unpriced`;
+    case 'flightDebriefTotalSpendAllUnpriced':
+      return `${count} unpriced`;
     case 'flightDebriefTotalDurationAria':
       return `total duration: ${amount}`;
     case 'flightDebriefGuardDenialSingular':
@@ -215,5 +220,91 @@ describe('flightDebriefOf — an unknown cost competes for nothing', () => {
     );
     expect(d?.best).toBeNull();
     expect(d?.shipped).toBe(1);
+  });
+});
+
+describe('flightDebriefOf — a firing that reported no price (epic 0036)', () => {
+  it('counts it as unpriced and leaves it out of the spend total', () => {
+    const log = [
+      { shipped: true, cost: 2 },
+      { shipped: true, cost: 0, costUnpriced: true },
+      { shipped: false, cost: 0, costUnpriced: true, gateResult: 'reverted' },
+    ];
+    const d = flightDebriefOf(log, verdictOf)!;
+    expect(d.unpriced).toBe(2);
+    expect(d.totalCost).toBe(2);
+    expect(d.firings).toBe(3);
+    expect(d.best).toBe(log[0]);
+    expect(d.worst).toBeNull();
+  });
+
+  it('the record wins over the metrics column: an unpriced firing is never summed, best or worst', () => {
+    const d = flightDebriefOf(
+      [
+        { shipped: true, cost: 0.4, costUnpriced: true },
+        { shipped: false, cost: 3, costUnpriced: true, gateResult: 'reverted' },
+        { shipped: true, cost: 1 },
+      ],
+      verdictOf,
+    )!;
+    expect(d.totalCost).toBe(1);
+    expect(d.best?.cost).toBe(1);
+    expect(d.worst).toBeNull();
+  });
+
+  it('a flight whose every firing was priced counts none unpriced', () => {
+    const d = flightDebriefOf(
+      [
+        { shipped: true, cost: 1, costUnpriced: false },
+        { shipped: true, cost: 0 },
+      ],
+      verdictOf,
+    )!;
+    expect(d.unpriced).toBe(0);
+  });
+});
+
+describe('flightDebriefChipItems — unpriced spend (epic 0036)', () => {
+  const fmtCost = (n: number) => '$' + n.toFixed(2);
+  const fmtDuration = (ms: number) => ms + 'ms';
+
+  it('the spend chip names the unpriced firings beside the priced total', () => {
+    const d = flightDebriefOf(
+      [
+        { shipped: true, cost: 2 },
+        { shipped: true, cost: 0, costUnpriced: true },
+        { shipped: true, cost: 0, costUnpriced: true },
+      ],
+      verdictOf,
+    )!;
+    expect(flightDebriefChipItems(d, fmtCost, fmtDuration, tr)[2]).toEqual([
+      '$2.00 + 2 unpriced',
+      'Spend of the firings that reported a price',
+      'total spend: $2.00 + 2 unpriced',
+    ]);
+  });
+
+  it('a flight with no priced firing reads its unpriced count, never $0.00', () => {
+    const d = flightDebriefOf(
+      [
+        { shipped: true, cost: 0, costUnpriced: true },
+        { shipped: false, cost: 0, costUnpriced: true, gateResult: 'reverted' },
+      ],
+      verdictOf,
+    )!;
+    expect(flightDebriefChipItems(d, fmtCost, fmtDuration, tr)[2]).toEqual([
+      '2 unpriced',
+      'Spend of the firings that reported a price',
+      'total spend: 2 unpriced',
+    ]);
+  });
+
+  it('a fully priced flight keeps its plain total and tip', () => {
+    const d = flightDebriefOf([{ shipped: true, cost: 1.5 }], verdictOf)!;
+    expect(flightDebriefChipItems(d, fmtCost, fmtDuration, tr)[2]).toEqual([
+      '$1.50',
+      'Total spend across this flight',
+      'total spend: $1.50',
+    ]);
   });
 });
