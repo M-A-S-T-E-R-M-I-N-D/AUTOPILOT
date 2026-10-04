@@ -64,6 +64,7 @@ body {
 .update-banner-go:hover, .update-banner-go:focus-visible { border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .update-banner-later { font: inherit; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .update-banner-later:hover, .update-banner-later:focus-visible { color: var(--color-text); border-color: var(--color-text-muted); }
+.update-banner-go > .icon, .update-banner-later > .icon { margin-inline-end: 0.35em; }
 .masthead {
   /* Two rows of 44px touch targets (the coarse-pointer floor) plus the old
      8px padding and row gap put the sticky chrome at 113px on a phone — over
@@ -894,6 +895,8 @@ main.project-mode { grid-template-columns: 1fr; }
 .flight-debrief-best > .icon, .flight-debrief-worst > .icon { margin-inline-end: var(--space-2); }
 .flight-debrief-label { font-weight: 600; }
 .flight-debrief-notable { margin: var(--space-1) 0 0; font-size: var(--text-xs); }
+.flight-debrief-social { margin: var(--space-1) 0 0; font-size: var(--text-sm); }
+.flight-debrief-social > .icon { margin-inline-end: var(--space-2); }
 .landing-overlaps { list-style: none; margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); border: 1px solid var(--color-sev-medium); border-radius: var(--shape-extra-small); background: color-mix(in srgb, var(--color-sev-medium) 12%, transparent); }
 .landing-overlap { font-size: var(--text-sm); color: var(--color-sev-medium); }
 .landing-worktree-divergence { margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--color-sev-high); border: 1px solid var(--color-sev-high); border-radius: var(--shape-extra-small); background: color-mix(in srgb, var(--color-sev-high) 12%, transparent); }
@@ -2486,6 +2489,9 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
   -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: var(--elevation-level-2);
 }
 .focus-exit:hover, .focus-exit:focus-visible { border-color: var(--color-accent); outline: none; }
+/* Its minimize icon (epic 0025) is spaced by a margin: a display on the pill
+   would beat the UA's [hidden]{display:none} outside focus mode. */
+.focus-exit > .icon { margin-inline-end: 0.35em; }
 body[data-focus="on"] .masthead, body[data-focus="on"] .subject-nav, body[data-focus="on"] .update-banner { display: none; }
 body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 /* COMMAND PALETTE (epic 0021 slice 7): one modal, top-anchored so the list

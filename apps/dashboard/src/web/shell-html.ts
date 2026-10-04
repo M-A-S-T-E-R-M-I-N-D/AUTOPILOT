@@ -274,6 +274,8 @@ export function subjectNavHtml(project?: string): string {
   // FOCUS MODE (slice 8) rides the nav as its last item — a button, not a
   // place — and its exit pill sits outside the nav so it survives the nav
   // leaving the page. Never persisted: a reload is always the way home.
+  // The toggle leads with maximize and the pill with minimize (epic 0025),
+  // decorative beside each one's [data-i18n] label.
   const focusToggle =
     '    <button type="button" class="subject-link subject-focus" id="focus-toggle" aria-pressed="false" data-tip="Hide the chrome, keep the work (Esc to exit)" data-i18n-tip="focusModeTip">' +
     iconSvg('maximize') +
@@ -284,7 +286,9 @@ export function subjectNavHtml(project?: string): string {
     focusToggle +
     '  </nav>\n' +
     projectTabs +
-    '  <button type="button" class="focus-exit" id="focus-exit" hidden><span data-i18n="focusExit">Exit focus</span></button>\n' +
+    '  <button type="button" class="focus-exit" id="focus-exit" hidden>' +
+    iconSvg('minimize') +
+    '<span data-i18n="focusExit">Exit focus</span></button>\n' +
     '  <p class="subject-empty" id="subject-empty" role="status" data-i18n="subjectEmpty" hidden>Nothing here yet — this area fills as the fleet works.</p>'
   );
 }

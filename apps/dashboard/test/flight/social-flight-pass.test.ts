@@ -325,4 +325,14 @@ describe('fly.ts weaves the pass in at its start, interval and end phases', () =
     expect(debrief).toBeGreaterThan(endPass);
     expect(fly).toContain('out(`  🗣 ${socialFlightDebriefLine(socialDebrief)}`)');
   });
+
+  it('persists the printed SOCIAL digest as a social-debrief event, for the dashboard debrief', () => {
+    const fly = readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');
+    const printed = fly.indexOf('socialFlightDebriefLine(socialDebrief)');
+    const persisted = fly.indexOf(
+      '.run(projectId, null, SOCIAL_DEBRIEF_EVENT, JSON.stringify(socialDebrief), now())',
+    );
+    expect(printed).toBeGreaterThan(-1);
+    expect(persisted).toBeGreaterThan(printed);
+  });
 });

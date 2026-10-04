@@ -437,8 +437,9 @@ function flightGroupRow(c, entry, taskById) {
         fmtCost,
         fmtAgo,
         mf.realCostUsd,
+        mf.costUnpriced,
       );
-      var mCost = el('span', 'flight-cost muted', fmtCost(mf.cost));
+      var mCost = el('span', 'flight-cost muted', mCostAgo.costText);
       mCost.setAttribute('tabindex', '0');
       mCost.setAttribute('data-tip', mCostAgo.costTip);
       // i18n: the slice-worded tip keys — the flat rows in flightLogNode
@@ -2393,8 +2394,9 @@ function flightLogNode(c) {
       fmtCost,
       fmtAgo,
       f.realCostUsd,
+      f.costUnpriced,
     );
-    var logCostEl = el('span', 'flight-cost muted', fmtCost(f.cost));
+    var logCostEl = el('span', 'flight-cost muted', logCostAgo.costText);
     logCostEl.setAttribute('tabindex', '0');
     logCostEl.setAttribute('data-tip', logCostAgo.costTip);
     // i18n (board web-msnsndki-dz3vn1): only the tips are tagged — the chips'

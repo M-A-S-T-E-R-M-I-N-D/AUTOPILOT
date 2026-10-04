@@ -27,6 +27,7 @@ import {
   brokenDocLinks,
   docLinksHere,
   readLandingInfo,
+  readSocialFlightDebrief,
   readRoundInfo,
   readBacklogCandidates,
   readReleaseInfo,
@@ -760,6 +761,7 @@ const server = createServer({
   docsWrite: createDocsWriteApi(dbPath),
   browseFolder: (path) => listBrowsableFolder(path),
   landing: (projectId) => readLandingInfo(dbPath, projectId),
+  socialDebrief: (projectId) => readSocialFlightDebrief(dbPath, projectId),
   // Every LAND press goes through the job registry, never straight at the
   // execute API: it dedupes a double-press onto the one running gate (two
   // concurrent merges into the same base is the exact git race the

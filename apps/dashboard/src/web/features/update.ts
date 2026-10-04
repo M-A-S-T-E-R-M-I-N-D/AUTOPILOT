@@ -76,6 +76,19 @@ function runUpdateWith(check, strategy, ui) {
     })
     .catch(function () { ui.refused('network'); });
 }
+// Epic 0025: each banner button leads with a decorative stroke icon (Update
+// now the rocket What's new titles with, Later the Versions heading's clock);
+// the words sit in an inner [data-i18n] span, so a locale switch rewrites
+// them and leaves the icon in place.
+function updateBannerBtn(cls, icon, key) {
+  var b = el('button', cls);
+  b.type = 'button';
+  b.appendChild(iconEl(icon));
+  var label = el('span', null, tr(key));
+  label.setAttribute('data-i18n', key);
+  b.appendChild(label);
+  return b;
+}
 function updateInit() {
   var banner = document.getElementById('update-banner');
   if (!banner) return;
@@ -83,10 +96,8 @@ function updateInit() {
   function paintBanner(check) {
     banner.replaceChildren();
     var text = el('span', 'update-banner-text', tr('updateBannerText', { from: check.current, to: check.latest }));
-    var goBtn = el('button', 'update-banner-go', tr('updateNow'));
-    goBtn.type = 'button';
-    var laterBtn = el('button', 'update-banner-later', tr('updateLater'));
-    laterBtn.type = 'button';
+    var goBtn = updateBannerBtn('update-banner-go', 'rocket', 'updateNow');
+    var laterBtn = updateBannerBtn('update-banner-later', 'clock', 'updateLater');
     banner.appendChild(text);
     banner.appendChild(goBtn);
     banner.appendChild(laterBtn);
@@ -105,8 +116,7 @@ function updateInit() {
   function showRefused(details) {
     banner.replaceChildren();
     banner.appendChild(el('span', 'update-banner-text', tr('updateRefused') + details));
-    var retry = el('button', 'update-banner-go', tr('updateNow'));
-    retry.type = 'button';
+    var retry = updateBannerBtn('update-banner-go', 'rocket', 'updateNow');
     retry.addEventListener('click', function () { updateInit(); });
     banner.appendChild(retry);
     banner.hidden = false;

@@ -12,7 +12,7 @@
 import type { Store } from '@autopilot/store';
 
 type Db = Store['db'];
-import { parseFiringDeath, parseNoopClass } from './source.js';
+import { parseFiringDeath, parseNoopClass, recordsNoPrice } from './source.js';
 import { isQuotaDeath } from '../flight/model-scoreboard.js';
 import { LANE_DEMOTED_EVENT } from '../flight/firing-engine.js';
 import { execFileSync } from 'node:child_process';
@@ -85,17 +85,6 @@ function payloadFieldsOf(payload: string | null): Readonly<Record<string, unknow
 
 function integerOrNull(value: unknown): number | null {
   return typeof value === 'number' && Number.isInteger(value) ? value : null;
-}
-
-/**
- * Whether the firing record says its cost is unknown (`costUsd: null`): a
- * Codex or Gemini run reports no price, and a run killed before its envelope
- * has none (epic 0036; `firing.ts`, DEATH-COST). The metrics column stores
- * that as 0, so only the record tells it from a free run. A record that is
- * missing, unreadable or silent on cost leaves the column's figure standing.
- */
-function recordsNoPrice(payload: string | null): boolean {
-  return payloadFieldsOf(payload)?.['costUsd'] === null;
 }
 
 /** The CLI the firing record says it flew on (epic 0036). No metrics column

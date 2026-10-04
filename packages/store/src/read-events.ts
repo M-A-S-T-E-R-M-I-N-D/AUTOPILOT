@@ -137,6 +137,37 @@ export function nearMissDebriefEvents(
     .all(projectId, clampEventsLimit(limit)) as NearMissDebriefEventRow[];
 }
 
+/** One `type = 'social-debrief'` event's raw row — see {@link latestSocialDebriefEvent}. */
+export interface SocialDebriefEventRow {
+  readonly payload: string | null;
+  readonly created_at: number;
+}
+
+/**
+ * The project's LATEST flight's SOCIAL debrief (epic 0016 slice 5/6) —
+ * fly.ts writes one `social-debrief` row per flight, after every firing and
+ * the end social pass — or `undefined` when that flight wrote none. A flight
+ * with the social toggle off writes no row, so "the newest row" alone would
+ * hand a silent flight its predecessor's digest; the row must also be no
+ * older than the project's newest firing (`metrics.created_at`). A later
+ * flight's first firing retires it, and a flight still in the air (firings
+ * newer than any row) reads none.
+ */
+export function latestSocialDebriefEvent(
+  db: Db,
+  projectId: string,
+): SocialDebriefEventRow | undefined {
+  return db
+    .prepare(
+      `SELECT payload, created_at FROM events
+         WHERE project_id = ? AND type = 'social-debrief'
+           AND created_at >= COALESCE(
+                 (SELECT MAX(created_at) FROM metrics WHERE project_id = ?), 0)
+         ORDER BY id DESC LIMIT 1`,
+    )
+    .get(projectId, projectId) as SocialDebriefEventRow | undefined;
+}
+
 /** One `type = 'near-miss-recurring'` event's raw row — see {@link nearMissRecurringEvents}. */
 export interface NearMissRecurringEventRow {
   readonly payload: string | null;

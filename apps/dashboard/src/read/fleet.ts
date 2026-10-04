@@ -175,6 +175,12 @@ export interface FlightEntry {
   readonly shipped: boolean;
   readonly gateResult: string | null;
   readonly cost: number;
+  /** True when the firing's record says its cost is unknown: a Codex or
+   *  Gemini run, whose CLI reports no price, or a run killed before its
+   *  envelope. Its {@link cost} is the metrics column's 0, so the flight log
+   *  shows it unpriced, never $0.00 (epic 0036). Optional for the same
+   *  pre-existing-fixture reason as {@link realCostUsd}. */
+  readonly costUnpriced?: boolean;
   /** Cost semantics v3 (epic 0013) — the same firing's cost, apportioned by
    *  real subscription share instead of API list-price. `null` when
    *  unconfigured (`AUTOPILOT_SUBSCRIPTION_PRICE_USD`/`AUTOPILOT_USAGE_POOL_DIRS`

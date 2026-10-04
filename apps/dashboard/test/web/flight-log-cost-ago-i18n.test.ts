@@ -100,13 +100,13 @@ const FLAT_ROW = '.flight:not(.flight-group) > .flight-head';
 const GROUP_HEAD = '.flight-group > .flight-head';
 const MEMBER = '.flight-group-member';
 
-function boot(): void {
+function boot(state: unknown = STATE): void {
   document.open();
   document.write(renderShell('p1'));
   document.close();
   globalThis.fetch = vi.fn(async () => ({
     ok: true,
-    json: async () => STATE,
+    json: async () => state,
   })) as unknown as typeof fetch;
   new Function(clientJs())();
 }
@@ -117,8 +117,8 @@ function q(selector: string): HTMLElement {
   return node as HTMLElement;
 }
 
-async function render(): Promise<void> {
-  boot();
+async function render(state: unknown = STATE): Promise<void> {
+  boot(state);
   await vi.advanceTimersByTimeAsync(1);
 }
 
@@ -238,5 +238,58 @@ describe('flight log cost/real-cost/ago tips i18n (board web-msnsndki-dz3vn1)', 
 
     expect(document.documentElement.lang).toBe('he');
     expectAllHebrew();
+  });
+});
+
+describe('an unpriced firing in the flight log (epic 0036)', () => {
+  // A Codex or Gemini run reports no price; its metrics row stores 0, so the
+  // chip read "$0.00", as if the run had been free.
+  const UNPRICED_STATE = {
+    ...STATE,
+    projects: [
+      {
+        ...PROJECT,
+        flightLog: [
+          { id: 'u1', at: 3, cost: 0, costUnpriced: true, turns: 1, sha: 'abc1234' },
+          {
+            id: 'u2',
+            at: 2,
+            cost: 0,
+            costUnpriced: true,
+            turns: 1,
+            sha: 'bcd2345',
+            completion: 'slice',
+            item: 't1',
+          },
+          { id: 'u3', at: 1, cost: 0.1, turns: 1, sha: 'cde3456', completion: 'slice', item: 't1' },
+        ],
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("a flat row's cost chip says unpriced, never $0.00", async () => {
+    await render(UNPRICED_STATE);
+
+    const chip = q(`${FLAT_ROW} .flight-cost`);
+    expect(chip.textContent).toBe('unpriced');
+    expect(chip.getAttribute('aria-label')).toBe('cost: unpriced, no price was reported');
+    expectTip(`${FLAT_ROW} .flight-cost`, FLAT_COST_TIP, 'flightCostTip');
+  });
+
+  it("a slice group's unpriced member says so, beside its priced sibling's cost", async () => {
+    await render(UNPRICED_STATE);
+    await openGroup();
+
+    const members = [...document.querySelectorAll<HTMLElement>(`${MEMBER} .flight-cost`)];
+    expect(members.map((m) => m.textContent)).toEqual(['unpriced', '$0.10']);
   });
 });

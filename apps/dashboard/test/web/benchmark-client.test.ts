@@ -146,6 +146,54 @@ describe('the benchmark page', () => {
     expect(intervals).toHaveBeenCalledWith(expect.any(Function), 60_000);
   });
 
+  it('reads a model whose engine reports no price as unpriced, never $0.00 (epic 0036)', async () => {
+    const codex = {
+      ...PAYLOAD.models[0]!,
+      modelId: 'gpt-5-codex',
+      label: 'gpt-5-codex',
+      vendor: 'OpenAI',
+      vendorId: 'openai',
+      firings: 2,
+      shipped: 1,
+      costUsd: null,
+      unpriced: 2,
+      costPerShipUsd: null,
+      shipRate: 0.5,
+    };
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        ...PAYLOAD,
+        models: [{ ...PAYLOAD.models[0]!, unpriced: 0 }, codex],
+        points: [
+          PAYLOAD.points[0]!,
+          {
+            modelId: 'gpt-5-codex',
+            costUsd: null,
+            minutes: 9,
+            turns: 0,
+            outcome: 'shipped',
+            at: 4,
+          },
+        ],
+      }),
+    })) as unknown as typeof fetch;
+    boot();
+    await painted();
+    const row = [...document.querySelectorAll('.bm-table tbody tr')][1]!;
+    const cells = [...row.querySelectorAll('td')].map((c) => c.textContent);
+    // Cost per ship and Spent: no price was reported, so neither is a number.
+    expect(cells[3]).toBe(BENCHMARK_STRINGS.en.unpriced);
+    expect(cells[7]).toBe(BENCHMARK_STRINGS.en.unpriced);
+    expect(row.textContent).not.toContain('$0.00');
+    // A firing with no cost has nowhere on a cost axis: no bubble, no mark.
+    const [bubbles, firings] = [...document.querySelectorAll('.bm-chart')];
+    expect(bubbles!.querySelectorAll('circle.bm-dot')).toHaveLength(1);
+    expect(firings!.querySelectorAll('circle.bm-dot')).toHaveLength(1);
+    // ...and the chart says how many it left out, rather than dropping them silently.
+    expect(firings!.textContent).toContain(BENCHMARK_STRINGS.en.unpricedNote.replace('{n}', '1'));
+  });
+
   it('gives one model one colour on every chart', async () => {
     boot();
     await painted();

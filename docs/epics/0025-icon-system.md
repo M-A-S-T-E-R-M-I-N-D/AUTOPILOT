@@ -524,6 +524,28 @@ propagation, and the filled style does not match the nav.
    button's name stays its aria-label; the row is rebuilt on every render and
    the locale sweep keeps the icon
    (`apps/dashboard/test/web/firing-diff-toggle-icon.test.ts`, axe-clean).
+   **Exit focus pill 2026-10-04 (slice 2):** the rail's Focus button leads
+   with `maximize`, but the Exit focus pill, the one control left on screen
+   once focus mode hides the chrome, was bare words. It leads with a newly
+   vendored `minimize` now, the same four corners pulled in, so the way out
+   reads as the way in reversed. The icon is decorative, so the button's name
+   stays its words, and the label already sat in an inner `[data-i18n]` span,
+   so a locale switch rewrites the words beside the icon. A margin spaces it:
+   a `display` on the pill would beat the UA's `[hidden]{display:none}` and
+   leave it on screen outside focus mode
+   (`apps/dashboard/test/web/focus-exit-icon.test.ts`, axe-clean).
+   **Update banner 2026-10-04 (slice 2):** the strip that appears above the
+   masthead once a newer release is out offered "Update now" and "Later" as
+   bare words beside the iconed execute buttons. Update now leads with the
+   `rocket` the What's new message titles with, the message this update
+   brings up next, and Later with the Versions heading's `clock`, since it
+   puts the offer off for the session; a refused update's retry draws the
+   same rocket. Nothing is newly vendored, and each icon is decorative, so a
+   button's name stays its words. The words moved into an inner `[data-i18n]`
+   span, so a locale switch now rewrites them beside the icon instead of
+   leaving English behind (`apps/dashboard/test/web/update-banner-icons.test.ts`,
+   axe-clean). The version menu's "Run the latest" button stays bare words:
+   its label is repainted through `textContent` on every check.
 
 ## Related
 

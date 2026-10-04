@@ -1256,6 +1256,72 @@ describe('createServer (live loopback)', () => {
     expect((await fetch(`${base}/api/landing?project=p1`)).status).toBe(404);
   });
 
+  describe('/api/landing socialDebrief (epic 0016 slice 5/6)', () => {
+    const DIGEST = {
+      passesRan: 2,
+      skippedForeignTarget: 0,
+      skippedGhDisconnected: 1,
+      newIssuesAllowed: 1,
+      newIssueBudget: 4,
+      commentsAllowed: 0,
+      commentBudget: 10,
+      queued: 1,
+      duplicate: 0,
+      refused: 2,
+    };
+
+    it("serves the latest flight's SOCIAL digest beside the landing preview, per project", async () => {
+      const base = await start({
+        landing: async () => null,
+        socialDebrief: (pid) => (pid === 'p1' ? DIGEST : null),
+      });
+      expect(await (await fetch(`${base}/api/landing?project=p1`)).json()).toEqual({
+        landing: null,
+        socialDebrief: DIGEST,
+      });
+      // No digest → no key at all: the response stays exactly what it was.
+      expect(await (await fetch(`${base}/api/landing?project=p2`)).json()).toEqual({
+        landing: null,
+      });
+    });
+
+    it('keeps the digest when the git read throws', async () => {
+      const gitDown = await start({
+        landing: () => {
+          throw new Error('git unavailable');
+        },
+        socialDebrief: () => DIGEST,
+      });
+      expect(await (await fetch(`${gitDown}/api/landing?project=p1`)).json()).toEqual({
+        landing: null,
+        socialDebrief: DIGEST,
+      });
+    });
+
+    it('keeps the landing preview when the store read throws', async () => {
+      const storeDown = await start({
+        landing: async () => ({
+          branch: 'autopilot/flight',
+          base: 'main',
+          commits: [],
+          diffstat: { filesChanged: 0, insertions: 0, deletions: 0 },
+          overlaps: [],
+          halfSteps: [],
+          worktreeAhead: [],
+        }),
+        socialDebrief: () => {
+          throw new Error('store locked');
+        },
+      });
+      const body = (await (await fetch(`${storeDown}/api/landing?project=p1`)).json()) as Record<
+        string,
+        unknown
+      >;
+      expect(body).toMatchObject({ landing: { branch: 'autopilot/flight' } });
+      expect(body).not.toHaveProperty('socialDebrief');
+    });
+  });
+
   it('GET /api/backlog previews the DETECTED BACKLOG candidates for a known project', async () => {
     const base = await start({
       backlog: async (pid) =>

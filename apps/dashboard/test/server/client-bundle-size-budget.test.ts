@@ -427,7 +427,12 @@ const CORE_RAW_BUDGET = 253 * 1024;
 // Then core gzip 74→75KB (2026-10-03), the same Engine per lane slice as the
 // raw entry above — measured 76251B against the old 75776B line, 475 bytes
 // over.
-const CORE_GZIP_BUDGET = 75 * 1024;
+// Then core gzip 75→76KB (2026-10-04), epic 0025's Exit focus pill (board
+// web-mtywp7zq-55f3o9): the vendored minimize rides core's ICON_SHAPES JSON
+// — measured 76750B, 50 bytes UNDER the old 76800B line, bumped for the
+// reason the 73KB entry gives, with sibling lanes flying beside it. Raw
+// (258727B) stays 345 bytes under its line.
+const CORE_GZIP_BUDGET = 76 * 1024;
 // raw-only 112→116KB (2026-09-09): the third maintainer verb (re-run failed
 // checks) closed the panel's last dead end. Tripwire paid three times first —
 // prose pass (-466B), one shared click-handler wiring, and prPanelButton()
@@ -622,7 +627,11 @@ const CORE_GZIP_BUDGET = 75 * 1024;
 // viewer's six remaining literals render through tr() with data-i18n tags.
 // Measured 129229B raw against the 129024B line: 205 bytes over — the
 // margin every entry above refuses. About two KB of margin, as above.
-const PROJECT_RAW_BUDGET = 128 * 1024;
+// Then project raw 128→131KB (2026-10-04, epic 0016 slice 5/6): the FLIGHT
+// DEBRIEF panel's SOCIAL line and its fourteen English keys. Measured
+// 132298B raw against the 131072B line: 1226 bytes over. About two KB of
+// margin, as above; gzip (35602B) untouched.
+const PROJECT_RAW_BUDGET = 131 * 1024;
 const PANELS_RAW_BUDGET = 255 * 1024;
 // gzip-only 34→35KB (2026-09-09), EPIC 0020 slices 1+2: PR pipeline strip +
 // maintainer merge/update-branch buttons. Paid the tripwire twice first — a

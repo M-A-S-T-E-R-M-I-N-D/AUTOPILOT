@@ -298,7 +298,12 @@ const CORE_RAW_BUDGET = 253 * 1024;
 // Then core gzip 74->75KB (2026-10-03), the same Engine per lane slice as the
 // raw entry above -- measured 76251B against the old 75776B line, 475 bytes
 // over.
-const CORE_GZIP_BUDGET = 75 * 1024;
+// Then core gzip 75->76KB (2026-10-04), epic 0025's Exit focus pill (board
+// web-mtywp7zq-55f3o9): the vendored minimize rides core's ICON_SHAPES JSON
+// -- measured 76750B, 50 bytes UNDER the old 76800B line, bumped for the
+// reason the 73KB entry gives, with sibling lanes flying beside it. Raw
+// (258727B) stays 345 bytes under its line.
+const CORE_GZIP_BUDGET = 76 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
@@ -526,7 +531,14 @@ const CORE_GZIP_BUDGET = 75 * 1024;
 // Measured 129229B raw against the 129024B line: 205 bytes over -- the
 // margin every entry above refuses. About two KB of margin, as above. Gzip
 // stays under PROJECT_GZIP_BUDGET untouched.
-const PROJECT_RAW_BUDGET = 128 * 1024;
+// Then project raw 128->131KB (2026-10-04, board web-mtpzzxw4-au1b6x, epic
+// 0016 slice 5/6): the FLIGHT DEBRIEF panel's SOCIAL line -- the spliced
+// flightDebriefSocialItems + its line renderer, and fourteen English keys
+// (a label, seven chip texts, six tips; ~1.2KB) that head /project.js with
+// the code that reads them. Measured 132298B raw against the 131072B line:
+// 1226 bytes over. About two KB of margin, as above. Gzip (35602B) stays
+// under PROJECT_GZIP_BUDGET untouched, with 238 bytes to spare.
+const PROJECT_RAW_BUDGET = 131 * 1024;
 const PANELS_RAW_BUDGET = 255 * 1024;
 // Then gzip 41→42KB (2026-09-12) for EPIC 0021 slice 6 (the context rail client) — measured 41.2KB gzip.
 // Then gzip 42→43KB (2026-09-12) for EPIC 0021 slice 4 (the Keeper queue) — measured 42.9KB gzip.

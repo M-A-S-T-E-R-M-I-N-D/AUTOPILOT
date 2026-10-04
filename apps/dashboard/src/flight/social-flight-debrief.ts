@@ -19,6 +19,11 @@
  * posted" outright instead of a said/filed/closed tally that could only read
  * zero, and "caps consumed" is the ALLOWED plan against the summed per-pass
  * budget. The posted tally lands with the execute half.
+ *
+ * fly.ts also persists the digest as one {@link SOCIAL_DEBRIEF_EVENT} event
+ * per flight, the `near-miss-debrief` precedent, so the dashboard's FLIGHT
+ * DEBRIEF panel can serve it later; {@link parseSocialFlightDebrief} is the
+ * read-back half, as pure as `near-miss.ts`'s `parseNearMissCounts`.
  */
 
 import type { SocialFlightPassOutcome } from './social-flight-pass.js';
@@ -111,4 +116,49 @@ export function socialFlightDebriefLine(d: SocialFlightDebrief): string {
     parts.push(`${d.skippedGhDisconnected} skipped (gh not connected)`);
   }
   return `SOCIAL debrief: ${parts.join('; ')}; nothing posted (read-only passes).`;
+}
+
+/** The `events.type` fly.ts persists a flight's {@link SocialFlightDebrief}
+ *  under, its JSON verbatim. A silent flight (a `null` digest) writes no row,
+ *  so a reader bounds its search by the flight's own start, never just "the
+ *  newest one". */
+export const SOCIAL_DEBRIEF_EVENT = 'social-debrief';
+
+const SOCIAL_DEBRIEF_FIELDS = [
+  'passesRan',
+  'skippedForeignTarget',
+  'skippedGhDisconnected',
+  'newIssuesAllowed',
+  'newIssueBudget',
+  'commentsAllowed',
+  'commentBudget',
+  'queued',
+  'duplicate',
+  'refused',
+] as const satisfies readonly (keyof SocialFlightDebrief)[];
+
+/**
+ * Parses one persisted {@link SOCIAL_DEBRIEF_EVENT} payload back into its
+ * {@link SocialFlightDebrief}. Defensive like the read-model's other event
+ * parsers: a missing, malformed or partial payload, or any count that is not
+ * a non-negative whole number, yields `null` (skip that row) rather than
+ * throwing or reading a gap as zero; a stray key never comes along.
+ */
+export function parseSocialFlightDebrief(payload: string | null): SocialFlightDebrief | null {
+  if (payload === null) return null;
+  let record: unknown;
+  try {
+    record = JSON.parse(payload);
+  } catch {
+    return null;
+  }
+  if (typeof record !== 'object' || record === null || Array.isArray(record)) return null;
+  const fields = record as Partial<Record<keyof SocialFlightDebrief, unknown>>;
+  const digest = {} as Record<keyof SocialFlightDebrief, number>;
+  for (const field of SOCIAL_DEBRIEF_FIELDS) {
+    const v = fields[field];
+    if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < 0) return null;
+    digest[field] = v;
+  }
+  return digest;
 }

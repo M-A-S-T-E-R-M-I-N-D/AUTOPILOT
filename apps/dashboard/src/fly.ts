@@ -270,7 +270,11 @@ import {
 import { runOwnedWorkSweep } from './flight/owned-work-reconcile.js';
 import { runSocialFlightPass, type SocialFlightPassOutcome } from './flight/social-flight-pass.js';
 import { isBetweenFirings, type SocialFlightPhase } from './flight/social-flight-trigger.js';
-import { socialFlightDebriefLine, socialFlightDebriefOf } from './flight/social-flight-debrief.js';
+import {
+  SOCIAL_DEBRIEF_EVENT,
+  socialFlightDebriefLine,
+  socialFlightDebriefOf,
+} from './flight/social-flight-debrief.js';
 import { composeSoulWithFleetWisdom } from './flight/fleet-wisdom-mining.js';
 
 const DEFAULT_FIRINGS = 1;
@@ -2524,7 +2528,21 @@ async function main(): Promise<void> {
     // line, after the end pass so it counts too. Silent when the toggle was
     // off all flight — the same expected case the pass itself keeps quiet.
     const socialDebrief = socialFlightDebriefOf(socialPasses);
-    if (socialDebrief) out(`  🗣 ${socialFlightDebriefLine(socialDebrief)}`);
+    if (socialDebrief) {
+      out(`  🗣 ${socialFlightDebriefLine(socialDebrief)}`);
+      // Persisted too, the near-miss-debrief row's twin, so the dashboard's
+      // FLIGHT DEBRIEF panel can serve the digest. Best-effort: a store
+      // hiccup must never fail the flight over a summary.
+      try {
+        store.db
+          .prepare(
+            'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+          )
+          .run(projectId, null, SOCIAL_DEBRIEF_EVENT, JSON.stringify(socialDebrief), now());
+      } catch {
+        /* the flight log already carries the line */
+      }
+    }
 
     runSoulMiningSweep(store, projectId, now);
 
