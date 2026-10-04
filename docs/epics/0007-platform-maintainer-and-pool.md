@@ -1248,6 +1248,19 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    first, it failed 3 of its 9 checks against the old code). Two lanes
    shipped this fix in parallel (2dd3b937, 9636d64f); the landing kept
    9636d64f's test block and dropped the other's near-identical one.
+   Refined 2026-10-04 (e2434eba): `poolDimension`/`isPoolIssue` matched
+   `POOL_LABEL_PREFIX` exactly, so on a repo whose pool labels read `Pool:
+   UX` an issue KEEPER triage already accepted (`gh issue edit --add-label
+   "pool: ux"`, which resolves a label name in any casing) fell out of the
+   pool browse, the claim refused it as never accepted into the pool, and a
+   claimed task lost its dimension. A new `carriedPoolLabel` matches the
+   prefix in any casing and returns the label as carried; `poolDimension`
+   reads through it and lowercases the suffix, so `Pool: UX` still queues
+   under the `ux` DIMENSIONS entry. `pool:ux`, `no pool: ux` and `carpool:
+   ux` still read as no pool label. Covered by `test/flight/pool-client.test.ts`
+   (four spellings each read as the ux pool, get claimed and queue under
+   `ux`; a `Pool: Data` issue is listed by `fetchPoolIssues`; written first,
+   13 of the new checks failed against the old exact match).
 7. Page upkeep + publicity affordances (dormant until public).
    Publicity half SHIPPED — `flight/publicity.ts`'s `fetchRepoIdentity` (`gh
    repo view --json nameWithOwner,url,isPrivate` through the same injectable
@@ -1431,6 +1444,16 @@ standalone board item. ap-mtlvusoi-0 closes on this evidence.
    `test/flight/discussions-triage.test.ts` (the same five variants and a
    label that only resembles a mark; written first, it failed 7 of its 9
    checks against the old code).
+   Refined again 2026-10-04 (e2434eba, the pool label's own casing gap):
+   the idempotency skip matched `POOL_LABEL_PREFIX` exactly too, so on a
+   repo whose pool labels read `Pool: UX` a discussion KEEPER already
+   labeled and replied to read as carrying no pool label on the next pass,
+   and got a second reply. `planDiscussionTriage` now reads the label
+   through `pool-client.ts`'s new `carriedPoolLabel` (the same helper
+   `poolDimension` reads above), naming the skip reason's label as the
+   discussion carries it. Covered by `test/flight/discussions-triage.test.ts`
+   (three spellings make triage skip, and a two-discussion ritual run
+   writes only to the unlabeled discussion).
 
 ## The claims ledger (2026-09-13)
 
