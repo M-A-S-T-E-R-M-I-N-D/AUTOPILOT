@@ -115,9 +115,15 @@ Per pass, mechanically derived — no guesses:
    spawn. That is fly.ts's own no-guess rule
    (`test/flight/runner.test.ts`, `test/flight/registry.test.ts`,
    `test/flight/spawn-flight.test.ts`).
-   _Still open:_ the fly-bar control that sends `flyTarget`, and persisting
-   the standalone digest for the FLIGHT DEBRIEF panel, which needs the
-   store this mode skips today.
+   The fly-bar control sends it now: a **Fly target** select in the gear's
+   launch settings (`web/shell.ts` `#fly-target`, wired in
+   `web/features/fly.ts`) offers `default`, `code` and `github`, and sends
+   `flyTarget` on `POST /api/fly` only when the operator picks one. A
+   multi-lane launch refuses a non-default pick rather than dropping it, and
+   the select locks while a flight runs (`test/web/fly-target.test.ts`,
+   axe-clean with the settings open, en + he; RUNBOOK §13).
+   _Still open:_ persisting the standalone digest for the FLIGHT DEBRIEF
+   panel, which needs the store this mode skips today.
 5. **observability**: every social action in the flight log + a SOCIAL
    section in the debrief (what was said/filed/closed, caps consumed).
    _Shipped so far:_ every woven-in pass already says its own line as it
