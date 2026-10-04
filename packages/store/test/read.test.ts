@@ -93,19 +93,6 @@ function insertMetric(
     );
 }
 
-/** The firing record of a run whose CLI reported no price (a Codex or Gemini
- *  run): `costUsd: null`, which the metrics column stores as 0. */
-const UNPRICED_RECORD = JSON.stringify({ firing: 1, costUsd: null });
-
-function insertFiringRecord(firingId: string, projectId: string, payload: string): void {
-  store.db
-    .prepare(
-      `INSERT INTO events (project_id, firing_id, type, payload, created_at)
-       VALUES (?, ?, 'firing', ?, 1000)`,
-    )
-    .run(projectId, firingId, payload);
-}
-
 let taskMetricSeq = 0;
 function insertTaskMetric(
   projectId: string,
@@ -192,7 +179,6 @@ describe('firingStats', () => {
     expect(firingStats(store.db, 'p1')).toEqual({
       firings: 3,
       shipped: 2,
-      pricedShipped: 2,
       cost: 0.85,
       realCost: null,
       tokensIn: 180,
@@ -208,7 +194,6 @@ describe('firingStats', () => {
     expect(firingStats(store.db, 'p1')).toEqual({
       firings: 0,
       shipped: 0,
-      pricedShipped: 0,
       cost: 0,
       realCost: null,
       tokensIn: 0,
@@ -227,7 +212,6 @@ describe('firingStats', () => {
     expect(firingStats(store.db, 'p1', 2000)).toEqual({
       firings: 2,
       shipped: 1,
-      pricedShipped: 1,
       cost: 0.35,
       realCost: null,
       tokensIn: 0,
@@ -258,58 +242,6 @@ describe('firingStats', () => {
     insertProject('p1', 'alpha', 'flying', 100);
     insertMetric('f1', 'p1', 1, 1, 0, 0, 0, 0, 0, 1000);
     expect(firingStats(store.db, 'p1').realCost).toBeNull();
-  });
-
-  it('leaves a ship whose record says costUsd null out of pricedShipped (epic 0036)', () => {
-    insertProject('p1', 'alpha', 'flying', 100);
-    // One $2.00 Claude ship beside two Codex ships, whose runs report no price.
-    insertMetric('claude', 'p1', 1, 2);
-    insertFiringRecord('claude', 'p1', JSON.stringify({ firing: 1, costUsd: 2 }));
-    insertMetric('codex-1', 'p1', 1, 0);
-    insertFiringRecord('codex-1', 'p1', UNPRICED_RECORD);
-    insertMetric('codex-2', 'p1', 1, 0);
-    insertFiringRecord('codex-2', 'p1', UNPRICED_RECORD);
-    // An unpriced firing that did not ship is no ship at all.
-    insertMetric('codex-3', 'p1', 0, 0);
-    insertFiringRecord('codex-3', 'p1', UNPRICED_RECORD);
-    const stats = firingStats(store.db, 'p1');
-    expect(stats.shipped).toBe(3);
-    expect(stats.pricedShipped).toBe(1);
-    expect(stats.cost).toBe(2);
-  });
-
-  it('keeps a ship priced when its record is missing, unreadable or silent on cost', () => {
-    insertProject('p1', 'alpha', 'flying', 100);
-    insertMetric('none', 'p1', 1, 1);
-    insertMetric('broken', 'p1', 1, 1);
-    insertFiringRecord('broken', 'p1', '{not json');
-    insertMetric('silent', 'p1', 1, 1);
-    insertFiringRecord('silent', 'p1', JSON.stringify({ firing: 1 }));
-    expect(firingStats(store.db, 'p1').pricedShipped).toBe(3);
-  });
-
-  it('counts a ship once when its record was written twice', () => {
-    insertProject('p1', 'alpha', 'flying', 100);
-    insertMetric('codex', 'p1', 1, 0);
-    insertFiringRecord('codex', 'p1', UNPRICED_RECORD);
-    insertFiringRecord('codex', 'p1', UNPRICED_RECORD);
-    insertMetric('claude', 'p1', 1, 1);
-    insertFiringRecord('claude', 'p1', JSON.stringify({ firing: 1, costUsd: 1 }));
-    insertFiringRecord('claude', 'p1', JSON.stringify({ firing: 1, costUsd: 1 }));
-    const stats = firingStats(store.db, 'p1');
-    expect(stats.shipped).toBe(2);
-    expect(stats.pricedShipped).toBe(1);
-  });
-
-  it('windows pricedShipped by sinceAt like every other total', () => {
-    insertProject('p1', 'alpha', 'flying', 100);
-    insertMetric('before', 'p1', 1, 1, 0, 0, 0, 0, 0, 1000);
-    insertMetric('codex', 'p1', 1, 0, 0, 0, 0, 0, 0, 3000);
-    insertFiringRecord('codex', 'p1', UNPRICED_RECORD);
-    insertMetric('after', 'p1', 1, 1, 0, 0, 0, 0, 0, 3000);
-    const stats = firingStats(store.db, 'p1', 2000);
-    expect(stats.shipped).toBe(2);
-    expect(stats.pricedShipped).toBe(1);
   });
 });
 

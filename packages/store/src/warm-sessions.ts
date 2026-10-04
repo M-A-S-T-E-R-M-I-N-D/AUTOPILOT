@@ -27,7 +27,6 @@
  */
 
 import type Database from 'better-sqlite3';
-import { UNPRICED_FIRING_SQL } from './read.js';
 
 type Db = Database.Database;
 
@@ -100,12 +99,23 @@ function delta(cold: number | null, resumed: number | null): number | null {
 
 /**
  * A project's metrics rows, each with `known_cost`: its `cost_usd`, or NULL
- * when its firing record says the cost is unknown ({@link UNPRICED_FIRING_SQL}),
- * so `AVG` leaves it out rather than averaging it in as free (epic 0036).
+ * when its firing record says the cost is unknown, so `AVG` leaves it out
+ * rather than averaging it in as free (epic 0036). A Codex or Gemini run
+ * reports no price, and a run killed before its envelope has none
+ * (`firing.ts`, DEATH-COST): the record says `costUsd: null` and the column
+ * stores 0. A record that is missing, unreadable or silent on cost leaves the
+ * column's figure standing, the rule the dashboard's `recordsNoPrice` reads.
+ * `EXISTS`, not a join, so a record written twice cannot count its firing
+ * twice; `json_valid` gates `json_type` inside a CASE, since `json_type`
+ * throws on malformed JSON.
  */
 const PRICED_METRICS_SQL = `(
   SELECT m.*,
-         CASE WHEN ${UNPRICED_FIRING_SQL} THEN NULL ELSE m.cost_usd END AS known_cost
+         CASE WHEN EXISTS (
+                SELECT 1 FROM events e
+                 WHERE e.firing_id = m.firing_id AND e.type = 'firing'
+                   AND json_type(CASE WHEN json_valid(e.payload) THEN e.payload END, '$.costUsd') = 'null'
+              ) THEN NULL ELSE m.cost_usd END AS known_cost
     FROM metrics m
    WHERE m.project_id = ?
 )`;

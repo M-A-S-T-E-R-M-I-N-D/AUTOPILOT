@@ -220,28 +220,6 @@ describe('readFleet', () => {
     expect(card.backedUp).toBe(true);
   });
 
-  it("divides the fleet's cost per shipped by the priced ships alone (epic 0036)", () => {
-    project('p1', 'alpha', 'flying');
-    // One $2.00 Claude ship beside a Codex ship, whose run reports no price.
-    const ship = store.db.prepare(
-      `INSERT INTO metrics (project_id, firing_id, shipped, gate_result, cost_usd, created_at)
-       VALUES ('p1', ?, 1, 'passed', ?, 1)`,
-    );
-    const record = store.db.prepare(
-      `INSERT INTO events (project_id, firing_id, type, payload, created_at)
-       VALUES ('p1', ?, 'firing', ?, 1)`,
-    );
-    ship.run('claude', 2);
-    record.run('claude', JSON.stringify({ firing: 1, costUsd: 2 }));
-    ship.run('codex', 0);
-    record.run('codex', JSON.stringify({ firing: 1, costUsd: null }));
-
-    const view = readFleet(store, 1);
-    expect(view.projects[0]!.pricedShipped).toBe(1);
-    expect(view.totals.costPerShipped).toBe(2);
-    expect(view.totals.unpricedShipped).toBe(1);
-  });
-
   it('shows only live alarms: a red a landing cured, or a denial days old, stays off the panel (2026-09-29)', () => {
     project('p1', 'alpha', 'flying');
     const HOUR = 60 * 60 * 1000;
@@ -2311,44 +2289,6 @@ describe('readRoundInfo', () => {
       expect(round?.tagName).toBeNull();
       expect(round?.firings).toBe(2);
       expect(round?.shipped).toBe(1);
-    } finally {
-      cleanupDir(repo);
-      cleanupDir(dbDir);
-    }
-  });
-
-  it('divides cost per shipped by the priced ships alone (epic 0036)', async () => {
-    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-round-unpriced-'));
-    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-round-db-'));
-    try {
-      initRepo(repo);
-      const dbPath = join(dbDir, 'a.db');
-      const s = openStore(dbPath);
-      migrate(s);
-      project('p1', 'alpha', 'flying', null, s);
-      s.db.prepare('UPDATE projects SET root_path = ? WHERE id = ?').run(repo, 'p1');
-      // One $2.00 Claude ship beside two Codex ships, whose runs report no price:
-      // the record says costUsd null and the metrics column stores 0.
-      const ship = s.db.prepare(
-        `INSERT INTO metrics (project_id, firing_id, shipped, gate_result, cost_usd, created_at)
-         VALUES ('p1', ?, 1, 'passed', ?, 1)`,
-      );
-      const record = s.db.prepare(
-        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
-         VALUES ('p1', ?, 'firing', ?, 1)`,
-      );
-      ship.run('claude', 2);
-      record.run('claude', JSON.stringify({ firing: 1, costUsd: 2 }));
-      for (const id of ['codex-1', 'codex-2']) {
-        ship.run(id, 0);
-        record.run(id, JSON.stringify({ firing: 1, costUsd: null }));
-      }
-      s.close();
-
-      const round = await readRoundInfo(dbPath, 'p1');
-      expect(round?.shipped).toBe(3);
-      expect(round?.cost).toBe(2);
-      expect(round?.costPerShipped).toBe(2);
     } finally {
       cleanupDir(repo);
       cleanupDir(dbDir);

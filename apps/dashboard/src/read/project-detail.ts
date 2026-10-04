@@ -350,8 +350,7 @@ export async function readRoundInfo(dbPath: string, projectId: string): Promise<
       shipped: stats.shipped,
       cost: stats.cost,
       shipRate: stats.firings > 0 ? stats.shipped / stats.firings : null,
-      // Priced ships alone: an unpriced (Codex, Gemini) ship's 0 is no price (epic 0036).
-      costPerShipped: stats.pricedShipped > 0 ? stats.cost / stats.pricedShipped : null,
+      costPerShipped: stats.shipped > 0 ? stats.cost / stats.shipped : null,
     };
   } catch {
     return null;

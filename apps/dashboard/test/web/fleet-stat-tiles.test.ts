@@ -220,16 +220,6 @@ describe('fleet stat tiles (bento grid)', () => {
     }
   });
 
-  it("names the unpriced ships cost / shipped leaves out in the tile's tip and label (epic 0036)", async () => {
-    boot({ costPerShipped: 2, unpricedShipped: 2 });
-    await vi.advanceTimersByTimeAsync(1);
-
-    const tile = document.querySelector('#stat-tiles .stat-tile')!;
-    const note = '2 unpriced left out, no price was reported';
-    expect(tile.getAttribute('data-tip')).toContain(note);
-    expect(tile.getAttribute('aria-label')).toContain(note);
-  });
-
   it('renders a real per-firing spark inside every tile once fleet-wide firing history exists', async () => {
     boot({}, SAMPLE_FIRINGS);
     await vi.advanceTimersByTimeAsync(1);
