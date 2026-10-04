@@ -18,7 +18,7 @@
 import { existsSync } from 'node:fs';
 import { listProjects, openStore, type Store } from '@autopilot/store';
 import { describeModel, resolveModelVendor } from '@autopilot/engine';
-import { parseFiringDeath } from './source.js';
+import { parseFiringDeath, recordsNoPrice } from './source.js';
 import {
   MIN_ARM_FIRINGS,
   SHIP_RATE_TOLERANCE,
@@ -40,8 +40,13 @@ export interface BenchmarkModel {
   readonly firings: number;
   readonly shipped: number;
   readonly died: number;
-  readonly costUsd: number;
-  /** `null` when nothing shipped — a cost per zero ships is not a number. */
+  /** What its priced firings cost; `null` when none reported a price (a
+   *  Codex or Gemini model, epic 0036), so it never reads as free. */
+  readonly costUsd: number | null;
+  /** Firings whose cost is unknown, left out of both cost figures. */
+  readonly unpriced: number;
+  /** The priced firings' cost over their own ships; `null` when no priced
+   *  firing shipped — a cost per zero ships is not a number. */
   readonly costPerShipUsd: number | null;
   readonly shipRate: number;
   readonly medianMinutes: number;
@@ -53,7 +58,8 @@ export interface BenchmarkModel {
 /** One firing, for the firing-level scatter. */
 export interface BenchmarkPoint {
   readonly modelId: string;
-  readonly costUsd: number;
+  /** `null` for a firing that reported no price: it has no place on a cost axis. */
+  readonly costUsd: number | null;
   readonly minutes: number;
   readonly turns: number;
   readonly outcome: 'shipped' | 'died' | 'no-ship';
@@ -96,7 +102,8 @@ export interface BenchmarkFiring {
   readonly modelId: string;
   readonly shipped: boolean;
   readonly died: boolean;
-  readonly costUsd: number;
+  /** `null` when the firing record says its cost is unknown (`recordsNoPrice`). */
+  readonly costUsd: number | null;
   readonly durationMs: number;
   readonly turns: number;
   readonly at: number;
@@ -115,7 +122,11 @@ export function summarizeModels(firings: readonly BenchmarkFiring[]): BenchmarkM
   for (const f of firings) byModel.set(f.modelId, [...(byModel.get(f.modelId) ?? []), f]);
   const rows = [...byModel.entries()].map(([modelId, fs]): BenchmarkModel => {
     const shipped = fs.filter((f) => f.shipped).length;
-    const costUsd = fs.reduce((sum, f) => sum + f.costUsd, 0);
+    // An unpriced firing neither looks free nor cheapens the priced ones' ships,
+    // as the fleet report prices a group (read/fleet-report.ts, summarizeFirings).
+    const priced = fs.filter((f) => f.costUsd !== null);
+    const pricedShips = priced.filter((f) => f.shipped).length;
+    const costUsd = priced.reduce((sum, f) => sum + f.costUsd!, 0);
     const vendor = resolveModelVendor(modelId).vendor;
     return {
       modelId,
@@ -125,8 +136,9 @@ export function summarizeModels(firings: readonly BenchmarkFiring[]): BenchmarkM
       firings: fs.length,
       shipped,
       died: fs.filter((f) => f.died).length,
-      costUsd,
-      costPerShipUsd: shipped === 0 ? null : costUsd / shipped,
+      costUsd: priced.length === 0 ? null : costUsd,
+      unpriced: fs.length - priced.length,
+      costPerShipUsd: pricedShips === 0 ? null : costUsd / pricedShips,
       shipRate: shipped / fs.length,
       medianMinutes: median(fs.map((f) => f.durationMs / 60_000)),
       medianTurns: median(fs.map((f) => f.turns)),
@@ -200,13 +212,15 @@ export function readBenchmarkFirings(
     payload: string | null;
   }[];
   // A firing the account-wide quota killed says nothing about its model.
+  // The metrics column stores a null cost as 0, so only the record tells an
+  // unpriced firing from a free one (epic 0036).
   return rows
     .filter((r) => !isQuotaDeath(r.payload))
     .map((r) => ({
       modelId: r.model,
       shipped: r.shipped === 1,
       died: r.shipped !== 1 && r.gate_result !== 'reverted' && parseFiringDeath(r.payload) !== null,
-      costUsd: r.cost_usd,
+      costUsd: recordsNoPrice(r.payload) ? null : r.cost_usd,
       durationMs: r.duration_ms,
       turns: r.turns,
       at: r.created_at,

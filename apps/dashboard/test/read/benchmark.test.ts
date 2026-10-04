@@ -24,7 +24,7 @@ import { routeTaskModel } from '../../src/flight/model-scoreboard.js';
 const f = (
   modelId: string,
   shipped: boolean,
-  costUsd: number,
+  costUsd: number | null,
   minutes: number,
   at: number,
   extra: Partial<BenchmarkFiring> = {},
@@ -69,6 +69,22 @@ describe('summarizeModels', () => {
     expect(row!.costPerShipUsd).toBeNull();
     expect(row!.vendorId).toBe('unknown');
   });
+
+  it('prices a model by its priced firings alone, so an engine with no price never reads free (epic 0036)', () => {
+    const rows = summarizeModels([
+      f('gpt-5-codex', true, null, 10, 1),
+      f('gpt-5-codex', false, null, 4, 2),
+      f('claude-opus-5-5', true, 2, 10, 3),
+      f('claude-opus-5-5', false, null, 4, 4, { died: true }),
+    ]);
+    const codex = rows.find((r) => r.modelId === 'gpt-5-codex')!;
+    expect(codex).toMatchObject({ firings: 2, shipped: 1, costUsd: null, unpriced: 2 });
+    expect(codex.costPerShipUsd).toBeNull();
+    expect(codex.shipRate).toBe(0.5);
+    const opus = rows.find((r) => r.modelId === 'claude-opus-5-5')!;
+    expect(opus).toMatchObject({ costUsd: 2, unpriced: 1, costPerShipUsd: 2 });
+    expect(summarizeModels([f('claude-opus-5-5', true, 3, 1, 1)])[0]!.unpriced).toBe(0);
+  });
 });
 
 describe('firingPoints', () => {
@@ -84,6 +100,10 @@ describe('firingPoints', () => {
       ['died', 3],
       ['no-ship', 9],
     ]);
+  });
+
+  it('keeps an unpriced firing unpriced, never at $0 on the cost axis (epic 0036)', () => {
+    expect(firingPoints([f('gpt-5-codex', true, null, 6, 1)])[0]!.costUsd).toBeNull();
   });
 });
 
@@ -191,6 +211,33 @@ describe('readBenchmark', () => {
       .run(JSON.stringify({ globalExhaust: true, isError: true }), now - 400);
     const opus = readBenchmark(store, now).models.find((m) => m.modelId === 'claude-opus-5-5')!;
     expect([opus.firings, opus.shipped]).toEqual([1, 1]);
+  });
+
+  it("reads a firing whose record has no price as unpriced, not the column's $0 (epic 0036)", () => {
+    const now = 200 * 24 * 60 * 60 * 1000;
+    const insert = store.db.prepare(
+      `INSERT INTO metrics (project_id, firing_id, item, kind, sha, shipped, gate_result, cost_usd, duration_ms, turns, model, created_at)
+       VALUES ('p1', ?, 't', 'feat', NULL, 1, 'passed', ?, 600000, 20, ?, ?)`,
+    );
+    const record = store.db.prepare(
+      `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+       VALUES ('p1', ?, 'firing', ?, ?)`,
+    );
+    // The metrics column stores a null cost as 0; only the record tells it from a free run.
+    insert.run('p1:firing-1', 0, 'gpt-5-codex', now - 500);
+    record.run('p1:firing-1', JSON.stringify({ costUsd: null, engine: 'codex' }), now - 500);
+    insert.run('p1:firing-2', 0, 'qwen3-coder', now - 400);
+    record.run('p1:firing-2', JSON.stringify({ costUsd: 0 }), now - 400);
+    insert.run('p1:firing-3', 2, 'claude-opus-5-5', now - 300);
+    const b = readBenchmark(store, now);
+    const codex = b.models.find((m) => m.modelId === 'gpt-5-codex')!;
+    expect([codex.costUsd, codex.costPerShipUsd, codex.unpriced]).toEqual([null, null, 1]);
+    // A record that says $0 is a free run, and a firing with no record keeps the column's figure.
+    const local = b.models.find((m) => m.modelId === 'qwen3-coder')!;
+    expect([local.costUsd, local.costPerShipUsd, local.unpriced]).toEqual([0, 0, 0]);
+    const opus = b.models.find((m) => m.modelId === 'claude-opus-5-5')!;
+    expect([opus.costUsd, opus.unpriced]).toEqual([2, 0]);
+    expect(b.points.find((p) => p.modelId === 'gpt-5-codex')!.costUsd).toBeNull();
   });
 });
 
