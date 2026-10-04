@@ -300,8 +300,9 @@ sparkline's bar and the flight timeline strip's segment said so in their tips an
 sparkline's label gave a total with no word of the firings it could not price. `costSparkline` and
 `flightTimelineStrip` (`web/features/metrics.ts`) now read the flight-log entry's `costUnpriced`,
 caption such a firing `unpriced`, and the sparkline's label names them (`total $2.00, 1 unpriced
-left out`). The fleet-wide cost tile's sparkline (`fleetCostSpark`, `shell.ts`) still reads it as
-`$0.00`. Since 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
+left out`). Until a 2026-10-05 commit the fleet-wide cost tile's sparkline read it as `$0.00`
+too; `fleetCostSpark` (`shell.ts`) now reads `costUnpriced` the same way (`total $0.40, 1 unpriced
+left out`). Since 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
 firings `by engine` before `by model`, so a Codex lane's ship and revert rates read beside Claude's
