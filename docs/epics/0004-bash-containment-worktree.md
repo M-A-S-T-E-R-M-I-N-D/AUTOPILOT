@@ -380,6 +380,16 @@ outcome and printing one more flight-log line; it touches neither `deriveWorktre
 `ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's snapshot/audit calls — no new
 path into `target`, no worktree wiring change.
 
+Freshness check (2026-10-04, later): `fly.ts` gained two more commits since the check above —
+`c889b2e5` and `c113d7ba` (epic 0036, GitHub #21), which add a `lane-demoted` event so the fleet
+report can name which lane stopped taking work, on which engine and model. The write sits inside
+`main()`'s existing `demoteAfterGateFailures` branch: `laneDemotionOf` turns the loop summary into
+a record and the flight inserts it into `store.db`'s events table directly, best-effort (a failed
+insert is swallowed — the flight log's DEMOTED line already said so). `c113d7ba` only widens that
+call with the flight's `instanceId` so the record names the actual lane instead of always `base`.
+Neither commit touches `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, or the
+containment guard's snapshot/audit calls — no new path into `target`, no worktree wiring change.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a
