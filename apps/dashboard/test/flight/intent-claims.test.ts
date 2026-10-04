@@ -123,6 +123,17 @@ describe('likelyPrimaryPathFromTitle', () => {
       ),
     ).toBe(null);
   });
+
+  it('still extracts a real path whose own directory name happens to carry a dot', () => {
+    // A single non-final segment ending in a dot-suffix is ambiguous on its
+    // own ("v1.2" here vs. "a.ts" in the enumeration case above) — the only
+    // signal telling them apart is that a real extension is letters, never
+    // digits. "v1.2/module.ts" must resolve as one real path, not a bogus
+    // zero-segment "enumeration" of a single file.
+    expect(likelyPrimaryPathFromTitle('fix the migration in v1.2/module.ts')).toBe(
+      'v1.2/module.ts',
+    );
+  });
 });
 
 /**
