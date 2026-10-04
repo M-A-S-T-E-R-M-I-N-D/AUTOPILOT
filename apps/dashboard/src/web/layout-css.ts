@@ -2486,6 +2486,9 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
   -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); box-shadow: var(--elevation-level-2);
 }
 .focus-exit:hover, .focus-exit:focus-visible { border-color: var(--color-accent); outline: none; }
+/* Its minimize icon (epic 0025) is spaced by a margin: a display on the pill
+   would beat the UA's [hidden]{display:none} outside focus mode. */
+.focus-exit > .icon { margin-inline-end: 0.35em; }
 body[data-focus="on"] .masthead, body[data-focus="on"] .subject-nav, body[data-focus="on"] .update-banner { display: none; }
 body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 /* COMMAND PALETTE (epic 0021 slice 7): one modal, top-anchored so the list
