@@ -1653,7 +1653,11 @@ function cardActions(c) {
   if (c.soulProposed) actions.appendChild(soulProposalPanel(c.id, c.soulProposed));
   if (c.soulPrevious) actions.appendChild(soulUnratifyChip(c.id));
   actions.appendChild(soulEditorPanel(c.id, c.soul));
-  var rm = el('button', 'card-remove', 'Remove');
+  // Epic 0025: leads with the task row delete's trash-2, decorative beside
+  // the words; the click below swaps its busy label through setTaggedLabel().
+  var rm = el('button', 'card-remove');
+  rm.appendChild(iconEl('trash-2'));
+  rm.appendChild(document.createTextNode(tr('removeCard')));
   rm.setAttribute('type', 'button');
   rm.setAttribute('data-i18n', 'removeCard');
   rm.setAttribute('data-remove', c.id);
@@ -5243,7 +5247,8 @@ function startFleetStream() {
   setInterval(refresh, REFRESH_MS); // no SSE — fall back to polling
 }
 // Remove a project (event-delegated so it survives card re-renders). Confirms
-// first, and is explicit that only the dashboard record is removed.
+// first, and is explicit that only the dashboard record is removed. The busy
+// label goes through setTaggedLabel() below, so the trash-2 icon survives it.
 document.addEventListener('click', function (e) {
   var b = e.target && e.target.closest && e.target.closest('[data-remove]');
   if (!b) return;
@@ -5251,7 +5256,7 @@ document.addEventListener('click', function (e) {
   var name = b.getAttribute('data-name') || 'this project';
   if (!window.confirm(tr('removeProjectConfirm', name))) return;
   b.disabled = true;
-  b.textContent = tr('removing');
+  setTaggedLabel(b, 'removing');
   fetch('/api/project/delete', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -5261,7 +5266,7 @@ document.addEventListener('click', function (e) {
       if (!res.ok) throw new Error('delete failed');
       refresh();
     })
-    .catch(function () { b.disabled = false; b.textContent = tr('removeCard'); });
+    .catch(function () { b.disabled = false; setTaggedLabel(b, 'removeCard'); });
 });
 // Flight-log chips (event-delegated): expand one row / toggle full history.
 // The re-render is DEFERRED past the click dispatch (rebuilding the DOM while
@@ -5353,7 +5358,8 @@ document.addEventListener('click', function (e) {
   }
 });
 // A busy/idle label swap for a button that leads with a vendored icon (Start
-// over's rotate-ccw, Sync to GitHub's cloud-upload — epic 0025): the
+// over's rotate-ccw, Sync to GitHub's cloud-upload, Remove's trash-2 — epic
+// 0025): the
 // data-i18n tag moves with the text, so a mid-request sweep repaints the
 // current label, and setSweptText() (features/locale.ts) keeps the icon.
 function setTaggedLabel(b, key) {
