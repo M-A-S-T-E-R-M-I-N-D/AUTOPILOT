@@ -475,12 +475,16 @@ function buildDocsEditor(pid, path, content) {
   panes.appendChild(preview);
   wrap.appendChild(panes);
   var actions = el('div', 'docs-editor-actions');
+  // Epic 0025 slice 2: Save and Cancel make the decision over a draft that
+  // the Plan editor's Publish and Discard draft make, so they lead with that
+  // pair's check and x, decorative beside the inner [data-i18n] label.
   var saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.className = 'docs-editor-save';
   saveBtn.setAttribute('data-doc-edit-save', '');
   saveBtn.setAttribute('data-doc-edit-pid', pid);
   saveBtn.setAttribute('data-doc-edit-path', path);
+  saveBtn.appendChild(iconEl('check'));
   var saveLabel = el('span', null, tr('docsEditSave'));
   saveLabel.setAttribute('data-i18n', 'docsEditSave');
   saveBtn.appendChild(saveLabel);
@@ -489,6 +493,7 @@ function buildDocsEditor(pid, path, content) {
   cancelBtn.className = 'docs-editor-cancel';
   cancelBtn.setAttribute('data-doc-edit-cancel', '');
   cancelBtn.setAttribute('data-doc-edit-pid', pid);
+  cancelBtn.appendChild(iconEl('x'));
   var cancelLabel = el('span', null, tr('docsEditCancel'));
   cancelLabel.setAttribute('data-i18n', 'docsEditCancel');
   cancelBtn.appendChild(cancelLabel);

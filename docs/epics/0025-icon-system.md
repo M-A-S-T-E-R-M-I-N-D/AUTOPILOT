@@ -570,6 +570,16 @@ propagation, and the filled style does not match the nav.
    name stays its tip. A submit only disables the button, and the locale
    sweep keeps a leading icon, so the icon survives both
    (`apps/dashboard/test/web/form-submit-icons.test.ts`, axe-clean).
+   **Docs editor actions 2026-10-04 (slice 2):** the Docs reader's Edit
+   toggle leads with `pencil`, but the Save and Cancel under the
+   split-preview editor it opens were bare words beside the Plan editor's
+   iconed Publish and Discard draft. Save writes the draft and Cancel throws
+   it away, the decision that pair makes over a plan draft, so they take its
+   `check` and `x`; nothing is newly vendored. Each icon is decorative, so a
+   button's name stays its words, and each label already sat in an inner
+   `[data-i18n]` span, so a locale switch rewrites the words beside the icon;
+   a save only disables the button, so the icon survives a refused one
+   (`apps/dashboard/test/web/docs-editor-action-icons.test.ts`, axe-clean).
 
 ## Related
 
