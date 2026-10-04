@@ -390,6 +390,15 @@ call with the flight's `instanceId` so the record names the actual lane instead 
 Neither commit touches `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, or the
 containment guard's snapshot/audit calls — no new path into `target`, no worktree wiring change.
 
+Freshness check (2026-10-04, once more): `fly.ts` gained one more commit since the check above —
+`a2c1e7d4` (epic 0016), which persists the flight's SOCIAL digest as one `social-debrief` event,
+the `lane-demoted` row's twin. The write sits inside `main()`'s existing end-of-flight social-pass
+block, right after the digest line it already prints: a direct, best-effort insert into
+`store.db`'s events table (a failed insert is swallowed — the printed flight-log line already
+carries the digest). A silent flight writes no row. The change touches neither
+`deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's
+snapshot/audit calls — no new path into `target`, no worktree wiring change.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a

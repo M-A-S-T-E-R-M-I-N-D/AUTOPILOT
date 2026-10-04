@@ -128,6 +128,8 @@ import { handleSocialIdentity, type SocialIdentityApi } from './social-identity.
 export type { SocialIdentityApi };
 import { handleCollaboration, type CollaborationApi } from './collaboration.js';
 export type { CollaborationApi };
+import { handleRoutingConsole, type RoutingConsoleApi } from './routing-console.js';
+export type { RoutingConsoleApi };
 import { handleCiStatus } from './ci-status-route.js';
 import { handleWhatsNew } from './whats-new-route.js';
 import { handleBenchmark, type BenchmarkApi } from './benchmark-route.js';
@@ -985,6 +987,12 @@ export interface ServerDeps extends RouteDeps {
    *  `fetchCollaborationSnapshot`. A building block ahead of its UI panel,
    *  the same stance `reportFromHere` shipped with. */
   readonly collaboration?: CollaborationApi;
+  /** The operator routing console's read (epic 0019 S4, board
+   *  web-mtrh1hn3-8x9f0z): open-milestone progress, the priority and status
+   *  label queues, and who claims what — see `flight/routing-console.ts`'s
+   *  `fetchRoutingConsole`. A building block ahead of its panel beside the
+   *  board, the same stance `collaboration` above shipped with. */
+  readonly routingConsole?: RoutingConsoleApi;
   /** CI-health surface (board web-mtq70abw-opouz8): the cached per-workflow
    *  `gh run list` report `control/ci-status.ts`'s `ci-status` CLI command
    *  already prints, surfaced for the browser — see `createCiStatusApi`. */
@@ -4445,6 +4453,11 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/collaboration') {
       void handleCollaboration(req, res, deps.collaboration, headers);
+      return;
+    }
+
+    if (path === '/api/routing-console') {
+      void handleRoutingConsole(req, res, deps.routingConsole, headers);
       return;
     }
 

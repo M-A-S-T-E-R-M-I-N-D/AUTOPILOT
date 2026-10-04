@@ -77,6 +77,28 @@ into a per-project ritual any instance can run on any repo it owns.
   each of the five reconcile findings and the landing note skip a marked
   issue, and the execute sends no reopen or note for it while its unmarked
   neighbour is still reconciled.
+  **The claim protocol's label 2026-10-04 (same law):** `/claim`
+  (`claim.yml`) assigns and adds `claimed`, and both of the protocol's own
+  releases (`/unclaim`, `stale-claim-reaper.yml`) remove the assignee and the
+  label together. The steward's stale-claim reaper (the "Free stale claim(s)"
+  button and the flight-end sweep) removed only the assignee, so a freed
+  `/claim` kept reading `claimed` with nobody on it, and the workflow reaper,
+  which only looks at a `claimed` issue that still has an assignee, never
+  cleared it. The reaper's read now takes the labels, and the edit that
+  unassigns an issue's one assignee also removes `claimed`, in any casing, as
+  the issue carries it. A comment-only release, an issue without the label,
+  and an issue another assignee still holds are unchanged. Covered by
+  `test/flight/mirror-pass-claimed-label.test.ts`.
+  **GitHub's close reasons 2026-10-04 (same law):** closing an issue as not
+  planned or as a duplicate is the page's own "no", the native form of
+  `declined`. The pass never read why an issue was closed, so a board task
+  still queued from an issue the maintainer closed that way had the issue
+  reopened as "a false-close". `fetchIssueState` now reads `stateReason` in
+  the same `gh issue view` call, and the reconcile plans no reopen for an
+  issue closed as not planned or as a duplicate. A close as completed, or with
+  no reason read, is reopened as before. A claimant's close still settles its
+  claimed task whatever the reason, and a landed commit is still noted on the
+  closed issue. Covered by `test/flight/mirror-pass-close-reason.test.ts`.
 - **S4 — operator routing console:** the dashboard surfaces "what the
   page says" (milestone progress, label queues, claims) next to the
   board, so steering happens from either side with one truth.

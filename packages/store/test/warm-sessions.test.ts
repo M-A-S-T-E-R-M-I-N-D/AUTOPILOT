@@ -15,7 +15,13 @@ interface FiringTelemetry {
   readonly cacheWrite?: number;
   readonly cost?: number;
   readonly turns?: number;
+  /** The firing event's raw payload, when the firing has one. */
+  readonly record?: string;
 }
+
+/** The firing record of a run whose CLI reported no price (a Codex or Gemini
+ *  run): `costUsd: null`, which the metrics column stores as 0. */
+const UNPRICED_RECORD = JSON.stringify({ firing: 1, costUsd: null });
 
 function insertFiring(
   projectId: string,
@@ -24,6 +30,14 @@ function insertFiring(
   extended: 1 | null = null,
 ): void {
   firingSeq += 1;
+  if (telemetry.record !== undefined) {
+    store.db
+      .prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES (?, ?, 'firing', ?, 1000)`,
+      )
+      .run(projectId, `ws-${firingSeq}`, telemetry.record);
+  }
   store.db
     .prepare(
       `INSERT INTO metrics (project_id, firing_id, resumed, extended, input_tokens, cache_read_tokens,
@@ -186,6 +200,62 @@ describe('warmSessionSavings', () => {
     expect(savings.costDeltaPerFiring).toBeNull();
     expect(savings.costPerTurnDeltaPerFiring).toBeNull();
   });
+
+  it('leaves an unpriced firing out of the cost averages, not $0 (epic 0036)', () => {
+    // A resumed Codex run reports no price; read as $0 it would halve the
+    // resumed average and make resume look $1.50 a firing cheaper than it is.
+    insertFiring('p1', 1, { tokensIn: 100, cost: 3, turns: 30 });
+    insertFiring('p1', 1, { tokensIn: 300, turns: 10, record: UNPRICED_RECORD });
+    insertFiring('p1', null, { tokensIn: 500, cost: 4, turns: 20 });
+
+    const savings = warmSessionSavings(store.db, 'p1');
+    expect(savings.resumed).toEqual({
+      firings: 2,
+      avgFreshInputTokens: 200, // its tokens are real, so they still count
+      avgCacheReadTokens: 0,
+      avgCacheWriteTokens: 0,
+      avgCostUsd: 3,
+      avgTurns: 20,
+      avgCostPerTurn: 0.1,
+    });
+    expect(savings.costDeltaPerFiring).toBe(1);
+    expect(savings.costPerTurnDeltaPerFiring).toBeCloseTo(0.1);
+  });
+
+  it('has no cost to compare while a group holds only unpriced firings', () => {
+    insertFiring('p1', 1, { tokensIn: 100, turns: 10, record: UNPRICED_RECORD });
+    insertFiring('p1', null, { tokensIn: 500, cost: 4, turns: 20 });
+
+    const savings = warmSessionSavings(store.db, 'p1');
+    expect(savings.resumed.firings).toBe(1);
+    expect(savings.resumed.avgCostUsd).toBeNull();
+    expect(savings.resumed.avgCostPerTurn).toBeNull();
+    expect(savings.costDeltaPerFiring).toBeNull();
+    expect(savings.costPerTurnDeltaPerFiring).toBeNull();
+    expect(savings.freshInputDeltaPerFiring).toBe(400);
+  });
+
+  it('keeps the column cost of a record that names a price, names none or cannot be read', () => {
+    insertFiring('p1', 1, { cost: 2, record: JSON.stringify({ firing: 1, costUsd: 2 }) });
+    insertFiring('p1', 1, { cost: 0, record: JSON.stringify({ firing: 2 }) });
+    insertFiring('p1', 1, { cost: 4, record: '{not json' });
+    insertFiring('p1', 1, { cost: 6 });
+
+    expect(warmSessionSavings(store.db, 'p1').resumed.avgCostUsd).toBe(3);
+  });
+
+  it('counts a firing once when its record was written twice', () => {
+    insertFiring('p1', 1, { cost: 2, record: JSON.stringify({ firing: 1, costUsd: 2 }) });
+    store.db
+      .prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES ('p1', ?, 'firing', ?, 1000)`,
+      )
+      .run(`ws-${firingSeq}`, JSON.stringify({ firing: 1, costUsd: 2 }));
+
+    const savings = warmSessionSavings(store.db, 'p1');
+    expect(savings.resumed.firings).toBe(1);
+  });
 });
 
 describe('extendedFiringSavings', () => {
@@ -277,5 +347,18 @@ describe('extendedFiringSavings', () => {
     const savings = extendedFiringSavings(store.db, 'p1');
     expect(savings.costDeltaPerFiring).toBeNull();
     expect(savings.costPerTurnDeltaPerFiring).toBeNull();
+  });
+
+  it('leaves an unpriced firing out of the cost averages, not $0 (epic 0036)', () => {
+    insertFiring('p1', null, { cost: 3, turns: 30 }, 1);
+    insertFiring('p1', null, { turns: 10, record: UNPRICED_RECORD }, 1);
+    insertFiring('p1', null, { cost: 4, turns: 20 }, null);
+
+    const savings = extendedFiringSavings(store.db, 'p1');
+    expect(savings.extended.firings).toBe(2);
+    expect(savings.extended.avgTurns).toBe(20);
+    expect(savings.extended.avgCostUsd).toBe(3);
+    expect(savings.extended.avgCostPerTurn).toBe(0.1);
+    expect(savings.costDeltaPerFiring).toBe(1);
   });
 });

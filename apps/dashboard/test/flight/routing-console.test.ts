@@ -10,7 +10,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   ROUTING_QUEUE_LABELS,
+  UNREADABLE_ROUTING_CONSOLE,
+  createRoutingConsoleApi,
   fetchOpenMilestones,
+  fetchRoutingConsole,
   parseMilestoneRows,
   planRoutingConsole,
   type RoutingIssue,
@@ -236,5 +239,96 @@ describe('fetchOpenMilestones', () => {
   it('reads unparseable output as unknown too', async () => {
     const exec: CliExec = vi.fn(async () => ({ code: 0, stdout: 'not json' }));
     expect(await fetchOpenMilestones(exec)).toBeUndefined();
+  });
+});
+
+/** A `gh` double answering the two reads the console makes: the open
+ *  milestones (`gh api .../milestones`) and the open issues (`gh issue
+ *  list`), each from its own canned stdout. */
+function consoleExec(milestones: { code: number; stdout: string }, issues: unknown[]) {
+  return vi.fn<CliExec>(async (_bin: string, args: readonly string[]) =>
+    args[0] === 'api' ? milestones : { code: 0, stdout: JSON.stringify(issues) },
+  );
+}
+
+const ghIssue = (number: number, labels: readonly string[], assignees: readonly string[]) => ({
+  number,
+  title: `issue ${number}`,
+  body: '',
+  url: `https://github.com/o/r/issues/${number}`,
+  labels: labels.map((name) => ({ name })),
+  assignees: assignees.map((login) => ({ login })),
+});
+
+describe('fetchRoutingConsole', () => {
+  it('derives the console from one milestone read and one issue read', async () => {
+    const exec = consoleExec(
+      {
+        code: 0,
+        stdout: JSON.stringify([{ title: 'V1', open_issues: 1, closed_issues: 3, due_on: null }]),
+      },
+      [ghIssue(4, ['priority: high'], ['amy']), ghIssue(2, ['bug'], [])],
+    );
+    const snapshot = await fetchRoutingConsole(exec);
+    expect(snapshot.milestones).toEqual([
+      { title: 'V1', openIssues: 1, closedIssues: 3, dueOn: null, percentDone: 75 },
+    ]);
+    const queues = Object.fromEntries(
+      snapshot.labelQueues.map((queue) => [queue.label, queue.issues]),
+    );
+    expect(queues['priority: high']).toEqual([4]);
+    expect(snapshot.unprioritized).toEqual([2]);
+    expect(snapshot.claims).toEqual([{ login: 'amy', issues: [4] }]);
+    expect(snapshot.unclaimed).toEqual([2]);
+  });
+
+  it('says the milestones are unknown when their read fails, and still routes the issues', async () => {
+    const exec = consoleExec({ code: 1, stdout: '' }, [ghIssue(7, ['status: blocked'], ['zed'])]);
+    const snapshot = await fetchRoutingConsole(exec);
+    expect(snapshot.milestones).toBeNull();
+    expect(snapshot.claims).toEqual([{ login: 'zed', issues: [7] }]);
+  });
+
+  it('tells a repo with no open milestones apart from an unreadable one', async () => {
+    const exec = consoleExec({ code: 0, stdout: '[]' }, []);
+    expect((await fetchRoutingConsole(exec)).milestones).toEqual([]);
+  });
+
+  it('only reads — a milestone GET and an issue list, nothing that writes', async () => {
+    const exec = consoleExec({ code: 0, stdout: '[]' }, []);
+    await fetchRoutingConsole(exec);
+    const verbs = exec.mock.calls.map(([bin, args]) => [bin, args[0], args[1]?.split('?')[0]]);
+    expect(verbs).toEqual(
+      expect.arrayContaining([
+        ['gh', 'api', 'repos/{owner}/{repo}/milestones'],
+        ['gh', 'issue', 'list'],
+      ]),
+    );
+    expect(exec).toHaveBeenCalledTimes(2);
+    for (const [, args] of exec.mock.calls) {
+      expect(args).not.toContain('--method');
+      expect(args).not.toContain('-X');
+    }
+  });
+});
+
+describe('createRoutingConsoleApi', () => {
+  it('resolves the derived console', async () => {
+    const api = createRoutingConsoleApi(consoleExec({ code: 0, stdout: '[]' }, []));
+    const snapshot = await api();
+    expect(snapshot.milestones).toEqual([]);
+    expect(snapshot.labelQueues.map((queue) => queue.label)).toEqual(ROUTING_QUEUE_LABELS);
+  });
+
+  it('answers the unreadable console rather than rejecting when exec throws', async () => {
+    const exec: CliExec = vi.fn().mockRejectedValue(new Error('gh unavailable'));
+    await expect(createRoutingConsoleApi(exec)()).resolves.toEqual(UNREADABLE_ROUTING_CONSOLE);
+  });
+
+  it('marks the unreadable console unknown, never an empty milestone list', () => {
+    expect(UNREADABLE_ROUTING_CONSOLE.milestones).toBeNull();
+    expect(UNREADABLE_ROUTING_CONSOLE.labelQueues.map((queue) => queue.label)).toEqual(
+      ROUTING_QUEUE_LABELS,
+    );
   });
 });

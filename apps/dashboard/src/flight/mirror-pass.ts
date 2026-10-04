@@ -82,7 +82,7 @@ import { STALE_TASK_DAYS } from '../web/task-queue.js';
 import { claimLedger } from './claim-ledger.js';
 import { isMaintainerMarked } from './contributor-issue-list.js';
 import { parseIssueLabels } from './issue-triage.js';
-import { parsePoolComments } from './pool-client.js';
+import { normalizeLabel, parsePoolComments } from './pool-client.js';
 
 /** Parses `issue-triage.ts`'s `issueTaskId` convention (`github-<n>`) back
  *  into the issue number it names — `null` for a task id from any other
@@ -131,6 +131,22 @@ export interface MirrorPassIssueState {
    *  maintainer declined or put on hold ({@link isHeldByMaintainer}). Absent
    *  = not fetched (pure callers), which reads as unmarked. */
   readonly labels?: readonly string[];
+  /** Why GitHub says a closed issue was closed (`stateReason`). Read so a
+   *  close given as a "no" ({@link isClosedAsNo}) is told apart from a close
+   *  as done. Absent = open, not fetched, or no reason GitHub defines. */
+  readonly closedAs?: MirrorPassCloseReason;
+}
+
+/** GitHub's three close reasons (`IssueStateReason` minus `REOPENED`, which
+ *  only an open issue carries). */
+export type MirrorPassCloseReason = 'completed' | 'not-planned' | 'duplicate';
+
+/** EPIC 0019 law 2, the native form of the `declined` label: an issue closed
+ *  as not planned or as a duplicate was answered no on the page, so the pass
+ *  never reopens it as a "false-close". A close as completed, or one with no
+ *  reason read, is reconciled as before. */
+function isClosedAsNo(issue: MirrorPassIssueState): boolean {
+  return issue.closedAs === 'not-planned' || issue.closedAs === 'duplicate';
 }
 
 /** EPIC 0019 law 2, the maintainer's mark outranks the pass: an issue they
@@ -226,7 +242,9 @@ export type MirrorPassFinding =
  * it — reopened rather than left standing as a stale false-close. An issue
  * the maintainer declined or put on hold ({@link isHeldByMaintainer}) is also
  * `null`: their mark outranks the board, so a declined issue they closed is
- * never reopened as a "false-close".
+ * never reopened as a "false-close". Nor is one closed as not planned or as a
+ * duplicate ({@link isClosedAsNo}); a claimant's close still settles its
+ * claimed task whatever the reason.
  */
 /** Is `login` one of the issue's assignees? Logins compare case-insensitively,
  *  the same way `social-pass.ts` decides the viewer's role. */
@@ -298,7 +316,7 @@ export function planMirrorPassReconcile(
     };
   }
 
-  if (task.status !== 'done' && issue.state === 'closed') {
+  if (task.status !== 'done' && issue.state === 'closed' && !isClosedAsNo(issue)) {
     return {
       action: 'reopen-honestly',
       taskId: task.id,
@@ -426,7 +444,7 @@ export function planMirrorPassBatch(
 }
 
 /** One github-issue-view entry as `gh issue view --json
- *  number,state,assignees,labels` emits
+ *  number,state,assignees,labels,stateReason` emits
  *  it — untrusted process output, parsed defensively rather than trusted as
  *  already shaped like {@link MirrorPassIssueState}. */
 interface RawGithubIssueState {
@@ -434,19 +452,36 @@ interface RawGithubIssueState {
   readonly labels?: unknown;
   readonly number?: unknown;
   readonly state?: unknown;
+  readonly stateReason?: unknown;
+}
+
+/** `gh`'s `stateReason` (GraphQL `IssueStateReason`) → {@link
+ *  MirrorPassCloseReason}, in any casing. `REOPENED`, an empty or null
+ *  reason, and anything GitHub does not define read as no reason. */
+const CLOSE_REASONS: Readonly<Record<string, MirrorPassCloseReason>> = {
+  COMPLETED: 'completed',
+  NOT_PLANNED: 'not-planned',
+  DUPLICATE: 'duplicate',
+};
+
+function parseCloseReason(value: unknown): MirrorPassCloseReason | undefined {
+  if (typeof value !== 'string') return undefined;
+  const key = value.toUpperCase();
+  return Object.hasOwn(CLOSE_REASONS, key) ? CLOSE_REASONS[key] : undefined;
 }
 
 /**
  * Fetches one issue's live open/closed state via `gh issue view <n> --json
- * number,state,assignees,labels`, run through the injectable `exec` — the same `CliExec`
+ * number,state,assignees,labels,stateReason`, run through the injectable `exec` — the same `CliExec`
  * shape `issue-triage.ts`'s `fetchOpenIssues` uses, so this stays
  * deterministically testable without a real `gh` on PATH. Returns `null` on
  * a non-zero exit (issue not found, `gh` not authenticated, etc.) or
  * unparseable/malformed JSON rather than throwing — {@link
  * planMirrorPassReconcile} already treats a missing issue as "don't guess",
- * never as a signal to act on. The labels ride the same call, so reading the
- * maintainer's marks costs no extra `gh` call; a payload without a `labels`
- * list leaves the field absent.
+ * never as a signal to act on. The labels and the close reason ride the same
+ * call, so reading the maintainer's marks costs no extra `gh` call; a payload
+ * without a `labels` list leaves the field absent, and so does an open issue
+ * or an unread reason for `closedAs`.
  */
 export async function fetchIssueState(
   exec: CliExec,
@@ -457,7 +492,7 @@ export async function fetchIssueState(
     'view',
     String(issueNumber),
     '--json',
-    'number,state,assignees,labels',
+    'number,state,assignees,labels,stateReason',
   ]);
   if (code !== 0) return null;
 
@@ -479,11 +514,13 @@ export async function fetchIssueState(
         )
         .filter((login): login is string => typeof login === 'string' && login !== '')
     : [];
+  const closedAs = state === 'CLOSED' ? parseCloseReason(raw.stateReason) : undefined;
   return {
     number: raw.number,
     state: state === 'OPEN' ? 'open' : 'closed',
     assignees,
     ...(Array.isArray(raw.labels) ? { labels: parseIssueLabels(raw.labels) } : {}),
+    ...(closedAs ? { closedAs } : {}),
   };
 }
 
@@ -992,7 +1029,19 @@ export interface MirrorPassClaimedIssue {
    *  release note alone frees it. Absent means assigned (the pre-ledger
    *  reading, every fixture that predates it). */
   readonly assigned?: boolean;
+  /** The claim protocol's {@link CLAIMED_LABEL} as the issue carries it, set
+   *  only on the claim of the issue's one assignee: unassigning that claim
+   *  leaves nobody on the issue, so the label comes off with it. */
+  readonly claimedLabel?: string;
 }
+
+/** The label the claim protocol's `/claim` adds when it assigns
+ *  (`.github/workflows/claim.yml`, seeded by taxonomy-seed.ts). Its own two
+ *  releases, `/unclaim` and `stale-claim-reaper.yml`, remove it together with
+ *  the assignee. The reaper below does the same, or a freed issue keeps
+ *  reading `claimed` with nobody on it: the workflow reaper only looks at a
+ *  `claimed` issue that still has an assignee. */
+export const CLAIMED_LABEL = 'claimed';
 
 /** Derivation 4/4's finding: an open issue's assignee has been quiet long
  *  enough to reap the claim. */
@@ -1047,10 +1096,13 @@ export function planMirrorPassStaleClaimReaper(
  * to apply it: the reopen-explaining comment first (so the note lands even
  * if the unassign call itself fails), then the unassign — same
  * comment-before-state-change ordering {@link planMirrorPassCommands} uses.
+ * `claimedLabel` ({@link MirrorPassClaimedIssue.claimedLabel}) comes off in
+ * that same unassign edit, as the claim protocol's own releases lift it.
  * Pure: plans argv, never invokes `gh`.
  */
 export function planMirrorPassStaleClaimCommands(
   finding: MirrorPassStaleClaimFinding,
+  claimedLabel?: string,
 ): readonly MirrorPassCommand[] {
   const issueRef = String(finding.issueNumber);
   const note: MirrorPassCommand = {
@@ -1059,12 +1111,15 @@ export function planMirrorPassStaleClaimCommands(
     details: `posting the stale-claim reaper note on #${finding.issueNumber}`,
   };
   if (finding.assigned === false) return [note];
+  const lifted = claimedLabel === undefined ? [] : ['--remove-label', claimedLabel];
   return [
     note,
     {
       command: 'gh',
-      args: ['issue', 'edit', issueRef, '--remove-assignee', finding.assignee],
-      details: `unassigning @${finding.assignee} from #${finding.issueNumber} — quiet ${finding.quietDays}d`,
+      args: ['issue', 'edit', issueRef, '--remove-assignee', finding.assignee, ...lifted],
+      details:
+        `unassigning @${finding.assignee} from #${finding.issueNumber} — quiet ${finding.quietDays}d` +
+        (claimedLabel === undefined ? '' : `, removing "${claimedLabel}"`),
     },
   ];
 }
@@ -1078,6 +1133,7 @@ interface RawGithubIssueActivity {
   readonly assignees?: unknown;
   readonly comments?: unknown;
   readonly updatedAt?: unknown;
+  readonly labels?: unknown;
 }
 
 /**
@@ -1158,8 +1214,10 @@ export async function fetchClaimedIssueActivity(
  * holder has their own clock. Same `gh issue view` read and never-throw
  * stance as {@link fetchClaimedIssueActivity}; `lastActivityAt` is the
  * claimant's latest own comment, else the claim, else the issue's own
- * `updatedAt` (the conservative fallback). Returns `[]` for a bad read or
- * an unclaimed issue.
+ * `updatedAt` (the conservative fallback). The read takes the labels too: a
+ * {@link CLAIMED_LABEL} in any casing rides on the claim of the issue's one
+ * assignee as `claimedLabel`, spelled as the issue carries it. Returns `[]`
+ * for a bad read or an unclaimed issue.
  */
 export async function fetchClaimedIssueClaims(
   exec: CliExec,
@@ -1170,7 +1228,7 @@ export async function fetchClaimedIssueClaims(
     'view',
     String(issueNumber),
     '--json',
-    'number,state,assignees,comments,updatedAt',
+    'number,state,assignees,comments,updatedAt,labels',
   ]);
   if (code !== 0) return [];
 
@@ -1191,12 +1249,18 @@ export async function fetchClaimedIssueClaims(
   const assignees = (Array.isArray(raw.assignees) ? raw.assignees : [])
     .map((entry) => (entry as { login?: unknown })?.login)
     .filter((login): login is string => typeof login === 'string');
+  const claimedLabel = parseIssueLabels(raw.labels).find(
+    (label) => normalizeLabel(label) === CLAIMED_LABEL,
+  );
   return claimLedger(assignees, parsePoolComments(raw.comments)).map((claim) => ({
     number: raw.number as number,
     state: state === 'OPEN' ? 'open' : 'closed',
     assignee: claim.login,
     lastActivityAt: claim.lastActivityAt ?? updatedAtMs,
     assigned: claim.assigned,
+    ...(claimedLabel !== undefined && claim.assigned && assignees.length === 1
+      ? { claimedLabel }
+      : {}),
   }));
 }
 
@@ -1226,7 +1290,7 @@ export function planMirrorPassStaleClaimBatch(
 ): readonly MirrorPassStaleClaimPlan[] {
   return issues.map((issue) => {
     const finding = planMirrorPassStaleClaimReaper(issue, nowMs, thresholdDays);
-    const commands = finding ? planMirrorPassStaleClaimCommands(finding) : [];
+    const commands = finding ? planMirrorPassStaleClaimCommands(finding, issue.claimedLabel) : [];
     return { issue, finding, commands };
   });
 }

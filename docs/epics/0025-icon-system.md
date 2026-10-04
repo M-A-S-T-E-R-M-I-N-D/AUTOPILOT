@@ -570,6 +570,30 @@ propagation, and the filled style does not match the nav.
    name stays its tip. A submit only disables the button, and the locale
    sweep keeps a leading icon, so the icon survives both
    (`apps/dashboard/test/web/form-submit-icons.test.ts`, axe-clean).
+   **Docs editor actions 2026-10-04 (slice 2):** the Docs reader's Edit
+   toggle leads with `pencil`, but the Save and Cancel under the
+   split-preview editor it opens were bare words beside the Plan editor's
+   iconed Publish and Discard draft. Save writes the draft and Cancel throws
+   it away, the decision that pair makes over a plan draft, so they take its
+   `check` and `x`; nothing is newly vendored. Each icon is decorative, so a
+   button's name stays its words, and each label already sat in an inner
+   `[data-i18n]` span, so a locale switch rewrites the words beside the icon;
+   a save only disables the button, so the icon survives a refused one
+   (`apps/dashboard/test/web/docs-editor-action-icons.test.ts`, axe-clean).
+   **Settings menu buttons 2026-10-04 (slice 2):** the masthead's Settings
+   summary draws `settings` and the version menu beside it leads Run the
+   latest and Check now with icons, but the Settings menu's "Reset to
+   defaults" and the "What's new" row `/whats-new.js` appends to it were bare
+   words. Reset leads with the `rotate-ccw` Start over draws, since both put
+   something back as it began, and What's new with the `sparkles` its message
+   heads "What you can do now" with; nothing is newly vendored. Reset is
+   server-printed markup the sweep keeps a leading icon in, so core does not
+   grow; What's new takes its shape from the chunk's own splice, and a `lang`
+   change now rewrites only its words, where it used to replace the button's
+   whole `textContent`. Each icon is decorative, so a button's name stays its
+   words (`apps/dashboard/test/web/settings-menu-icons.test.ts`, axe-clean).
+   The board's Columns/List toggle stays bare words: it wants a vendored
+   `list`, and core sits about 200 bytes under its raw line.
 
 ## Related
 
