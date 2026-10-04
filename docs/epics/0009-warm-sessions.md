@@ -109,6 +109,18 @@ doc comment, which still read "nothing resumes [session_id] yet" after slice one
 `--resume` threading this doc describes above. No functional change; the comment now matches the
 behavior this doc has tracked since 2026-08-16.
 
+**2026-10-04 unpriced-firing cost fix (bears on the measurement):** `cfb60319` (epic 0036 provider
+parity) found `avgCostUsd`/`avgCostPerTurn` averaging a firing with no priced cost
+(`costUsd: null` — a Codex/Gemini run, or one killed before its envelope) in as free: `cost_usd`
+stores 0 for such a firing, so one resumed $3.00 Claude firing beside one resumed Codex firing read
+a $1.50 resumed average, making resume look cheaper than it was. `warmSessionSavings` and
+`extendedFiringSavings` (`warm-sessions.ts`) now average cost over each disposition group's PRICED
+firings only (`PRICED_METRICS_SQL`, the `recordsNoPrice` rule in SQL) — a group with no priced
+firing reads `null` for cost, not `0`, while its token and turn averages still count every firing.
+This reaches the same `avgCostPerTurn`/cost-delta figures item (1) above re-reads off the PAPER
+table: the 2026-08-20 MEASURED VERDICT and any re-read since predate this fix and may have
+undercounted resumed cost wherever an unpriced firing landed in that group.
+
 Original problem statement (historical, pre-2026-08-16): every firing spawned a
 brand-new `claude` process (`ClaudeCliModel`/`StreamingClaudeCliModel`
 in `packages/engine/src/adapters/claude-cli.ts`, via `buildClaudeArgs`) with no continuity from the
