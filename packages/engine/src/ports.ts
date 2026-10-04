@@ -257,8 +257,14 @@ export interface VcsPort {
    * judges it, and reverting only the tip would leave the earlier commit(s)
    * from that same firing un-reverted (GATE HOLE 3, board
    * web-mtb8hghd-72z52z).
+   *
+   * `reason`, when given, is appended to the revert commit's message in place
+   * of `git revert --no-edit`'s bare default ("This reverts commit <sha>.") —
+   * firing.ts passes the gate's own failure detail, so a reverted commit's
+   * history actually says why instead of leaving the next reader (or the next
+   * reland attempt) to rediscover it from scratch.
    */
-  revertLast(sinceRef?: string): Promise<void>;
+  revertLast(sinceRef?: string, reason?: string): Promise<void>;
   /** Any uncommitted changes in the working tree (staged or not)? */
   isDirty(): Promise<boolean>;
   /**

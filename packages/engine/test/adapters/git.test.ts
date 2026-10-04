@@ -320,6 +320,32 @@ describe('GitVcs', () => {
     expect(await vcs.showFile('a.txt')).toBe('one');
   });
 
+  it("appends the gate's failure reason to the revert commit's message (firing.ts's gate.details) instead of leaving it empty (`--no-edit`'s default template says only 'This reverts commit <sha>.', which is what left two epic-0036 relandings with no record of why the gate reverted them)", async () => {
+    writeFileSync(join(dir, 'b.txt'), 'two');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: AP-2 second']);
+
+    await vcs.revertLast(undefined, 'pnpm run test failed (exit 1)\nFAIL src/a.test.ts');
+
+    const message = gitSync(dir, ['log', '-1', '--format=%B']);
+    expect(message).toMatch(/^Revert/);
+    expect(message).toContain('pnpm run test failed (exit 1)');
+    expect(message).toContain('FAIL src/a.test.ts');
+  });
+
+  it('omits the reason trailer entirely when no reason is given (existing callers unaffected)', async () => {
+    writeFileSync(join(dir, 'b.txt'), 'two');
+    gitSync(dir, ['add', '-A']);
+    gitSync(dir, ['commit', '-q', '-m', 'feat: AP-2 second']);
+
+    await vcs.revertLast();
+
+    const message = gitSync(dir, ['log', '-1', '--format=%B']);
+    expect(message.trim()).toMatch(
+      /^Revert "feat: AP-2 second"\n\nThis reverts commit [0-9a-f]+\.$/,
+    );
+  });
+
   it('throws a descriptive error when git revert fails (e.g. a dirty tree blocks the merge)', async () => {
     writeFileSync(join(dir, 'a.txt'), 'one\ntwo');
     gitSync(dir, ['add', '-A']);

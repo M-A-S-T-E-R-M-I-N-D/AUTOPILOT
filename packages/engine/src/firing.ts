@@ -398,8 +398,21 @@ export async function runFiring(
       // dirty check above and here. A failed revert is honestly
       // 'unverifiable' — the work is neither green nor undone — and saying so
       // in telemetry beats crashing with the commit silently left in place.
+      //
+      // verdict-quality, round 2: a plain tool-gate failure (as opposed to a
+      // crash, or the diff-size check above which already sets gateError
+      // itself) left gateError null all the way to the FiringRecord — the
+      // ONE 'reverted' path that recorded no reason, mirroring the crash gap
+      // the comment above this one already closed. `gate.details` carries
+      // the failing command's own verdict + output tail (GateRunner) and was
+      // sitting right here unused; two epic-0036 relandings were reverted
+      // nine minutes after landing with the firing record saying only
+      // "reverted" because of exactly this. Captured before the revert call
+      // so it also rides into the revert commit's own message instead of
+      // `git revert --no-edit`'s bare default.
+      if (gateError === null) gateError = gate.details ?? null;
       try {
-        await deps.vcs.revertLast(headBefore);
+        await deps.vcs.revertLast(headBefore, gateError ?? undefined);
         gateResult = 'reverted';
       } catch (err) {
         gateResult = 'unverifiable';
