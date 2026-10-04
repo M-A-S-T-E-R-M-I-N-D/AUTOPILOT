@@ -493,7 +493,18 @@ propagation, and the filled style does not match the nav.
    "Removing…" and the restored "Remove" swap through `setTaggedLabel()`, as
    Start over's do, so the icon survives a refused delete and a sweep
    mid-request repaints the busy words, not the idle ones
-   (`apps/dashboard/test/web/card-remove-icon.test.ts`).
+   (`apps/dashboard/test/web/card-remove-icon.test.ts`). **Flight console
+   actions 2026-10-04 (slice 2):** each live flight row's Pause, Stop,
+   Cancel (a queued folder) and Resume (a paused one) were bare words beside
+   the iconed execute buttons. One `flightActionBtn()` leads each with a
+   decorative stroke now: Pause the `circle-pause` the fleet card's status
+   pill draws for a paused project, Stop a newly vendored `circle-stop`
+   beside it, Cancel the dismiss pair's `x` and Resume the replay toggle's
+   `play`. Each button's aria-label, which names the folder, stays its name;
+   the row is rebuilt on every state change, so no busy swap can drop the
+   icon (`apps/dashboard/test/web/fly-flight-action-icons.test.ts`, axe-clean).
+   The fly bar's legacy `#fly-pause`/`#fly-stop`, shown only for an older
+   single-flight FlightApi, stay bare words.
 
 ## Related
 

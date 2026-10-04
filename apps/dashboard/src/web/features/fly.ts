@@ -835,6 +835,15 @@ ${sessionFlightDataFor.toString()}
   // web/flights.ts's row-status/action-label helpers stay the tested English
   // source these keys mirror (fly-rows-i18n.test.ts) but are no longer
   // spliced into this bundle.
+  // Epic 0025: each row action leads with a decorative icon beside its tr()
+  // words; the row is rebuilt on every state change, so nothing swaps it out.
+  function flightActionBtn(cls, icon, key) {
+    var b = el('button', cls);
+    b.type = 'button';
+    b.appendChild(iconEl(icon));
+    b.appendChild(document.createTextNode(tr(key)));
+    return b;
+  }
   function flightRow(f) {
     var row = el('div', 'fly-flight');
     var statusText;
@@ -880,15 +889,13 @@ ${sessionFlightDataFor.toString()}
     // worth keeping (a bare "Pause" would be ambiguous with several flights
     // running at once).
     if (f.running) {
-      var pauseBtn = el('button', 'fly-flight-pause', tr('pause'));
-      pauseBtn.type = 'button';
+      var pauseBtn = flightActionBtn('fly-flight-pause', 'circle-pause', 'pause');
       var pauseTip = tr('pauseFlightOn', f.folder);
       pauseBtn.setAttribute('data-tip', pauseTip);
       pauseBtn.setAttribute('aria-label', tr('pause') + ': ' + f.folder);
       pauseBtn.addEventListener('click', function () { targetedAction('pause', f.folder, pauseBtn); });
       actions.appendChild(pauseBtn);
-      var stopBtn = el('button', 'fly-flight-stop', tr('stop'));
-      stopBtn.type = 'button';
+      var stopBtn = flightActionBtn('fly-flight-stop', 'circle-stop', 'stop');
       var stopTip = tr('stopFlightOn', f.folder);
       stopBtn.setAttribute('data-tip', stopTip);
       stopBtn.setAttribute('aria-label', tr('stop') + ': ' + f.folder);
@@ -898,16 +905,14 @@ ${sessionFlightDataFor.toString()}
       // Cancelling a queued (never-started) folder is still "stop" server-side
       // (FlightRunnerRegistry.stop() removes it from the queue instead of
       // killing a child that was never spawned).
-      var cancelBtn = el('button', 'fly-flight-stop', tr('cancel'));
-      cancelBtn.type = 'button';
+      var cancelBtn = flightActionBtn('fly-flight-stop', 'x', 'cancel');
       var cancelTip = tr('cancelQueuedFlightOn', f.folder);
       cancelBtn.setAttribute('data-tip', cancelTip);
       cancelBtn.setAttribute('aria-label', tr('cancel') + ': ' + f.folder);
       cancelBtn.addEventListener('click', function () { targetedAction('stop', f.folder, cancelBtn); });
       actions.appendChild(cancelBtn);
     } else {
-      var resumeBtn = el('button', 'fly-flight-resume', tr('resume'));
-      resumeBtn.type = 'button';
+      var resumeBtn = flightActionBtn('fly-flight-resume', 'play', 'resume');
       var resumeTip = tr('resumeFlightOn', f.folder);
       resumeBtn.setAttribute('data-tip', resumeTip);
       resumeBtn.setAttribute('aria-label', tr('resume') + ': ' + f.folder);
