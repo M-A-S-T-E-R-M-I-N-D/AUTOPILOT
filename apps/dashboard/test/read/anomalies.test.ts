@@ -89,6 +89,45 @@ describe('detectAnomalies', () => {
         evidence: 'Firing cost $1.00 vs ~$0.10 average of the last 5 firings.',
       });
     });
+
+    // Epic 0036: a Codex or Gemini firing reports no price, and the metrics
+    // column stores that as 0. Averaged in, three of them beside five $1.00
+    // Claude firings made an ordinary $2.00 one read as a spike.
+    const unpriced = (): FlightEntry => flight({ cost: 0, costUnpriced: true });
+
+    it('leaves unpriced firings out of the baseline instead of averaging them in as $0', () => {
+      const log = [
+        flight({ cost: 2 }),
+        ...Array.from({ length: 3 }, unpriced),
+        ...Array.from({ length: 5 }, () => flight({ cost: 1 })),
+      ];
+      expect(detectAnomalies(log).some((a) => a.kind === 'cost-spike')).toBe(false);
+    });
+
+    it('reaches past unpriced firings for its baseline and says how many it left out', () => {
+      const log = [
+        flight({ cost: 3 }),
+        unpriced(),
+        flight({ cost: 1 }),
+        unpriced(),
+        ...Array.from({ length: 4 }, () => flight({ cost: 1 })),
+        unpriced(),
+      ];
+      expect(detectAnomalies(log)).toContainEqual({
+        kind: 'cost-spike',
+        evidence:
+          'Firing cost $3.00 vs ~$1.00 average of the last 5 priced firings (2 unpriced left out).',
+      });
+    });
+
+    it('does not fire until five priced firings precede the latest', () => {
+      const log = [
+        flight({ cost: 5 }),
+        unpriced(),
+        ...Array.from({ length: 4 }, () => flight({ cost: 1 })),
+      ];
+      expect(detectAnomalies(log).some((a) => a.kind === 'cost-spike')).toBe(false);
+    });
   });
 
   describe('death-cluster', () => {
