@@ -21,13 +21,17 @@
  * `versionsSection(pid)` is called from `fleetJs()`'s `renderProjectPage()`
  * inside the panel cache, so the timeline is fetched once per landed firing,
  * never per state tick, and a diff is fetched only when its disclosure first
- * opens. `el`/`panelHeading`/`fmtAgo`/`tr`/`snack` are bare hoisted
- * identifiers from the core bundle/sibling feature modules, the same
- * contract `round-panel.ts` relies on.
+ * opens. `el`/`panelHeading`/`fmtAgo`/`tr`/`snack`/`iconEl`/`setTaggedLabel`
+ * are bare hoisted identifiers from the core bundle/sibling feature modules,
+ * the same contract `round-panel.ts` relies on.
+ *
+ * Epic 0025: Restore leads with `history` (the heading's clock turned back)
+ * and What changed with `git-compare`, both decorative beside the words.
  *
  * i18n: every literal line is born through `tr()` and tagged `data-i18n` (or
  * `data-i18n-template` with its values), so a locale switch's `translateDom`
- * sweep repaints it; the toggle swaps its tag with its label. Commit subjects
+ * sweep repaints it; the toggle and Restore's busy label swap their tag with
+ * their words through `setTaggedLabel()`, which keeps the icon. Commit subjects
  * and paths stay as git printed them. The restore confirm/snack text is also
  * `tr()`-born (unlike a `window.confirm()` fired from stale attribute text,
  * both are recomputed at click time, so no sweep is needed for them).
@@ -88,10 +92,8 @@ function renderVersionDiff(out, diff) {
 }
 function toggleVersionDiff(pid, row, btn, out) {
   var open = btn.getAttribute('aria-expanded') !== 'true';
-  var key = open ? 'versionsHideChanges' : 'versionsShowChanges';
   btn.setAttribute('aria-expanded', String(open));
-  btn.setAttribute('data-i18n', key);
-  btn.textContent = tr(key);
+  setTaggedLabel(btn, open ? 'versionsHideChanges' : 'versionsShowChanges');
   out.hidden = !open;
   if (!open || out.dataset.loaded) return;
   out.dataset.loaded = '1';
@@ -103,8 +105,7 @@ function toggleVersionDiff(pid, row, btn, out) {
 function versionRestoreClick(pid, row, btn) {
   if (!window.confirm(versionRestoreConfirmMessage(row, tr))) return;
   btn.disabled = true;
-  var originalText = btn.textContent;
-  btn.textContent = tr('versionsRestoring');
+  setTaggedLabel(btn, 'versionsRestoring');
   fetch('/api/versions/restore', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -113,13 +114,13 @@ function versionRestoreClick(pid, row, btn) {
     .then(function (r) { return r.json(); })
     .then(function (data) {
       btn.disabled = false;
-      btn.textContent = originalText;
+      setTaggedLabel(btn, 'versionsRestore');
       var result = versionRestoreResultMessage(data, tr);
       snack(result.text, result.ok ? 'ok' : 'err');
     })
     .catch(function () {
       btn.disabled = false;
-      btn.textContent = originalText;
+      setTaggedLabel(btn, 'versionsRestore');
       snack(tr('versionsRestoreFailed'), 'err');
     });
 }
@@ -145,7 +146,9 @@ function versionItem(pid, row) {
   li.appendChild(el('span', 'version-subject', row.subject));
   var at = Date.parse(row.committedAt);
   if (!isNaN(at)) li.appendChild(el('span', 'muted', fmtAgo(at)));
-  var restoreBtn = el('button', 'version-restore-btn', tr('versionsRestore'));
+  var restoreBtn = el('button', 'version-restore-btn');
+  restoreBtn.appendChild(iconEl('history'));
+  restoreBtn.appendChild(document.createTextNode(tr('versionsRestore')));
   restoreBtn.type = 'button';
   restoreBtn.setAttribute('data-i18n', 'versionsRestore');
   versionNamedBy(restoreBtn, 'version-restore-' + rowId, shaEl);
@@ -155,7 +158,9 @@ function versionItem(pid, row) {
   var out = el('div', 'version-diff');
   out.id = 'version-diff-' + row.sha;
   out.hidden = true;
-  var btn = el('button', 'diff-toggle', tr('versionsShowChanges'));
+  var btn = el('button', 'diff-toggle');
+  btn.appendChild(iconEl('git-compare'));
+  btn.appendChild(document.createTextNode(tr('versionsShowChanges')));
   btn.type = 'button';
   btn.setAttribute('data-i18n', 'versionsShowChanges');
   versionNamedBy(btn, 'version-toggle-' + rowId, shaEl);
