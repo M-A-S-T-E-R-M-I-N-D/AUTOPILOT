@@ -34,6 +34,10 @@ export function compareSemver(a: string, b: string): number {
   const partsA = a.split('.').map((p) => Number(p) || 0);
   const partsB = b.split('.').map((p) => Number(p) || 0);
   const len = Math.max(partsA.length, partsB.length);
+  // Stryker disable next-line EqualityOperator: equivalent by construction —
+  // `len` is the LONGER array's own length, so index `len` is out of bounds
+  // on both arrays and `(partsA[len] ?? 0) - (partsB[len] ?? 0)` is always 0,
+  // the same no-op the loop would take one iteration earlier anyway.
   for (let i = 0; i < len; i++) {
     const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0);
     if (diff !== 0) return diff;
@@ -58,6 +62,8 @@ export function ltsChipMeta(runningVersion: string, latestTag: string | null): L
   if (cmp === 0) {
     return { status: 'up-to-date', text: `up to date — v${runningVersion}` };
   }
+  // Stryker disable next-line EqualityOperator: equivalent by construction —
+  // the `cmp === 0` branch above already returned, so `cmp` is never 0 here.
   if (cmp < 0) {
     return {
       status: 'update-available',
