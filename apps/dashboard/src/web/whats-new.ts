@@ -99,13 +99,15 @@ export const WHATS_NEW_STRINGS = STRINGS;
  * Each heading's leading icon (epic 0025), keyed by its string: the title
  * takes the release panel's rocket, "What you can do now" the sparkles of
  * something new, "This round" the round panel's refresh-cw and "On GitHub"
- * the GitHub PR summary's git-pull-request. Decorative beside the words.
+ * the GitHub PR summary's git-pull-request. The Settings row that reopens the
+ * message takes the same sparkles. Decorative beside the words.
  */
 const HEADING_ICONS = {
   title: 'rocket',
   nowYouCan: 'sparkles',
   round: 'refresh-cw',
   github: 'git-pull-request',
+  menu: 'sparkles',
 } as const;
 
 /** Only the shapes the headings draw, spliced from the vendored set — the
@@ -159,6 +161,7 @@ const WHATS_NEW_CSS = `
 .wn-close { font: inherit; cursor: pointer; padding: var(--space-1) var(--space-4); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
 .wn-close:focus-visible, .wn-foot input:focus-visible, .wn-foot a:focus-visible, .wn-dialog summary:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .wn-menu-btn { font: inherit; font-size: var(--text-sm); cursor: pointer; background: none; border: 1px solid var(--color-border); border-radius: var(--shape-extra-small); padding: var(--space-1) var(--space-2); color: var(--color-text); white-space: nowrap; min-inline-size: 44px; min-block-size: 44px; flex: 0 0 auto; }
+.wn-menu-btn > .icon { margin-inline-end: 0.35em; }
 `;
 
 /** The chunk's logic. A constant, not the function's return template, so the
@@ -421,14 +424,18 @@ function openWhatsNew() {
 function addMenuItem() {
   var body = document.querySelector('#settings-menu .settings-body') || document.querySelector('#version-menu .version-body');
   if (!body || body.querySelector('.wn-menu-btn')) return;
-  var btn = el('button', 'connect-test wn-menu-btn', wt('menu'));
+  var btn = el('button', 'connect-test wn-menu-btn');
   btn.type = 'button';
+  btn.appendChild(icon(WH.menu));
+  // A lang change rewrites only the words, so the leading icon stays.
+  var words = document.createTextNode(wt('menu'));
+  btn.appendChild(words);
   btn.addEventListener('click', openWhatsNew);
   var row = el('div', 'connect-actions wn-menu-row');
   row.appendChild(btn);
   body.appendChild(row);
   if (typeof MutationObserver === 'function') {
-    new MutationObserver(function () { btn.textContent = wt('menu'); })
+    new MutationObserver(function () { words.data = wt('menu'); })
       .observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
   }
 }

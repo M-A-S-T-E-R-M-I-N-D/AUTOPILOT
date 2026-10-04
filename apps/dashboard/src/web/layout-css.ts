@@ -156,6 +156,7 @@ html[data-theme="terminal"][data-phosphor="white"] { --color-accent: oklch(0.93 
 .pref-hue output { min-inline-size: 4ch; text-align: end; font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--color-text-muted); }
 .pref-terminal { display: none; }
 html[data-theme="terminal"] .pref-terminal { display: block; }
+#prefs-reset > .icon { margin-inline-end: 0.35em; }
 /* EPIC 0017 slice 2: the OTLP chip lives inside the Connect popover body now
    (folded in beside Claude/gh, not its own scattered masthead control), so
    the phone-masthead-row budget this used to compete for no longer applies —
