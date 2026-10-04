@@ -76,12 +76,20 @@ function renderFoundationPanel(entries) {
     copyBtn.type = 'button';
     copyBtn.className = 'foundation-copy';
     copyBtn.textContent = tr('foundationCopyAddress');
+    // Epic 0025: leads with the vendored copy, decorative beside the words;
+    // a landed copy shows the check the Docs editor's Save draws for 2s.
+    // setSweptText() swaps only the words, so the icon stays first.
+    copyBtn.prepend(iconEl('copy'));
     copyBtn.addEventListener('click', function (address, btn, label) {
       return function () {
         if (!navigator.clipboard || !navigator.clipboard.writeText) return;
         navigator.clipboard.writeText(address).then(function () {
-          btn.textContent = tr('foundationCopied');
-          setTimeout(function () { btn.textContent = label; }, 2000);
+          btn.replaceChild(iconEl('check'), btn.firstElementChild);
+          setSweptText(btn, tr('foundationCopied'));
+          setTimeout(function () {
+            btn.replaceChild(iconEl('copy'), btn.firstElementChild);
+            setSweptText(btn, label);
+          }, 2000);
         }).catch(function () {});
       };
     }(entry.address, copyBtn, copyBtn.textContent));
