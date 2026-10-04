@@ -12,16 +12,18 @@
  * one read no other module makes: the OPEN milestones with their issue
  * counts ({@link fetchOpenMilestones}; `taxonomy-seed.ts` reads every
  * milestone's title, `issue-triage.ts` titles only). The open issues come
- * from `issue-triage.ts`'s `fetchOpenIssues`, whose rows {@link RoutingIssue}
- * accepts as they are; {@link fetchRoutingConsole} makes both reads behind
+ * from `contributor-issue-list.ts`'s `fetchContributorFacingIssues`, every
+ * open issue with its claims ledger, whose rows {@link RoutingIssue} accepts
+ * as they are; {@link fetchRoutingConsole} makes both reads behind
  * the one call `server/routing-console.ts` serves as `GET
  * /api/routing-console`. Read-only throughout: nothing here labels, assigns
  * or closes anything.
  */
 
 import type { CliExec } from '../connection/cli-probe.js';
+import type { PoolClaim } from './claim-ledger.js';
+import { fetchContributorFacingIssues } from './contributor-issue-list.js';
 import { ghExec } from './gh-exec.js';
-import { fetchOpenIssues } from './issue-triage.js';
 import { normalizeLabel } from './pool-client.js';
 import {
   HOUSE_TAXONOMY_LABELS,
@@ -46,11 +48,16 @@ export interface RoutingMilestone {
 }
 
 /** The fields of an open issue the console reads — `issue-triage.ts`'s
- *  `IncomingIssue` fits as it is. */
+ *  `IncomingIssue` and `contributor-issue-list.ts`'s `ContributorFacingIssue`
+ *  both fit as they are. */
 export interface RoutingIssue {
   readonly number: number;
   readonly labels?: readonly string[];
   readonly assignees?: readonly string[];
+  /** THE CLAIMS LEDGER (claim-ledger.ts) read off the issue's comments and
+   *  assignees, the way the pool reads it. Absent reads as no claim beyond
+   *  the assignees. */
+  readonly claims?: readonly PoolClaim[];
 }
 
 export interface MilestoneProgress extends RoutingMilestone {
@@ -66,7 +73,7 @@ export interface LabelQueue {
   readonly issues: readonly number[];
 }
 
-/** The open issues one login is assigned, numbers ascending. */
+/** The open issues one login holds, numbers ascending. */
 export interface IssueClaim {
   readonly login: string;
   readonly issues: readonly number[];
@@ -81,7 +88,7 @@ export interface RoutingConsole {
   /** Open issues carrying none of the priority labels — what triage has
    *  not routed yet. */
   readonly unprioritized: readonly number[];
-  /** Busiest assignee first, then by login. */
+  /** Busiest holder first, then by login. */
   readonly claims: readonly IssueClaim[];
   readonly unclaimed: readonly number[];
 }
@@ -127,10 +134,20 @@ function carries(issue: RoutingIssue, normalized: string): boolean {
   return (issue.labels ?? []).some((label) => normalizeLabel(label) === normalized);
 }
 
+/** Who holds the issue: every assignee, and every login with a live claim in
+ *  its {@link RoutingIssue.claims} ledger. An outside contributor's pool claim
+ *  is often its comment alone, because the assign after it needs triage rights
+ *  on the repo (claim-ledger.ts, #27); the pool reads that comment as a claim
+ *  (pool-client.ts isClaimedPoolIssue), so the console does too. An assignee
+ *  the ledger reads as released still shows: GitHub still lists them. */
+function holdersOf(issue: RoutingIssue): ReadonlySet<string> {
+  return new Set([...(issue.assignees ?? []), ...(issue.claims ?? []).map((claim) => claim.login)]);
+}
+
 function claimsOf(issues: readonly RoutingIssue[]): readonly IssueClaim[] {
   const held = new Map<string, readonly number[]>();
   for (const issue of issues) {
-    for (const login of new Set(issue.assignees ?? [])) {
+    for (const login of holdersOf(issue)) {
       held.set(login, [...(held.get(login) ?? []), issue.number]);
     }
   }
@@ -164,7 +181,7 @@ export function planRoutingConsole(
       (issue) => !(issue.labels ?? []).some((label) => PRIORITY_LABELS.has(normalizeLabel(label))),
     ),
     claims: claimsOf(issues),
-    unclaimed: numbersWhere((issue) => (issue.assignees ?? []).length === 0),
+    unclaimed: numbersWhere((issue) => holdersOf(issue).size === 0),
   };
 }
 
@@ -236,8 +253,9 @@ export async function fetchOpenMilestones(
 /** What `GET /api/routing-console` answers: the console, except that its
  *  milestones are `null` when the open milestones could not be read — the
  *  panel then says "unknown" rather than "no milestones". The issue side
- *  carries no such mark: `fetchOpenIssues` reads a failed list as no open
- *  issues, the same degradation the triage sweep and the pool live with. */
+ *  carries no such mark: `fetchContributorFacingIssues` reads a failed list
+ *  as no open issues, the same degradation the triage sweep and the pool
+ *  live with. */
 export interface RoutingConsoleSnapshot extends Omit<RoutingConsole, 'milestones'> {
   readonly milestones: readonly MilestoneProgress[] | null;
 }
@@ -254,11 +272,13 @@ export const UNREADABLE_ROUTING_CONSOLE: RoutingConsoleSnapshot = {
 };
 
 /** One open-milestone read and one open-issue read, in parallel, derived
- *  into the console. Read-only: a milestone GET and an issue list. */
+ *  into the console. Read-only: a milestone GET and an issue list. The issue
+ *  list carries comments, the fields the pool's own read asks for, so a claim
+ *  that landed only as its comment shows under Claims. */
 export async function fetchRoutingConsole(exec: CliExec): Promise<RoutingConsoleSnapshot> {
   const [milestones, issues] = await Promise.all([
     fetchOpenMilestones(exec),
-    fetchOpenIssues(exec),
+    fetchContributorFacingIssues(exec),
   ]);
   const plan = planRoutingConsole(milestones ?? [], issues);
   return { ...plan, milestones: milestones === undefined ? null : plan.milestones };

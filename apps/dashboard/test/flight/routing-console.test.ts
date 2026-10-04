@@ -20,6 +20,12 @@ import {
   type RoutingMilestone,
 } from '../../src/flight/routing-console.js';
 import { MAX_MILESTONE_PAGES, MILESTONE_PAGE_SIZE } from '../../src/flight/taxonomy-seed.js';
+import {
+  planClaimPoolIssue,
+  planClaimPoolIssueCommands,
+  type PoolIssue,
+} from '../../src/flight/pool-client.js';
+import { claimLedger } from '../../src/flight/claim-ledger.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function milestone(overrides: Partial<RoutingMilestone> & { title: string }): RoutingMilestone {
@@ -347,6 +353,132 @@ describe('fetchRoutingConsole', () => {
       expect(args).not.toContain('--method');
       expect(args).not.toContain('-X');
     }
+  });
+});
+
+// Epic 0019 additive-only law, the routing console × the claims ledger. The
+// pool client posts a claim as a comment and then assigns the claimant; for an
+// outside contributor without triage rights the assign fails and only the
+// comment lands (claim-ledger.ts, #27). The pool reads that comment as a claim
+// and warns the next claimant, but the console grouped claims by assignee
+// alone, so it showed the claimed issue under Unclaimed.
+describe('routing console × a claim held only by its comment (regression, epic 0019 additive-only law)', () => {
+  const NOW = Date.parse('2026-10-04T12:00:00Z');
+  const CLAIMANT = 'gabibi555';
+  const LABELS = ['pool: ux', 'priority: medium'];
+
+  interface Said {
+    readonly login: string;
+    readonly at: string;
+    readonly body: string;
+  }
+  const row = (number: number, said: readonly Said[] = [], assignees: readonly string[] = []) => ({
+    number,
+    title: `issue ${number}`,
+    body: '',
+    url: `https://github.com/o/r/issues/${number}`,
+    labels: LABELS.map((name) => ({ name })),
+    assignees: assignees.map((login) => ({ login })),
+    comments: said.map(({ login, at, body }) => ({ author: { login }, createdAt: at, body })),
+  });
+  type Row = ReturnType<typeof row>;
+
+  /** A gh that answers the milestone read with none and `gh issue list` with
+   *  only the fields `--json` asked for, as gh does. */
+  const projectingGh = (rows: readonly Row[]) =>
+    vi.fn<CliExec>(async (_cmd, args) => {
+      if (args[0] === 'api') return { code: 0, stdout: '[]' };
+      const fields = (args[args.indexOf('--json') + 1] ?? '').split(',');
+      const projected = rows.map((r) =>
+        Object.fromEntries(Object.entries(r).filter(([key]) => fields.includes(key))),
+      );
+      return { code: 0, stdout: JSON.stringify(projected) };
+    });
+
+  /** The claim comment the pool client posts for CLAIMANT, from its own plan. */
+  const claimComment = (number: number): string => {
+    const free: PoolIssue = {
+      number,
+      title: `issue ${number}`,
+      url: `https://github.com/o/r/issues/${number}`,
+      labels: LABELS,
+      assignees: [],
+    };
+    const decision = planClaimPoolIssue(free, CLAIMANT, NOW);
+    const comment = planClaimPoolIssueCommands(free, CLAIMANT, decision).find(
+      (command) => command.args[1] === 'comment',
+    );
+    return comment?.args[comment.args.indexOf('--body') + 1] ?? '';
+  };
+  const claimed = (number: number, more: readonly Said[] = []): Row =>
+    row(number, [
+      { login: CLAIMANT, at: '2026-10-03T09:00:00Z', body: claimComment(number) },
+      ...more,
+    ]);
+
+  it('lists the comment-only claimant under Claims, not the issue under Unclaimed', async () => {
+    const snapshot = await fetchRoutingConsole(projectingGh([claimed(5), row(8)]));
+
+    expect(snapshot.claims).toEqual([{ login: CLAIMANT, issues: [5] }]);
+    expect(snapshot.unclaimed).toEqual([8]);
+  });
+
+  it('reads the issue as unclaimed again once its claimant hands it back', async () => {
+    const page = [claimed(5, [{ login: CLAIMANT, at: '2026-10-03T10:00:00Z', body: '/unclaim' }])];
+    const snapshot = await fetchRoutingConsole(projectingGh(page));
+
+    expect(snapshot.claims).toEqual([]);
+    expect(snapshot.unclaimed).toEqual([5]);
+  });
+
+  it('keeps an issue whose comments carry no claim unclaimed', async () => {
+    const page = [
+      row(3, [{ login: 'octocat', at: '2026-10-03T09:00:00Z', body: 'Is anyone on this?' }]),
+    ];
+    const snapshot = await fetchRoutingConsole(projectingGh(page));
+
+    expect(snapshot.claims).toEqual([]);
+    expect(snapshot.unclaimed).toEqual([3]);
+  });
+
+  it('counts a ledger claim nobody is assigned to', () => {
+    const claims = claimLedger([], [{ author: CLAIMANT, createdAt: NOW, body: claimComment(5) }]);
+
+    expect(planRoutingConsole([], [issue(5, LABELS)]).unclaimed).toEqual([5]);
+    const plan = planRoutingConsole([], [{ ...issue(5, LABELS), claims }]);
+    expect(plan.claims).toEqual([{ login: CLAIMANT, issues: [5] }]);
+    expect(plan.unclaimed).toEqual([]);
+  });
+
+  it('keeps every assignee, even one the ledger reads as released, and names a login once', () => {
+    const released = claimLedger(
+      ['amy'],
+      [
+        { author: CLAIMANT, createdAt: NOW, body: claimComment(5) },
+        { author: 'maintainer', createdAt: NOW + 1, body: 'Releasing @amy: quiet for 14 days.' },
+      ],
+    );
+    const both = claimLedger(
+      [CLAIMANT],
+      [{ author: CLAIMANT, createdAt: NOW, body: claimComment(7) }],
+    );
+    expect(released.map((claim) => claim.login)).toEqual([CLAIMANT]);
+
+    const plan = planRoutingConsole(
+      [],
+      [
+        { ...issue(5, LABELS, ['amy']), claims: released },
+        { ...issue(6, LABELS, ['zed']), claims: [] },
+        { ...issue(7, LABELS, [CLAIMANT]), claims: both },
+      ],
+    );
+
+    expect(plan.claims).toEqual([
+      { login: CLAIMANT, issues: [5, 7] },
+      { login: 'amy', issues: [5] },
+      { login: 'zed', issues: [6] },
+    ]);
+    expect(plan.unclaimed).toEqual([]);
   });
 });
 

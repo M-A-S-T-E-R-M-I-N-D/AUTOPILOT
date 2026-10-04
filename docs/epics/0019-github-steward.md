@@ -122,6 +122,19 @@ into a per-project ritual any instance can run on any repo it owns.
   keeps the row's `html_url` when it is https, and a row without one still
   shows, unlinked (`test/flight/routing-console.test.ts`; the link census
   sees the field and its href).
+  **The claims ledger 2026-10-04 (board web-mtsylqbd-q2rg8k, the
+  additive-only law):** an outside contributor's pool claim is often its
+  comment alone, because the assign after it needs triage rights on the repo
+  (`claim-ledger.ts`, #27). The pool reads that comment as a claim and warns
+  the next claimant, but the console grouped claims by assignee alone, so the
+  claimed issue showed under Unclaimed. The console now reads its issues
+  through `fetchContributorFacingIssues`, which asks gh for `comments` too and
+  carries each issue's `claimLedger`, and a login holds an issue when it is
+  assigned or has a live ledger claim. Widening only: every assignee still
+  shows, one the ledger reads as released included, and a claim handed back
+  with `/unclaim` reads Unclaimed again. Covered by
+  `test/flight/routing-console.test.ts`, whose fake gh returns only the fields
+  `--json` asked for (written first, 3 of the new checks failed).
   _Still open:_ steering from the dashboard's side (the panel only reads); and scoping
   the read to a project page's own repository, since it reads the
   dashboard's repository the way the Collaboration panel does.
