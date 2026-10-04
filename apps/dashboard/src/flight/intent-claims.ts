@@ -122,8 +122,12 @@ const TITLE_PATH_RE = /\b[\w.-]+(?:\/[\w.-]+)+\.[A-Za-z0-9]+\b/;
 /** A path segment that carries its own dot+extension suffix — what every
  *  non-final segment of a REAL path never has (those are directory names),
  *  but what every segment of a slash-joined file ENUMERATION always has
- *  (e.g. a VERDICT title's "(a.ts/b.ts/c.ts, 125 passing tests)"). */
-const SEGMENT_HAS_EXTENSION_RE = /\.[A-Za-z0-9]+$/;
+ *  (e.g. a VERDICT title's "(a.ts/b.ts/c.ts, 125 passing tests)"). Letters
+ *  only: a version-stamped directory name ("v1.2") ends in digits, never a
+ *  real file extension in this repo's own source (.ts/.js/.md/.json/.yml/…),
+ *  so digits must not trip this check — a single such segment is otherwise
+ *  indistinguishable from a one-element enumeration and wrongly discarded. */
+const SEGMENT_HAS_EXTENSION_RE = /\.[A-Za-z]+$/;
 
 export function likelyPrimaryPathFromTitle(title: string): string | null {
   const match = TITLE_PATH_RE.exec(title)?.[0] ?? null;
