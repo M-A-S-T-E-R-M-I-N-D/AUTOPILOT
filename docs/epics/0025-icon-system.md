@@ -559,7 +559,17 @@ propagation, and the filled style does not match the nav.
    slot, a later check that finds the checkout current tags it back, and
    the label goes through `setSweptText()`, so the rocket survives every
    repaint (`apps/dashboard/test/web/version-menu-icons.test.ts`,
-   axe-clean).
+   axe-clean). **Write forms' submit buttons 2026-10-04 (slice 2):** the
+   task board's Add, the inbox's Drop note and the SOUL editor's Propose
+   edit share one accent-filled button style, yet each was bare words, and
+   Propose edit sat beside the Unlock to edit toggle's `lock`. Add leads
+   with the zoom bar's `plus`, since it puts a new row on the board; Drop
+   note and Propose edit take the icon their own disclosure's summary draws,
+   `inbox` and `pencil`, the way the triage runs take their heading's.
+   Nothing is newly vendored, and each icon is decorative, so a button's
+   name stays its tip. A submit only disables the button, and the locale
+   sweep keeps a leading icon, so the icon survives both
+   (`apps/dashboard/test/web/form-submit-icons.test.ts`, axe-clean).
 
 ## Related
 
