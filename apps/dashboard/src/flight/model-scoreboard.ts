@@ -28,7 +28,7 @@
  * within 5 points and its cost per ship is lower.
  */
 
-import type { Store } from '@autopilot/store';
+import { UNPRICED_FIRING_SQL, type Store } from '@autopilot/store';
 import { taskHash } from './model-routing.js';
 import type { ModelTier } from './model-routing.js';
 
@@ -61,6 +61,10 @@ export interface ArmStats {
   readonly modelId: string | null;
   readonly firings: number;
   readonly shipped: number;
+  /** The ships whose cost is known: what a cost per ship divides by, since
+   *  an unpriced ship's 0 is not a price (epic 0036). */
+  readonly pricedShipped: number;
+  /** Summed over the priced firings alone. */
   readonly costUsd: number;
 }
 
@@ -68,7 +72,9 @@ export interface RoutedFiring {
   readonly tier: ModelTier;
   readonly modelId: string;
   readonly shipped: boolean;
-  readonly costUsd: number;
+  /** `null` when the firing record says its cost is unknown — a run killed
+   *  before its envelope, or a Codex or Gemini run (epic 0036). */
+  readonly costUsd: number | null;
 }
 
 export interface ModelChoice {
@@ -115,11 +121,13 @@ export function tierStats(
     const ofAlias = firings.filter((f) => !isBareAlias(f.modelId) && aliasOf(f.modelId) === alias);
     const current = ofAlias.length === 0 ? null : ofAlias[ofAlias.length - 1]!.modelId;
     const counted = firings.filter((f) => f.tier === tier && f.modelId === current);
+    const priced = counted.filter((f) => f.costUsd !== null);
     stats.set(alias, {
       modelId: current,
       firings: counted.length,
       shipped: counted.filter((f) => f.shipped).length,
-      costUsd: counted.reduce((sum, f) => sum + f.costUsd, 0),
+      pricedShipped: priced.filter((f) => f.shipped).length,
+      costUsd: priced.reduce((sum, f) => sum + f.costUsd!, 0),
     });
   }
   return stats;
@@ -129,8 +137,21 @@ function shipRate(s: ArmStats): number {
   return s.firings === 0 ? 0 : s.shipped / s.firings;
 }
 
+/** Cost per PRICED ship (epic 0036): divided by every ship, an arm's
+ *  unpriced ships read as free and made it look cheaper than it was. An arm
+ *  with no priced ship never leads on cost. */
 function costPerShip(s: ArmStats): number {
-  return s.shipped === 0 ? Number.POSITIVE_INFINITY : s.costUsd / s.shipped;
+  return s.pricedShipped === 0 ? Number.POSITIVE_INFINITY : s.costUsd / s.pricedShipped;
+}
+
+/** An arm's cost per ship as the scoreboard prints it: `-` with no ship,
+ *  `unpriced` when none of its ships was priced, and the ships left out named. */
+function perShipText(s: ArmStats): string {
+  if (s.shipped === 0) return '-';
+  if (s.pricedShipped === 0) return 'unpriced';
+  const unpriced = s.shipped - s.pricedShipped;
+  const left = unpriced === 0 ? '' : ` (${unpriced} unpriced left out)`;
+  return `$${costPerShip(s).toFixed(2)}${left}`;
 }
 
 /** z for a two-sided 95% interval. */
@@ -203,10 +224,12 @@ export function chooseModel(
     return { model, phase: 'exploit', reason: `watching ${model} beside the leader ${leader}` };
   }
   const s = stats.get(leader)!;
+  const perShip =
+    s.pricedShipped === 0 ? 'no priced ship' : `$${costPerShip(s).toFixed(2)} per ship`;
   return {
     model: leader,
     phase: 'exploit',
-    reason: `leader ${leader} (${s.modelId}): ${Math.round(shipRate(s) * 100)}% shipped, $${costPerShip(s).toFixed(2)} per ship`,
+    reason: `leader ${leader} (${s.modelId}): ${Math.round(shipRate(s) * 100)}% shipped, ${perShip}`,
   };
 }
 
@@ -294,9 +317,12 @@ export function readRoutedFirings(store: Store, projectId: string, now: number):
       /* a malformed row is skipped */
     }
   }
+  // A firing whose record says its cost is unknown reads NULL, not the
+  // column's 0 (epic 0036), so its ship never prices its model as free.
   const rows = store.db
     .prepare(
-      `SELECT m.firing_id AS firingId, m.item, m.model, m.shipped, m.cost_usd AS costUsd,
+      `SELECT m.firing_id AS firingId, m.item, m.model, m.shipped,
+              CASE WHEN ${UNPRICED_FIRING_SQL} THEN NULL ELSE m.cost_usd END AS costUsd,
               m.created_at AS at, e.payload
          FROM metrics m
          LEFT JOIN events e ON e.firing_id = m.firing_id AND e.type = 'firing'
@@ -308,7 +334,7 @@ export function readRoutedFirings(store: Store, projectId: string, now: number):
     item: string | null;
     model: string;
     shipped: number;
-    costUsd: number;
+    costUsd: number | null;
     at: number;
     payload: string | null;
   }[];
@@ -475,10 +501,9 @@ export function renderScoreboard(firings: readonly RoutedFiring[]): string[] {
     lines.push(`  ${tier}: ${measured ? `leader ${leaderOf(stats)}` : 'exploring'}`);
     for (const [alias, s] of stats) {
       const rate = s.firings === 0 ? '-' : `${Math.round(shipRate(s) * 100)}%`;
-      const per = s.shipped === 0 ? '-' : `$${costPerShip(s).toFixed(2)}`;
       lines.push(
         `    ${alias.padEnd(7)} ${(s.modelId ?? 'not served yet').padEnd(28)} ` +
-          `${armFirings(s.firings)} firings  shipped ${rate.padStart(4)}  per ship ${per}`,
+          `${armFirings(s.firings)} firings  shipped ${rate.padStart(4)}  per ship ${perShipText(s)}`,
       );
     }
   }

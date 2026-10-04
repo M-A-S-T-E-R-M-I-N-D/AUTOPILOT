@@ -275,7 +275,15 @@ prompt could pass `evaluatePromptVersionGate`'s cost-per-solved check. `evalRegr
 read the metrics column, counting such a firing as $0 in its variance too. Both now divide by the
 priced ships alone (`costPerSolvedOf`), the pick-source query reads a firing whose record says
 `costUsd: null` as NULL (`UNPRICED_FIRING_SQL`), and a group with no priced ship has no cost per
-solved, so the gate skips that check rather than judge it on a $0. Since
+solved, so the gate skips that check rather than judge it on a $0. Until a later 2026-10-04 commit
+THE MODEL SCOREBOARD, which staffs each tier with a model, did the same: `tierStats`
+(`flight/model-scoreboard.ts`) divided an arm's cost by every ship, and a run killed before its
+envelope records `costUsd: null`, stored as 0, so two such Opus ships beside two $3.00 ones read
+$1.50 per ship and could win Opus a tier on cost. `readRoutedFirings` now reads such a firing's cost
+as NULL (`UNPRICED_FIRING_SQL`), `ArmStats.pricedShipped` counts the ships whose cost is known,
+`leaderOf` divides by them, so an arm with none never leads on cost, the printed scoreboard names
+the ships it left out (`per ship $3.00 (2 unpriced left out)`, or `unpriced`), and the benchmark
+page's tier arms divide the same way (`scoreboardTiers`). Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the

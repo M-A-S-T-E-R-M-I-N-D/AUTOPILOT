@@ -124,6 +124,29 @@ describe('scoreboardTiers', () => {
       costPerShipUsd: 3,
     });
   });
+
+  it("prices an arm's cost per ship by its priced ships, and an arm with none has no cost (epic 0036)", () => {
+    const many = (modelId: string, n: number, cost: number | null) =>
+      Array.from({ length: n }, () => ({
+        tier: 'escalated' as const,
+        modelId,
+        shipped: true,
+        costUsd: cost,
+      }));
+    const [escalated] = scoreboardTiers([
+      ...many('claude-opus-5-5', 2, 3),
+      ...many('claude-opus-5-5', 2, null),
+      ...many('claude-fable-5-1', 3, null),
+    ]);
+    expect(escalated!.arms.find((a) => a.alias === 'opus')).toMatchObject({
+      shipped: 4,
+      costPerShipUsd: 3,
+    });
+    expect(escalated!.arms.find((a) => a.alias === 'fable')).toMatchObject({
+      shipped: 3,
+      costPerShipUsd: null,
+    });
+  });
 });
 
 describe('readBenchmark', () => {

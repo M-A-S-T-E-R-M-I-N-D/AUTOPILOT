@@ -32,8 +32,14 @@ import {
   type ArmStats,
 } from '../../src/flight/model-scoreboard.js';
 
-function arm(modelId: string, firings: number, shipped: number, costUsd: number): ArmStats {
-  return { modelId, firings, shipped, costUsd };
+function arm(
+  modelId: string,
+  firings: number,
+  shipped: number,
+  costUsd: number,
+  pricedShipped = shipped,
+): ArmStats {
+  return { modelId, firings, shipped, pricedShipped, costUsd };
 }
 
 function runs(
@@ -41,7 +47,7 @@ function runs(
   modelId: string,
   n: number,
   shipped: number,
-  costEach: number,
+  costEach: number | null,
 ): RoutedFiring[] {
   return Array.from({ length: n }, (_, i) => ({
     tier,
@@ -103,6 +109,19 @@ describe('tierStats', () => {
       arm(null as unknown as string, 0, 0, 0),
     );
   });
+
+  it('prices an arm by its priced firings alone, never an unpriced ship as $0 (epic 0036)', () => {
+    // A firing killed before its envelope records `costUsd: null`, and the
+    // metrics column stores 0: two such ships beside two $3.00 ones read
+    // $1.50 per ship, half what the model cost.
+    const firings = [
+      ...runs('default', 'claude-opus-5-5', 2, 2, 3),
+      ...runs('default', 'claude-opus-5-5', 3, 2, null),
+    ];
+    expect(tierStats(firings, 'default', ['opus']).get('opus')).toEqual(
+      arm('claude-opus-5-5', 5, 4, 6, 2),
+    );
+  });
 });
 
 describe('wilsonLower', () => {
@@ -145,6 +164,22 @@ describe('leaderOf — the operator rule, on evidence', () => {
     ]);
     expect(leaderOf(stats)).toBe('fable');
   });
+
+  it('does not let unpriced ships make a model look cheaper (epic 0036)', () => {
+    // Both ship every firing. Opus costs $3.00 per priced ship, Sonnet
+    // $2.00; divided by every ship, Opus's ten unpriced ones read $1.50.
+    const stats = new Map([
+      ['sonnet', arm('claude-sonnet-5', 20, 20, 40)],
+      ['opus', arm('claude-opus-5-5', 20, 20, 30, 10)],
+    ]);
+    expect(leaderOf(stats)).toBe('sonnet');
+    // An arm none of whose ships was priced never leads on cost.
+    const unknown = new Map([
+      ['sonnet', arm('claude-sonnet-5', 20, 20, 40)],
+      ['opus', arm('claude-opus-5-5', 20, 20, 0, 0)],
+    ]);
+    expect(leaderOf(unknown)).toBe('sonnet');
+  });
 });
 
 describe('chooseModel', () => {
@@ -182,6 +217,23 @@ describe('chooseModel', () => {
     expect(toLeader).toBeGreaterThan(210);
     expect(toLeader).toBeLessThan(270);
     expect(picks).toContain('sonnet');
+  });
+
+  it("says a leader's cost per ship is unknown when none of its ships was priced, never $Infinity", () => {
+    const unpriced = new Map([
+      ['sonnet', arm('claude-sonnet-5', 40, 28, 0, 0)],
+      ['opus', arm('claude-opus-5-5', 40, 28, 0, 0)],
+    ]);
+    const reasons = ids
+      .map((id) => chooseModel('default', id, unpriced).reason)
+      .filter((r) => r.startsWith('leader'));
+    expect(reasons.length).toBeGreaterThan(0);
+    expect(reasons[0]).toContain('70% shipped, no priced ship');
+    expect(reasons.join('\n')).not.toContain('Infinity');
+    const priced = ids
+      .map((id) => chooseModel('default', id, measured).reason)
+      .find((r) => r.startsWith('leader'));
+    expect(priced).toContain('70% shipped, $2.50 per ship');
   });
 });
 
@@ -391,6 +443,34 @@ describe('the store side: decisions recorded, firings matched', () => {
     ]);
   });
 
+  it("reads a firing whose record names no price as unpriced, never the column's $0 (epic 0036)", () => {
+    // A run killed before its envelope records `costUsd: null`, as does a
+    // Codex or Gemini run, and the metrics column stores 0.
+    const now = 10 * 24 * 60 * 60 * 1000;
+    routeTaskModel(store, 'p1', 'default', 't-1', { AUTOPILOT_DEFAULT_MODEL: 'opus' }, now);
+    store.db
+      .prepare(
+        `INSERT INTO metrics (project_id, firing_id, item, kind, sha, shipped, gate_result, cost_usd, model, created_at)
+         VALUES ('p1', 'p1:firing-1', 't-1', 'feat', NULL, 1, 'passed', 0, 'claude-opus-5-5', ?)`,
+      )
+      .run(now + 10);
+    firing('p1:firing-2', 't-1', 'claude-opus-5-5', 1, now + 20);
+    firing('p1:firing-3', 't-1', 'claude-opus-5-5', 1, now + 30);
+    const record = store.db.prepare(
+      `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+       VALUES ('p1', ?, 'firing', ?, ?)`,
+    );
+    record.run('p1:firing-1', JSON.stringify({ costUsd: null, isError: true }), now + 10);
+    record.run('p1:firing-2', JSON.stringify({ costUsd: 2 }), now + 20);
+    // A record that is unreadable leaves the column's figure standing.
+    record.run('p1:firing-3', '{not json', now + 30);
+    expect(readRoutedFirings(store, 'p1', now + 40)).toEqual([
+      { tier: 'default', modelId: 'claude-opus-5-5', shipped: true, costUsd: null },
+      { tier: 'default', modelId: 'claude-opus-5-5', shipped: true, costUsd: 2 },
+      { tier: 'default', modelId: 'claude-opus-5-5', shipped: true, costUsd: 2 },
+    ]);
+  });
+
   it('reads the lane off a firing id', () => {
     expect(laneOfFiring('fly-autopilot:firing-9')).toBe('base');
     expect(laneOfFiring('fly-autopilot--fleet-3:firing-9')).toBe('fleet-3');
@@ -429,5 +509,17 @@ describe('the store side: decisions recorded, firings matched', () => {
     expect(row('opus')).not.toContain(`/${MIN_ARM_FIRINGS}`);
     const columns = new Set(['haiku', 'sonnet', 'opus'].map((a) => row(a).indexOf(' firings')));
     expect(columns.size).toBe(1);
+  });
+
+  it('prices the per-ship column by priced ships, and names the unpriced ones left out (epic 0036)', () => {
+    const lines = renderScoreboard([
+      ...runs('escalated', 'claude-opus-5-5', 2, 2, 3),
+      ...runs('escalated', 'claude-opus-5-5', 2, 2, null),
+      ...runs('escalated', 'claude-fable-5-1', 3, 3, null),
+    ]);
+    const row = (alias: string): string => lines.find((l) => l.startsWith(`    ${alias} `))!;
+    expect(row('opus')).toContain('per ship $3.00 (2 unpriced left out)');
+    expect(row('fable')).toContain('per ship unpriced');
+    expect(lines.join('\n')).not.toContain('$1.50');
   });
 });
