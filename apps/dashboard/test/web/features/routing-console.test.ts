@@ -37,9 +37,17 @@ const SNAPSHOT = {
       openIssues: 3,
       closedIssues: 7,
       dueOn: '2026-10-15T07:00:00Z',
+      url: 'https://github.com/o/r/milestone/3',
       percentDone: 70,
     },
-    { title: 'Someday', openIssues: 0, closedIssues: 0, dueOn: null, percentDone: null },
+    {
+      title: 'Someday',
+      openIssues: 0,
+      closedIssues: 0,
+      dueOn: null,
+      url: null,
+      percentDone: null,
+    },
   ],
   labelQueues: [
     { label: 'priority: critical', issues: [] },
@@ -107,6 +115,21 @@ describe('ROUTING CONSOLE panel (epic 0019 S4)', () => {
     expect(bar.getAttribute('aria-label')).toBe('v0.59');
     // An empty milestone draws no bar: it is neither done nor not started.
     expect(panel().querySelectorAll('progress')).toHaveLength(1);
+  });
+
+  it('links each milestone title to its GitHub page, safely targeted, and leaves a linkless one as text', async () => {
+    boot(() => ({ ok: true, body: SNAPSHOT }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const links = [...panel().querySelectorAll<HTMLAnchorElement>('.routing-console-name a')];
+    expect(links.map((link) => link.textContent)).toEqual(['v0.59']);
+    const [link] = links;
+    expect(link?.getAttribute('href')).toBe('https://github.com/o/r/milestone/3');
+    expect(link?.getAttribute('target')).toBe('_blank');
+    expect(link?.getAttribute('rel')).toContain('noopener');
+    expect(link?.getAttribute('rel')).toContain('noreferrer');
+    const names = [...panel().querySelectorAll('.routing-console-name')];
+    expect(names.map((name) => name.textContent)).toContain('Someday');
   });
 
   it('says it could not read the milestones, never that there are none', async () => {

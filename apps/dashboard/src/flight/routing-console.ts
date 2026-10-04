@@ -32,15 +32,17 @@ import {
 
 /** One open milestone as the page shows it. The counts are GitHub's own
  *  (`open_issues`/`closed_issues`, which include pull requests), so the
- *  console reads the same progress the milestone page does. The milestone's
- *  link is not read yet: the panel that renders it reads it with its href
- *  (test/flight/link-census.test.ts). */
+ *  console reads the same progress the milestone page does. */
 export interface RoutingMilestone {
   readonly title: string;
   readonly openIssues: number;
   readonly closedIssues: number;
   /** ISO due date, or `null` for a milestone with none. */
   readonly dueOn: string | null;
+  /** The milestone's own page (`html_url`), which the panel links its title
+   *  to (test/flight/link-census.test.ts); `null` when the row carries no
+   *  https link, so the milestone still shows, unlinked. */
+  readonly url: string | null;
 }
 
 /** The fields of an open issue the console reads — `issue-triage.ts`'s
@@ -173,10 +175,17 @@ interface RawMilestone {
   readonly open_issues?: unknown;
   readonly closed_issues?: unknown;
   readonly due_on?: unknown;
+  readonly html_url?: unknown;
 }
 
 function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+/** An https link or `null` — the only scheme an href from this read may
+ *  carry, the guard `pr-review.ts` puts on a check's link. */
+function httpsUrl(value: unknown): string | null {
+  return typeof value === 'string' && value.startsWith('https://') ? value : null;
 }
 
 function milestoneOf(raw: unknown): RoutingMilestone | undefined {
@@ -189,12 +198,14 @@ function milestoneOf(raw: unknown): RoutingMilestone | undefined {
     openIssues: row.open_issues,
     closedIssues: row.closed_issues,
     dueOn: typeof row.due_on === 'string' ? row.due_on : null,
+    url: httpsUrl(row.html_url),
   };
 }
 
 /** `gh api .../milestones` rows reduced to {@link RoutingMilestone}s. A row
  *  missing its title or a whole, non-negative count is dropped rather than
- *  shown with a guessed progress; a non-array payload is no rows. */
+ *  shown with a guessed progress; one missing only its link is kept,
+ *  unlinked. A non-array payload is no rows. */
 export function parseMilestoneRows(raw: unknown): readonly RoutingMilestone[] {
   if (!Array.isArray(raw)) return [];
   return raw.flatMap((row: unknown) => {
