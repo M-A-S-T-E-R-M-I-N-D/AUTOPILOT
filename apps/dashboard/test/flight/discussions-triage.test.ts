@@ -946,3 +946,64 @@ describe("planDiscussionTriage × the maintainer's marks in any casing (regressi
     }
   });
 });
+
+// EPIC 0019 additive-only law (board web-mtsylqbd-q2rg8k), the KEEPER
+// Discussions ritual × its own pool label in another casing. GitHub keeps one
+// label per name in any casing, so on a repo whose label reads `Pool:
+// Accessibility` that is the spelling a handled discussion carries. The
+// idempotency skip read the `pool: ` prefix exactly, so a later pass replied to
+// the same discussion again.
+describe('planDiscussionTriage × its pool label in any casing (regression, epic 0019 additive-only law)', () => {
+  const variants = ['Pool: Accessibility', 'POOL: ACCESSIBILITY', 'Pool: accessibility'];
+  const node = (id: string, number: number, labels: readonly string[]) => ({
+    id,
+    number,
+    title: 'Keyboard nav is broken in the fleet table',
+    body: 'Screen reader users are stuck',
+    isAnswered: false,
+    locked: false,
+    category: { name: 'Q&A' },
+    labels: { nodes: labels.map((name) => ({ name })) },
+  });
+
+  it.each(variants)('skips a discussion an earlier pass labeled "%s"', (label) => {
+    expect(planDiscussionTriage(discussion()).decision).toBe('accept');
+
+    const decision = planDiscussionTriage(discussion({ labels: [label] }));
+
+    expect(decision.decision).toBe('skip');
+    expect(decision.reasoning).toContain(`already carries "${label}"`);
+  });
+
+  it('posts no second reply on the labeled discussion, while the unlabeled one beside it is answered', async () => {
+    const exec: CliExec = vi
+      .fn()
+      .mockResolvedValueOnce({
+        code: 0,
+        stdout: discussionsGraphql([
+          node('D_done', 8, ['Pool: Accessibility']),
+          node('D_open', 9, []),
+        ]),
+      })
+      .mockResolvedValueOnce({ code: 0, stdout: labelGraphql('LA_a11y') })
+      .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) })
+      .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ data: {} }) });
+
+    const result = await runDiscussionTriageRitual(exec, 'gabibi555');
+
+    expect(exec).toHaveBeenCalledTimes(4);
+    const sent = (vi.mocked(exec).mock.calls as [string, readonly string[]][]).map(([, args]) =>
+      args.join(' '),
+    );
+    expect(sent.filter((args) => args.includes('D_done'))).toEqual([]);
+    expect(sent[2]).toContain('discussionId=D_open');
+    expect(result.plans.map((plan) => plan.decision.decision)).toEqual(['skip', 'accept']);
+    expect(result.outcomes.map((outcome) => outcome.discussionNumber)).toEqual([9]);
+  });
+
+  it('still answers a discussion whose label only resembles a pool label', () => {
+    for (const label of ['no pool: ux', 'Pool:UX', 'carpool: ux']) {
+      expect(planDiscussionTriage(discussion({ labels: [label] })).decision).toBe('accept');
+    }
+  });
+});
