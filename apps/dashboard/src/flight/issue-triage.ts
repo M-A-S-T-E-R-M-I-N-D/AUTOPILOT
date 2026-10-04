@@ -176,7 +176,9 @@ export type IssueTriageDecision =
   | IssueTriageNeedsFormat;
 
 /** The label that opens a "good first issue" to the fleet once its human
- *  reservation expired; also honoured when a maintainer sets it by hand. */
+ *  reservation expired; also honoured when a maintainer sets it by hand.
+ *  Read in any casing ({@link carriedMark}): a repo's label may read
+ *  `Agent-OK`, and it is still the maintainer opening the issue. */
 export const AGENT_OK_LABEL = 'agent-ok';
 /** How long a "good first issue" stays reserved for a human before the
  *  fleet may take it (operator, 2026-09-12: two such issues sat untouched
@@ -686,7 +688,7 @@ export function planIssueTriage(
   }
 
   let releasedFromHumansAfterDays: number | undefined;
-  if (labels.some(isGoodFirstIssueLabel) && !labels.includes(AGENT_OK_LABEL)) {
+  if (labels.some(isGoodFirstIssueLabel) && !carriedMark(labels, [AGENT_OK_LABEL])) {
     const ageDays = issueAgeDays(issue, now);
     if (ageDays === undefined || ageDays < RESERVED_FOR_HUMANS_DAYS) {
       return {
