@@ -624,6 +624,26 @@ describe('FlightRunnerRegistry concurrency cap (PARALLEL FLIGHTS 5/6, shared-quo
     expect(calls[1]?.[6]).toBe(true); // b started while a was already running
   });
 
+  it('forwards a chosen fly target as the 10th spawnFlight arg, queued starts included (epic 0016 slice 4/6)', () => {
+    const calls: unknown[][] = [];
+    const { deps, childFor } = makeDeps({
+      spawnFlight: (folder, ...rest) => {
+        calls.push([folder, ...rest]);
+        const child = fakeChild();
+        childFor.set(folder, child);
+        return child;
+      },
+    });
+    const registry = new FlightRunnerRegistry(deps, 1);
+
+    registry.start({ folder: '/work/a' });
+    const queued = registry.start({ folder: '/work/b', flyTarget: 'github' });
+    expect(queued.queued).toBe(true);
+    childFor.get('/work/a')?.fireExit(0);
+
+    expect(calls.map((args) => args[9])).toEqual([undefined, 'github']);
+  });
+
   it('forwards a chosen engine as the 9th spawnFlight arg, queued starts included (epic 0036)', () => {
     const calls: unknown[][] = [];
     const { deps, childFor } = makeDeps({

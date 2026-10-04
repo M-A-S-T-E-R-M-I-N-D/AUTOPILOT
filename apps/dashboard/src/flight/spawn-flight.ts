@@ -148,6 +148,7 @@ export function createSpawnFlight(
     siblingsFlying,
     socialFlight,
     engine,
+    flyTarget,
   ): SpawnedFlight => {
     const flightLogPath = instanceId
       ? flightLogPathFor(folder, instanceId)
@@ -196,6 +197,10 @@ export function createSpawnFlight(
       // levers fly.ts reads. Like the social override, an omitted choice
       // leaves this process's own AUTOPILOT_ENGINE to pass through.
       ...(engine !== undefined ? firingEngineEnv(engine) : {}),
+      // Epic 0016 slice 4/6's standalone Fly GitHub choice: what THIS
+      // launch flies, as the env var fly.ts reads before it touches the
+      // tree. An omitted choice leaves this process's own value to pass.
+      ...(flyTarget !== undefined ? { AUTOPILOT_FLY_TARGET: flyTarget } : {}),
     };
     // FLEET SCOPE PARTITIONER: the disjoint board scope this instance works
     // first (spec-scoped decomposition — see flight/scope-partition.ts).

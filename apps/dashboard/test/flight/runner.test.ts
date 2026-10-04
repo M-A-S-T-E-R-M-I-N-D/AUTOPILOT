@@ -693,6 +693,78 @@ describe('FlightRunner', () => {
     });
   });
 
+  // The "Fly GitHub" choice's server half (epic 0016 slice 4/6, board
+  // web-mtpzzxn4-69csqx): a launch request may name the flight's target. It
+  // comes straight off an HTTP body, so `start()` reads it through the same
+  // parseFlyTarget fly.ts gives the raw env var — and, like fly.ts, refuses
+  // what it cannot read rather than guess which way the flight may go.
+  describe('flyTarget choice (epic 0016 slice 4/6, standalone Fly GitHub)', () => {
+    function spyDeps(): { deps: FlightRunnerDeps; seen: unknown[] } {
+      const seen: unknown[] = [];
+      const { deps } = makeDeps({
+        spawnFlight: (...args) => {
+          seen.push(args[9]);
+          return fakeChild();
+        },
+      });
+      return { deps, seen };
+    }
+
+    it('hands a chosen target to the spawn as its 10th arg', () => {
+      const { deps, seen } = spyDeps();
+      const result = new FlightRunner(deps).start({ folder: '/work/a', flyTarget: 'github' });
+
+      expect(result.started).toBe(true);
+      expect(seen).toEqual(['github']);
+    });
+
+    it('passes no target when the request names none, so the child inherits the env', () => {
+      const { deps, seen } = spyDeps();
+      new FlightRunner(deps).start({ folder: '/work/a' });
+
+      expect(seen).toEqual([undefined]);
+    });
+
+    it('refuses an unrecognized target without spawning, naming the value it could not read', () => {
+      const { deps, seen } = spyDeps();
+      const runner = new FlightRunner(deps);
+      const result = runner.start({ folder: '/work/a', flyTarget: 'gihtub' });
+
+      expect(result.started).toBe(false);
+      expect(result.message).toBe(
+        'fly target "gihtub" is neither "code" nor "github" — refusing to take off rather than ' +
+          'guess whether this flight may edit the code tree',
+      );
+      expect(seen).toEqual([]);
+      expect(runner.status().running).toBe(false);
+    });
+
+    it('refuses a target that is not a string at all, rather than reading it as code', () => {
+      const { deps, seen } = spyDeps();
+      const result = new FlightRunner(deps).start({
+        folder: '/work/a',
+        flyTarget: 42 as unknown as string,
+      });
+
+      expect(result.started).toBe(false);
+      expect(result.message).toContain('fly target 42 is neither');
+      expect(seen).toEqual([]);
+    });
+
+    it('refuses before the preflight is asked to judge the flight', () => {
+      let judged = 0;
+      const { deps } = makeDeps({
+        preflight: () => {
+          judged += 1;
+          return { go: true, checks: [] };
+        },
+      });
+      new FlightRunner(deps).start({ folder: '/work/a', flyTarget: 'both' });
+
+      expect(judged).toBe(0);
+    });
+  });
+
   // Epic 0036's per-lane pilot choice, server half: a launch request may name
   // the engine its firings fly on. Both fields come straight off an HTTP body,
   // so `start()` reads them through firingEngineFromRequest before the
