@@ -23,7 +23,7 @@ import { MAX_MILESTONE_PAGES, MILESTONE_PAGE_SIZE } from '../../src/flight/taxon
 import type { CliExec } from '../../src/connection/cli-probe.js';
 
 function milestone(overrides: Partial<RoutingMilestone> & { title: string }): RoutingMilestone {
-  return { openIssues: 0, closedIssues: 0, dueOn: null, ...overrides };
+  return { openIssues: 0, closedIssues: 0, dueOn: null, url: null, ...overrides };
 }
 
 function issue(number: number, labels: readonly string[] = [], assignees?: readonly string[]) {
@@ -32,7 +32,7 @@ function issue(number: number, labels: readonly string[] = [], assignees?: reado
 }
 
 describe('parseMilestoneRows', () => {
-  it('reads the REST fields a milestone row carries, and not its link, which no panel renders yet', () => {
+  it('reads the REST fields a milestone row carries, its page link included', () => {
     const rows = parseMilestoneRows([
       {
         title: 'V1',
@@ -48,6 +48,7 @@ describe('parseMilestoneRows', () => {
         openIssues: 3,
         closedIssues: 9,
         dueOn: '2026-11-01T07:00:00Z',
+        url: 'https://github.com/o/r/milestone/2',
       },
     ]);
   });
@@ -61,7 +62,29 @@ describe('parseMilestoneRows', () => {
         due_on: null,
       },
     ]);
-    expect(rows).toEqual([{ title: 'Hardening', openIssues: 0, closedIssues: 0, dueOn: null }]);
+    expect(rows).toEqual([
+      { title: 'Hardening', openIssues: 0, closedIssues: 0, dueOn: null, url: null },
+    ]);
+  });
+
+  it('keeps a milestone whose link is missing or not https, unlinked rather than dropped', () => {
+    const rows = parseMilestoneRows([
+      { title: 'none', open_issues: 1, closed_issues: 1 },
+      { title: 'number', open_issues: 1, closed_issues: 1, html_url: 7 },
+      { title: 'script', open_issues: 1, closed_issues: 1, html_url: 'javascript:alert(1)' },
+      {
+        title: 'plain',
+        open_issues: 1,
+        closed_issues: 1,
+        html_url: 'http://github.com/o/r/milestone/1',
+      },
+    ]);
+    expect(rows.map((row) => [row.title, row.url])).toEqual([
+      ['none', null],
+      ['number', null],
+      ['script', null],
+      ['plain', null],
+    ]);
   });
 
   it('drops rows it cannot read whole rather than guessing at counts', () => {
@@ -265,13 +288,28 @@ describe('fetchRoutingConsole', () => {
     const exec = consoleExec(
       {
         code: 0,
-        stdout: JSON.stringify([{ title: 'V1', open_issues: 1, closed_issues: 3, due_on: null }]),
+        stdout: JSON.stringify([
+          {
+            title: 'V1',
+            open_issues: 1,
+            closed_issues: 3,
+            due_on: null,
+            html_url: 'https://github.com/o/r/milestone/1',
+          },
+        ]),
       },
       [ghIssue(4, ['priority: high'], ['amy']), ghIssue(2, ['bug'], [])],
     );
     const snapshot = await fetchRoutingConsole(exec);
     expect(snapshot.milestones).toEqual([
-      { title: 'V1', openIssues: 1, closedIssues: 3, dueOn: null, percentDone: 75 },
+      {
+        title: 'V1',
+        openIssues: 1,
+        closedIssues: 3,
+        dueOn: null,
+        url: 'https://github.com/o/r/milestone/1',
+        percentDone: 75,
+      },
     ]);
     const queues = Object.fromEntries(
       snapshot.labelQueues.map((queue) => [queue.label, queue.issues]),

@@ -1240,8 +1240,11 @@ const BENIGN_WEB_FEATURES = new Set([
   // socialIdentity() resolver, not a fetch of its own.
   'collaboration.ts',
   // routing-console.ts (epic 0019 S4): GET /api/routing-console only —
-  // read-only, no execute pair, and no href at all: milestone titles, label
-  // names, logins and issue numbers all render as textContent via el().
+  // read-only, no execute pair. Milestone titles, label names, logins and
+  // issue numbers all render as textContent via el(); its one href is a
+  // milestone's gh-returned page link via `setAttribute` with
+  // target="_blank"/rel="noopener noreferrer", already narrowed server-side
+  // to https:// (flight/routing-console.ts's httpsUrl).
   'routing-console.ts',
   // locale-data.ts: no fetch, no I/O — the non-English half of the
   // build-time STRINGS table (board ap-mtk2tgvh-0's BUNDLE DIET),

@@ -12,7 +12,9 @@
  * page it sits with the other community panels.
  *
  * Milestones the server could not read arrive as `null` and say so, never
- * as "no milestones" (`flight/routing-console.ts`'s own rule). A failed
+ * as "no milestones" (`flight/routing-console.ts`'s own rule). Each
+ * milestone's title links to its GitHub page in a new tab when the read
+ * carried an https link, and stays plain text when it did not. A failed
  * poll keeps the last render, the same as every other polled panel here.
  * `routingMilestoneProgressText`/`routingIssueListText` are generated FROM
  * `web/routing-console-panel.ts` below — their real compiled source via
@@ -52,6 +54,16 @@ function routingConsoleRows(section, rows) {
   });
   section.appendChild(list);
 }
+function routingConsoleMilestoneName(milestone) {
+  if (!milestone.url) return el('span', 'routing-console-name', milestone.title);
+  var name = el('span', 'routing-console-name');
+  var link = el('a', 'routing-console-link', milestone.title);
+  link.setAttribute('href', milestone.url);
+  link.setAttribute('target', '_blank');
+  link.setAttribute('rel', 'noopener noreferrer');
+  name.appendChild(link);
+  return name;
+}
 function routingConsoleMilestones(section, milestones) {
   section.appendChild(routingConsoleText('h4', 'routing-console-group-title', 'Milestones', 'routingConsoleMilestones'));
   if (milestones === null) {
@@ -65,7 +77,7 @@ function routingConsoleMilestones(section, milestones) {
   var list = el('ul', 'routing-console-list');
   milestones.forEach(function (milestone) {
     var item = el('li', 'routing-console-row');
-    item.appendChild(el('span', 'routing-console-name', milestone.title));
+    item.appendChild(routingConsoleMilestoneName(milestone));
     if (milestone.percentDone !== null) {
       var bar = document.createElement('progress');
       bar.max = 100;

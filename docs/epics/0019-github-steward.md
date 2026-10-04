@@ -118,8 +118,11 @@ into a per-project ritual any instance can run on any repo it owns.
   due" line, every queue (an empty one reads "None"), the issues with no
   priority yet, and each claim plus the unclaimed issues. Unreadable
   milestones say so (`test/web/features/routing-console.test.ts`, axe-clean).
-  _Still open:_ each milestone's link with the href that renders it;
-  steering from the dashboard's side (the panel only reads); and scoping
+  Each milestone's title now links to its GitHub page in a new tab: the read
+  keeps the row's `html_url` when it is https, and a row without one still
+  shows, unlinked (`test/flight/routing-console.test.ts`; the link census
+  sees the field and its href).
+  _Still open:_ steering from the dashboard's side (the panel only reads); and scoping
   the read to a project page's own repository, since it reads the
   dashboard's repository the way the Collaboration panel does.
 - **S5 — steward for THEIR project:** the per-project page (any
