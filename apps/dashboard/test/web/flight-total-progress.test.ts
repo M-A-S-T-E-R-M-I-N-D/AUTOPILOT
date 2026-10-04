@@ -327,6 +327,37 @@ describe('the fly bar TOTAL flight progress bar', () => {
     expect(label?.textContent).toContain('ETA ~7m 0s');
   });
 
+  it('paces the TOTAL-SPEND ETA by priced firings alone, never an unpriced one as $0 (epic 0036)', async () => {
+    // The flight log's `costUnpriced` (read/source.ts's recordsNoPrice):
+    // a Codex or Gemini firing reports no price and its cost column reads 0.
+    mockFetch(
+      {
+        running: true,
+        folder: '/repo',
+        firings: null,
+        totalBudgetUsd: 10,
+        startedAt: NOW - 65_000,
+        pid: 123,
+        maxTurnsPerFiring: 120,
+        minBudgetUsd: 0.5,
+      },
+      fleetStateWith({
+        flightLog: [
+          { id: 'p1:firing-1', at: NOW - 60_000, cost: 0, costUnpriced: true, durationMs: 60_000 },
+          { id: 'p1:firing-2', at: NOW - 40_000, cost: 0, costUnpriced: true, durationMs: 60_000 },
+          { id: 'p1:firing-3', at: NOW - 20_000, cost: 2, durationMs: 60_000 },
+        ],
+      }),
+    );
+    new Function(clientJs())();
+    await vi.advanceTimersByTimeAsync(1);
+
+    const label = document.getElementById('fly-progress-label');
+    expect(label?.textContent).toContain('$2.00 of $10 total');
+    // avg $2 per priced firing, $8 remaining -> 4 more firings * 60s avg = 4m 0s
+    expect(label?.textContent).toContain('ETA ~4m 0s');
+  });
+
   it('falls back to the project’s historical average duration before any firing lands this flight', async () => {
     mockFetch(
       {
