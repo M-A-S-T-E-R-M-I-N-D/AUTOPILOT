@@ -144,8 +144,10 @@ describe('connectJs', () => {
     it('renames the submit button between "Open GitHub issue" and the generic Execute label as the target changes', () => {
       const out = connectJs();
       expect(out).toContain(
-        "ghIssueBtn.textContent = action === 'issue' ? tr('openGithubIssue') : tr('reportExecute');",
+        "var labelKey = action === 'issue' ? 'openGithubIssue' : 'reportExecute';",
       );
+      expect(out).toContain("ghIssueBtn.setAttribute('data-i18n', labelKey);");
+      expect(out).toContain('setSweptText(ghIssueBtn, tr(labelKey));');
       expect(out).toContain("ghIssueAction.addEventListener('change', updateGhIssueSubmitLabel);");
     });
 

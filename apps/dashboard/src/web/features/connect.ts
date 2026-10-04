@@ -155,7 +155,11 @@ function connectInit() {
   function updateGhIssueSubmitLabel() {
     if (!ghIssueBtn) return;
     var action = ghIssueAction ? ghIssueAction.value : 'issue';
-    ghIssueBtn.textContent = action === 'issue' ? tr('openGithubIssue') : tr('reportExecute');
+    // Epic 0025 slice 2: retag the key so the [data-i18n] sweep keeps these
+    // words, and setSweptText() keeps the submit's leading flag.
+    var labelKey = action === 'issue' ? 'openGithubIssue' : 'reportExecute';
+    ghIssueBtn.setAttribute('data-i18n', labelKey);
+    setSweptText(ghIssueBtn, tr(labelKey));
   }
   if (ghIssueAction) {
     var ghIssueProjectId = document.body.dataset.project || '';

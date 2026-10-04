@@ -261,6 +261,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 }
 .gh-issue-form button:not(:disabled):hover, .gh-issue-form button:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .gh-issue-form button:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+#gh-issue-form button > .icon { margin-inline-end: 0.35em; }
 .gh-issue-result { margin: 0; font-size: var(--text-sm); }
 .gh-issue-result:empty { display: none; }
 .gh-issue-result-ok { color: var(--color-success); }
