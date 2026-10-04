@@ -289,7 +289,12 @@ $1.00 per firing, so the open queue looked half as costly to drain. `queueForeca
 (`web/task-queue.ts`) now reads the flight-log entry's `costUnpriced`, still counts such a firing
 toward the completion pace, and averages cost over the priced firings alone; its tip names the ones
 it left out (`2 unpriced left out, no price was reported`), and a window with none priced
-reads `cost unpriced`, never `~$0.00`. Since
+reads `cost unpriced`, never `~$0.00`. Until a later 2026-10-04 commit the fly bar's TOTAL progress
+bar paced its total-spend ETA the same way: a lane's spend divided by every firing it landed, so
+two unpriced firings beside one $2.00 Claude firing read $0.67 per firing, and the $8 left of a $10
+total looked like 12 more firings, not 4. `flightProgressOf` (`web/flight-progress.ts`) now reads
+the flight-log entry's `costUnpriced`, averages cost over the priced firings alone, still counts an
+unpriced firing's duration, and shows no ETA until a firing reports a price. Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
