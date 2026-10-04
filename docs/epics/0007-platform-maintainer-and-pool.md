@@ -347,6 +347,44 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    removed, re-cased contradicting siblings cleared as carried, and
    `Area: Nonsense`, `Areas: Community` and `Area:Community` still ignored
    (written first, 13 of 22 checks failed).
+   Refined 2026-10-04 (c77a29420, epic 0019's additive-only law, the
+   templates flow, twin of the needs-format/duplicate/epic casing fixes
+   above): the template gate's feature-ish label read matched
+   `enhancement`/`feature` in lowercase only, so on a repo whose label reads
+   `Enhancement` or `Feature request` a heading-less feature request with no
+   feature verb in its title was held to the bug template — labeled
+   `status: needs-format` and publicly asked, once, for "What happened?",
+   "Steps to reproduce" and "Expected behavior", pointing at
+   `bug_report.yml` instead of `feature_request.yml`. The label read is now
+   case-insensitive; the labels triage writes, the signatures, the reply
+   text and the command shapes are unchanged — `Bug`, `not a feature`,
+   `good first issue` and `Documentation` still fall through to the bug
+   template. Covered by
+   `test/flight/issue-triage-template-kind-casing.test.ts` — five spellings
+   each held to the feature template, with the one needs-format reply
+   planned for each naming `feature_request.yml` and its two sections, and
+   four near misses still on the bug template (written first, 10 of 15
+   checks failed against the lowercase match).
+   Refined 2026-10-04 (519e5d9d, epic 0019 law 2, the twin of the
+   area:/priority: casing fix above): `handSetFamilyLabel` promises that a
+   label outside the house set — a typo, or a family this classifier does
+   not own — is left where it is while the classifier answers, but the
+   accept edit did not honor it: `supersededFamilyLabels` named every other
+   label of a chosen family, so on a repo with its own scheme, `area:
+   backend` or `priority: p1` was removed by `--remove-label` in the same
+   edit that added the classifier's guess. `supersededFamilyLabels` now
+   names only house labels (the classifier's own `AREA_LABELS` and
+   `PRIORITY_LABELS`, in any casing) — two contradicting house labels are
+   still the tie it breaks — and `handSetFamilyLabel` counts only house
+   labels, so a stray beside a single house label no longer reads as a
+   contradiction that overrules it. Covered by
+   `test/flight/issue-triage-own-taxonomy.test.ts` — seven strays (a repo's
+   own names, near misses and a typo, none seeded) each stay on the issue
+   while the classifier answers, two contradicting house areas are still
+   cleared with the stray kept beside them, a person's single house label
+   is still kept with a stray present, and every seeded area/priority label
+   is still superseded in upper case (written first, 11 of 21 checks failed
+   against the old reads).
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure
