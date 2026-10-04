@@ -700,8 +700,12 @@ const PANELS_GZIP_BUDGET = 78 * 1024;
 // it only once a non-English locale is applied. Every translated key costs
 // this chunk now, not /panels.js. Measured 81979B raw / 24361B gzip at
 // introduction; the lines leave room for a few days of Hebrew strings.
-const LOCALES_RAW_BUDGET = 88 * 1024;
-const LOCALES_GZIP_BUDGET = 27 * 1024;
+// Then raw 88→96KB and gzip 27→29KB (2026-10-04, board VERDICT
+// ap-muto3qmm-0): those few days were spent — measured 90077B raw against
+// the 90112B line, 35 bytes of headroom — so both lines move back to the
+// headroom the introduction gave them (8227B raw, 2944B gzip at 26752B).
+const LOCALES_RAW_BUDGET = 96 * 1024;
+const LOCALES_GZIP_BUDGET = 29 * 1024;
 // THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
 // version message and its own English and Hebrew strings, so neither
 // full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.

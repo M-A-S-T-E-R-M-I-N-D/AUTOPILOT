@@ -589,8 +589,18 @@ const PANELS_GZIP_BUDGET = 78 * 1024;
 // it only once a non-English locale is applied. Every translated key costs
 // this chunk now, not /panels.js. Measured 81979B raw / 24361B gzip at
 // introduction; the lines leave room for a few days of Hebrew strings.
-const LOCALES_RAW_BUDGET = 88 * 1024;
-const LOCALES_GZIP_BUDGET = 27 * 1024;
+// Then raw 88->96KB and gzip 27->29KB (2026-10-04, board VERDICT
+// ap-muto3qmm-0): those few days were spent -- 8098B raw / 2391B gzip of
+// translated keys since introduction, about two KB of raw a day -- and the
+// raw line sat 35 bytes above the chunk (90077B against 90112B), so the
+// next Hebrew string anyone added would trip it. Both lines move back to
+// the headroom the introduction gave them: 8227B raw (was 8133B) and 2944B
+// gzip (was 3287B). Raw stays the line that trips first -- 2944B of gzip is
+// about ten KB of raw at the measured 0.30 ratio. This chunk is deferred and
+// fetched only for a non-English locale, so its line is a runaway tripwire,
+// not a per-string tax on anyone's first load.
+const LOCALES_RAW_BUDGET = 96 * 1024;
+const LOCALES_GZIP_BUDGET = 29 * 1024;
 // THE WHAT'S NEW CHUNK (2026-09-24): /whats-new.js carries the once-per-
 // version message and its own English and Hebrew strings, so neither
 // full chunk grows. Measured 8.2KB raw / 3.3KB gzip at introduction.
