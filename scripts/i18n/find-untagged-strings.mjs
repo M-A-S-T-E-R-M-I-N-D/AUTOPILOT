@@ -90,8 +90,12 @@ const PLACEHOLDER_RE = /\bplaceholder="([^"$]*)"/;
 const EL_CALL_RE =
   /(?:(?:(?:var|let|const)\s+)?([A-Za-z_$][\w$]*)\s*=\s*)?\bel\(\s*'([a-zA-Z][\w-]*)'\s*,\s*(?:'[^'$\n]*'|null|undefined|[A-Za-z_$][\w$]*)\s*,\s*'([^'$\n]*)'\s*\)/g;
 
-/** How many lines after an `el()` assignment to look for its `.setAttribute('data-i18n', …)` call. */
-const TAG_LOOKAHEAD_LINES = 4;
+/** How many lines after an `el()` assignment to look for its `.setAttribute('data-i18n', …)` call.
+ *  5, not 4: a doc comment routinely sits between the el() call and its first
+ *  statement (e.g. `discussions-triage.ts`'s execBtn, tagged on the 5th line
+ *  down past two comment lines) — 4 produced a false positive there
+ *  (2026-10-04). */
+const TAG_LOOKAHEAD_LINES = 5;
 
 const LETTER_RE = new RegExp('[A-Za-z\\u0590-\\u05FF]');
 
