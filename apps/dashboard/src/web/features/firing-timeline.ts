@@ -391,7 +391,12 @@ function firingTraceSection(c) {
         exitBtn.setAttribute('data-i18n-aria', 'replayExit');
         exitBtn.setAttribute('data-tip', 'Leave playback and show the full trace list');
         exitBtn.setAttribute('data-i18n-tip', 'replayExitTip');
-        exitBtn.textContent = 'Exit replay';
+        // Epic 0025 (board web-mtywp7zq-55f3o9): the dismiss pair's x, since
+        // Exit puts the replay away; symmetric, so no dir=rtl mirror like the
+        // chevrons beside it. setSweptText() keeps a leading icon across the
+        // [data-i18n] sweep.
+        exitBtn.appendChild(iconEl('x'));
+        exitBtn.appendChild(document.createTextNode('Exit replay'));
         exitBtn.setAttribute('data-i18n', 'replayExit');
         navBar.appendChild(exitBtn);
         wrap.appendChild(navBar);
