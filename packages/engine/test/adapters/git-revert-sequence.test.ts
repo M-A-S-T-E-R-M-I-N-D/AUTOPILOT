@@ -24,6 +24,10 @@ import {
  * A test can also answer one git subcommand itself through `canned`, for an
  * outcome real git cannot be driven to on demand — a diff past the 16MB
  * buffer, a signature that verifies. Every other call still runs for real.
+ *
+ * A message handed over as `-F <file>` is recorded in `messageFiles`: the
+ * adapter deletes that temp file once the call returns, so the spy reads it
+ * while it still exists.
  */
 interface CannedAnswer {
   readonly error: Error | null;
@@ -31,17 +35,21 @@ interface CannedAnswer {
   readonly stderr: string;
 }
 
-const { callLog, canned } = vi.hoisted(() => ({
+const { callLog, canned, messageFiles } = vi.hoisted(() => ({
   callLog: [] as { file: string; argv: string[] }[],
   canned: new Map<string, CannedAnswer>(),
+  messageFiles: [] as string[],
 }));
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof childProcess>();
+  const { readFileSync } = await import('node:fs');
   const spy = (...args: unknown[]): unknown => {
     const file = args[0] as string;
     const argv = args[1] as string[];
     callLog.push({ file, argv });
+    const messageFlag = argv.indexOf('-F');
+    if (messageFlag >= 0) messageFiles.push(readFileSync(argv[messageFlag + 1] ?? '', 'utf8'));
     // A git argv is ['-C', repo, subcommand, ...].
     const answer = file === 'git' ? canned.get(argv[2] ?? '') : undefined;
     if (answer) {
@@ -74,6 +82,7 @@ function makeRepo(prefix: string): string {
   gitSync(dir, ['add', '-A']);
   gitSync(dir, ['commit', '-q', '-m', 'feat: second']);
   callLog.length = 0;
+  messageFiles.length = 0;
   return dir;
 }
 
@@ -105,6 +114,36 @@ describe('GitVcs.revertLast — the exact git sequence it issues', () => {
     writeFileSync(join(dir, 'a.txt'), 'two\nuncommitted'); // blocks the merge
     await expect(vcs.revertLast()).rejects.toThrow(/git revert failed/);
     expect(gitCalls()).toEqual(['revert --no-edit HEAD', 'revert --abort']);
+  });
+
+  it("a reason is amended in one blank line under the message git wrote — git's trailing newline dropped, not doubled into the gap", async () => {
+    const reverted = gitSync(dir, ['rev-parse', 'HEAD']);
+
+    await vcs.revertLast(undefined, 'pnpm run test failed (exit 1)');
+
+    expect(gitCalls()).toEqual([
+      'revert --no-edit HEAD',
+      'log -1 --format=%B',
+      expect.stringMatching(/^commit --amend -F \S+ --cleanup=whitespace$/),
+    ]);
+    expect(messageFiles).toEqual([
+      `Revert "feat: second"\n\nThis reverts commit ${reverted}.\n\npnpm run test failed (exit 1)`,
+    ]);
+  });
+
+  it("leaves the revert's own message alone when git could not read it back — amending from an empty read would replace it with the bare reason", async () => {
+    canned.set('log', {
+      error: Object.assign(new Error('Command failed: git log'), { code: 128 }),
+      stdout: '',
+      stderr: 'fatal: unable to read HEAD',
+    });
+
+    await vcs.revertLast(undefined, 'pnpm run test failed (exit 1)');
+
+    expect(gitCalls()).toEqual(['revert --no-edit HEAD', 'log -1 --format=%B']);
+    expect(gitSync(dir, ['log', '-1', '--format=%B'])).toMatch(
+      /^Revert "feat: second"\n\nThis reverts commit [0-9a-f]{40}\.$/,
+    );
   });
 });
 
