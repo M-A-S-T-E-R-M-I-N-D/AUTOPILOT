@@ -508,6 +508,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 .fly-flight-actions button:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .fly-flight-actions .fly-flight-stop { border-color: var(--color-sev-high); color: var(--color-sev-high); }
 .fly-flight-actions .fly-flight-pause { border-color: var(--color-sev-medium); color: var(--color-sev-medium); }
+.fly-flight-actions button > .icon { margin-inline-end: 0.35em; }
 
 .searchbar { padding: var(--space-3) var(--page-inline); border-bottom: 1px solid var(--color-border); }
 .search-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
