@@ -109,7 +109,22 @@ hand-maintained._
 | Containment posture | `docs/FLIGHT-CONTAINMENT.md` — detection (done) + CLI prevention (done) + OS sandbox
   (platform-gated, not native Windows) |
 | Verification boundary (🟢 autonomous vs. 🟣 human-required) | `docs/MASTER-PLAN.md` §17 |
-| This card last reviewed against the above | 2026-10-03 |
+| This card last reviewed against the above | 2026-10-04 |
+
+**2026-10-04 review (DOC-FRESHNESS flag against `eval-gate.ts`):** the flagged commit
+(`3a6a733b`, 2026-10-04) fixes `aggregateEvalRows` and `evalRegressionByPickSource`'s
+cost-per-solved math: both used to divide total cost by every ship, so an unpriced firing
+(a Codex or Gemini lane reporting `costUsd: null`, epic 0036) read as a free ship and
+understated cost per solved. They now divide by priced ships alone
+(`costPerSolvedOf`/`accumulate`), sharing one helper; the pick-source query reads an
+unpriced firing's cost as SQL `NULL` via the now-exported `UNPRICED_FIRING_SQL`
+(`packages/store/src/read.ts`) rather than the column's stored `0`. It does not touch
+`pickDisciplineAudit` or `boardDiversityAudit` — the two functions §5 names by exact
+behavior — and no §2/§5 claim here describes the cost-per-solved formula itself, only that
+the gate evaluates "cost per solved task" and that `eval-gate.ts` backs the PICK
+DISCIPLINE/BOARD DIVERSITY audits, both still true. So no narrative changed. Re-checked:
+`package.json` version is still `0.58.0`, `FIRING_PROMPT_VERSION` is still `'firing-v17'`,
+and `pnpm self-study:gate` is still wired to `check-prompt-gate.mjs`. All still true.
 
 **2026-10-01 review (DOC-FRESHNESS flag against `prompt.ts`):** the flagged commits
 (`355c7895`, `a224c3d0`) added a per-project `Subagents: off` SOUL override — a
