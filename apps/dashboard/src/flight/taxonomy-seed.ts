@@ -189,7 +189,12 @@ export interface TaxonomySeedOptions {
  *  `--force` upserts, so re-planning an already-seeded repo is cheap and
  *  harmless — idempotent per the epic's own wording) plus only the
  *  starter milestones not already present by title, unless `labelsOnly`
- *  asks for none of them. */
+ *  asks for none of them.
+ *
+ *  A label counts as existing in any casing: GitHub keeps one label per
+ *  name in any casing and `--force` upserts onto it, so a repo's
+ *  `Priority: High` is the label a seed of `priority: high` overwrites, and
+ *  the dry run must say so. */
 export function planTaxonomySeed(
   identity: SocialIdentity | undefined,
   existingLabelNames: ReadonlySet<string>,
@@ -202,8 +207,9 @@ export function planTaxonomySeed(
   if (identity.role !== 'maintainer') {
     return { identity, actions: [], skippedReason: 'guest' };
   }
+  const existing = new Set([...existingLabelNames].map((name) => name.toLowerCase()));
   const labelActions: TaxonomySeedAction[] = HOUSE_TAXONOMY_LABELS.map((label) => ({
-    kind: existingLabelNames.has(label.name) ? 'update-label' : 'create-label',
+    kind: existing.has(label.name.toLowerCase()) ? 'update-label' : 'create-label',
     label,
   }));
   if (options.labelsOnly === true) return { identity, actions: labelActions };
