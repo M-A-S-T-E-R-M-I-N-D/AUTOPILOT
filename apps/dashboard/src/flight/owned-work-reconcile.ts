@@ -40,7 +40,7 @@ import { createTask, setTaskFocus, type CreateTaskInput, type Store } from '@aut
 import type { CliExec } from '../connection/cli-probe.js';
 import { ghExec } from './gh-exec.js';
 import { MAX_ISSUE_LIST, issueTaskId, parseIssueLabels } from './issue-triage.js';
-import { issueNumberFromTaskId } from './mirror-pass.js';
+import { fetchClaimedIssueClaims, issueNumberFromTaskId } from './mirror-pass.js';
 import { claimContractBody, isHumanClosedTask } from './claim-contract.js';
 import { isMaintainerMarked } from './pool-client.js';
 import { fetchViewerLogin } from './pr-review.js';
@@ -180,7 +180,9 @@ export interface OwnedWorkReconcilePlan {
   /** Existing contract-marked, focused tasks GitHub no longer says are
    *  assigned to the operator — the reverse edge. Un-focused, never
    *  deleted: work already done against it stays visible, and the contract
-   *  marker stays too, so the fleet still never closes it unilaterally. */
+   *  marker stays too, so the fleet still never closes it unilaterally.
+   *  {@link reconcileOwnedWork} drops one the operator still holds by its
+   *  claim comment alone ({@link heldByClaimComment}). */
   readonly release: readonly string[];
 }
 
@@ -294,13 +296,48 @@ export interface OwnedWorkReconcileResult {
 const EMPTY_PLAN: OwnedWorkReconcilePlan = { upserts: [], refocus: [], release: [] };
 
 /**
+ * The tasks up for release that `claimant` still holds by a live claim
+ * comment on an open issue: the claims ledger (claim-ledger.ts) read per
+ * issue, as the stale-claim reaper reads it (mirror-pass.ts
+ * `fetchClaimedIssueClaims`), logins compared in any casing. The pool claim
+ * comments first and assigns second, and an outside contributor's assign
+ * fails for want of triage rights (#27), so `--assignee @me` never lists the
+ * issue their claim queued and focused (pool-client.ts
+ * `queueClaimedPoolIssueTask`). Only the tasks already up for release are
+ * read, one `gh issue view` each, so a pass with nothing to release makes no
+ * extra call. A read that fails holds nothing, so that task is released as
+ * before.
+ */
+async function heldByClaimComment(
+  exec: CliExec,
+  release: readonly string[],
+  claimant: string,
+): Promise<ReadonlySet<string>> {
+  const login = claimant.toLowerCase();
+  const held = new Set<string>();
+  for (const id of release) {
+    const issueNumber = issueNumberFromTaskId(id);
+    if (issueNumber === null) continue;
+    const claims = await fetchClaimedIssueClaims(exec, issueNumber);
+    const holds = claims.some(
+      (claim) => claim.state === 'open' && claim.assignee?.toLowerCase() === login,
+    );
+    if (holds) held.add(id);
+  }
+  return held;
+}
+
+/**
  * Composes {@link fetchAssignedIssues} + `pr-review.ts`'s `fetchViewerLogin`
  * + {@link planOwnedWorkReconcile} with the actual `createTask`/
  * `setTaskFocus` writes — the same "pure core, then a ritual that applies
  * it" shape `issue-triage.ts`'s `runIssueTriageRitual` uses. When the
  * viewer's login can't be resolved (`gh` unauthenticated), plans and writes
  * nothing rather than guessing a claimant — the claim contract exists to
- * name who holds it.
+ * name who holds it. A task the viewer still holds by its claim comment
+ * alone ({@link heldByClaimComment}) stays focused: GitHub does not list
+ * them as its assignee, but the pool, the reaper and every list read the
+ * claim as theirs (epic 0019 additive-only law, the claim flow).
  */
 export async function reconcileOwnedWork(
   exec: CliExec,
@@ -315,7 +352,12 @@ export async function reconcileOwnedWork(
   }
 
   const assigned = await fetchAssignedIssues(exec);
-  const plan = planOwnedWorkReconcile(assigned, existingTasks, claimant, projectId, now());
+  const planned = planOwnedWorkReconcile(assigned, existingTasks, claimant, projectId, now());
+  const held = await heldByClaimComment(exec, planned.release, claimant);
+  const plan =
+    held.size === 0
+      ? planned
+      : { ...planned, release: planned.release.filter((id) => !held.has(id)) };
 
   let created = 0;
   let commented = 0;

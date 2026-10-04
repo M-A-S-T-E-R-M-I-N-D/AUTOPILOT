@@ -145,6 +145,21 @@ as before. Covered by `apps/dashboard/test/flight/owned-work-reconcile.test.ts`
 the same mark; the ingest writes nothing for the marked issue and still picks
 up the unmarked one beside it; a lifted mark is picked up).
 
+Refined 2026-10-05 (board web-mtsylqbd-q2rg8k, epic 0019's additive-only
+law, the claim flow): the reverse edge no longer releases a claim held only
+by its comment. The pool claim comments first and assigns second; an outside
+contributor has no triage rights, so the assign fails and only the comment
+lands (#27). The claim still queues a focused, contract-marked task, and the
+next takeoff un-focused it, because `--assignee @me` did not list the issue.
+`reconcileOwnedWork` now reads the claims ledger of each task up for release
+(`fetchClaimedIssueClaims`, the stale-claim reaper's read) and keeps the
+focus while the operator holds a live claim comment on the open issue. A
+`/unclaim`, the reaper's release, someone else's claim or a closed issue
+releases the task as before, and a pass with nothing to release reads no
+issue. Covered by
+`apps/dashboard/test/flight/owned-work-reconcile-claim-comment.test.ts`,
+which claims through the pool client against a gh that refuses the assign.
+
 ## 4. Slice 2 — SEE IT
 
 **Goal.** The operator can answer "what is mine?" in one glance, from the page
