@@ -1442,6 +1442,10 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .board-view-toggle:not(:disabled):active, .plan-actions button:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .plan-actions button:disabled { opacity: 0.5; cursor: default; }
 .plan-publish:not(:disabled) { border-color: var(--color-accent); color: var(--color-accent); }
+/* Each action leads with its icon (epic 0025); Undo and Redo point the way
+   the row reads, like the SOUL card's un-ratify chip. */
+.plan-actions button > .icon { margin-inline-end: 0.35em; }
+[dir='rtl'] .plan-undo > .icon, [dir='rtl'] .plan-redo > .icon { transform: scaleX(-1); }
 .board-columns { display: none; margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .board-column-head { display: flex; justify-content: space-between; gap: var(--space-2); padding-inline: var(--space-2); }
 .board-column-count { font-variant-numeric: tabular-nums; }
