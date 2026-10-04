@@ -515,8 +515,15 @@ propagation, and the filled style does not match the nav.
    `textContent`, so the icon survives every swap, a sweep mid-restore
    repaints the busy words instead of the idle ones, and a finished restore
    comes back in the current locale rather than the words it started in
-   (`apps/dashboard/test/web/versions-row-action-icons.test.ts`). The
-   per-firing trace's "View diff" toggle still heads with bare words.
+   (`apps/dashboard/test/web/versions-row-action-icons.test.ts`). **Firing
+   diff toggle 2026-10-04 (slice 2):** the per-firing trace's "View diff" /
+   "Hide diff" was bare words beside the row's iconed Step through. It leads
+   with the Versions toggle's `git-compare` now, since both open a commit's
+   patch against the one before it and share the `.diff-toggle` class and its
+   icon spacing; nothing is newly vendored. The icon is decorative, so the
+   button's name stays its aria-label; the row is rebuilt on every render and
+   the locale sweep keeps the icon
+   (`apps/dashboard/test/web/firing-diff-toggle-icon.test.ts`, axe-clean).
 
 ## Related
 
