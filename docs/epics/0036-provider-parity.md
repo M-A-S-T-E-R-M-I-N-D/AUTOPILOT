@@ -235,7 +235,11 @@ evaluation's commit header calls a round whose ships carry no price `unpriced`, 
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
 firings `by engine` before `by model`, so a Codex lane's ship and revert rates read beside Claude's
-on the same round. A record written before the field names none and reads `unrecorded`, never Claude. Two usage traps, read from the Rust source
+on the same round. A record written before the field names none and reads `unrecorded`, never Claude.
+Until a later 2026-10-04 commit the revert rate was not there to read: each line gave the ship and
+death rates only, and a reverted firing showed in the round-wide `by outcome` section alone, though
+reverts are what demote a lane off Claude. `summarizeFirings` now counts them (`reverted`), and every
+summary line prints the rate between the two (`shipped  50%  reverted  50%  died   0%`). Two usage traps, read from the Rust source
 (`codex-rs/exec/src/event_processor_with_jsonl_output.rs`, `codex-rs/protocol/src/protocol.rs`,
 2026-09-27): `usage` is the thread's running total, not a per-turn delta, so the last
 `turn.completed` wins and a sum would double-count; and `input_tokens` includes

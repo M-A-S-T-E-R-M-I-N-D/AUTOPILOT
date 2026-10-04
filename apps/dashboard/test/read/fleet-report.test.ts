@@ -88,6 +88,7 @@ describe('summarizeFirings', () => {
     expect(s).toEqual({
       firings: 3,
       shipped: 2,
+      reverted: 0,
       died: 0,
       costUsd: 6,
       unpriced: 0,
@@ -120,6 +121,17 @@ describe('summarizeFirings', () => {
     expect(
       summarizeFirings([codex, { ...base, shipped: false, costUsd: 4 }]).costPerShipUsd,
     ).toBeNull();
+  });
+
+  it('counts the firings the gate reverted, and no other ending', () => {
+    const s = summarizeFirings([
+      base,
+      { ...base, shipped: false, gateResult: 'reverted' },
+      { ...base, shipped: false, gateResult: 'reverted', costUsd: null },
+      { ...base, shipped: false, gateResult: 'unverifiable' },
+      { ...base, shipped: false, gateResult: 'no-commit', noopClass: 'silent' },
+    ]);
+    expect(s).toMatchObject({ firings: 5, shipped: 1, reverted: 2, died: 0 });
   });
 
   it('has no cost per ship when nothing shipped, and a median of an even count', () => {
@@ -210,7 +222,7 @@ describe('renderFleetReport', () => {
     expect(block[0]).toMatch(/^ {2}claude-opus-5-5 · \S+ +1 firings/);
     // A section whose labels fit keeps the usual 18-wide column.
     expect(lines[1]).toBe(
-      `  ${'all'.padEnd(18)}    3 firings  shipped 100%  died   0%  $   6.00  per ship   $2.00  median 10.0 min`,
+      `  ${'all'.padEnd(18)}    3 firings  shipped 100%  reverted   0%  died   0%  $   6.00  per ship   $2.00  median 10.0 min`,
     );
   });
 });
@@ -227,7 +239,7 @@ describe('renderFleetReport unpriced firings (epic 0036)', () => {
     const lines = renderFleetReport([base, codex, codex], [], 'w');
     const row = lines.find((l) => l.startsWith('  gpt-5-codex '));
     expect(row).toBe(
-      `  ${'gpt-5-codex'.padEnd(18)}    2 firings  shipped 100%  died   0%         -  per ship       -  median 10.0 min  unpriced 2`,
+      `  ${'gpt-5-codex'.padEnd(18)}    2 firings  shipped 100%  reverted   0%  died   0%         -  per ship       -  median 10.0 min  unpriced 2`,
     );
     expect(lines.join('\n')).not.toMatch(/gpt-5-codex .*\$0\.00/);
   });
@@ -235,7 +247,7 @@ describe('renderFleetReport unpriced firings (epic 0036)', () => {
   it('prices a mixed group by its priced firings alone, and says how many it left out', () => {
     const lines = renderFleetReport([base, codex, codex], [], 'w');
     expect(lines[1]).toBe(
-      `  ${'all'.padEnd(18)}    3 firings  shipped 100%  died   0%  $   2.00  per ship   $2.00  median 10.0 min  unpriced 2`,
+      `  ${'all'.padEnd(18)}    3 firings  shipped 100%  reverted   0%  died   0%  $   2.00  per ship   $2.00  median 10.0 min  unpriced 2`,
     );
     const claude = lines.find((l) => l.startsWith('  claude-sonnet-5 '));
     expect(claude).not.toContain('unpriced');
@@ -261,9 +273,24 @@ describe('renderFleetReport by engine (epic 0036)', () => {
     expect(start).toBeGreaterThan(lines.indexOf('by lane'));
     expect(start).toBeLessThan(lines.indexOf('by model'));
     expect(lines.slice(start + 1, lines.indexOf('', start))).toEqual([
-      `  ${'claude'.padEnd(18)}    2 firings  shipped 100%  died   0%  $   4.00  per ship   $2.00  median 10.0 min`,
-      `  ${'codex'.padEnd(18)}    1 firings  shipped   0%  died   0%         -  per ship       -  median 10.0 min  unpriced 1`,
+      `  ${'claude'.padEnd(18)}    2 firings  shipped 100%  reverted   0%  died   0%  $   4.00  per ship   $2.00  median 10.0 min`,
+      `  ${'codex'.padEnd(18)}    1 firings  shipped   0%  reverted 100%  died   0%         -  per ship       -  median 10.0 min  unpriced 1`,
     ]);
+  });
+
+  // A non-Claude lane is demoted after two reverted firings in a row
+  // (`demoteAfterGateFailures`), so the engine section reads its revert rate
+  // beside its ship rate, not only the outcome section's round-wide count.
+  it("names each engine's revert rate beside its ship rate", () => {
+    const lines = renderFleetReport([base, codex, { ...codex, gateResult: 'no-commit' }], [], 'w');
+    const start = lines.indexOf('by engine');
+    const block = lines.slice(start + 1, lines.indexOf('', start));
+    expect(block.find((l) => l.startsWith('  codex '))).toMatch(
+      /shipped {3}0% {2}reverted {2}50% {2}died {3}0%/,
+    );
+    expect(block.find((l) => l.startsWith('  claude '))).toMatch(
+      /shipped 100% {2}reverted {3}0% {2}died {3}0%/,
+    );
   });
 
   it('names a firing recorded before the engine was an unrecorded one, never a guessed engine', () => {
