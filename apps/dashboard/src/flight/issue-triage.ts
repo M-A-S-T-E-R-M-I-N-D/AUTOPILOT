@@ -1035,15 +1035,26 @@ export function handSetFamilyLabel<T extends string>(
   known: readonly T[],
 ): T | undefined {
   const prefix = `${family.toLowerCase()}: `;
-  const found = current.map(labelName).filter((label) => label.startsWith(prefix));
-  if (found.length !== 1) return undefined;
-  const only = found[0];
+  const carried = new Set(current.map(labelName));
   // A label outside the known set is a typo, or a family this classifier
   // does not own; honouring it would put an unknown value on the board, so
-  // the classifier still answers and the stray label is left where it is.
-  return known.find((label) => label === only);
+  // it neither decides the family nor contradicts the label that does. The
+  // classifier answers when no known label is set, and the stray label is
+  // left where it is ({@link supersededFamilyLabels} never names it).
+  const found = known.filter((label) => label.startsWith(prefix) && carried.has(label));
+  return found.length === 1 ? found[0] : undefined;
 }
 
+/** The labels the classifier itself writes, as {@link labelName} reads them:
+ *  the only ones a triage edit removes. A repo's own `area: backend` is the
+ *  maintainer's, not a sibling to clear (epic 0019 law 2). */
+const HOUSE_FAMILY_LABELS: ReadonlySet<string> = new Set<string>([
+  ...AREA_LABELS,
+  ...PRIORITY_LABELS,
+]);
+
+/** The labels the triage edit removes beside `chosen`: each house label of a
+ *  chosen family that is not itself chosen, spelled as the issue carries it. */
 export function supersededFamilyLabels(
   current: readonly string[],
   chosen: readonly string[],
@@ -1052,8 +1063,14 @@ export function supersededFamilyLabels(
   const families = new Set(chosen.map(familyOf).filter((f): f is string => Boolean(f)));
   const keep = new Set(chosen.map(labelName));
   return current.filter((label) => {
+    const name = labelName(label);
     const family = familyOf(label);
-    return family !== undefined && families.has(family) && !keep.has(labelName(label));
+    return (
+      family !== undefined &&
+      families.has(family) &&
+      HOUSE_FAMILY_LABELS.has(name) &&
+      !keep.has(name)
+    );
   });
 }
 
