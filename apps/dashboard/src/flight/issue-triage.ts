@@ -610,7 +610,7 @@ export function classifyIssueMilestone(text: string): MilestoneTitle {
  * check — a standing application is never ordinary triage, no matter who
  * (if anyone) it's assigned to — and plans `'dossier'` (an evidence dossier
  * is owed regardless), or `'skip'` when a previous pass already posted one
- * ({@link DOSSIER_POSTED_LABEL} present), so re-runs stay idempotent the
+ * ({@link DOSSIER_POSTED_LABEL} present, in any casing), so re-runs stay idempotent the
  * same way an already-labeled `pool: *`/`duplicate` issue does below. An
  * application the maintainer has declined or put on hold ({@link
  * DECLINED_LABEL}, {@link HOLD_LABELS}) also plans `'skip'`: the maintainer
@@ -629,11 +629,12 @@ export function planIssueTriage(
 ): IssueTriageDecision {
   const labels = issue.labels ?? [];
   if (isPartnerApplicationIssue(labels)) {
-    if (labels.includes(DOSSIER_POSTED_LABEL)) {
+    const posted = carriedMark(labels, [DOSSIER_POSTED_LABEL]);
+    if (posted) {
       return {
         decision: 'skip',
         reasoning:
-          `#${issue.number} "${issue.title}" already carries "${DOSSIER_POSTED_LABEL}" from a ` +
+          `#${issue.number} "${issue.title}" already carries "${posted}" from a ` +
           'previous KEEPER pass — skipping so re-runs never post the dossier twice.',
       };
     }

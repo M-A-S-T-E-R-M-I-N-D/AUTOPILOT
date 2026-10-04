@@ -275,6 +275,22 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    unlabeled issue, and `needs-format`, `status: needs-format-review` and
    `status: format` still gated and never removed (written first, 7 of 10
    checks failed).
+   The dossier ritual's two labels followed (epic 0019's additive-only law,
+   the KEEPER rituals flow). `isPartnerApplicationIssue` matched
+   `partner-application` exactly, so on a repo whose label reads
+   `Partner-Application` an application went through ordinary triage: a
+   template reply asking the applicant "What happened?", or a pool label, the
+   autonomous verdict epic 0019 S2 rules out. The idempotence skip matched
+   `dossier-posted` exactly, and gh resolves the ritual's write in any
+   casing, so on a repo whose label reads `Dossier-Posted` every later pass
+   posted the dossier again. Both now read in any casing, a hyphen read as a
+   space; the skip names the label as the issue carries it, and the labels
+   KEEPER writes are unchanged. Covered by
+   `test/flight/issue-triage-dossier-casing.test.ts` — three spellings of
+   each label, a three-application ritual that looks up and writes on only
+   the one with no dossier yet, and `partner`, `partner-applications` and
+   `dossier-posting` still read as before (written first, 7 of 11 checks
+   failed).
 4. KEEPER review: PR → gate + byte-review + policy → merge / request-changes;
    security-hard queue for MASTERMIND.
    In progress (board web-mss50ia0-s6vtbd) — shipped so far: the pure
