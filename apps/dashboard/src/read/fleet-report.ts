@@ -92,6 +92,9 @@ export function laneOf(firingId: string): string {
 export interface FiringSummary {
   readonly firings: number;
   readonly shipped: number;
+  /** Firings whose commit the gate reverted: the failures a lane off Claude
+   *  is demoted on after two in a row (epic 0036, `demoteAfterGateFailures`). */
+  readonly reverted: number;
   readonly died: number;
   /** What the priced firings cost; an unpriced one adds nothing it never reported. */
   readonly costUsd: number;
@@ -118,6 +121,7 @@ export function summarizeFirings(firings: readonly ReportFiring[]): FiringSummar
   return {
     firings: firings.length,
     shipped: firings.filter((f) => f.shipped).length,
+    reverted: firings.filter((f) => f.gateResult === 'reverted').length,
     died: firings.filter((f) => f.died !== null).length,
     costUsd,
     unpriced: firings.length - priced.length,
@@ -222,7 +226,8 @@ function summaryLine(label: string, s: FiringSummary, width = LABEL_WIDTH): stri
       : `$${s.costUsd.toFixed(2).padStart(7)}`;
   return (
     `  ${label.padEnd(width)} ${String(s.firings).padStart(4)} firings  ` +
-    `shipped ${pct(s.shipped).padStart(4)}  died ${pct(s.died).padStart(4)}  ` +
+    `shipped ${pct(s.shipped).padStart(4)}  reverted ${pct(s.reverted).padStart(4)}  ` +
+    `died ${pct(s.died).padStart(4)}  ` +
     `${cost}  per ship ${perShip.padStart(7)}  ` +
     `median ${s.medianMinutes.toFixed(1)} min` +
     (s.unpriced > 0 ? `  unpriced ${s.unpriced}` : '')
