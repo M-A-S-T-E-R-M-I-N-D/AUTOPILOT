@@ -3,7 +3,8 @@
 
 import type { CliExec } from '../connection/cli-probe.js';
 import { MAX_ISSUE_LIST, parseIssueLabels, parseAssignees } from './issue-triage.js';
-import { isMaintainerMarked, normalizeLabel } from './pool-client.js';
+import { isMaintainerMarked, normalizeLabel, parsePoolComments } from './pool-client.js';
+import { claimLedger, type PoolClaim } from './claim-ledger.js';
 import { ghExec } from './gh-exec.js';
 
 /**
@@ -36,6 +37,10 @@ export interface ContributorFacingIssue {
   readonly url: string;
   readonly labels: readonly string[];
   readonly assignees: readonly string[];
+  /** THE CLAIMS LEDGER (claim-ledger.ts) read off the issue's comments and
+   *  assignees, the way the pool reads it. Optional so a bare fixture still
+   *  types; absent reads as no claim beyond the assignees. */
+  readonly claims?: readonly PoolClaim[];
 }
 
 export type ContributorIssueTier = 'good first issue' | 'help wanted';
@@ -71,13 +76,22 @@ function tierForLabels(labels: readonly string[]): ContributorIssueTier | null {
  *  (help-wanted-items.ts, roadmap-items.ts) and the mirror pass. */
 export { isMaintainerMarked };
 
+/** True when someone holds the issue: an assignee, or a live claim in its
+ *  {@link ContributorFacingIssue.claims} ledger. An outside contributor's pool
+ *  claim is often its comment alone, because the assign after it needs triage
+ *  rights on the repo (claim-ledger.ts, #27); the pool reads that comment as a
+ *  claim (pool-client.ts isClaimedPoolIssue), so this list does too. */
+function isHeld(issue: ContributorFacingIssue): boolean {
+  return issue.assignees.length > 0 || (issue.claims ?? []).length > 0;
+}
+
 /**
  * Filters open issues down to the CONTRIBUTOR JOURNEY's pick list: only
- * `good first issue`/`help wanted`-labeled issues, already-assigned ones
- * excluded outright (a visitor should never be steered at something someone
- * already owns — the same claim signal `flight/pool-client.ts`'s
- * `isClaimedPoolIssue` reads), and so are ones the maintainer has declined or
- * put on hold ({@link isMaintainerMarked}). Good-first-issue entries rank before
+ * `good first issue`/`help wanted`-labeled issues, held ones excluded
+ * outright (a visitor should never be steered at something someone already
+ * owns — an assignee, or a claim comment the pool's claims ledger reads, see
+ * {@link isHeld}), and so are ones the maintainer has declined or put on hold
+ * ({@link isMaintainerMarked}). Good-first-issue entries rank before
  * help-wanted, ties broken by issue number so the order is stable across
  * calls with identical input.
  */
@@ -86,7 +100,7 @@ export function planContributorIssueList(
 ): readonly ContributorListEntry[] {
   const entries: ContributorListEntry[] = [];
   for (const issue of issues) {
-    if (issue.assignees.length > 0) continue;
+    if (isHeld(issue)) continue;
     if (isMaintainerMarked(issue.labels)) continue;
     const tier = tierForLabels(issue.labels);
     if (!tier) continue;
@@ -104,16 +118,18 @@ interface RawContributorFacingIssue {
   readonly url?: unknown;
   readonly labels?: unknown;
   readonly assignees?: unknown;
+  readonly comments?: unknown;
 }
 
 /**
  * Lists every open issue (up to `MAX_ISSUE_LIST`) via `gh issue list
- * --state open --json number,title,url,labels,assignees`, run through the
- * injectable `exec` — the same `CliExec` shape `issue-triage.ts`'s
- * `fetchOpenIssues` and `pool-client.ts`'s `fetchPoolIssues` already use,
- * reusing their
+ * --state open --json number,title,url,labels,assignees,comments`, run
+ * through the injectable `exec` — the same `CliExec` shape and the same
+ * fields `pool-client.ts`'s `fetchPoolIssues` already reads, reusing its
+ * `parsePoolComments` and `issue-triage.ts`'s
  * `parseIssueLabels`/`parseAssignees` reductions rather than duplicating
- * them. `gh issue list --label` ANDs multiple `--label` flags together
+ * them; each issue's `claims` is the claims ledger over its assignees and
+ * comments. `gh issue list --label` ANDs multiple `--label` flags together
  * rather than ORing them (`pool-client.ts`'s own doc comment), so filtering
  * for `good first issue` OR `help wanted` at the `gh` layer would need two
  * separate calls; every open issue is fetched unfiltered instead and
@@ -135,7 +151,7 @@ export async function fetchContributorFacingIssues(
     '--limit',
     String(MAX_ISSUE_LIST),
     '--json',
-    'number,title,url,labels,assignees',
+    'number,title,url,labels,assignees,comments',
   ]);
   if (code !== 0) return [];
 
@@ -155,13 +171,17 @@ export async function fetchContributorFacingIssues(
         typeof raw.title === 'string' &&
         typeof raw.url === 'string',
     )
-    .map((raw) => ({
-      number: raw.number as number,
-      title: raw.title as string,
-      url: raw.url as string,
-      labels: parseIssueLabels(raw.labels),
-      assignees: parseAssignees(raw.assignees),
-    }));
+    .map((raw) => {
+      const assignees = parseAssignees(raw.assignees);
+      return {
+        number: raw.number as number,
+        title: raw.title as string,
+        url: raw.url as string,
+        labels: parseIssueLabels(raw.labels),
+        assignees,
+        claims: claimLedger(assignees, parsePoolComments(raw.comments)),
+      };
+    });
 }
 
 /** The contributor issue list preview read `GET /api/contributor-issues`
