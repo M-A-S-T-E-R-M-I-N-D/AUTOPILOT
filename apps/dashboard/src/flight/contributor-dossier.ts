@@ -32,14 +32,21 @@ export const PARTNER_APPLICATION_LABEL = 'partner-application';
 
 /** Applied once a dossier comment has been posted — later KEEPER passes see
  *  it and skip, the same idempotency convention `POOL_LABEL_PREFIX`/
- *  `duplicate` labels give the ordinary triage path in `issue-triage.ts`. */
+ *  `duplicate` labels give the ordinary triage path in `issue-triage.ts`.
+ *  Read there in any casing: `gh issue edit --add-label` matches a label name
+ *  in any casing, so on a repo whose label reads `Dossier-Posted` the write
+ *  lands as `Dossier-Posted`. */
 export const DOSSIER_POSTED_LABEL = 'dossier-posted';
 
 /** Whether `labels` mark this issue as a standing application — the ONE
  *  signal that routes an issue to the dossier path instead of ordinary
- *  triage, regardless of its title/body content. */
+ *  triage, regardless of its title/body content. Read in any casing, a
+ *  hyphen read as a space, as triage reads the maintainer's marks: a repo's
+ *  label may read `Partner-Application`, and ordinary triage would answer the
+ *  application with a template reply or a pool label. */
 export function isPartnerApplicationIssue(labels: readonly string[]): boolean {
-  return labels.includes(PARTNER_APPLICATION_LABEL);
+  const fold = (label: string): string => label.toLowerCase().replace(/-/g, ' ').trim();
+  return labels.some((label) => fold(label) === fold(PARTNER_APPLICATION_LABEL));
 }
 
 /** The verifiable facts a dossier reports — every field is either a real
