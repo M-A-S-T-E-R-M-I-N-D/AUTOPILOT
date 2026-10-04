@@ -66,6 +66,8 @@ export const BENCHMARK_STRINGS = {
     colTurns: 'Median turns',
     colDied: 'Died',
     colTotal: 'Spent',
+    unpriced: 'unpriced',
+    unpricedNote: '{n} firing(s) reported no price, so they have no place on the cost axis.',
     updated: 'updated {time}',
     scopeLabel: 'Show',
     scopeProject: 'This project: {name}',
@@ -105,6 +107,8 @@ export const BENCHMARK_STRINGS = {
     colTurns: 'תורות (חציון)',
     colDied: 'מתו',
     colTotal: 'הוצאה',
+    unpriced: 'ללא מחיר',
+    unpricedNote: '{n} הפעלות לא דיווחו על מחיר, ולכן אין להן מקום על ציר העלות.',
     updated: 'עודכן {time}',
     scopeLabel: 'הצגה',
     scopeProject: 'הפרויקט הזה: {name}',
@@ -338,7 +342,8 @@ function firingsCard(data) {
   var c = card('firingsChart', t('firingsNote'));
   c.classList.add('bm-chart');
   var w = 560, h = 340, pad = { l: 48, r: 24, t: 16, b: 40 };
-  var pts = data.points;
+  // A firing that reported no price (a Codex or Gemini run) has no cost to plot, never $0.
+  var pts = data.points.filter(function (p) { return p.costUsd !== null; });
   var xMax = niceMax(Math.max.apply(null, pts.map(function (p) { return p.minutes; }).concat([1])));
   var yMax = niceMax(Math.max.apply(null, pts.map(function (p) { return p.costUsd; }).concat([1])));
   var svg = sv('svg', { viewBox: '0 0 ' + w + ' ' + h, role: 'img', 'aria-label': t('firingsChart') });
@@ -356,6 +361,8 @@ function firingsCard(data) {
   }
   c.appendChild(svg);
   c.appendChild(legend(data.models));
+  var unpriced = data.points.length - pts.length;
+  if (unpriced > 0) c.appendChild(el('p', 'bm-note', t('unpricedNote', { n: unpriced })));
   return c;
 }
 function tableCard(data) {
@@ -390,11 +397,12 @@ function tableCard(data) {
     ship.appendChild(bar);
     ship.appendChild(document.createTextNode(pct(m.shipRate)));
     tr.appendChild(ship);
-    tr.appendChild(el('td', null, usd(m.costPerShipUsd)));
+    var noPrice = m.costUsd === null;
+    tr.appendChild(el('td', null, noPrice ? t('unpriced') : usd(m.costPerShipUsd)));
     tr.appendChild(el('td', null, m.medianMinutes.toFixed(1)));
     tr.appendChild(el('td', null, Math.round(m.medianTurns)));
     tr.appendChild(el('td', null, num(m.died)));
-    tr.appendChild(el('td', null, usd(m.costUsd)));
+    tr.appendChild(el('td', null, noPrice ? t('unpriced') : usd(m.costUsd)));
     body.appendChild(tr);
   }
   table.appendChild(body);

@@ -235,7 +235,16 @@ later 2026-10-04 commit the dashboard's flight log still read such a firing as f
 printed the metrics column's `$0.00`. A flight-log row now carries `costUnpriced` (`FlightEntry`,
 read by `read/source.ts`'s `recordsNoPrice`, the reading the report uses), and the chip of a flat
 row or a slice group's member reads `unpriced`, its label `cost: unpriced, no price was reported`
-(`flightCostAgoMeta`, `web/flight-log-rows.ts`). Since
+(`flightCostAgoMeta`, `web/flight-log-rows.ts`). Until a later 2026-10-04 commit THE BENCHMARK, the
+page built to compare providers side by side, read it as free as well: `readBenchmarkFirings`
+(`read/benchmark.ts`) took the metrics column's cost, so a Codex model's leaderboard row read $0.00
+per ship and its bubble sat at the cheap edge of the cost-against-quality chart. It now reads the
+record through the same `recordsNoPrice`, and `summarizeModels` prices a model by its priced firings
+alone, as the fleet report prices a group: `costUsd` is `null` when none was priced, `unpriced`
+counts the rest, and `costPerShipUsd` divides by priced ships only. The page's leaderboard then
+reads `unpriced` in its cost-per-ship and spent columns, such a model has no bubble, and the
+every-firing chart leaves out a firing with no cost and says how many it left out
+(`benchmark-page.ts`). Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
