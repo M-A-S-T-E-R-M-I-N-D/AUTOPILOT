@@ -916,10 +916,13 @@ line — both are reads, so nothing is said twice on GitHub.
 **Fly GitHub alone (`AUTOPILOT_FLY_TARGET=github`):** a flight that flies the GitHub surface
 and never the code tree — `AUTOPILOT_FLY_TARGET=github pnpm dashboard:fly <folder>` runs ONE
 social pass and stops. No onboarding (its backup writes git refs), no worktree, no firings, no
-store or lock. Choosing this target is the opt-in, so `AUTOPILOT_SOCIAL_FLIGHT` is not
+lock. Choosing this target is the opt-in, so `AUTOPILOT_SOCIAL_FLIGHT` is not
 consulted. The self-target guard and the gh check still apply. The log prints the pass line and
-then the `🗣 SOCIAL debrief:` line. The process exits 1 when the pass was refused, since the
-flight did nothing. Unset or empty means `code`, which is every ordinary flight. Any other value,
+then the `🗣 SOCIAL debrief:` line. That digest is also stored, so the project's FLIGHT DEBRIEF
+panel shows its **Social:** line like a code flight's — but only into a store that already
+exists, under a folder it already knows as a project. This mode never creates a store or
+registers a project; when it cannot store the digest, the log says so on the next line. The
+process exits 1 when the pass was refused, since the flight did nothing. Unset or empty means `code`, which is every ordinary flight. Any other value,
 including a wrong case, refuses to take off: a misspelt `github` must not turn into a flight that
 edits the tree.
 

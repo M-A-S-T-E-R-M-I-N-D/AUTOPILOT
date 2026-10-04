@@ -266,6 +266,8 @@ import {
   runFleetWisdomSweep,
   runStoreBackupSweep,
   runStaleClaimSweep,
+  recordSocialFlightDebrief,
+  recordGithubOnlyFlightDebrief,
 } from './flight/post-flight-sweeps.js';
 import { runOwnedWorkSweep } from './flight/owned-work-reconcile.js';
 import {
@@ -278,11 +280,7 @@ import {
   parseFlyTarget,
   type SocialFlightPhase,
 } from './flight/social-flight-trigger.js';
-import {
-  SOCIAL_DEBRIEF_EVENT,
-  socialFlightDebriefLine,
-  socialFlightDebriefOf,
-} from './flight/social-flight-debrief.js';
+import { socialFlightDebriefLine, socialFlightDebriefOf } from './flight/social-flight-debrief.js';
 import { composeSoulWithFleetWisdom } from './flight/fleet-wisdom-mining.js';
 
 const DEFAULT_FIRINGS = 1;
@@ -328,8 +326,10 @@ async function main(): Promise<void> {
   // FLY GITHUB (epic 0016 slice 4/6, board web-mtpzzxn4-69csqx): the
   // standalone target is decided before anything below can touch the code
   // tree — no onboarding (its backup writes git refs), no worktree, no
-  // firings, no store or lock (the pass is read-only today). An unrecognized
-  // value refuses to take off rather than guess either way.
+  // firings, no lock (the pass is read-only today). The store is opened only
+  // to persist the SOCIAL digest for the FLIGHT DEBRIEF panel, and only when
+  // it already exists and knows the target. An unrecognized value refuses to
+  // take off rather than guess either way.
   const flyTarget = parseFlyTarget(process.env['AUTOPILOT_FLY_TARGET']);
   if (flyTarget === null) {
     out(
@@ -344,7 +344,15 @@ async function main(): Promise<void> {
     out(`Fly GitHub: ${target} — the social pass alone; no firings, no code-tree edits.`);
     const outcome = await runGithubOnlyFlight({ target });
     const debrief = socialFlightDebriefOf([outcome]);
-    if (debrief) out(`  🗣 ${socialFlightDebriefLine(debrief)}`);
+    if (debrief) {
+      out(`  🗣 ${socialFlightDebriefLine(debrief)}`);
+      if (!recordGithubOnlyFlightDebrief(resolveDbPath(), target, debrief, Date.now)) {
+        out(
+          '  (not stored — no store, a folder not registered as a project, or a store error — ' +
+            'so the FLIGHT DEBRIEF panel will not show it)',
+        );
+      }
+    }
     // Its one pass refused (foreign target, gh not connected): it flew nothing.
     if (!outcome.ran) process.exitCode = 1;
     return;
@@ -2567,11 +2575,7 @@ async function main(): Promise<void> {
       // FLIGHT DEBRIEF panel can serve the digest. Best-effort: a store
       // hiccup must never fail the flight over a summary.
       try {
-        store.db
-          .prepare(
-            'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)',
-          )
-          .run(projectId, null, SOCIAL_DEBRIEF_EVENT, JSON.stringify(socialDebrief), now());
+        recordSocialFlightDebrief(store, projectId, socialDebrief, now);
       } catch {
         /* the flight log already carries the line */
       }

@@ -423,11 +423,23 @@ describe('fly.ts weaves the pass in at its start, interval and end phases', () =
     expect(fly).toContain('out(`  🗣 ${socialFlightDebriefLine(socialDebrief)}`)');
   });
 
+  // The row itself (type, verbatim JSON, null firing) is pinned where it is
+  // written: post-flight-sweeps.test.ts's recordSocialFlightDebrief cases.
   it('persists the printed SOCIAL digest as a social-debrief event, for the dashboard debrief', () => {
     const fly = readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');
     const printed = fly.indexOf('socialFlightDebriefLine(socialDebrief)');
     const persisted = fly.indexOf(
-      '.run(projectId, null, SOCIAL_DEBRIEF_EVENT, JSON.stringify(socialDebrief), now())',
+      'recordSocialFlightDebrief(store, projectId, socialDebrief, now)',
+    );
+    expect(printed).toBeGreaterThan(-1);
+    expect(persisted).toBeGreaterThan(printed);
+  });
+
+  it("persists the standalone Fly GitHub flight's printed digest too (epic 0016 slice 4/6)", () => {
+    const fly = readFileSync(new URL('../../src/fly.ts', import.meta.url), 'utf8');
+    const printed = fly.indexOf('socialFlightDebriefLine(debrief)');
+    const persisted = fly.indexOf(
+      'recordGithubOnlyFlightDebrief(resolveDbPath(), target, debrief, Date.now)',
     );
     expect(printed).toBeGreaterThan(-1);
     expect(persisted).toBeGreaterThan(printed);
