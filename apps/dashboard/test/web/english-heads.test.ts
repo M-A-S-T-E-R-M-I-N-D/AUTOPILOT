@@ -351,7 +351,11 @@ describe('census over the served chunks (ADR 0012 fallback contract)', () => {
     expect(trCallKeys(served.panels)).toContain('connectLoginTip');
     for (const name of chunkNames) {
       const misses = trCallKeys(served[name]).filter((k) => !reachable[name].has(k));
-      expect(misses, name).toEqual([]);
+      // The message NAMES the offenders: vitest prints a failing array as
+      // `[ …(2) ]`, and that line is all a lane sees of its gate red. The
+      // epic-0036 lane cards were reverted twice on this file's sibling
+      // assertion before anyone could read which calls it meant.
+      expect(misses, `${name}: ${misses.join(' | ')}`).toEqual([]);
     }
   });
 
@@ -362,7 +366,7 @@ describe('census over the served chunks (ADR 0012 fallback contract)', () => {
     expect(args).toContain("isLast ? 'tourClose' : 'tourSkip'");
     for (const name of chunkNames) {
       const composedInline = trFirstArgs(served[name]).filter((a) => !namesItsKey(a));
-      expect(composedInline, name).toEqual([]);
+      expect(composedInline, `${name}: tr(${composedInline.join(') | tr(')})`).toEqual([]);
     }
   });
 
@@ -394,7 +398,7 @@ describe('census over the served chunks (ADR 0012 fallback contract)', () => {
           (pairsTips && k.endsWith(tip) && reachable[name].has(k.slice(0, -tip.length))),
       );
       const unreachable = members.filter((k) => !reachable[name].has(k));
-      expect(unreachable, name).toEqual([]);
+      expect(unreachable, `${name}: ${unreachable.join(' | ')}`).toEqual([]);
     }
   });
 
@@ -406,7 +410,7 @@ describe('census over the served chunks (ADR 0012 fallback contract)', () => {
     expect(renderers).toContain('panels');
     for (const name of renderers) {
       const unreachable = SERVER_REASON_KEYS.filter((k) => !reachable[name].has(k));
-      expect(unreachable, name).toEqual([]);
+      expect(unreachable, `${name}: ${unreachable.join(' | ')}`).toEqual([]);
     }
   });
 
