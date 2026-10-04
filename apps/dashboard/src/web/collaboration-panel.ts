@@ -23,27 +23,33 @@
  *  module needs; see `flight/collaboration.ts`'s `CollaborationSnapshot`. */
 export interface CollaborationEntryLike {
   readonly assignees: readonly string[];
+  /** Logins holding the issue by a claim comment alone, with no assignment
+   *  behind it (`flight/help-wanted-items.ts`'s `claimedByComment`). Absent
+   *  reads as none. */
+  readonly claimedByComment?: readonly string[];
 }
 
 /** The claim-state line under a collaboration item's title — unclaimed, or
- *  who (one or more) already holds it. Never empty: an unassigned issue
- *  reads "Unclaimed" rather than a blank line, the same "state what's true"
- *  stance `poolClaimLedgerText` takes for a held pool issue. */
+ *  who (one or more) already holds it: every assignee, then every login
+ *  holding it by its claim comment alone. Never empty: an issue nobody
+ *  holds reads "Unclaimed" rather than a blank line, the same "state what's
+ *  true" stance `poolClaimLedgerText` takes for a held pool issue. */
 export function collaborationClaimStateLabel(entry: CollaborationEntryLike): string {
-  if (!entry.assignees || entry.assignees.length === 0) return 'Unclaimed';
-  return 'Claimed by ' + entry.assignees.map((login) => '@' + login).join(', ');
+  const holders = (entry.assignees || []).concat(entry.claimedByComment || []);
+  if (holders.length === 0) return 'Unclaimed';
+  return 'Claimed by ' + holders.map((login) => '@' + login).join(', ');
 }
 
 /** True when `login` (the viewer's own GitHub login, from `GET
- *  /api/social-identity`) is one of `entry`'s assignees — the "my-claims"
- *  filter BOARD web-mtpzqrxl-z7jgbu names. A missing/unresolved `login`
- *  (identity not yet loaded, or the viewer isn't signed in) never matches —
- *  the same "no viewer, no claim" default `standingPanelOffer` uses for an
- *  unresolved role. */
+ *  /api/social-identity`) holds `entry`, as an assignee or by its claim
+ *  comment alone — the "my-claims" filter BOARD web-mtpzqrxl-z7jgbu names. A
+ *  missing/unresolved `login` (identity not yet loaded, or the viewer isn't
+ *  signed in) never matches — the same "no viewer, no claim" default
+ *  `standingPanelOffer` uses for an unresolved role. */
 export function isMyCollaborationClaim(
   entry: CollaborationEntryLike,
   login: string | null | undefined,
 ): boolean {
   if (!login) return false;
-  return entry.assignees.includes(login);
+  return entry.assignees.includes(login) || (entry.claimedByComment || []).includes(login);
 }

@@ -60,7 +60,7 @@ describe('fetchHelpWantedItems', () => {
       '--limit',
       String(MAX_ISSUE_LIST),
       '--json',
-      'number,title,url,labels,assignees',
+      'number,title,url,labels,assignees,comments',
     ]);
   });
 

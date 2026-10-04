@@ -64,7 +64,7 @@ function collaborationItem(entry, kindLabel) {
   head.appendChild(numberEl);
   head.appendChild(tipChip(kindLabel, kindLabel, kindLabel, 'collaboration-badge-kind'));
   var state = collaborationClaimStateLabel(entry);
-  var stateClass = entry.assignees && entry.assignees.length > 0 ? 'collaboration-badge-claimed' : 'collaboration-badge-open';
+  var stateClass = state === 'Unclaimed' ? 'collaboration-badge-open' : 'collaboration-badge-claimed';
   head.appendChild(tipChip(state, state, state, stateClass));
   item.appendChild(head);
   item.appendChild(el('p', 'collaboration-issue-title', entry.title));
