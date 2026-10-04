@@ -546,6 +546,20 @@ propagation, and the filled style does not match the nav.
    leaving English behind (`apps/dashboard/test/web/update-banner-icons.test.ts`,
    axe-clean). The version menu's "Run the latest" button stays bare words:
    its label is repainted through `textContent` on every check.
+   **Version menu 2026-10-04 (slice 2):** the masthead's version popover
+   offered "Run the latest" (or "Update to vX") and "Check now" as bare
+   words beside the banner's iconed Update now. The run button leads with
+   that banner's `rocket`, since both start the same update, and Check now
+   with the round panel's `refresh-cw`, since it forces a fresh check;
+   nothing is newly vendored, and each icon is decorative, so a button's
+   name stays its words. The run button also kept
+   `data-i18n="versionRunLatest"` while it read "Update to vX", so the next
+   fleet tick's sweep painted "Run the latest" over the offer. An offered
+   update now tags it with the `versionRunUpdate` template and its `{to}`
+   slot, a later check that finds the checkout current tags it back, and
+   the label goes through `setSweptText()`, so the rocket survives every
+   repaint (`apps/dashboard/test/web/version-menu-icons.test.ts`,
+   axe-clean).
 
 ## Related
 

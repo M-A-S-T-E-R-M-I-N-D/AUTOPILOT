@@ -176,6 +176,7 @@ html[data-theme="terminal"] .pref-terminal { display: block; }
 .version-menu[data-update="current"] .version-dot { background: var(--color-success); }
 .version-menu[data-update="available"] .version-dot { background: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 25%, transparent); }
 .version-note { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--color-text-muted); }
+.version-run > .icon, .version-check > .icon { margin-inline-end: 0.35em; }
 .connect > summary { cursor: pointer; list-style: none; font-size: var(--text-sm); color: var(--color-text-muted); padding: var(--space-1) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-full); transition: box-shadow var(--duration-short2) var(--easing-standard); }
 .connect > summary::-webkit-details-marker { display: none; }
 /* Icon-only summaries (theme, language, bell, settings, foundation): the
