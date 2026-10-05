@@ -102,8 +102,11 @@ describe('the guided tour’s Back and Next draw vendored chevrons (epic 0025 sl
       }
     }
     expect(middleStops).toBeGreaterThan(0);
-    // The last stop hands over to the checklist instead of advancing.
-    expect(document.querySelector('.tour-start')?.querySelector('svg')).toBeNull();
+    // The last stop hands over to the checklist instead of advancing; it
+    // trails Next's chevron (tour-skip-handover-icons.test.ts).
+    expect(document.querySelector('.tour-start')?.lastElementChild?.getAttribute('class')).toBe(
+      'icon icon-chevron-right',
+    );
   });
 
   it('paints the Hebrew words beside the same chevrons', async () => {
