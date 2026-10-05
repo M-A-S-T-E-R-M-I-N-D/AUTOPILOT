@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 Status: Active — slice 1 (shared pure module) done (2026-08-13); slices 2, 3 and 5
 in progress with the cuts recorded below, slice 4 (`fly.ts`) has no cut recorded.
-Re-checked 2026-10-03: `web/features/` holds 48 discoverable modules, but `web/shell.ts`
-is at 5,910 lines — above the 5,102 UNLOCK B peak and far above the 3,663 the last
+Re-checked 2026-10-05: `web/features/` holds 49 discoverable modules, but `web/shell.ts`
+is at 6,005 lines — above the 5,102 UNLOCK B peak and far above the 3,663 the last
 progress check (2026-08-28) recorded — because every cockpit epic since (0021–0036)
 landed its render sites there; `server/server.ts` is at 4,694 and `fly.ts` at 2,557.
 The decomposition is further from the 800-line law than when this epic was filed.
