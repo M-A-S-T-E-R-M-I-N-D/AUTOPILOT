@@ -135,9 +135,25 @@ into a per-project ritual any instance can run on any repo it owns.
   with `/unclaim` reads Unclaimed again. Covered by
   `test/flight/routing-console.test.ts`, whose fake gh returns only the fields
   `--json` asked for (written first, 3 of the new checks failed).
-  _Still open:_ steering from the dashboard's side (the panel only reads); and scoping
-  the read to a project page's own repository, since it reads the
-  dashboard's repository the way the Collaboration panel does.
+  **A project page on another repository 2026-10-05:** the console reads
+  the repository `gh` acts on whichever page asks, so a project that is a
+  checkout of another GitHub repository showed that repository's
+  milestones, queues and claims as its own. A project page now sends
+  `?project=`, and `main.ts` wraps the read in
+  `refuseRepoMismatchedRoutingConsole`, S3's preview gate
+  (`refuseRepoMismatchedPreview`) in front of it. A known mismatch answers
+  `skippedReason: 'repo-mismatch'` with both repository names and no
+  queues, and the panel says "Not read — this project is a checkout of …,
+  but gh is acting on …" (en + he). An unknown project, an unresolved
+  identity, or a project with no GitHub origin reads as before, and the
+  home page skips the check (`test/flight/routing-console.test.ts`,
+  `test/server/routing-console.test.ts`,
+  `test/web/features/routing-console.test.ts`, axe-clean; written first, 5
+  of the server and gate checks failed).
+  _Still open:_ steering from the dashboard's side (the panel only reads); and
+  reading a project's own repository (`--repo`/`GH_REPO`) rather than
+  refusing it, since the read still runs only in the dashboard's
+  repository, the way the Collaboration panel does.
 - **S5 — steward for THEIR project:** the per-project page (any
   onboarded folder) gets the same steward actions against that
   project's own repo (GITHUB 2/5's `sync any project` is the

@@ -24,6 +24,7 @@ import type { CliExec } from '../connection/cli-probe.js';
 import type { PoolClaim } from './claim-ledger.js';
 import { fetchContributorFacingIssues } from './contributor-issue-list.js';
 import { ghExec } from './gh-exec.js';
+import { refuseRepoMismatchedPreview } from './mirror-pass-execute.js';
 import { normalizeLabel } from './pool-client.js';
 import {
   HOUSE_TAXONOMY_LABELS,
@@ -260,8 +261,10 @@ export interface RoutingConsoleSnapshot extends Omit<RoutingConsole, 'milestones
   readonly milestones: readonly MilestoneProgress[] | null;
 }
 
-/** The routing console's read (injected) — see {@link createRoutingConsoleApi}. */
-export type RoutingConsoleApi = () => Promise<RoutingConsoleSnapshot>;
+/** The routing console's read (injected) — see {@link createRoutingConsoleApi}.
+ *  `projectId` names the project page asking, and is omitted for the home
+ *  page; only {@link refuseRepoMismatchedRoutingConsole} consults it. */
+export type RoutingConsoleApi = (projectId?: string) => Promise<RoutingConsoleSnapshot>;
 
 /** The answer when nothing could be read: milestones unknown, and every
  *  queue present but empty, the shape {@link planRoutingConsole} gives an
@@ -298,5 +301,28 @@ export function createRoutingConsoleApi(exec: CliExec = ghExec): RoutingConsoleA
     } catch {
       return UNREADABLE_ROUTING_CONSOLE;
     }
+  };
+}
+
+/**
+ * Epic 0019 S4 on a project page: `api` reads the repository `gh` acts on
+ * whatever page asked, so a project that is a checkout of another GitHub
+ * repository would show that repository's milestones, queues and claims as
+ * its own. This puts S3's preview gate (`refuseRepoMismatchedPreview`) in
+ * front of a project page's read: a KNOWN mismatch rejects with
+ * `MirrorPassRepoMismatchError`, naming both repositories, before `api`
+ * runs. An unknown project, an unresolved identity, or a project with no
+ * GitHub origin reads as before, and the home page (no `projectId`) skips
+ * the check entirely.
+ */
+export function refuseRepoMismatchedRoutingConsole(
+  dbPath: string,
+  api: RoutingConsoleApi,
+  exec: CliExec = ghExec,
+): RoutingConsoleApi {
+  const gated = refuseRepoMismatchedPreview(dbPath, api, exec);
+  return async (projectId) => {
+    if (projectId === undefined) return api();
+    return (await gated(projectId)) ?? UNREADABLE_ROUTING_CONSOLE;
   };
 }

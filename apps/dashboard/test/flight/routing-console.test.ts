@@ -8,6 +8,10 @@
  * beside the board.
  */
 import { describe, it, expect, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { openStore, migrate } from '@autopilot/store';
 import {
   ROUTING_QUEUE_LABELS,
   UNREADABLE_ROUTING_CONSOLE,
@@ -16,9 +20,12 @@ import {
   fetchRoutingConsole,
   parseMilestoneRows,
   planRoutingConsole,
+  refuseRepoMismatchedRoutingConsole,
+  type RoutingConsoleApi,
   type RoutingIssue,
   type RoutingMilestone,
 } from '../../src/flight/routing-console.js';
+import { MirrorPassRepoMismatchError } from '../../src/flight/mirror-pass-execute.js';
 import { MAX_MILESTONE_PAGES, MILESTONE_PAGE_SIZE } from '../../src/flight/taxonomy-seed.js';
 import {
   planClaimPoolIssue,
@@ -500,5 +507,107 @@ describe('createRoutingConsoleApi', () => {
     expect(UNREADABLE_ROUTING_CONSOLE.labelQueues.map((queue) => queue.label)).toEqual(
       ROUTING_QUEUE_LABELS,
     );
+  });
+});
+
+/** A store holding one project, `p1`, rooted at `dir`. */
+function seedProject(dir: string): string {
+  const dbPath = join(dir, 'a.db');
+  const s = openStore(dbPath);
+  migrate(s);
+  s.db
+    .prepare(
+      `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+       VALUES ('p1', 'p1', 'p1', ?, 'flying', NULL, 100, 100)`,
+    )
+    .run(dir);
+  s.close();
+  return dbPath;
+}
+
+/** gh resolves `octocat` acting on `octocat/hello-world`; git answers
+ *  `originUrl` for the project's origin, or fails when it is null. */
+function repoGateExec(originUrl: string | null): CliExec {
+  return vi.fn(async (bin: string, args: readonly string[]) => {
+    if (bin === 'git' && args[2] === 'remote' && args[3] === 'get-url') {
+      return originUrl === null ? { code: 2, stdout: '' } : { code: 0, stdout: `${originUrl}\n` };
+    }
+    if (args[0] === 'api' && args[1] === 'user') {
+      return { code: 0, stdout: JSON.stringify({ login: 'octocat' }) };
+    }
+    if (args[0] === 'repo' && args[1] === 'view') {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          nameWithOwner: 'octocat/hello-world',
+          url: 'https://github.com/octocat/hello-world',
+          isPrivate: false,
+        }),
+      };
+    }
+    return { code: 0, stdout: '' };
+  });
+}
+
+describe("refuseRepoMismatchedRoutingConsole — a project page reads only its own repository's page", () => {
+  async function withProject(run: (dbPath: string) => Promise<void>): Promise<void> {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-routing-console-gate-'));
+    try {
+      await run(seedProject(dir));
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  }
+
+  it('refuses a checkout of another repository before reading, naming both repositories', async () => {
+    await withProject(async (dbPath) => {
+      const read = vi.fn<RoutingConsoleApi>().mockResolvedValue(UNREADABLE_ROUTING_CONSOLE);
+      const api = refuseRepoMismatchedRoutingConsole(
+        dbPath,
+        read,
+        repoGateExec('https://github.com/someone-else/their-project.git'),
+      );
+
+      const refusal = await api('p1').catch((error: unknown) => error);
+
+      expect(refusal).toBeInstanceOf(MirrorPassRepoMismatchError);
+      expect(refusal).toMatchObject({
+        skippedReason: 'repo-mismatch',
+        projectRepo: 'someone-else/their-project',
+        ghRepo: 'octocat/hello-world',
+      });
+      expect(read).not.toHaveBeenCalled();
+    });
+  });
+
+  it('reads the page for a checkout of the repository gh acts on, or one with no GitHub origin', async () => {
+    await withProject(async (dbPath) => {
+      const snapshot = { ...UNREADABLE_ROUTING_CONSOLE, milestones: [] };
+      const read = vi.fn<RoutingConsoleApi>().mockResolvedValue(snapshot);
+
+      const same = refuseRepoMismatchedRoutingConsole(
+        dbPath,
+        read,
+        repoGateExec('git@github.com:octocat/hello-world.git'),
+      );
+      const unbound = refuseRepoMismatchedRoutingConsole(dbPath, read, repoGateExec(null));
+
+      await expect(same('p1')).resolves.toEqual(snapshot);
+      await expect(unbound('p1')).resolves.toEqual(snapshot);
+      expect(read).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('reads the home page without asking git or gh which repository a project is', async () => {
+    await withProject(async (dbPath) => {
+      const read = vi.fn<RoutingConsoleApi>().mockResolvedValue(UNREADABLE_ROUTING_CONSOLE);
+      const exec = repoGateExec('https://github.com/someone-else/their-project.git');
+
+      await expect(refuseRepoMismatchedRoutingConsole(dbPath, read, exec)()).resolves.toEqual(
+        UNREADABLE_ROUTING_CONSOLE,
+      );
+      expect(exec).not.toHaveBeenCalled();
+      expect(read).toHaveBeenCalledTimes(1);
+    });
   });
 });

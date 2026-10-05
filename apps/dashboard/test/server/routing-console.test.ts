@@ -7,10 +7,14 @@ import {
   UNREADABLE_ROUTING_CONSOLE,
   type RoutingConsoleSnapshot,
 } from '../../src/flight/routing-console.js';
+import { MirrorPassRepoMismatchError } from '../../src/flight/mirror-pass-execute.js';
 
-/** Minimal `IncomingMessage` stand-in: the handler only touches `.method`. */
-function fakeRequest(opts: { method?: string | undefined }): { method: string | undefined } {
-  return { method: opts.method };
+/** Minimal `IncomingMessage` stand-in: the handler only touches `.method` and `.url`. */
+function fakeRequest(opts: { method?: string | undefined; url?: string }): {
+  method: string | undefined;
+  url: string | undefined;
+} {
+  return { method: opts.method, url: opts.url };
 }
 
 /** Minimal `ServerResponse` stand-in: the handler only calls `.writeHead()`/`.end()` via `sendJson`. */
@@ -88,5 +92,51 @@ describe('handleRoutingConsole', () => {
     expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
     expect(readBody(res)).toEqual(UNREADABLE_ROUTING_CONSOLE);
     expect((readBody(res) as RoutingConsoleSnapshot).milestones).toBeNull();
+  });
+
+  it("hands the read a project page's ?project= id, and none for the home page", async () => {
+    const api = vi.fn<RoutingConsoleApi>().mockResolvedValue(snapshot);
+
+    await handleRoutingConsole(
+      fakeRequest({ method: 'GET', url: '/api/routing-console?project=p1' }) as never,
+      fakeResponse() as never,
+      api,
+      {},
+    );
+    await handleRoutingConsole(
+      fakeRequest({ method: 'GET', url: '/api/routing-console?project=' }) as never,
+      fakeResponse() as never,
+      api,
+      {},
+    );
+    await handleRoutingConsole(
+      fakeRequest({ method: 'GET', url: '/api/routing-console' }) as never,
+      fakeResponse() as never,
+      api,
+      {},
+    );
+
+    expect(api.mock.calls).toEqual([['p1'], [undefined], [undefined]]);
+  });
+
+  it('names both repositories, and no queues, when the project is a checkout of another repo', async () => {
+    const api: RoutingConsoleApi = vi
+      .fn()
+      .mockRejectedValue(new MirrorPassRepoMismatchError('someone/theirs', 'octocat/hello-world'));
+    const res = fakeResponse();
+
+    await handleRoutingConsole(
+      fakeRequest({ method: 'GET', url: '/api/routing-console?project=p1' }) as never,
+      res as never,
+      api,
+      {},
+    );
+
+    expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+    expect(readBody(res)).toEqual({
+      skippedReason: 'repo-mismatch',
+      projectRepo: 'someone/theirs',
+      ghRepo: 'octocat/hello-world',
+    });
   });
 });
