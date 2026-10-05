@@ -778,7 +778,18 @@ propagation, and the filled style does not match the nav.
    words, and it is server-printed markup the locale sweep keeps a leading
    icon in, so a Hebrew switch rewrites only the words and core does not
    grow (`apps/dashboard/test/web/fly-browse-opener-icon.test.ts`,
-   axe-clean).
+   axe-clean). **Contribute upstream's Open pull request 2026-10-05 (slice
+   2):** the project page's "Contribute upstream" form heads its summary with
+   `git-pull-request` and the GitHub sync button above it leads with
+   `cloud-upload`, but the submit that forks, pushes and runs `gh pr create`
+   was bare words. It leads with the summary's `git-pull-request`, since it
+   opens the pull request the summary names; nothing is newly vendored. The
+   icon is decorative, so the button's name stays its tip, and it sits beside
+   a tagged text node the locale sweep rewrites in place, so a Hebrew switch
+   and a fleet tick keep it; a submit only disables the button, so the icon
+   survives a run. One rule spaces it from its words, beside the form's own
+   `.github-pr` rule, so the CONNECT form's pinned spacing rule is untouched
+   (`apps/dashboard/test/web/github-pr-submit-icon.test.ts`, axe-clean).
 
 ## Related
 

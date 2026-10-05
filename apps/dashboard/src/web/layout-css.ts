@@ -867,6 +867,7 @@ main.project-mode { grid-template-columns: 1fr; }
 .github-sync-result-ok { color: var(--color-success); }
 .github-sync-result-fail { color: var(--color-sev-critical); }
 .github-pr { padding: var(--space-3) var(--space-4); border: 1px dashed var(--color-border); border-radius: var(--radius-lg); }
+.github-pr button > .icon { margin-inline-end: 0.35em; }
 .github-pr-summary { font-size: var(--text-sm); font-weight: 600; cursor: pointer; border-radius: var(--shape-extra-small); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 .github-pr-summary:hover, .github-pr-summary:focus-visible { color: var(--color-text); background: var(--color-surface-raised); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .github-pr-summary:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
