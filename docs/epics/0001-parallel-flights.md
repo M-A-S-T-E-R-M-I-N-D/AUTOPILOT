@@ -517,6 +517,20 @@ still holds one runner per folder, keyed the same way; the new field only widens
 spawn call can carry. `flight/fly.ts` is unchanged since the evening check above. None of the four
 locks below changes; all six slices remain unchanged and live in production.
 
+Freshness check (2026-10-05): `fly.ts` gained one more commit since the 2026-10-04 evening
+check above — `09b3ce05` (epic 0016), which lets the standalone `AUTOPILOT_FLY_TARGET=github`
+flight's SOCIAL digest reach the FLIGHT DEBRIEF panel. `recordGithubOnlyFlightDebrief`
+(`flight/post-flight-sweeps.ts`) opens the store solely to persist that one `social-debrief` row,
+only when a store already exists for the target project `findByRoot` resolves — it never creates
+a store or registers a project, and a failure is swallowed (the flight log already carries the
+digest line). This is the same per-project, best-effort event write the 2026-10-04 "once more
+again" check above already verified for the code-flight path (`a2c1e7d4`); the GitHub-only path
+now shares the identical `recordSocialFlightDebrief` helper instead of its own inline `INSERT`.
+No board, SOUL or backlog row crosses projects because of it, and it opens no new write path —
+lock 3's shared store gains no new connection or writer. `flight/runner.ts` and
+`flight/registry.ts` are unchanged since the 2026-10-04 "still later" check above. None of the
+four locks below changes; all six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
