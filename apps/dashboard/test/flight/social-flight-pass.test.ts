@@ -11,14 +11,40 @@
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { openStore, migrate, createTask, setTaskStatus } from '@autopilot/store';
 import {
   runGithubOnlyFlight,
+  runGithubOnlyMirrorPreview,
   runSocialFlightPass,
   SOCIAL_FLIGHT_PASS_CAPS,
 } from '../../src/flight/social-flight-pass.js';
 import type { SocialCandidateAction } from '../../src/flight/social-pass.js';
 import type { CliExec } from '../../src/connection/cli-probe.js';
+
+function cleanupDir(dir: string): void {
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+}
+
+/** A `CliExec` stub answering `gh issue view <n> --json ...` from `states`
+ *  (issue number -> open/closed) for the mirror-pass preview's own issue
+ *  read, layered on top of `base` (the social pass's identity/inventory
+ *  responses) — same substring-match shape as `execFor`. */
+function withIssueView(
+  base: Record<string, { code: number; stdout: string }>,
+  states: Readonly<Record<number, 'open' | 'closed'>>,
+): Record<string, { code: number; stdout: string }> {
+  const withViews = { ...base };
+  for (const [number, state] of Object.entries(states)) {
+    withViews[`issue view ${number}`] = {
+      code: 0,
+      stdout: JSON.stringify({ number: Number(number), state: state.toUpperCase() }),
+    };
+  }
+  return withViews;
+}
 
 const ENGINE = '/the/engine/repo';
 /** Long enough (≥ anti-flood's MIN_COMPARE_LENGTH) for the dedup check to apply. */
@@ -306,7 +332,14 @@ describe('runGithubOnlyFlight — the standalone "Fly GitHub" flight (epic 0016 
     const exec = execFor(connectedGh('octocat', 'octocat'), calls);
     const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
 
-    const outcome = await runGithubOnlyFlight({ exec, target: ENGINE, engineRepo: ENGINE });
+    const outcome = await runGithubOnlyFlight({
+      exec,
+      target: ENGINE,
+      engineRepo: ENGINE,
+      // No store at this path: the mirror preview skips quietly rather than
+      // reading a real dev database the test happens to run beside.
+      dbPath: '/nonexistent/autopilot.db',
+    });
 
     expect(outcome).toMatchObject({
       ran: true,
@@ -353,6 +386,164 @@ describe('runGithubOnlyFlight — the standalone "Fly GitHub" flight (epic 0016 
       ran: false,
       reason: 'gh-disconnected',
     });
+  });
+
+  it('weaves in the mirror-pass preview beside the social pass — "social+mirror passes only"', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-social-flight-mirror-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.db
+        .prepare(
+          `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+           VALUES ('p1', 'p1', 'p1', ?, 'flying', NULL, 100, 100)`,
+        )
+        .run(dir);
+      createTask(s, { id: 'github-7', projectId: 'p1', title: 'Regression', createdAt: 100 });
+      setTaskStatus(s, 'github-7', 'deferred', 200);
+      s.close();
+
+      const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+      const exec = execFor(withIssueView(connectedGh('octocat', 'octocat'), { 7: 'closed' }));
+
+      const outcome = await runGithubOnlyFlight({ exec, target: dir, engineRepo: dir, dbPath });
+
+      expect(outcome).toMatchObject({ ran: true });
+      const log = write.mock.calls.map((c) => String(c[0])).join('');
+      expect(log).toContain('🗣');
+      expect(log).toContain(
+        '🪞 mirror pass: 1 github-linked board task(s) checked — 0 to close, 1 to reopen, ' +
+          "0 unverified note(s), 0 to settle, 0 already in sync (read-only — apply from the dashboard's mirror-pass button).",
+      );
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('skips the mirror preview (quietly) when the social pass itself refused', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-social-flight-mirror-skip-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.db
+        .prepare(
+          `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+           VALUES ('p1', 'p1', 'p1', ?, 'flying', NULL, 100, 100)`,
+        )
+        .run(dir);
+      s.close();
+
+      const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+      const exec = execFor(connectedGh('octocat', 'octocat'));
+
+      const outcome = await runGithubOnlyFlight({
+        exec,
+        target: '/some/other/folder',
+        engineRepo: ENGINE,
+        dbPath,
+      });
+
+      expect(outcome).toMatchObject({ ran: false, reason: 'foreign-target' });
+      expect(write.mock.calls.map((c) => String(c[0])).join('')).not.toContain('mirror pass');
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+});
+
+describe("runGithubOnlyMirrorPreview — the standalone flight's read-only mirror pass", () => {
+  it('skips quietly when no store exists at the resolved path', async () => {
+    const outcome = await runGithubOnlyMirrorPreview(
+      '/nonexistent/autopilot.db',
+      '/some/repo',
+      execFor({}),
+    );
+    expect(outcome).toEqual({ ran: false, reason: 'no-store' });
+  });
+
+  it('skips quietly when the store exists but the flown folder was never onboarded', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-preview-unknown-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.close();
+
+      const outcome = await runGithubOnlyMirrorPreview(dbPath, dir, execFor({}));
+
+      expect(outcome).toEqual({ ran: false, reason: 'project-unknown' });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('summarizes a mixed board — close, reopen, note and in-sync tasks all counted', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-preview-mixed-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.db
+        .prepare(
+          `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+           VALUES ('p1', 'p1', 'p1', ?, 'flying', NULL, 100, 100)`,
+        )
+        .run(dir);
+      createTask(s, { id: 'github-7', projectId: 'p1', title: 'Reopen me', createdAt: 100 });
+      setTaskStatus(s, 'github-7', 'deferred', 200);
+      createTask(s, { id: 'github-9', projectId: 'p1', title: 'Already in sync', createdAt: 100 });
+      setTaskStatus(s, 'github-9', 'queued', 200);
+      s.close();
+
+      const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+      const exec = execFor(withIssueView({}, { 7: 'closed', 9: 'open' }));
+
+      const outcome = await runGithubOnlyMirrorPreview(dbPath, dir, exec);
+
+      expect(outcome).toEqual({
+        ran: true,
+        checked: 2,
+        toClose: 0,
+        toReopen: 1,
+        toNote: 0,
+        toSettle: 0,
+        inSync: 1,
+      });
+      expect(write.mock.calls.map((c) => String(c[0])).join('')).toContain(
+        '2 github-linked board task(s) checked — 0 to close, 1 to reopen, 0 unverified note(s), ' +
+          '0 to settle, 1 already in sync',
+      );
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('never mutates — a read failure is swallowed, never thrown out of the flight', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-preview-error-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      s.db
+        .prepare(
+          `INSERT INTO projects (id, slug, name, root_path, status, gate_config, created_at, updated_at)
+           VALUES ('p1', 'p1', 'p1', ?, 'flying', NULL, 100, 100)`,
+        )
+        .run(dir);
+      s.close();
+      const throwingExec: CliExec = vi.fn(async () => {
+        throw new Error('spawn gh ENOENT');
+      });
+
+      await expect(runGithubOnlyMirrorPreview(dbPath, dir, throwingExec)).resolves.toEqual({
+        ran: false,
+        reason: 'preview-error',
+      });
+    } finally {
+      cleanupDir(dir);
+    }
   });
 });
 

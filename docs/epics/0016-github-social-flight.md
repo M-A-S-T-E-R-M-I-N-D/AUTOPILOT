@@ -131,10 +131,20 @@ Per pass, mechanically derived — no guesses:
    project; the log says when it could not store the digest
    (`test/flight/post-flight-sweeps.test.ts`, read back through
    `readSocialFlightDebrief`).
-   _Still open:_ the mirror pass beside the social pass — the board task asks
-   for "social+mirror passes only", and this mode runs the social pass alone
-   today. `flight/mirror-pass.ts`'s planners exist, but its reconcile reads
-   board tasks out of the store this mode only writes one row to.
+   The mirror pass now runs beside the social pass (board
+   `web-mtpzzxn4-69csqx`): `flight/social-flight-pass.ts`'s
+   `runGithubOnlyMirrorPreview` composes `mirror-pass-execute.ts`'s own
+   `createMirrorPassPreviewApi` — the same reconcile plan the dashboard's
+   preview route shows — over the flown project's `github-<n>` board tasks,
+   printing one read-only summary line (checked/to-close/to-reopen/
+   unverified-note/to-settle/in-sync counts) once the social pass itself ran
+   (same gh-connected, self-target-checked precondition; never duplicated).
+   No store at the resolved `dbPath`, a folder never onboarded as a project,
+   or a read failure all skip quietly — best-effort, never failing the
+   flight (`test/flight/social-flight-pass.test.ts`).
+   _Still open:_ only the execute half — applying a reconciled finding still
+   requires the dashboard's own confirm-guarded mirror-pass button; the
+   standalone flight only ever previews.
 5. **observability**: every social action in the flight log + a SOCIAL
    section in the debrief (what was said/filed/closed, caps consumed).
    _Shipped so far:_ every woven-in pass already says its own line as it
