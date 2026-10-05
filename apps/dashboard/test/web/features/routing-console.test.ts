@@ -60,16 +60,28 @@ const SNAPSHOT = {
 
 type Answer = { ok: boolean; body?: unknown };
 
-function boot(answer: () => Answer): void {
+/** Every routing-console URL the panel asked for since the last boot. */
+const consoleRequests: string[] = [];
+
+function boot(answer: () => Answer, project?: string): void {
   document.open();
-  document.write(renderShell());
+  document.write(renderShell(project));
   document.close();
+  consoleRequests.length = 0;
   globalThis.fetch = vi.fn(async (url: string) => {
-    const reply = url === '/api/routing-console' ? answer() : { ok: true, body: FLEET_STATE };
+    const isConsole = url.startsWith('/api/routing-console');
+    if (isConsole) consoleRequests.push(url);
+    const reply = isConsole ? answer() : { ok: true, body: FLEET_STATE };
     return { ok: reply.ok, json: async () => reply.body } as unknown as Response;
   }) as unknown as typeof fetch;
   new Function(clientJs())();
 }
+
+const REPO_MISMATCH = {
+  skippedReason: 'repo-mismatch',
+  projectRepo: 'someone-else/their-project',
+  ghRepo: 'octocat/hello-world',
+};
 
 function panel(): HTMLElement {
   return document.getElementById('routing-console-panel') as HTMLElement;
@@ -169,6 +181,44 @@ describe('ROUTING CONSOLE panel (epic 0019 S4)', () => {
     boot(() => ({ ok: true, body: SNAPSHOT }));
     await vi.advanceTimersByTimeAsync(1);
     // axe schedules its own work on timers, which fake timers never fire.
+    vi.useRealTimers();
+
+    const results = await axe.run(panel(), AXE_OPTIONS);
+    expect(results.violations).toEqual([]);
+  });
+
+  it("names a project page's own id on its read, and none on the home page", async () => {
+    boot(() => ({ ok: true, body: SNAPSHOT }), 'p 1');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(consoleRequests).toEqual(['/api/routing-console?project=p%201']);
+
+    boot(() => ({ ok: true, body: SNAPSHOT }));
+    await vi.advanceTimersByTimeAsync(1);
+    expect(consoleRequests).toEqual(['/api/routing-console']);
+  });
+
+  it("says a project page is a checkout of another repository, never that page's queues as its own", async () => {
+    boot(() => ({ ok: true, body: REPO_MISMATCH }), 'p1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(panel().hidden).toBe(false);
+    expect(panel().querySelector('.routing-console-title')?.textContent).toBe('Routing console');
+    const line = panel().querySelector('.routing-console-repo-mismatch');
+    expect(line?.textContent).toBe(
+      'Not read — this project is a checkout of someone-else/their-project, but gh is acting on octocat/hello-world.',
+    );
+    expect(line?.getAttribute('data-i18n-template')).toBe('routingConsoleRepoMismatch');
+    expect(JSON.parse(line?.getAttribute('data-i18n-args') ?? '{}')).toEqual({
+      projectRepo: 'someone-else/their-project',
+      ghRepo: 'octocat/hello-world',
+    });
+    expect(rowTexts()).toEqual([]);
+    expect(panel().textContent).not.toContain('Unclaimed');
+  });
+
+  it('is axe-clean saying the repository mismatch', async () => {
+    boot(() => ({ ok: true, body: REPO_MISMATCH }), 'p1');
+    await vi.advanceTimersByTimeAsync(1);
     vi.useRealTimers();
 
     const results = await axe.run(panel(), AXE_OPTIONS);

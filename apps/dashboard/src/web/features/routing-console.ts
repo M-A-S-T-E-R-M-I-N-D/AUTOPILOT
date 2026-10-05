@@ -12,7 +12,10 @@
  * page it sits with the other community panels.
  *
  * Milestones the server could not read arrive as `null` and say so, never
- * as "no milestones" (`flight/routing-console.ts`'s own rule). Each
+ * as "no milestones" (`flight/routing-console.ts`'s own rule). A project
+ * page sends its id, and a project that is a checkout of another GitHub
+ * repository gets a one-line refusal naming both repositories instead of
+ * the queues of the repository `gh` acts on. Each
  * milestone's title links to its GitHub page in a new tab when the read
  * carried an https link, and stays plain text when it did not. A failed
  * poll keeps the last render, the same as every other polled panel here.
@@ -21,8 +24,9 @@
  * `.toString()`, not a hand-retyped copy.
  *
  * i18n: every rendered string carries its English default AND a `data-i18n`
- * tag, the graceful-degradation shape `collaboration.ts` takes; only the
- * panel's name and heading have STRINGS entries so far.
+ * tag, the graceful-degradation shape `collaboration.ts` takes; the panel's
+ * name and heading and the repository-mismatch template have STRINGS
+ * entries so far.
  */
 import { routingIssueListText, routingMilestoneProgressText } from '../routing-console-panel.js';
 
@@ -90,15 +94,35 @@ function routingConsoleMilestones(section, milestones) {
   });
   section.appendChild(list);
 }
+// A project page that is a checkout of another GitHub repository: the server
+// refused to read gh's page as this project's and named both repositories.
+// Both are live GitHub facts, so the line is a two-value template the way
+// mirror-pass.ts's renderMirrorPassRepoMismatch says the same refusal.
+function routingConsoleRepoMismatch(snap) {
+  return !!snap && snap.skippedReason === 'repo-mismatch' && !!snap.projectRepo && !!snap.ghRepo;
+}
+function routingConsoleRepoMismatchLine(snap) {
+  var args = { projectRepo: snap.projectRepo, ghRepo: snap.ghRepo };
+  var line = el('p', 'panel-audience routing-console-repo-mismatch', tr('routingConsoleRepoMismatch', args));
+  line.setAttribute('data-i18n-template', 'routingConsoleRepoMismatch');
+  line.setAttribute('data-i18n-args', JSON.stringify(args));
+  return line;
+}
 function renderRoutingConsolePanel() {
   var section = document.getElementById('routing-console-panel');
   if (!section) return;
   var snap = routingConsoleSnapshot;
-  var readable = !!snap && Array.isArray(snap.labelQueues) && Array.isArray(snap.claims);
+  var refused = routingConsoleRepoMismatch(snap);
+  var readable = refused || (!!snap && Array.isArray(snap.labelQueues) && Array.isArray(snap.claims));
   if (section.hidden === readable) section.hidden = !readable;
   if (!readable) return;
   section.replaceChildren();
   section.appendChild(panelHeading('h3', 'routing-console-title', 'routingConsoleTitle', 'compass'));
+  if (refused) {
+    section.appendChild(routingConsoleRepoMismatchLine(snap));
+    translateDom(document.documentElement.lang || 'en');
+    return;
+  }
   section.appendChild(routingConsoleText('p', 'panel-audience', 'What the GitHub page says: milestone progress, the priority and status queues, and who holds what.', 'routingConsoleAudience'));
   routingConsoleMilestones(section, Array.isArray(snap.milestones) ? snap.milestones : null);
   section.appendChild(routingConsoleText('h4', 'routing-console-group-title', 'Label queues', 'routingConsoleQueues'));
@@ -109,8 +133,14 @@ function renderRoutingConsolePanel() {
     .concat([['Unclaimed', snap.unclaimed || [], 'routingConsoleUnclaimed']]));
   translateDom(document.documentElement.lang || 'en');
 }
+// A project page names itself, so the server can refuse a checkout of another
+// repository; the home page asks for the repository gh acts on, as before.
+function routingConsoleUrl() {
+  var pid = document.body.dataset.project || '';
+  return '/api/routing-console' + (pid ? '?project=' + encodeURIComponent(pid) : '');
+}
 function loadRoutingConsolePanel() {
-  fetch('/api/routing-console', { headers: { accept: 'application/json' } })
+  fetch(routingConsoleUrl(), { headers: { accept: 'application/json' } })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (data) {
       if (data) routingConsoleSnapshot = data;

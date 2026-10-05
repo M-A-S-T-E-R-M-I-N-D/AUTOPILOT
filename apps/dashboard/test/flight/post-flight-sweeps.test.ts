@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { openStore, migrate, recordAutoApproved, type Store } from '@autopilot/store';
@@ -18,7 +18,14 @@ import {
   runReconciliationProposalSweep,
   runClosedTaskAuditSweep,
   runStoreBackupSweep,
+  recordSocialFlightDebrief,
+  recordGithubOnlyFlightDebrief,
 } from '../../src/flight/post-flight-sweeps.js';
+import {
+  SOCIAL_DEBRIEF_EVENT,
+  type SocialFlightDebrief,
+} from '../../src/flight/social-flight-debrief.js';
+import { readSocialFlightDebrief } from '../../src/read/project-detail.js';
 import { DOC_SUBJECTS } from '../../src/flight/doc-freshness.js';
 import type { AuditVcs } from '../../src/flight/closed-task-audit.js';
 import { extractDeliverable } from '../../src/flight/deliverable.js';
@@ -1016,5 +1023,141 @@ describe('runStoreBackupSweep', () => {
     await expect(
       runStoreBackupSweep(store, dbPath, () => 1_700_000_000_000),
     ).resolves.toBeUndefined();
+  });
+});
+
+/**
+ * The SOCIAL debrief's store write (epic 0016 slices 4/6 + 5/6). A code
+ * flight writes it through its own open store; the standalone Fly GitHub
+ * flight skips the store, the lock and onboarding, so it opens the store only
+ * to write this one row — and only when the store already exists and the
+ * target is already a registered project. Read back here through the FLIGHT
+ * DEBRIEF panel's own read (`readSocialFlightDebrief`), so a GitHub-only
+ * flight's digest is proven to reach the panel, not just a table.
+ */
+describe('recordSocialFlightDebrief / recordGithubOnlyFlightDebrief', () => {
+  const DIGEST: SocialFlightDebrief = {
+    passesRan: 1,
+    skippedForeignTarget: 0,
+    skippedGhDisconnected: 0,
+    newIssuesAllowed: 0,
+    newIssueBudget: 2,
+    commentsAllowed: 0,
+    commentBudget: 5,
+    queued: 0,
+    duplicate: 0,
+    refused: 0,
+  };
+  const TARGET = join(tmpdir(), 'ap-fly-github-target');
+  let tmpDir: string;
+  let dbPath: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'autopilot-social-debrief-record-'));
+    dbPath = join(tmpDir, 'autopilot.db');
+  });
+
+  afterEach(() => {
+    // `social-debrief-read.test.ts`'s cleanup: Windows can hold a just-closed
+    // SQLite file busy (and the unreadable-store case's half-opened handle
+    // longer still), and a temp dir left behind is not a test failure.
+    try {
+      rmSync(tmpDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'EBUSY' && code !== 'EPERM' && code !== 'ENOTEMPTY') throw error;
+    }
+  });
+
+  /** A real on-disk store with one registered project rooted at TARGET. */
+  function seedStore(): void {
+    const s = openStore(dbPath);
+    try {
+      migrate(s);
+      s.db
+        .prepare(
+          `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+           VALUES ('p1', 'p1', 'p1', ?, 'registered', 1, 1)`,
+        )
+        .run(TARGET);
+      // A code flight's firing came first; the GitHub-only flight follows it.
+      s.db
+        .prepare(`INSERT INTO metrics (project_id, firing_id, created_at) VALUES ('p1', 'f1', 10)`)
+        .run();
+    } finally {
+      s.close();
+    }
+  }
+
+  function socialRows(): { project_id: string; type: string; payload: string }[] {
+    const s = openStore(dbPath, { readonly: true });
+    try {
+      return s.db
+        .prepare('SELECT project_id, type, payload FROM events WHERE type = ?')
+        .all(SOCIAL_DEBRIEF_EVENT) as { project_id: string; type: string; payload: string }[];
+    } finally {
+      s.close();
+    }
+  }
+
+  it('recordSocialFlightDebrief writes the digest verbatim as one social-debrief row', () => {
+    const store = openStore(':memory:');
+    try {
+      migrate(store);
+      store.db
+        .prepare(
+          `INSERT INTO projects (id, slug, name, root_path, status, created_at, updated_at)
+           VALUES ('p1', 'p1', 'p1', '/tmp/p1', 'flying', 1, 1)`,
+        )
+        .run();
+
+      recordSocialFlightDebrief(store, 'p1', DIGEST, () => 42);
+
+      expect(
+        store.db
+          .prepare('SELECT project_id, firing_id, type, payload, created_at FROM events')
+          .all(),
+      ).toEqual([
+        {
+          project_id: 'p1',
+          firing_id: null,
+          type: SOCIAL_DEBRIEF_EVENT,
+          payload: JSON.stringify(DIGEST),
+          created_at: 42,
+        },
+      ]);
+    } finally {
+      store.db.close();
+    }
+  });
+
+  it("records a GitHub-only flight's digest under the registered project, and the FLIGHT DEBRIEF read serves it", () => {
+    seedStore();
+
+    expect(recordGithubOnlyFlightDebrief(dbPath, TARGET, DIGEST, () => 20)).toBe(true);
+
+    expect(readSocialFlightDebrief(dbPath, 'p1')).toEqual(DIGEST);
+  });
+
+  it('never creates a store: no store at dbPath records nothing and leaves none behind', () => {
+    expect(recordGithubOnlyFlightDebrief(dbPath, TARGET, DIGEST, () => 20)).toBe(false);
+
+    expect(existsSync(dbPath)).toBe(false);
+  });
+
+  it('never registers a project: an unregistered target records nothing', () => {
+    seedStore();
+
+    expect(
+      recordGithubOnlyFlightDebrief(dbPath, join(tmpDir, 'somewhere-else'), DIGEST, () => 20),
+    ).toBe(false);
+
+    expect(socialRows()).toEqual([]);
+  });
+
+  it('is best-effort — an unreadable store never throws', () => {
+    writeFileSync(dbPath, 'not a sqlite database');
+
+    expect(recordGithubOnlyFlightDebrief(dbPath, TARGET, DIGEST, () => 20)).toBe(false);
   });
 });

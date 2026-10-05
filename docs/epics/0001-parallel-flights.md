@@ -501,6 +501,22 @@ crosses projects because of it, and the code tree is untouched in this mode (the
 smoke test confirms it). `flight/runner.ts` and `flight/registry.ts` are unchanged. None of the
 four locks below changes; all six slices remain unchanged and live in production.
 
+Freshness check (2026-10-04, still later): `flight/runner.ts` gained one more commit since the
+check above — `767a0fdb` (epic 0016 slice 4/6), which lets a launch request carry the standalone
+"Fly GitHub" choice the evening check's `AUTOPILOT_FLY_TARGET=github` mode previously only read
+from the dashboard process's own env. `StartFlightInput.flyTarget` is read once inside that
+launch's own `start()` call, through the same `parseFlyTarget` `fly.ts` gives the env var; an
+unreadable value refuses the start before preflight or spawn, naming the value, rather than
+guessing which target the flight takes. The field then rides through `registry.ts` and
+`spawn-flight.ts` — unchanged except for passing it along — to land as the spawned child's own
+`AUTOPILOT_FLY_TARGET`, omitted (every existing caller) leaving the dashboard process's own value
+to pass through exactly as before. This is the same per-launch display/plumbing shape as the
+engine and social-flight fields above: no board, SOUL or backlog row crosses projects because of
+it, and it opens no new write path. Lock 2 (singleton `FlightRunner`) is unchanged: the registry
+still holds one runner per folder, keyed the same way; the new field only widens what a single
+spawn call can carry. `flight/fly.ts` is unchanged since the evening check above. None of the four
+locks below changes; all six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this

@@ -672,6 +672,34 @@ propagation, and the filled style does not match the nav.
    words, in Hebrew too. The bar is rebuilt on every step and the locale sweep
    keeps a leading icon, so neither a step nor a switch drops it
    (`apps/dashboard/test/web/replay-exit-icon.test.ts`, axe-clean).
+   **CONNECT report form's Compose and submit 2026-10-05 (slice 2):** the
+   Connect popover's "Report a bug or request a feature upstream" form runs
+   the same composer as the right-click Report dialog, yet its Compose and
+   its submit were bare words. Compose leads with that dialog's `sparkles`,
+   since it hands the note to the same model; the submit leads with its
+   `flag`, since it files the report, and reads "Open GitHub issue" or the
+   dialog's "Execute" by target. Nothing is newly vendored, and both are
+   server-printed markup the locale sweep keeps a leading icon in. The
+   target swap used to replace the submit's whole `textContent` and left its
+   `data-i18n` on `openGithubIssue`, so the next sweep put "Open GitHub
+   issue" back over a non-issue target's "Execute"; it retags the key and
+   goes through `setSweptText()` now, so the words hold and the flag stays.
+   Each icon is decorative, so a button's name stays its words, in Hebrew
+   too (`apps/dashboard/test/web/connect-report-form-icons.test.ts`,
+   axe-clean). **Ask answer's Confirm and try-Deep offer 2026-10-05 (slice
+   2):** the search bar's Search and Ask lead with icons, but the two buttons
+   an answer can add under itself were bare words: the ARCHITECT proposal
+   card's Confirm, which runs a proposed write, and the low-confidence "try
+   Deep?" offer, which re-asks with Deep on. Confirm leads with the `check`
+   the Plan editor's Publish and the SOUL card's ratify draw, the decision
+   over a proposal; "Confirm (destructive)" leads with the landing warnings'
+   `triangle-alert` instead, so the icon says what "(destructive)" does. The
+   offer leads with the search bar's `search`, since Deep is the read-only
+   agent that goes looking for the answer. Nothing is newly vendored. Each
+   icon is decorative, so Confirm's name stays its tip and the offer's its
+   words, and the locale sweep keeps a leading icon; a confirm only disables
+   the button, so the icon survives the run
+   (`apps/dashboard/test/web/ask-proposal-offer-icons.test.ts`, axe-clean).
 
 ## Related
 

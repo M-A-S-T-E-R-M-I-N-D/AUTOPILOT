@@ -23,9 +23,11 @@ import {
   createSnapshot,
   pruneSnapshots,
   AUTO_APPROVED_EVENT,
+  openStore,
   type Store,
 } from '@autopilot/store';
 import type { GitVcs } from '@autopilot/engine';
+import { SqliteProjectStore } from '@autopilot/onboarding';
 import { out } from './firing-hooks.js';
 import { findReconciliationCandidates } from '../read/reconcile.js';
 import { backlogMatchText } from '../shared/backlog-match.js';
@@ -72,6 +74,7 @@ import {
   applyMirrorPassCommands,
   type MirrorPassClaimedIssue,
 } from './mirror-pass.js';
+import { SOCIAL_DEBRIEF_EVENT, type SocialFlightDebrief } from './social-flight-debrief.js';
 
 /** How many recent commits the end-of-flight reconciliation proposal scans for a title match. */
 const RECONCILE_COMMIT_WINDOW = 50;
@@ -643,5 +646,56 @@ export async function runStoreBackupSweep(
     }
   } catch {
     out('  💾 store backup skipped (best-effort, non-fatal).');
+  }
+}
+
+/**
+ * SOCIAL DEBRIEF persistence (epic 0016 slice 5/6): one
+ * {@link SOCIAL_DEBRIEF_EVENT} row per flight, the digest's JSON verbatim —
+ * the `near-miss-debrief` row's twin, read back by the dashboard's FLIGHT
+ * DEBRIEF panel. Throws on a store failure; each caller decides how
+ * best-effort it is.
+ */
+export function recordSocialFlightDebrief(
+  store: Store,
+  projectId: string,
+  debrief: SocialFlightDebrief,
+  now: () => number,
+): void {
+  store.db
+    .prepare(
+      'INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+    )
+    .run(projectId, null, SOCIAL_DEBRIEF_EVENT, JSON.stringify(debrief), now());
+}
+
+/**
+ * The standalone Fly GitHub flight's digest, persisted (epic 0016 slice 4/6,
+ * board web-mtpzzxn4-69csqx). That mode skips onboarding, the lock and the
+ * store, so this opens the store only to write the one row: never creates a
+ * store (none at `dbPath` records nothing) and never registers a project (a
+ * target the store does not already know records nothing, since the panel
+ * has no project to show it on). `findByRoot` is onboarding's own lookup, so
+ * the row lands on the same project a code flight over `target` would.
+ * Returns whether the row was written; best-effort, never throws.
+ */
+export function recordGithubOnlyFlightDebrief(
+  dbPath: string,
+  target: string,
+  debrief: SocialFlightDebrief,
+  now: () => number,
+): boolean {
+  if (!existsSync(dbPath)) return false;
+  let store: Store | undefined;
+  try {
+    store = openStore(dbPath);
+    const project = new SqliteProjectStore(store).findByRoot(target);
+    if (!project) return false;
+    recordSocialFlightDebrief(store, project.id, debrief, now);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    store?.close();
   }
 }

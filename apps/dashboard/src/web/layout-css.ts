@@ -261,6 +261,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 }
 .gh-issue-form button:not(:disabled):hover, .gh-issue-form button:not(:disabled):focus-visible { color: var(--color-text); border-color: var(--color-accent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .gh-issue-form button:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+#gh-issue-form button > .icon { margin-inline-end: 0.35em; }
 .gh-issue-result { margin: 0; font-size: var(--text-sm); }
 .gh-issue-result:empty { display: none; }
 .gh-issue-result-ok { color: var(--color-success); }
@@ -1676,6 +1677,7 @@ body > .routing-console-panel { margin-inline: var(--page-inline); }
 .control-proposal-confirm:not(:disabled):hover, .control-proposal-confirm:not(:disabled):focus-visible { background: color-mix(in srgb, var(--color-needs-you) 15%, transparent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .control-proposal-confirm:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .control-proposal-confirm:disabled { opacity: 0.6; cursor: default; }
+.control-proposal-confirm > .icon, .ask-offer-btn > .icon { margin-inline-end: 0.35em; }
 .control-proposal-status { font-size: var(--text-xs); color: var(--color-text-muted); }
 
 .detail { margin-top: var(--space-1); }

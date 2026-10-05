@@ -13,6 +13,7 @@
 import { describe, it, expect } from 'vitest';
 import { STRINGS, type StringKey } from '@autopilot/tokens';
 import { renderShell } from '../../src/web/shell.js';
+import { iconSvg } from '../../src/web/icons.js';
 
 function i18nKeysIn(html: string): StringKey[] {
   return [...html.matchAll(/data-i18n="([^"]+)"/g)].map((m) => m[1] as StringKey);
@@ -185,7 +186,9 @@ describe('renderShell masthead i18n wiring', () => {
     expect(html).toContain(
       '<label for="gh-issue-action" data-i18n="reportActionPrompt">One click files a…</label>',
     );
-    expect(html).toContain('data-i18n="openGithubIssue">Open GitHub issue</button>');
+    expect(html).toContain(
+      `data-i18n="openGithubIssue">${iconSvg('flag')}Open GitHub issue</button>`,
+    );
   });
 
   it('tags the gh-issue-form free-text Compose path (LLM ISSUE COMPOSER 2/3, board web-mtpzdruu-vf25ry) with data-i18n', () => {
@@ -197,7 +200,7 @@ describe('renderShell masthead i18n wiring', () => {
       'placeholder="What happened, or what you wish existed…" data-i18n-placeholder="reportComposeNotePlaceholder"',
     );
     expect(html).toContain(
-      '<button type="button" id="gh-issue-compose" data-i18n="reportComposeButton">Compose</button>',
+      `<button type="button" id="gh-issue-compose" data-i18n="reportComposeButton">${iconSvg('sparkles')}Compose</button>`,
     );
   });
 
