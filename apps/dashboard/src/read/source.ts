@@ -75,6 +75,7 @@ import {
 } from './persisted-events.js';
 import { proposedWisdomKindLabel } from '../flight/fleet-wisdom-mining.js';
 import { isQuotaDeath } from '../flight/model-scoreboard.js';
+import { unpricedFiringsByTask } from './task-economics.js';
 
 const HOT_FILE_LIMIT = 5;
 const TOP_DIR_LIMIT = 5;
@@ -473,6 +474,7 @@ function boardRows(db: Store['db'], projectId: string): ReturnType<typeof recent
 
 export function mapTaskEntries(db: Store['db'], projectId: string): TaskEntry[] {
   const economicsById = new Map(taskEconomics(db, projectId).map((e) => [e.taskId, e]));
+  const unpricedById = unpricedFiringsByTask(db, projectId);
   return boardRows(db, projectId).map((t) => {
     const economics = economicsById.get(t.id);
     return {
@@ -489,6 +491,7 @@ export function mapTaskEntries(db: Store['db'], projectId: string): TaskEntry[] 
       at: t.created_at,
       cumulativeCostUsd: economics?.cumulativeCostUsd ?? 0,
       firingCount: economics?.firingCount ?? 0,
+      unpricedFirings: unpricedById.get(t.id) ?? 0,
       isRunaway: economics?.isRunaway ?? false,
       claimedBy: t.assignee,
     };

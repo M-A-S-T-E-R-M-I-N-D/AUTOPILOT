@@ -121,6 +121,18 @@ describe('TASK ECONOMICS runaway chip', () => {
     expect(chip!.getAttribute('aria-label')).not.toContain('without ever closing');
   });
 
+  // epic 0036: a task flown on Codex or Gemini reports no price — a runaway
+  // by firing count alone must not read as having burned $0.00.
+  it('names unpriced firings on the chip, never $0.00', async () => {
+    boot([task({ isRunaway: true, cumulativeCostUsd: 0, firingCount: 11, unpricedFirings: 11 })]);
+    await vi.advanceTimersByTimeAsync(1);
+
+    const chip = document.querySelector('.chip-runaway');
+    expect(chip!.getAttribute('aria-label')).toBe('Runaway: unpriced across 11 firings');
+    expect(chip!.getAttribute('data-tip')).toContain('cost unpriced, no price was reported');
+    expect(chip!.getAttribute('data-tip')).not.toContain('$0.00');
+  });
+
   it('renders no runaway chip for a task that has not cleared the threshold', async () => {
     boot([task({ isRunaway: false, cumulativeCostUsd: 5, firingCount: 2 })]);
     await vi.advanceTimersByTimeAsync(1);

@@ -19,6 +19,7 @@ import {
   domTaskOrder,
   taskBurnLabel,
   taskRunawayTip,
+  taskRunawayAriaLabel,
   suggestedTurnBudget,
   taskBudgetRiskTip,
   taskDimensionBudgetRiskTip,
@@ -350,6 +351,37 @@ describe('taskRunawayTip', () => {
     expect(taskRunawayTip(3, 1, fmtCost)).toBe(
       'This task has burned $3.00 across 1 firing without ever closing — TASK ECONOMICS flags it for your review.',
     );
+  });
+
+  // epic 0036: a Codex or Gemini firing reports no price — the tip names the
+  // ones the total leaves out, never sums them in as $0.
+  it('names the unpriced firings the total leaves out', () => {
+    expect(taskRunawayTip(55, 14, fmtCost, 2)).toBe(
+      'This task has burned $55.00 across 14 firings (2 unpriced left out, no price was reported) without ever closing — TASK ECONOMICS flags it for your review.',
+    );
+  });
+
+  it('reads the cost unpriced, never $0.00, when no firing on the task was priced', () => {
+    expect(taskRunawayTip(0, 11, fmtCost, 11)).toBe(
+      'This task has burned 11 firings (cost unpriced, no price was reported) without ever closing — TASK ECONOMICS flags it for your review.',
+    );
+  });
+});
+
+describe('taskRunawayAriaLabel', () => {
+  it('names the cost and firings concisely', () => {
+    expect(taskRunawayAriaLabel(87.3, 14, fmtCost)).toBe('Runaway: $87.30 across 14 firings');
+    expect(taskRunawayAriaLabel(3, 1, fmtCost)).toBe('Runaway: $3.00 across 1 firing');
+  });
+
+  it('names the unpriced firings beside the priced total (epic 0036)', () => {
+    expect(taskRunawayAriaLabel(55, 14, fmtCost, 2)).toBe(
+      'Runaway: $55.00 + 2 unpriced across 14 firings',
+    );
+  });
+
+  it('reads "unpriced" alone, never $0.00, when no firing on the task was priced', () => {
+    expect(taskRunawayAriaLabel(0, 11, fmtCost, 11)).toBe('Runaway: unpriced across 11 firings');
   });
 });
 
