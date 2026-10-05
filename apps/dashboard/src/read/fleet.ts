@@ -149,6 +149,11 @@ export interface TaskEntry {
   readonly cumulativeCostUsd: number;
   /** Lifetime count of firings that claimed this task. */
   readonly firingCount: number;
+  /** Those firings whose record carries no price (a Codex or Gemini run,
+   *  epic 0036): counted in {@link firingCount}, summed into
+   *  {@link cumulativeCostUsd} as nothing. Optional: fixtures written before
+   *  the runaway chip named them. */
+  readonly unpricedFirings?: number;
   /** TASK ECONOMICS's operator-review flag: this task has burned real
    *  firings/dollars without ever closing (cost/firing threshold cleared with
    *  no firing ever self-reporting `completion: 'complete'`). */

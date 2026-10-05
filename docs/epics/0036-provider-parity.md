@@ -344,7 +344,13 @@ Codex ones flagged `$66 across 13 firings`, as if all thirteen had been priced. 
 the `family-runaway` event carries `unpriced`, which its console line and the Health panel's chip
 (`familyRunaways`, `read/anomalies.ts`) name beside the spend (`$66 across 13 firings (2 unpriced
 left out)`); an event written before reads as none. The guard trips as before, since unpriced firings
-add nothing to the spend it checks. Since
+add nothing to the spend it checks. Until a later 2026-10-05 commit the Tasks card's TASK ECONOMICS
+runaway chip read them as free too: a task flagged after eleven Codex firings said it had burned
+`$0.00`, and one with a few among its Claude firings gave a total with no word of them.
+`unpricedFiringsByTask` (`read/task-economics.ts`) now counts each task's firings whose record says
+`costUsd: null` (`UNPRICED_FIRING_SQL`) as `TaskEntry.unpricedFirings`, and `taskRunawayTip` and
+`taskRunawayAriaLabel` (`web/task-queue.ts`) name them beside the total (`Runaway: $55.00 + 2
+unpriced across 14 firings`), or read `unpriced` when none was priced. Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the

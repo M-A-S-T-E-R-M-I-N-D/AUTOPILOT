@@ -260,7 +260,12 @@ import { gzipSync } from 'node:zlib';
 // or reads "cost unpriced" -- measured 259225B raw against the old 259072B
 // line, 153 bytes over, the branches folded into one return first. Two KB,
 // for the margin the entries above keep. Gzip (75.2KB) stays under.
-const CORE_RAW_BUDGET = 255 * 1024;
+// Then core raw 255->257KB (2026-10-05), epic 0036's runaway chip over
+// unpriced firings: taskRunawayTip names the firings its total leaves out,
+// and taskRunawayAriaLabel, embedded from web/task-queue.ts, replaces the
+// label shell.ts built inline -- measured 261417B raw against the old
+// 261120B line, 297 bytes over. Two KB, for the margin the entries above keep.
+const CORE_RAW_BUDGET = 257 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
