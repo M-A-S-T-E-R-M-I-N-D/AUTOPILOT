@@ -355,7 +355,12 @@ commit THE PINNED EVAL SUITE took the metrics column's cost too: `verifiedKnownG
 (`packages/store/src/eval-gate.ts`), the pool `scripts/self-study/pin-eval-suite.mjs` freezes into
 the committed, immutable `docs/SELF-STUDY/eval-suite.json`, gave a verified Codex or Gemini ship
 `costUsd: 0`, a cost invented for good. It now reads such a firing's cost as `null`
-(`UNPRICED_FIRING_SQL`). Since
+(`UNPRICED_FIRING_SQL`). Until a later 2026-10-05 commit the project page's METRICS panel still
+summed them in its total cost tile: a project flown on Codex alone read `$0.00`, and a mixed one gave
+a total with no word of them. `unpricedFiringCount` (`read/source.ts`, the count `readRoundInfo`
+reads too) now carries each project's unpriced firings on its card (`ProjectAggregate.unpriced`),
+and `metricsStatItems` (`web/stat-tiles.ts`) names them in the tile's tip and label (`2 unpriced
+left out, no price was reported`), or reads `unpriced` when none was priced. Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the

@@ -390,6 +390,10 @@ export interface ProjectAggregate {
    *  it still type-check; absent, every ship counts as priced. */
   readonly pricedShipped?: number;
   readonly cost: number;
+  /** Every firing, shipped or not, whose run reported no price (epic 0036):
+   *  {@link cost} sums each as the metrics column's 0, so the project page's
+   *  total cost tile names them beside it. Optional like {@link pricedShipped}. */
+  readonly unpriced?: number;
   /** Cost semantics v3 (epic 0013) — this project's summed `realCostUsd` across
    *  its firings (`packages/store/src/read.ts`'s `FiringStats.realCost`); `null`
    *  when not one firing carries the figure, optional so fixtures predating it

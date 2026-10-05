@@ -242,6 +242,29 @@ describe('readFleet', () => {
     expect(view.totals.unpricedShipped).toBe(1);
   });
 
+  it("counts a project's firings, shipped or not, whose record carries no price (epic 0036)", () => {
+    project('p1', 'alpha', 'flying');
+    // A $2.00 Claude ship, a Codex ship and a Codex firing that died.
+    const fired = store.db.prepare(
+      `INSERT INTO metrics (project_id, firing_id, shipped, gate_result, cost_usd, created_at)
+       VALUES ('p1', ?, ?, 'passed', ?, 1)`,
+    );
+    const record = store.db.prepare(
+      `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+       VALUES ('p1', ?, 'firing', ?, 1)`,
+    );
+    fired.run('claude', 1, 2);
+    record.run('claude', JSON.stringify({ firing: 1, costUsd: 2 }));
+    fired.run('codex-ship', 1, 0);
+    record.run('codex-ship', JSON.stringify({ firing: 2, costUsd: null }));
+    fired.run('codex-died', 0, 0);
+    record.run('codex-died', JSON.stringify({ firing: 3, costUsd: null }));
+
+    const card = readFleet(store, 1).projects[0]!;
+    expect(card.cost).toBe(2);
+    expect(card.unpriced).toBe(2);
+  });
+
   it("counts a task's firings whose record carries no price (epic 0036)", () => {
     project('p1', 'alpha', 'flying');
     task('t1', 'p1', 'Epic thing', 'queued');

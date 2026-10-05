@@ -446,6 +446,31 @@ describe('metricsStatItems', () => {
     const items = metricsStatItems({ cost: 0, shipRate: null }, fmtCost, fmtTokens);
     expect(items[2]?.[0]).toBe('—');
   });
+
+  it('names the unpriced firings its total cost leaves out, not summed in as $0 (epic 0036)', () => {
+    // A $2.00 Claude firing beside two Codex firings, whose runs report no price.
+    const items = metricsStatItems(
+      { firings: 3, cost: 2, unpriced: 2, shipRate: 1 },
+      fmtCost,
+      fmtTokens,
+    );
+    expect(items[0]).toEqual([
+      '$2.00',
+      'total cost',
+      'Total spend across every firing for this project; 2 unpriced left out, no price was reported',
+    ]);
+    expect(statTileAriaLabel(items[0]!)).toContain('2 unpriced left out');
+  });
+
+  it('reads unpriced, never $0.00, when no firing reported a price (epic 0036)', () => {
+    const items = metricsStatItems(
+      { firings: 2, cost: 0, unpriced: 2, shipRate: 0.5 },
+      fmtCost,
+      fmtTokens,
+    );
+    expect(items[0]?.[0]).toBe('unpriced');
+    expect(items[0]?.[2]).toContain('2 unpriced left out, no price was reported');
+  });
 });
 
 describe('modelMixItems', () => {
