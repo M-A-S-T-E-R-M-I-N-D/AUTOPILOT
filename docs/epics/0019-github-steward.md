@@ -177,9 +177,28 @@ into a per-project ritual any instance can run on any repo it owns.
   `gh`'s own words (`test/flight/routing-console-execute.test.ts`,
   `test/server/routing-console.test.ts`, `test/server/server.test.ts`). The
   pr-review census flags the new module (`flight/routing-console-execute`).
-  _Still open:_ the panel's control for it — a priority picker on each "No
-  priority yet" issue, behind a confirm, maintainer-only — so the route has
-  no user-facing expression yet.
+  **Steering from the dashboard's side 2026-10-05, the panel half:** the
+  route's user-facing expression. Under the queues, each "No priority yet"
+  issue (the first twelve, as its queue line shows them) gets a priority
+  picker and a Route button (`web/features/routing-console.ts`). The picker
+  offers the console's own priority queues and never a status label, and it
+  opens on "Choose a priority", so nothing is picked by default. Route with
+  no pick sends nothing, says "Choose a priority for #12 first." and moves
+  focus to the picker. Otherwise a `window.confirm()` names the issue and the
+  label, and only a yes POSTs `{issue, label, project?}` (a project page
+  names itself). The panel's status line (`role="status"`) then says
+  "Routed #12 as priority: high." or why nothing was sent. A refusal is
+  named in words (a guest: "only the repository's maintainer routes
+  issues"), and a failed edit carries `gh`'s own words. A route that went
+  through re-reads the console at once, and its line outlives that render.
+  The picker shows on every viewer's page, and the server's role gate is
+  what keeps a guest from routing. A poll's re-render keeps the picks made
+  so far and the focused control. The formatters live in
+  `web/routing-console-panel.ts` (`routingPriorityLabels`,
+  `routingRouteConfirmMessage`, `routingRouteResultText`). Covered by
+  `test/web/routing-console-panel.test.ts` and
+  `test/web/features/routing-console.test.ts`, whose panel is axe-clean with
+  the new controls.
 - **S5 — steward for THEIR project:** the per-project page (any
   onboarded folder) gets the same steward actions against that
   project's own repo (GITHUB 2/5's `sync any project` is the
