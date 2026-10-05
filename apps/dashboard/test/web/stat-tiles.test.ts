@@ -725,6 +725,46 @@ describe('roundStatItems', () => {
       ['75%', 'שיעור שילוח בסבב הזה', 'שיעור שילוח בסבב הזה: 75%'],
     ]);
   });
+
+  // Epic 0036: a Codex or Gemini run reports no price, and the metrics column
+  // stores its cost as 0, so the round's summed spend is the priced firings' alone.
+  const UNPRICED_TIP =
+    'Spend of the priced firings this round. A Codex or Gemini run reports no price, so it is counted, not summed as $0';
+
+  it('names the unpriced firings beside the priced spend, never as $0 (epic 0036)', () => {
+    const items = roundStatItems(
+      { firings: 3, shipped: 3, cost: 2, unpriced: 2, shipRate: 1 },
+      fmtCost,
+      enTr,
+    );
+    expect(items[2]).toEqual([
+      '$2.00 + 2 unpriced',
+      UNPRICED_TIP,
+      'cost this round: $2.00 + 2 unpriced',
+    ]);
+  });
+
+  it('reads unpriced, not $0.00, when no firing this round was priced', () => {
+    const items = roundStatItems(
+      { firings: 2, shipped: 1, cost: 0, unpriced: 2, shipRate: 0.5 },
+      fmtCost,
+      enTr,
+    );
+    expect(items[2]).toEqual(['2 unpriced', UNPRICED_TIP, 'cost this round: 2 unpriced']);
+  });
+
+  it('names the unpriced firings where the Hebrew table puts them', () => {
+    const items = roundStatItems(
+      { firings: 3, shipped: 3, cost: 2, unpriced: 2, shipRate: 1 },
+      fmtCost,
+      translatorFor('he'),
+    );
+    expect(items[2]).toEqual([
+      '$2.00 + 2 ללא מחיר',
+      'הוצאת ההפעלות המתומחרות בסבב הזה. הפעלת Codex או Gemini אינה מדווחת מחיר, ולכן נספרת ולא נסכמת כ-$0',
+      'עלות בסבב הזה: $2.00 + 2 ללא מחיר',
+    ]);
+  });
 });
 
 /**

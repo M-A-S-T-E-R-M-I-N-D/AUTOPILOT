@@ -697,7 +697,9 @@ const PANELS_RAW_BUDGET = 255 * 1024;
 // relocation as the panels raw entry above — measured 78245B.
 // Then project gzip 34→35KB (2026-10-03), epic 0025's Keeper execute
 // buttons — measured 34886B against the old 34816B budget.
-const PROJECT_GZIP_BUDGET = 35 * 1024;
+// Then project gzip 35→36KB (2026-10-05), epic 0036's CURRENT ROUND spend
+// chip over unpriced firings — measured 35922B against the old 35840B budget.
+const PROJECT_GZIP_BUDGET = 36 * 1024;
 const PANELS_GZIP_BUDGET = 78 * 1024;
 // THE LOCALES CHUNK (2026-09-30, board ap-muo35gze-1): /locales.js carries
 // every non-English STRINGS table (features/locale-data.ts), and core loads

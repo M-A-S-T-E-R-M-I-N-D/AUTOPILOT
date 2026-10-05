@@ -331,7 +331,12 @@ flight-log entry's `costUnpriced` onto each summary, and `flightSummaryLineMeta`
 later 2026-10-05 commit the project ask's LIVE STATE did the same in words: its `Last firings` line,
 which the model reads as the freshest telemetry, gave such a firing `$0.00`. `gatherLiveState`
 (`read/project-detail.ts`) now reads the flight-log entry's `costUnpriced` and writes `unpriced (no
-price reported)` there instead. Since
+price reported)` there instead. Until a later 2026-10-05 commit the project page's CURRENT ROUND
+panel summed them in as free too: its spend chip read the metrics column's total, so a $2.00 Claude
+ship beside two Codex firings read `$2.00`, and a round flown on Codex alone read `$0.00`.
+`readRoundInfo` now counts every such firing in the round, shipped or not, in `unpriced`, and
+`roundStatItems` (`web/stat-tiles.ts`) names them beside the priced spend (`$2.00 + 2 unpriced`), or
+alone when none was priced (`2 unpriced`), its tip saying a Codex or Gemini run reports no price. Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
