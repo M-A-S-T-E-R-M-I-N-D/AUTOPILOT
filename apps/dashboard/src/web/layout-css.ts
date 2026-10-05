@@ -1481,6 +1481,8 @@ body > .routing-console-panel { margin-inline: var(--page-inline); }
 /* Each action leads with its icon (epic 0025); Undo and Redo point the way
    the row reads, like the SOUL card's un-ratify chip. */
 .plan-actions button > .icon { margin-inline-end: 0.35em; }
+/* The board toggle leads with the view it offers (epic 0025). */
+.board-view-toggle > .icon { margin-inline-end: 0.35em; }
 [dir='rtl'] .plan-undo > .icon, [dir='rtl'] .plan-redo > .icon { transform: scaleX(-1); }
 .board-columns { display: none; margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .board-column-head { display: flex; justify-content: space-between; gap: var(--space-2); padding-inline: var(--space-2); }
@@ -2598,6 +2600,7 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 .ob-strip-social:hover, .ob-strip-social:focus-visible { background: var(--color-accent); color: var(--color-accent-text); }
 .ob-strip-social[hidden], .ob-strip-social-on[hidden] { display: none; }
 .ob-strip-social-on { color: var(--color-success); font-weight: 600; }
+.ob-strip-social > .icon, .ob-strip-social-on > .icon { margin-inline-end: 0.35em; }
 @media (min-width: 48rem) { .onboarding { padding: var(--space-5) var(--space-6); } }
 .onboarding[hidden] { display: none; }
 .ob-complete { margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--shape-small); background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-raised)); font-size: var(--text-sm); }

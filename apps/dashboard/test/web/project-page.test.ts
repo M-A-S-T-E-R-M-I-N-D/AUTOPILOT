@@ -585,12 +585,12 @@ describe('the board as columns (epic 0021 slice 9)', () => {
     // jsdom has no matchMedia: "auto" reads as a list, so the toggle offers Columns.
     const toggle = document.querySelector('[data-board-view-toggle]') as HTMLButtonElement;
     expect(toggle.textContent).toBe('Columns');
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(toggle.hasAttribute('aria-pressed')).toBe(false);
     toggle.click();
     expect(card.getAttribute('data-board-view')).toBe('columns');
     expect(window.localStorage.getItem('ap-board-view')).toBe('columns');
     expect(toggle.textContent).toBe('List');
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(toggle.hasAttribute('aria-pressed')).toBe(false);
 
     // The next render (a state tick) keeps the remembered view.
     await vi.advanceTimersByTimeAsync(3000);

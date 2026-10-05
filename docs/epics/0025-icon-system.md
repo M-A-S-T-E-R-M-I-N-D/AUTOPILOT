@@ -846,6 +846,31 @@ propagation, and the filled style does not match the nav.
    button's swept words beside the same icon, and a click on the icon still
    presses the panel's button. One `.keeper-queue-act > .icon` rule spaces it
    (`apps/dashboard/test/web/keeper-queue-act-icon.test.ts`, axe-clean).
+   **Board view toggle 2026-10-05 (slice 2):** the Settings menu slice left
+   the task board's Columns/List toggle bare words because it wanted a
+   vendored `list` and core sat about 200 bytes under its raw line; the raw
+   line has room now. The toggle leads with the shape of the view it offers:
+   "Columns" with the `square-kanban` the Board tab and the "Tasks" heading
+   above it draw, columns of cards, and "List" with a newly vendored `list`.
+   The icon is decorative, so the button's name stays its words. A click
+   repaints the label beside the other icon, and the locale sweep keeps a
+   leading icon, so it survives a switch, a Hebrew page and every later tick.
+   One `.board-view-toggle > .icon` rule spaces it
+   (`apps/dashboard/test/web/board-view-toggle-icon.test.ts`, axe-clean).
+   **Getting started strip's social half 2026-10-05 (slice 2):** minimised,
+   the ladder keeps one strip line, and its head leads every control with an
+   icon, but the strip's "Go social: connect GitHub" button and its "GitHub
+   connected — social unlocked" line were bare words. The button leads with
+   the `key-round` the ladder's own Connect GitHub step draws, since it is
+   that step one press away; the line leads with `lock-open`, since it says
+   the social half is unlocked. Nothing is newly vendored. Each icon is
+   decorative, so the button's name stays its words. The ladder's client half
+   draws both once at init with the `obIcon()` its steps' marks use, and
+   `LADDER_ICONS` splices `lock-open` beside their shapes; the locale sweep
+   keeps a leading icon and the strip only toggles `hidden`, so a Hebrew
+   switch and a repaint keep both. One rule spaces both from their words
+   (`apps/dashboard/test/web/onboarding-strip-social-icons.test.ts`,
+   axe-clean with and without GitHub).
 
 ## Related
 

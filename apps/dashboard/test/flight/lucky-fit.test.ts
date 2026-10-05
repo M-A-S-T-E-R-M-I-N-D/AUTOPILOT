@@ -112,6 +112,24 @@ describe('luckyFitLine — one candidate against one operator', () => {
     );
   });
 
+  // A Codex or Gemini run reports no price and the metrics column stores it as
+  // 0 (epic 0036), so averaged in it made a dear issue read cheaper than it is.
+  it('averages history over its priced firings alone and names the unpriced ones left out', () => {
+    const mixed = candidate({ labels: [], history: { firings: 4, usd: 40, unpriced: 2 } });
+    const line = luckyFitLine(mixed, operator({ attention: 'evening', locale: 'en' }));
+    expect(line?.reasoning).toBe(
+      '2 priced prior firing(s) averaged $20.00 (2 unpriced left out) — dear for one evening',
+    );
+    expect(line?.fit).toBe(0.4);
+  });
+
+  it('a history with no priced firing is not read as free and moves no score', () => {
+    const unpriced = candidate({ labels: [], history: { firings: 3, usd: 0, unpriced: 3 } });
+    const line = luckyFitLine(unpriced, operator({ locale: 'en' }));
+    expect(line?.reasoning).toBe('3 prior firing(s), unpriced — no price was reported');
+    expect(line?.fit).toBe(0.5);
+  });
+
   it('a good first issue is one surface — best on an evening; no signal at all says so', () => {
     const line = luckyFitLine(
       candidate({ labels: ['good first issue'], source: 'people' }),

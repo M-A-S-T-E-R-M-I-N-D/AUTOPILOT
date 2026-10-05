@@ -830,6 +830,21 @@ describe('extractInternalDocLinks', () => {
   it('returns an empty array when the doc has no internal links', () => {
     expect(extractInternalDocLinks('# Project\n\nNo links here.')).toEqual([]);
   });
+
+  it('reads a link with a "title" as its path alone', () => {
+    const content = '[guide](docs/guide.md "The guide")';
+    expect(extractInternalDocLinks(content)).toEqual(['docs/guide.md']);
+  });
+
+  it('skips a link written as an example inside code', () => {
+    const content = 'Write `[x](docs/example.md)` like this:\n\n```md\n[y](docs/other.md)\n```\n';
+    expect(extractInternalDocLinks(content)).toEqual([]);
+  });
+
+  it('reads a target the way GitHub serves it: no ?query, escapes decoded', () => {
+    const content = '![shot](docs/shot.png?raw=true) [notes](docs/My%20Notes.md)';
+    expect(extractInternalDocLinks(content)).toEqual(['docs/My Notes.md', 'docs/shot.png']);
+  });
 });
 
 describe('planMirrorPassLinkDrift', () => {
@@ -904,6 +919,32 @@ describe('readMirrorPassLinkDrift', () => {
     writeFileSync(readmePath, '[real doc](docs/real.md)');
 
     expect(readMirrorPassLinkDrift(readmePath, dir)).toBeNull();
+  });
+
+  it('files nothing for working links GitHub renders: a title, a ?query, a code example', () => {
+    const readmePath = join(dir, 'README.md');
+    mkdirSync(join(dir, 'docs'));
+    writeFileSync(join(dir, 'docs', 'real.md'), '# real');
+    writeFileSync(join(dir, 'docs', 'shot.png'), '');
+    writeFileSync(
+      readmePath,
+      '[real doc](docs/real.md "Real") ![shot](docs/shot.png?raw=true) `[x](docs/example.md)`',
+    );
+
+    expect(readMirrorPassLinkDrift(readmePath, dir)).toBeNull();
+  });
+
+  it('resolves a link against the doc folder, not the repo root', () => {
+    mkdirSync(join(dir, 'docs'));
+    const docPath = join(dir, 'docs', 'GUIDE.md');
+    writeFileSync(join(dir, 'CONTRIBUTING.md'), '# contributing');
+    writeFileSync(docPath, '[contributing](../CONTRIBUTING.md) and [ghost](ghost.md)');
+
+    expect(readMirrorPassLinkDrift(docPath, dir)).toEqual({
+      action: 'file-broken-link-issue',
+      source: 'GUIDE.md',
+      brokenLinks: ['docs/ghost.md'],
+    });
   });
 
   it('returns null rather than throwing when the doc is missing', () => {

@@ -32,6 +32,7 @@ import {
   orientLengths,
   taskEconomics,
   SEVERITIES,
+  UNPRICED_FIRING_SQL,
   type Severity,
   type Store,
   type ProjectIndexMetaRow,
@@ -498,6 +499,20 @@ export function mapTaskEntries(db: Store['db'], projectId: string): TaskEntry[] 
   });
 }
 
+/** The firings at/after `sinceAt` whose record says `costUsd: null`
+ *  ({@link UNPRICED_FIRING_SQL}), counted with `firingStats`'s window: its
+ *  `cost` sums each as the metrics column's 0 (epic 0036). */
+export function unpricedFiringCount(db: Store['db'], projectId: string, sinceAt?: number): number {
+  const cutoff = typeof sinceAt === 'number' ? 'AND m.created_at >= @sinceAt' : '';
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM metrics m
+        WHERE m.project_id = @projectId ${cutoff} AND ${UNPRICED_FIRING_SQL}`,
+    )
+    .get({ projectId, sinceAt: sinceAt ?? 0 }) as { n: number };
+  return row.n;
+}
+
 function gather(store: Store, now: number): ProjectAggregate[] {
   const db = store.db;
   return listProjects(db).map((p) => {
@@ -530,6 +545,7 @@ function gather(store: Store, now: number): ProjectAggregate[] {
       shipped: stats.shipped,
       pricedShipped: stats.pricedShipped,
       cost: stats.cost,
+      unpriced: unpricedFiringCount(db, p.id),
       realCost: stats.realCost,
       tokensIn: stats.tokensIn,
       tokensOut: stats.tokensOut,

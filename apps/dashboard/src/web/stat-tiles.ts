@@ -224,6 +224,9 @@ export interface FleetTotalsLike {
   readonly firings: number;
   readonly shipped: number;
   readonly cost: number;
+  /** `FleetTotals.unpriced`: the firings whose run reported no price (epic
+   *  0036), which {@link cost} sums as 0. Optional: hand-built totals have none. */
+  readonly unpriced?: number;
   /** Cost semantics v3 (epic 0013) — fleet-wide summed real subscription-
    *  apportioned spend; `null` when unconfigured or not one firing carries it. */
   readonly realCost?: number | null;
@@ -243,15 +246,27 @@ export interface FleetTotalsLike {
  *  the panel's fixed render order. An eighth "real cost" tile (cost semantics
  *  v3, epic 0013) only appears once `realCost` is non-null — an unconfigured
  *  fleet (the common case today) renders the same seven tiles it always has,
- *  rather than a permanent, mostly-unconfigured "—" chip. */
+ *  rather than a permanent, mostly-unconfigured "—" chip. The cost tile's tip
+ *  names the unpriced firings it leaves out, and it reads `unpriced` when none
+ *  was priced, never $0.00 (epic 0036). */
 export function totalsTileItems(
   t: FleetTotalsLike,
   fmtCost: (n: number) => string,
-  tr?: (key: string) => string,
+  tr?: (key: string, subs?: Readonly<Record<string, string | number>>) => string,
 ): readonly StatTileItem[] {
   // #16 (gabibi555, first slice): with a translator the labels and tips come
   // from STRINGS; without one (pure callers, older tests) the English stays.
   const w = (key: string, english: string): string => (tr ? tr(key) : english);
+  // Inline, as in statTileItems: shell.ts splices this function's own source,
+  // so a helper would not reach the page.
+  const unpriced = t.unpriced || 0;
+  const nonePriced = unpriced > 0 && unpriced >= t.firings;
+  const unpricedTip = !unpriced
+    ? ''
+    : '; ' +
+      (tr
+        ? tr('tileCostUnpricedTip', { n: unpriced })
+        : unpriced + ' unpriced left out, no price was reported');
   const items: StatTileItem[] = [
     [
       String(t.projects),
@@ -273,7 +288,11 @@ export function totalsTileItems(
       w('tileShipped', 'shipped'),
       w('tileShippedTip', 'Firings that passed the gate and committed'),
     ],
-    [fmtCost(t.cost), w('tileCost', 'cost'), w('tileCostTip', 'Total spend across every firing')],
+    [
+      nonePriced ? w('tileCostAllUnpriced', 'unpriced') : fmtCost(t.cost),
+      w('tileCost', 'cost'),
+      w('tileCostTip', 'Total spend across every firing') + unpricedTip,
+    ],
     [
       String(t.openFindings),
       w('tileOpenFindings', 'open findings'),
@@ -541,7 +560,11 @@ export function roundStatItems(
 
 /** The subset of a project card's fields {@link metricsStatItems} reads. */
 export interface MetricsStatsLike {
+  readonly firings?: number;
   readonly cost: number;
+  /** `ProjectCard.unpriced`: the firings whose run reported no price (epic
+   *  0036), which {@link cost} sums as 0. Optional: a hand-built card has none. */
+  readonly unpriced?: number;
   readonly tokensIn?: number | null;
   readonly tokensOut?: number | null;
   readonly shipRate: number | null;
@@ -551,14 +574,24 @@ export interface MetricsStatsLike {
  *  triples (total cost, tokens, ship rate), in the panel's fixed render
  *  order. Takes `fmtCost`/`fmtTokens` via injection rather than importing
  *  them from `./format.ts`, the same `doraTileItems`/`gateParallelTileItems`
- *  pattern. */
+ *  pattern. The total cost tile's tip names the unpriced firings it leaves
+ *  out, and it reads `unpriced` when none was priced, never $0.00 (epic 0036). */
 export function metricsStatItems(
   c: MetricsStatsLike,
   fmtCost: (n: number) => string,
   fmtTokens: (n: number) => string,
 ): readonly StatTileItem[] {
+  // Inline, as in statTileItems: features/metrics.ts splices this function's
+  // own source, so a helper would not reach the page.
+  const unpriced = c.unpriced || 0;
+  const nonePriced = unpriced > 0 && typeof c.firings === 'number' && unpriced >= c.firings;
   return [
-    [fmtCost(c.cost), 'total cost', 'Total spend across every firing for this project'],
+    [
+      nonePriced ? 'unpriced' : fmtCost(c.cost),
+      'total cost',
+      'Total spend across every firing for this project' +
+        (unpriced ? '; ' + unpriced + ' unpriced left out, no price was reported' : ''),
+    ],
     [
       fmtTokens((c.tokensIn || 0) + (c.tokensOut || 0)),
       'tokens',

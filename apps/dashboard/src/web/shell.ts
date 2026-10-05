@@ -2710,9 +2710,18 @@ function boardFlowGroups(tasks) {
 function boardViewToggleLabel(btn, view) {
   var effective = boardViewEffective(view);
   var key = effective === 'columns' ? 'boardViewList' : 'boardViewColumns';
-  btn.textContent = tr(key);
+  // Epic 0025: the label leads with the view it offers, a list or the Board
+  // tab's square-kanban columns; decorative, so the name stays the words.
+  // No aria-pressed (board ap-muvciftc-0): a toggle button's pressed state
+  // is meant to describe a NAME that stays constant while the state flips
+  // underneath it — this button's name IS the state communication, flipping
+  // to the view a click would switch to. Stamping aria-pressed on top paired
+  // "List" (the offer while columns are showing) with pressed="true" and
+  // announced the false "List, pressed" while columns were on screen.
+  btn.textContent = '';
+  btn.appendChild(iconEl(effective === 'columns' ? 'list' : 'square-kanban'));
+  btn.appendChild(document.createTextNode(tr(key)));
   btn.setAttribute('data-i18n', key);
-  btn.setAttribute('aria-pressed', String(effective === 'columns'));
 }
 // Keyboard legend under the column heads (epic 0026 "the tasks screen",
 // board web-mtywp82m-zodn7z): the j/k cursor and the a/d row actions wired

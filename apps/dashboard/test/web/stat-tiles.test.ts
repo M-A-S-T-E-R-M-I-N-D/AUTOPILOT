@@ -271,6 +271,26 @@ describe('totalsTileItems', () => {
       'Total spend apportioned by real subscription share instead of API list price (cost semantics v3)',
     ]);
   });
+
+  // Epic 0036: a Codex or Gemini run reports no price, and the metrics column
+  // stores its cost as 0, so the fleet's summed cost is the priced firings' alone.
+  it('names the unpriced firings the cost tile leaves out, never summed in as $0', () => {
+    const items = totalsTileItems({ ...TOTALS, unpriced: 2 }, fmtCost);
+    expect(items[4]).toEqual([
+      '$12.50',
+      'cost',
+      'Total spend across every firing; 2 unpriced left out, no price was reported',
+    ]);
+  });
+
+  it('reads unpriced, not $0.00, when no firing in the fleet was priced', () => {
+    const items = totalsTileItems({ ...TOTALS, firings: 3, cost: 0, unpriced: 3 }, fmtCost);
+    expect(items[4]).toEqual([
+      'unpriced',
+      'cost',
+      'Total spend across every firing; 3 unpriced left out, no price was reported',
+    ]);
+  });
 });
 
 describe('statTileItems', () => {
@@ -445,6 +465,31 @@ describe('metricsStatItems', () => {
   it('falls back to an em dash instead of a fake 0% when ship rate has no data yet', () => {
     const items = metricsStatItems({ cost: 0, shipRate: null }, fmtCost, fmtTokens);
     expect(items[2]?.[0]).toBe('—');
+  });
+
+  it('names the unpriced firings its total cost leaves out, not summed in as $0 (epic 0036)', () => {
+    // A $2.00 Claude firing beside two Codex firings, whose runs report no price.
+    const items = metricsStatItems(
+      { firings: 3, cost: 2, unpriced: 2, shipRate: 1 },
+      fmtCost,
+      fmtTokens,
+    );
+    expect(items[0]).toEqual([
+      '$2.00',
+      'total cost',
+      'Total spend across every firing for this project; 2 unpriced left out, no price was reported',
+    ]);
+    expect(statTileAriaLabel(items[0]!)).toContain('2 unpriced left out');
+  });
+
+  it('reads unpriced, never $0.00, when no firing reported a price (epic 0036)', () => {
+    const items = metricsStatItems(
+      { firings: 2, cost: 0, unpriced: 2, shipRate: 0.5 },
+      fmtCost,
+      fmtTokens,
+    );
+    expect(items[0]?.[0]).toBe('unpriced');
+    expect(items[0]?.[2]).toContain('2 unpriced left out, no price was reported');
   });
 });
 
@@ -816,9 +861,32 @@ describe('the tiles translate (#16, first slice)', () => {
     ]);
   });
 
+  it('names the unpriced firings where the Hebrew table puts them (epic 0036)', () => {
+    const heSubs = translatorFor('he') as (
+      key: string,
+      subs?: Readonly<Record<string, string | number>>,
+    ) => string;
+    const some = totalsTileItems({ ...TOTALS, unpriced: 2 }, fmtCost, heSubs);
+    expect(some[4]).toEqual([
+      '$12.50',
+      STRINGS.he.tileCost,
+      STRINGS.he.tileCostTip + '; ' + STRINGS.he.tileCostUnpricedTip.replace('{n}', '2'),
+    ]);
+    const none = totalsTileItems({ ...TOTALS, firings: 2, cost: 0, unpriced: 2 }, fmtCost, heSubs);
+    expect(none[4]?.[0]).toBe(STRINGS.he.tileCostAllUnpriced);
+  });
+
   it('the English keys are byte-identical to the literals the pure callers still get', () => {
     const en = (key: string): string => (STRINGS.en as Record<string, string>)[key] ?? key;
     expect(totalsTileItems(TOTALS, fmtCost, en)).toEqual(totalsTileItems(TOTALS, fmtCost));
+    const enSubs = translatorFor('en') as (
+      key: string,
+      subs?: Readonly<Record<string, string | number>>,
+    ) => string;
+    for (const unpriced of [{ unpriced: 2 }, { firings: 2, cost: 0, unpriced: 2 }])
+      expect(totalsTileItems({ ...TOTALS, ...unpriced }, fmtCost, enSubs)).toEqual(
+        totalsTileItems({ ...TOTALS, ...unpriced }, fmtCost),
+      );
     expect(
       cardStatItems({ firings: 20, shipped: 15, shipRate: 0.75, recentShipRate: 0.4 }, en),
     ).toEqual(cardStatItems({ firings: 20, shipped: 15, shipRate: 0.75, recentShipRate: 0.4 }));

@@ -390,6 +390,11 @@ export interface ProjectAggregate {
    *  it still type-check; absent, every ship counts as priced. */
   readonly pricedShipped?: number;
   readonly cost: number;
+  /** Every firing, shipped or not, whose run reported no price (epic 0036):
+   *  {@link cost} sums each as the metrics column's 0, so the project page's
+   *  total cost tile, and the fleet header's, name them beside it. Optional
+   *  like {@link pricedShipped}. */
+  readonly unpriced?: number;
   /** Cost semantics v3 (epic 0013) — this project's summed `realCostUsd` across
    *  its firings (`packages/store/src/read.ts`'s `FiringStats.realCost`); `null`
    *  when not one firing carries the figure, optional so fixtures predating it
@@ -587,6 +592,11 @@ export interface FleetTotals {
   readonly shipped: number;
   readonly openFindings: number;
   readonly cost: number;
+  /** Every project's {@link ProjectAggregate.unpriced} summed: the firings
+   *  whose run reported no price, which {@link cost} sums as the metrics
+   *  column's 0, so the fleet header's cost tile names them (epic 0036).
+   *  Optional so fixtures predating it still type-check. */
+  readonly unpriced?: number;
   /** Cost semantics v3 (epic 0013) — sum of every project's {@link ProjectAggregate.realCost},
    *  ignoring projects that report `null`; `null` (never `0`) when NOT ONE project
    *  fleet-wide carries a real-cost figure, so an unconfigured fleet reads as "no
@@ -754,6 +764,7 @@ export function buildFleetView(now: number, projects: readonly ProjectAggregate[
     shipped,
     openFindings: cards.reduce((sum, c) => sum + c.openFindings, 0),
     cost,
+    unpriced: cards.reduce((sum, c) => sum + (c.unpriced ?? 0), 0),
     realCost,
     costPerShipped: pricedShipped > 0 ? cost / pricedShipped : null,
     unpricedShipped: shipped - pricedShipped,

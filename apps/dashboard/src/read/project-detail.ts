@@ -24,7 +24,6 @@ import {
   queuedTaskCount,
   latestSocialDebriefEvent,
   SqliteSearchStore,
-  UNPRICED_FIRING_SQL,
   type Store,
   type SearchHit,
 } from '@autopilot/store';
@@ -59,6 +58,7 @@ import {
   parseLanguages,
   parseTopDirs,
   parseHotFiles,
+  unpricedFiringCount,
 } from './source.js';
 
 export interface FiringsPage {
@@ -336,19 +336,6 @@ export interface RoundInfo {
   readonly unpriced?: number;
 }
 
-/** The firings at/after `sinceAt` whose record says `costUsd: null`
- *  ({@link UNPRICED_FIRING_SQL}), counted with `firingStats`'s window. */
-function unpricedFiringCount(store: Store, projectId: string, sinceAt?: number): number {
-  const cutoff = typeof sinceAt === 'number' ? 'AND m.created_at >= @sinceAt' : '';
-  const row = store.db
-    .prepare(
-      `SELECT COUNT(*) AS n FROM metrics m
-        WHERE m.project_id = @projectId ${cutoff} AND ${UNPRICED_FIRING_SQL}`,
-    )
-    .get({ projectId, sinceAt: sinceAt ?? 0 }) as { n: number };
-  return row.n;
-}
-
 /**
  * Gather the CURRENT ROUND totals for one project. Deliberately NOT part of
  * `readFleet`/`gather` for the same reason as {@link readLandingInfo}: it
@@ -376,7 +363,7 @@ export async function readRoundInfo(dbPath: string, projectId: string): Promise<
       // Priced ships alone: an unpriced (Codex, Gemini) ship's 0 is no price (epic 0036).
       costPerShipped: stats.pricedShipped > 0 ? stats.cost / stats.pricedShipped : null,
       unpricedShipped: stats.shipped - stats.pricedShipped,
-      unpriced: unpricedFiringCount(store, projectId, tag?.at),
+      unpriced: unpricedFiringCount(store.db, projectId, tag?.at),
     };
   } catch {
     return null;
