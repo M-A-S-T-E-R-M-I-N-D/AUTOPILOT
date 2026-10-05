@@ -365,6 +365,21 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    planned for each naming `feature_request.yml` and its two sections, and
    four near misses still on the bug template (written first, 10 of 15
    checks failed against the lowercase match).
+   Refined 2026-10-05 (board web-mtsylqbd-q2rg8k, epic 0019's additive-only
+   law, the templates flow × report-from-here): the gate picked the form by
+   asking the feature form first, so one heading matching `problem` or
+   `propos` made a body a feature request. A bug report carrying every
+   section `bug_report.yml` asks for plus a "Proposed fix" was labeled
+   `status: needs-format` and publicly asked for "Problem / motivation". The
+   fleet's own reports hit it too: report-from-here grafts the bug sections
+   onto a description the gate refuses, and a composed description that
+   opened with "### Problem / motivation" was still refused after the graft,
+   so the report went upstream already failing. `issueTemplateGaps` now
+   passes a body that carries every section of either form. Narrowing only:
+   a body that completes neither form is held to the same form, with the
+   same missing sections, as before. Covered by
+   `test/flight/issue-triage-either-template.test.ts` (written first, 6 of
+   its 10 checks failed).
    Refined 2026-10-04 (519e5d9d, epic 0019 law 2, the twin of the
    area:/priority: casing fix above): `handSetFamilyLabel` promises that a
    label outside the house set — a typo, or a family this classifier does
