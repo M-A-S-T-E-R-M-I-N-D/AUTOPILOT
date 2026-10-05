@@ -211,19 +211,46 @@ export function taskBurnLabel(
 /** The TASK ECONOMICS runaway chip's tooltip sentence for a task
  *  (`t.isRunaway`) that has burned cost across many firings without ever
  *  closing. `fmtCost` is caller-injected, same reason as {@link
- *  taskBurnLabel}. */
+ *  taskBurnLabel}. `unpriced` firings (a Codex or Gemini run, epic 0036) are
+ *  named as left out of the total, and a task none of whose firings was
+ *  priced reads its cost unpriced, never `$0.00`. */
 export function taskRunawayTip(
   cumulativeCostUsd: number,
   firingCount: number,
   fmtCost: (n: number) => string,
+  unpriced?: number,
 ): string {
+  const left = unpriced || 0;
+  const firings = firingCount + (firingCount === 1 ? ' firing' : ' firings');
+  let burned = fmtCost(cumulativeCostUsd) + ' across ' + firings;
+  if (left > 0 && left >= firingCount) {
+    burned = firings + ' (cost unpriced, no price was reported)';
+  } else if (left > 0) {
+    burned += ' (' + left + ' unpriced left out, no price was reported)';
+  }
   return (
     'This task has burned ' +
-    fmtCost(cumulativeCostUsd) +
-    ' across ' +
-    firingCount +
-    (firingCount === 1 ? ' firing' : ' firings') +
+    burned +
     ' without ever closing — TASK ECONOMICS flags it for your review.'
+  );
+}
+
+/** The runaway chip's aria-label: the cost and firing facts its tip gives,
+ *  without the sentence (D1 ATTRIBUTE PAYLOAD, epic 0015). Unpriced firings
+ *  are named beside the priced total (`$2.00 + 2 unpriced`), as
+ *  {@link taskBurnLabel}'s chip names them, or alone as `unpriced`. */
+export function taskRunawayAriaLabel(
+  cumulativeCostUsd: number,
+  firingCount: number,
+  fmtCost: (n: number) => string,
+  unpriced?: number,
+): string {
+  const left = unpriced || 0;
+  let cost = fmtCost(cumulativeCostUsd);
+  if (left > 0 && left >= firingCount) cost = 'unpriced';
+  else if (left > 0) cost += ' + ' + left + ' unpriced';
+  return (
+    'Runaway: ' + cost + ' across ' + firingCount + (firingCount === 1 ? ' firing' : ' firings')
   );
 }
 

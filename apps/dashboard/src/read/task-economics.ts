@@ -2,7 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { existsSync } from 'node:fs';
-import { openStore, taskEconomics, type Store } from '@autopilot/store';
+import { openStore, taskEconomics, UNPRICED_FIRING_SQL, type Store } from '@autopilot/store';
+
+/**
+ * How many firings on each task carry no price (epic 0036): a Codex or Gemini
+ * run, or one killed before its envelope, whose record says `costUsd: null`
+ * while the metrics column stores 0 ({@link UNPRICED_FIRING_SQL}). `taskEconomics`
+ * sums that 0 into `cumulativeCostUsd`, so the runaway chip names these beside
+ * the total instead of reading them as free. A task with none is absent.
+ */
+export function unpricedFiringsByTask(db: Store['db'], projectId: string): Map<string, number> {
+  const rows = db
+    .prepare(
+      `SELECT m.item AS taskId, COUNT(*) AS n
+         FROM metrics m
+        WHERE m.project_id = ? AND m.item IS NOT NULL AND ${UNPRICED_FIRING_SQL}
+        GROUP BY m.item`,
+    )
+    .all(projectId) as { taskId: string; n: number }[];
+  return new Map(rows.map((r) => [r.taskId, r.n]));
+}
 
 export interface TaskCostHistory {
   readonly firings: number;

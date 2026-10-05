@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-10-05 | [Processing `ap-muv2rhjx-0` and `docfresh-docs-model-card-md-1791193730000`: `docs/MODEL-CARD.md` §6 really is one version behind, but a parked lane's unlanded head blocks the edit this firing](2026-10-05-verdict-ap-muv2rhjx-0-model-card-v18-blocked-by-fleet7.md) |
 | 2026-10-04 | [VERDICT blocked `ap-muszt3qy-0`: the hook that blocks `eslint.config.js` is the operator's own Claude Code hook, outside every flight's containment — the allowlist/override is an operator decision, not a repo change](2026-10-04-verdict-ap-muszt3qy-0-config-protection-hook-operator-owned.md) |
 | 2026-10-04 | [Re-verifying `ap-musvu2gp-1`: `dossier-posted` is still 404 live, but `--labels-only` (`082ca978`) now lets the operator create it without the unwanted starter milestones](2026-10-04-verdict-ap-musvu2gp-1-labels-only-resolves-milestone-concern.md) |
 | 2026-10-04 | [Closing GitHub `#5`: the static-site sample it asks for shipped 2026-09-07, fifteen days before the issue was ever opened to the fleet](2026-10-04-closing-github-5-static-site-sample-already-shipped.md) |

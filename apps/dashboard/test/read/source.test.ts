@@ -242,6 +242,37 @@ describe('readFleet', () => {
     expect(view.totals.unpricedShipped).toBe(1);
   });
 
+  it("counts a task's firings whose record carries no price (epic 0036)", () => {
+    project('p1', 'alpha', 'flying');
+    task('t1', 'p1', 'Epic thing', 'queued');
+    task('t2', 'p1', 'Claude only', 'queued');
+    // A $2.00 Claude firing and two Codex ones on t1; t2 was flown on Claude.
+    const worked = store.db.prepare(
+      `INSERT INTO metrics (project_id, firing_id, item, shipped, gate_result, cost_usd, created_at)
+       VALUES ('p1', ?, ?, 0, 'none', ?, 1)`,
+    );
+    const record = store.db.prepare(
+      `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+       VALUES ('p1', ?, 'firing', ?, 1)`,
+    );
+    worked.run('claude', 't1', 2);
+    record.run('claude', JSON.stringify({ firing: 1, costUsd: 2 }));
+    worked.run('codex-1', 't1', 0);
+    record.run('codex-1', JSON.stringify({ firing: 2, costUsd: null }));
+    worked.run('codex-2', 't1', 0);
+    record.run('codex-2', JSON.stringify({ firing: 3, costUsd: null }));
+    worked.run('claude-2', 't2', 1);
+
+    const tasks = readFleet(store, 1).projects[0]!.tasks;
+    const byId = new Map(tasks.map((t) => [t.id, t]));
+    expect(byId.get('t1')).toMatchObject({
+      cumulativeCostUsd: 2,
+      firingCount: 3,
+      unpricedFirings: 2,
+    });
+    expect(byId.get('t2')).toMatchObject({ firingCount: 1, unpricedFirings: 0 });
+  });
+
   it('shows only live alarms: a red a landing cured, or a denial days old, stays off the panel (2026-09-29)', () => {
     project('p1', 'alpha', 'flying');
     const HOUR = 60 * 60 * 1000;

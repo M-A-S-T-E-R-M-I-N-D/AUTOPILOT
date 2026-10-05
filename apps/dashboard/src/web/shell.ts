@@ -92,6 +92,7 @@ import {
   domTaskOrder as sharedDomTaskOrder,
   taskBurnLabel as sharedTaskBurnLabel,
   taskRunawayTip as sharedTaskRunawayTip,
+  taskRunawayAriaLabel as sharedTaskRunawayAriaLabel,
   suggestedTurnBudget as sharedSuggestedTurnBudget,
   taskBudgetRiskTip as sharedTaskBudgetRiskTip,
   taskDimensionBudgetRiskTip as sharedTaskDimensionBudgetRiskTip,
@@ -2630,11 +2631,13 @@ ${sharedTaskDisplayProperties.toString()}
 ${sharedParseTaskDisplay.toString()}
 ${sharedTaskDisplaySearch.toString()}
 ${sharedTaskDisplayShows.toString()}
-// taskBurnLabel/taskRunawayTip are generated FROM web/task-queue.ts below
-// (epic 0002 "shell decomposition", slice 2) — their real compiled source
-// via .toString(), not a hand-retyped copy. It can no longer drift apart.
+// taskBurnLabel/taskRunawayTip/taskRunawayAriaLabel are generated FROM
+// web/task-queue.ts below (epic 0002 "shell decomposition", slice 2) — their
+// real compiled source via .toString(), not a hand-retyped copy. It can no
+// longer drift apart.
 ${sharedTaskBurnLabel.toString()}
 ${sharedTaskRunawayTip.toString()}
+${sharedTaskRunawayAriaLabel.toString()}
 // suggestedTurnBudget/taskBudgetRiskTip/DEFAULT_FIRING_TURNS are generated
 // FROM web/task-queue.ts below (ADAPTIVE TASK BUDGET, board
 // web-msnt26wf-wnv3w7) — their real compiled source via .toString(), not a
@@ -3351,13 +3354,13 @@ function tasksSection(c) {
         li.appendChild(tipChip(burnLabel.text, burnLabel.tip, 'Burn: ' + burnLabel.text, 'chip-burn', 'flame'));
       }
       if (t.isRunaway) {
-        var runawayTip = taskRunawayTip(t.cumulativeCostUsd, t.firingCount, fmtCost);
-        var runawayAriaLabel =
-          'Runaway: ' +
-          fmtCost(t.cumulativeCostUsd) +
-          ' across ' +
-          t.firingCount +
-          (t.firingCount === 1 ? ' firing' : ' firings');
+        var runawayTip = taskRunawayTip(t.cumulativeCostUsd, t.firingCount, fmtCost, t.unpricedFirings);
+        var runawayAriaLabel = taskRunawayAriaLabel(
+          t.cumulativeCostUsd,
+          t.firingCount,
+          fmtCost,
+          t.unpricedFirings,
+        );
         li.appendChild(tipChip('runaway', runawayTip, runawayAriaLabel, 'chip-runaway', 'triangle-alert'));
       }
       // ADAPTIVE TASK BUDGET (board web-msnt26wf-wnv3w7): a task that has
@@ -5762,9 +5765,9 @@ ${versionMenuHtml()}
             <div class="gh-group">
             <p class="connect-status" id="gh-status" role="status" aria-live="polite" data-i18n="ghChecking">checking GitHub…</p>
             <div class="connect-actions gh-auth" id="gh-auth" hidden>
-              <button type="button" class="connect-login" id="gh-login" data-i18n="ghLogin">Log in with GitHub</button>
-              <button type="button" class="connect-test" id="gh-switch" data-i18n="ghSwitch" hidden>Switch account</button>
-              <button type="button" class="connect-test" id="gh-logout" data-i18n="ghLogout" hidden>Log out</button>
+              <button type="button" class="connect-login" id="gh-login" data-i18n="ghLogin">${iconSvg('square-terminal')}Log in with GitHub</button>
+              <button type="button" class="connect-test" id="gh-switch" data-i18n="ghSwitch" hidden>${iconSvg('users')}Switch account</button>
+              <button type="button" class="connect-test" id="gh-logout" data-i18n="ghLogout" hidden>${iconSvg('lock')}Log out</button>
             </div>
             <p class="connect-hint" id="gh-hint"></p>
             </div>

@@ -60,6 +60,15 @@ export function validateGateSpec(input: unknown): PlanValidation {
       : 'unknown';
   if (ecosystem.length > MAX_ECOSYSTEM_CHARS) return { ok: false, error: 'ecosystem is too long' };
   const out: Record<string, unknown> = { ecosystem };
+  // `install` runs first in every gate (`gate-commands.ts`) and the editor
+  // never draws it, so a publish carries it through from the stored spec.
+  // Dropping it here would make the next landing judge a tree its
+  // node_modules do not match. It syncs and judges nothing, so it is not a step.
+  if (raw['install'] !== undefined && raw['install'] !== null) {
+    const install = commandOf(raw['install'], 'install');
+    if (typeof install === 'string') return { ok: false, error: install };
+    out['install'] = install;
+  }
   let steps = 0;
   for (const kind of PLAN_KINDS) {
     const value = raw[kind];

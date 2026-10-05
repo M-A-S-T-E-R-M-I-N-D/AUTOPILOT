@@ -521,7 +521,12 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    and the near-universal auto-merge-ecosystem practice (mergify, GitHub's
    merge queue, bulldozer), matched at hyphen-token boundaries so `threshold`
    never trips `hold`; it leads the merge tier but stays below the gate, so a
-   held PR with a red gate still gets the honest "the gate failed" feedback),
+   held PR with a red gate still gets the honest "the gate failed" feedback;
+   `HOLD_LABEL_MARKERS` has since gained `awaiting-human` and `declined`, the
+   house taxonomy's own maintainer marks that issue triage already holds on
+   (epic 0019 law 2), so `status: awaiting-human` or `declined` on a
+   policy-green PR now stops its merge too, not only a triage verdict;
+   added in `c44fe7f8`),
    the canonical-base guard (`prTargetsCanonicalBase`/`CANONICAL_BASE_BRANCH`:
    epic 0007's first governance invariant is "one canonical main", so a
    policy-green PR merging into any branch but `main` queues for a human — a
@@ -1075,6 +1080,20 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    flagged for; a PR that fell back to an unguarded engine, or let an unknown
    `AUTOPILOT_ENGINE` fly instead of refusing, would change what runs in the
    target with no security keyword in its path; added in `c2d73137`),
+   the routing-console security marker (`flight/routing-console-execute` added
+   to `SECURITY_SENSITIVE_PATH_MARKERS` — epic 0019 S4's console write decides
+   AND runs a `gh issue edit --add-label` that routes an open, unprioritized
+   issue with one house priority label, gated on the maintainer role and a
+   fresh read of the issue, the same decide-and-execute class
+   `flight/mirror-pass` above is flagged for; its read half,
+   `flight/routing-console.ts`, stays on the census's benign list, so the
+   to `SECURITY_SENSITIVE_PATH_MARKERS` — the routing console's one write
+   (epic 0019 S4, steering from the dashboard's side): decides AND runs a `gh
+   issue edit --add-label` that routes an unprioritized issue, gated on the
+   maintainer role and a fresh read of the issue, the same decide-and-execute
+   class `flight/mirror-pass` above is flagged for; its read half,
+   `flight/routing-console.ts`, stays in the census's benign list, so this
+   anchor carries the `-execute` suffix; added in `bd3d01ee`),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do — the deleted-test
    guard above is a header-level fact, not a reading of the change), and

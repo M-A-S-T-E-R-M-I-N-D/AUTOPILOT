@@ -385,7 +385,11 @@ import {
 // unpriced firings: queueForecastMeta averages cost over the priced firings
 // alone and names the ones it left out — measured 259225B raw against the
 // old 259072B line, 153 bytes over; two KB for the same margin.
-const CORE_RAW_BUDGET = 255 * 1024;
+// Then core raw 255→257KB (2026-10-05), epic 0036's runaway chip over
+// unpriced firings: taskRunawayTip names the firings its total leaves out and
+// taskRunawayAriaLabel replaces shell.ts's inline label — measured 261417B
+// raw against the old 261120B line, 297 bytes over; two KB for the same margin.
+const CORE_RAW_BUDGET = 257 * 1024;
 // Then core gzip 57→58KB (2026-09-12) for EPIC 0021 slice 9 (the board as columns) — measured 57.5KB gzip.
 // Then core gzip 58→59KB (2026-09-12), the same #44 shortlist — measured 58.6KB gzip.
 // Then core gzip 59→60KB (2026-09-12), the same flicker fix — measured 59.3KB gzip.
