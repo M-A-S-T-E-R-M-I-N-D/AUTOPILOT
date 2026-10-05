@@ -45,12 +45,19 @@ export interface LoopDeps {
    * has (the board, task economics), and the loop applies it below instead
    * of the flight-wide `config.primaryModel` for just this one firing.
    * Omitted (or equal to `config.primaryModel`) is a no-op — every existing
-   * caller is unaffected.
+   * caller is unaffected. `effort` works the same way for the CLI's
+   * `--effort`, so one routing arm can fly a model below the flight's level.
    */
   readonly buildPrompt: (
     firing: number,
     retro: boolean,
-  ) => Promise<{ text: string; version: string; primaryModel?: string; maxBudgetUsd?: number }>;
+  ) => Promise<{
+    text: string;
+    version: string;
+    primaryModel?: string;
+    maxBudgetUsd?: number;
+    effort?: string;
+  }>;
   /** STOP-aware sleep (chunked so a long hibernate still honors STOP quickly). */
   readonly sleep: (minutes: number) => Promise<void>;
   /**
@@ -206,8 +213,13 @@ export async function runLoop(
       prompt.maxBudgetUsd !== undefined && prompt.maxBudgetUsd !== config.maxBudgetUsd
         ? prompt.maxBudgetUsd
         : undefined;
+    // EFFORT PER TIER (web-muutby8r-h4p0dw): a routing arm may also fly this
+    // one firing at another `--effort`; it composes with the other two.
+    const routedEffort =
+      // Stryker disable next-line ConditionalExpression
+      prompt.effort !== undefined && prompt.effort !== config.effort ? prompt.effort : undefined;
     const firingConfig: EngineConfig =
-      routedModel !== undefined || routedBudget !== undefined
+      routedModel !== undefined || routedBudget !== undefined || routedEffort !== undefined
         ? {
             ...config,
             ...(routedModel !== undefined
@@ -217,6 +229,7 @@ export async function runLoop(
                 }
               : {}),
             ...(routedBudget !== undefined ? { maxBudgetUsd: routedBudget } : {}),
+            ...(routedEffort !== undefined ? { effort: routedEffort } : {}),
           }
         : config;
 

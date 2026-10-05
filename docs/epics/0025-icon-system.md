@@ -712,6 +712,33 @@ propagation, and the filled style does not match the nav.
    words beside the same icons
    (`apps/dashboard/test/web/browse-dialog-action-icons.test.ts`, axe-clean).
    The listing's ".. (up)" row stays path notation, named by its aria-label.
+   **Tour Skip and hand-over 2026-10-05 (slice 2):** the guided tour heads
+   every stop with `compass` and steps with chevron-led Back and Next, but
+   the button that puts it away ("Skip tour" mid-way, "Close" on the last
+   stop) and the last stop's "Start the checklist" hand-over were bare words.
+   Skip tour and Close lead with the `x` the What's new Close and the replay's
+   Exit draw, since each puts the tour away and changes nothing. The hand-over
+   stands where Next stands on every other stop and carries the reader on into
+   the checklist, so it trails Next's `chevron-right`, spaced and mirrored
+   under `dir="rtl"` by the same `.tour-nav` rules. Nothing is newly vendored,
+   and `tour.ts` rides `/panels.js`, so core does not grow. Each icon is
+   decorative, so a button's name stays its words, and `paintTour()` rebuilds
+   both with `tr()` on every stop, so a Hebrew page paints its words beside
+   the same icons (`apps/dashboard/test/web/tour-skip-handover-icons.test.ts`,
+   axe-clean). **Ritual scrim's Minimize and Close 2026-10-05 (slice 2):**
+   the busy scrim leads each gate step with the PR check strip's circle
+   family, but its one button, "Minimize" while the write runs and "Close"
+   once it settles, was bare words. Minimize leads with the `minimize` the
+   Exit focus pill draws, the same four corners pulled in, since it folds the
+   scrim down to its corner pill; Close leads with the `x` the What's new
+   Close and the tour's Skip draw, since it puts the settled scrim away.
+   Nothing is newly vendored. The words used to replace the button's whole
+   `textContent`; they sit in their own span now, and the paint swaps the
+   icon with them, so the button never draws both or neither, and the next
+   ritual on the same scrim brings `minimize` back. The icon is decorative,
+   so the button's name stays its words, in Hebrew too; `busy.ts` rides core,
+   which grows for it inside its raw line
+   (`apps/dashboard/test/web/ritual-action-icons.test.ts`, axe-clean).
 
 ## Related
 

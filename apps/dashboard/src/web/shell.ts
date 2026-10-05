@@ -341,7 +341,7 @@ function flightGroupRow(c, entry, taskById) {
   // button below is the disclosure control — same shape as flightLogNode's
   // flat row head, which explains why.
   var head = el('div', 'flight-head');
-  var headMeta = flightGroupHeadMeta(verdict, rows.length, taskTitle, totalCost, headline, newest.at, fmtCost, fmtAgo);
+  var headMeta = flightGroupHeadMeta(verdict, rows.length, taskTitle, totalCost, headline, newest.at, fmtCost, fmtAgo, summary.unpriced);
   var dotEl = el('span', 'flight-dot flight-' + verdict.split(' ')[0], '');
   // role="img": an empty span may not carry an aria-label as a generic
   // element — inside the old row <button> it was presentational and axe
@@ -362,7 +362,7 @@ function flightGroupRow(c, entry, taskById) {
   itemEl.setAttribute('data-tip', headMeta.itemTip);
   itemEl.setAttribute('aria-label', headMeta.itemAriaLabel);
   head.appendChild(itemEl);
-  var costEl = el('span', 'flight-cost muted', fmtCost(totalCost));
+  var costEl = el('span', 'flight-cost muted', headMeta.costText);
   costEl.setAttribute('tabindex', '0');
   costEl.setAttribute('data-tip', headMeta.costTip);
   // i18n (board web-msnsndki-dz3vn1): the cost tip wraps the live slice count
@@ -2948,7 +2948,9 @@ function boardChipFieldset(cls, legendKey, attr, key, values, checked, wordKeys,
 // newest first — how each ended, the slice or complete it reported, its
 // commit and its cost — and how many older ones it leaves to the flight log.
 // Every line rides the translateDom() sweep: counts as data-i18n-template
-// with their args, words as data-i18n.
+// with their args, words as data-i18n. An unpriced firing (a Codex or Gemini
+// run, epic 0036) reads "unpriced", and the head names such firings beside
+// the priced total, as the TASK BURN chip does, never as $0.00.
 var TASK_HISTORY_MAX = 5;
 function taskHistoryText(tag, cls, key, args) {
   var node = el(tag, cls, tr(key, args));
@@ -2968,7 +2970,9 @@ function taskHistorySection(t, log) {
     return box;
   }
   var totalKey = history.firings === 1 ? 'taskHistoryOne' : 'taskHistoryMany';
-  box.appendChild(taskHistoryText('p', 'task-detail-meta', totalKey, { n: history.firings, cost: fmtCost(history.cost) }));
+  var totalCost = history.unpriced >= history.firings ? 'unpriced'
+    : fmtCost(history.cost) + (history.unpriced > 0 ? ' + ' + history.unpriced + ' unpriced' : '');
+  box.appendChild(taskHistoryText('p', 'task-detail-meta', totalKey, { n: history.firings, cost: totalCost }));
   if (history.lines.length) {
     var list = el('ol', 'task-history');
     list.setAttribute('aria-label', tr('taskHistoryList'));
@@ -2982,7 +2986,8 @@ function taskHistorySection(t, log) {
         item.appendChild(taskHistoryText('span', 'task-history-completion', completionKey));
       }
       if (line.subject) item.appendChild(el('span', 'task-history-subject', line.subject));
-      var lineMeta = el('span', 'task-history-meta muted', fmtCost(line.cost) + ' · ' + fmtAgo(line.at));
+      var lineCost = line.cost === null ? 'unpriced' : fmtCost(line.cost);
+      var lineMeta = el('span', 'task-history-meta muted', lineCost + ' · ' + fmtAgo(line.at));
       if (line.sha) {
         lineMeta.appendChild(document.createTextNode(' · '));
         lineMeta.appendChild(el('code', null, line.sha));

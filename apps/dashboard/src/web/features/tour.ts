@@ -243,9 +243,13 @@ function paintTour() {
   }
   dialog.appendChild(dots);
   var actions = el('div', 'tour-actions');
+  // Epic 0025: Skip tour and Close lead with the decorative x the What's new
+  // Close and the replay's Exit draw, since each puts the tour away.
   var skip = document.createElement('button');
   skip.type = 'button';
-  skip.textContent = tr(isLast ? 'tourClose' : 'tourSkip');
+  skip.className = 'tour-skip';
+  skip.appendChild(iconEl('x'));
+  skip.appendChild(document.createTextNode(tr(isLast ? 'tourClose' : 'tourSkip')));
   skip.setAttribute('data-tip', tr(isLast ? 'tourSkipTipLast' : 'tourSkipTipMid'));
   skip.addEventListener('click', closeTour);
   actions.appendChild(skip);
@@ -283,7 +287,10 @@ function paintTour() {
     // NOT 'tour-next': that class means ADVANCE, and anything walking the
     // tour by clicking it would walk straight out of the dialog.
     toLadder.className = 'tour-start';
-    toLadder.textContent = tr('tourToLadder');
+    // It stands where Next stands and carries the reader onward, so it
+    // trails Next's chevron, spaced and mirrored by the same .tour-nav rules.
+    toLadder.appendChild(document.createTextNode(tr('tourToLadder')));
+    toLadder.appendChild(iconEl('chevron-right'));
     toLadder.setAttribute('data-tip', tr('tourToLadderTip'));
     toLadder.addEventListener('click', function () {
       closeTour();

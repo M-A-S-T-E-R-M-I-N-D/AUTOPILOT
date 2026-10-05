@@ -181,6 +181,33 @@ describe('readReportFirings', () => {
       null,
     ]);
   });
+
+  // web-muutby8r-h4p0dw: only the firing record names the effort a Claude
+  // firing ran at; a Codex/Gemini record, or one from before the field
+  // existed, or one that cannot be read, names none.
+  it('reads the effort off the firing record, and none where the record names none', () => {
+    const record = (firingId: string, payload: string): void => {
+      store.db
+        .prepare(
+          `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+           VALUES ('fly-a', ?, 'firing', ?, 100)`,
+        )
+        .run(firingId, payload);
+    };
+    firing('fly-a', 'fly-a:firing-1', null, 1, 100);
+    record('fly-a:firing-1', JSON.stringify({ effort: 'medium' }));
+    firing('fly-a', 'fly-a:firing-2', null, 1, 100);
+    record('fly-a:firing-2', JSON.stringify({ engine: 'codex' })); // Codex names no effort
+    firing('fly-a', 'fly-a:firing-3', null, 1, 100); // no firing record at all
+    firing('fly-a', 'fly-a:firing-4', null, 1, 100);
+    record('fly-a:firing-4', JSON.stringify({ effort: 7 }));
+    expect(readReportFirings(store.db, 'fly-a', 100).map((r) => r.effort)).toEqual([
+      'medium',
+      null,
+      null,
+      null,
+    ]);
+  });
 });
 
 describe('readReportConvergence', () => {

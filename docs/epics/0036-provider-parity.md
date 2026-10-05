@@ -307,7 +307,19 @@ as free too: two Codex slices beside one $2.00 Claude slice read `3 slices · $2
 flown on Codex alone read `$0.00`. `taskBurnOf` (`web/flight-metrics.ts`) now counts it in
 `unpriced`, still a slice with its wall time, and `taskBurnLabel` (`web/task-queue.ts`) names them
 beside the priced total (`3 slices · $2.00 + 2 unpriced`), or reads `unpriced` when none was priced,
-its tip saying no price was reported. Since 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
+its tip saying no price was reported. Until a later 2026-10-05 commit a task's row detail did the
+same in its HISTORY: each firing's line read `$0.00`, and its head summed the task's cost with no
+word of them. `taskHistoryOf` (`web/flight-metrics.ts`) now gives such a line a null cost, which
+`shell.ts` prints as `unpriced`, counts them in `unpriced`, and the head names them beside the
+priced total (`2 firings worked it · $2.00 + 1 unpriced`), or reads `unpriced` when none was
+priced. Until a later 2026-10-05 commit the FLIGHT LOG still did the same in two places its
+2026-10-04 chip fix missed: a slice group's collapsed head summed its slices' metrics column, so a
+Codex slice beside a $0.10 Claude one read a `$0.10` total with no word of it, and an opened row's
+detail line printed `$0.00`. `flightGroupSummary` (`web/flight-log-rows.ts`) now counts such a
+slice in `unpriced` and leaves it out of the total, `flightGroupHeadMeta` names them beside it in
+the head's chip, tip and label (`$0.10 + 1 unpriced`, `total cost: $0.10, 1 unpriced left out`),
+or reads `unpriced` when no slice was priced, and `flightDetailLine` reads `costUnpriced` as the
+chip does. Since 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
 firings `by engine` before `by model`, so a Codex lane's ship and revert rates read beside Claude's

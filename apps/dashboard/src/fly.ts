@@ -199,6 +199,7 @@ import {
   classifyTaskModelTier,
   resolvePrimaryModelForTier,
   budgetMultiplierForModel,
+  effortForRoute,
 } from './flight/model-routing.js';
 import { otlpConfigFromEnv } from './flight/otlp.js';
 import { selfStudyInvocation, commitSelfStudyIfDirty } from './flight/self-study.js';
@@ -1635,6 +1636,7 @@ async function main(): Promise<void> {
         // task-scoped metrics query, cheap against the local sqlite store.
         // Off on a non-Claude lane: every tier resolves to a Claude model.
         let routedModel: string | undefined;
+        let routedEffort: string | undefined;
         if (topAvailable && engineRoute.engine === 'claude') {
           const taskMetricsRows = store.db
             .prepare(
@@ -1679,8 +1681,11 @@ async function main(): Promise<void> {
             }
           }
           if (routedModel !== undefined) {
+            // EFFORT PER TIER: half the default tier's Opus tasks fly at medium.
+            routedEffort = effortForRoute(tier, routedModel, topAvailable.id);
+            const effortNote = routedEffort !== undefined ? ` at ${routedEffort} effort` : '';
             out(
-              `  🧭 model routing: ${tier} → ${routedModel}${routingReason} — ${topAvailable.title.slice(0, 100)}`,
+              `  🧭 model routing: ${tier} → ${routedModel}${effortNote}${routingReason} — ${topAvailable.title.slice(0, 100)}`,
             );
           }
         }
@@ -1727,6 +1732,7 @@ async function main(): Promise<void> {
           }),
           version: FIRING_PROMPT_VERSION,
           ...(routedModel !== undefined ? { primaryModel: routedModel } : {}),
+          ...(routedEffort !== undefined ? { effort: routedEffort } : {}),
           // Routed-budget lockstep (run-3): an escalated model on a
           // sonnet-sized budget dies mid-firing — scale this firing's cap
           // with the routed model's price.

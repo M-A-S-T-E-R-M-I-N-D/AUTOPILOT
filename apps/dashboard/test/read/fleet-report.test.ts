@@ -31,6 +31,7 @@ const base: ReportFiring = {
   durationMs: 10 * 60_000,
   model: 'claude-sonnet-5',
   engine: 'claude',
+  effort: 'xhigh',
 };
 
 describe('taskClass', () => {
@@ -304,6 +305,38 @@ describe('renderFleetReport by engine (epic 0036)', () => {
     const text = renderFleetReport([base, quota], [], 'w').join('\n');
     expect(text).toMatch(/^by engine\n {2}claude +1 firings {2}shipped 100%/m);
     expect(text).toContain('  left out: 1 firing the account quota killed\n\nby model\n');
+  });
+});
+
+// web-muutby8r-h4p0dw: the default tier's Opus firings split by effort, so
+// the report must be able to compare the two halves on their own firings.
+describe('renderFleetReport by effort (web-muutby8r-h4p0dw)', () => {
+  const medium: ReportFiring = {
+    ...base,
+    firingId: 'fly-autopilot:firing-3',
+    model: 'claude-opus-5-5',
+    effort: 'medium',
+  };
+
+  it('groups the firings by effort, after the model sections', () => {
+    const lines = renderFleetReport([base, base, medium], [], 'w');
+    const start = lines.indexOf('by effort');
+    expect(start).toBeGreaterThan(lines.indexOf('by model and work'));
+    expect(lines.slice(start + 1, lines.indexOf('', start))).toEqual([
+      `  ${'xhigh'.padEnd(18)}    2 firings  shipped 100%  reverted   0%  died   0%  $   4.00  per ship   $2.00  median 10.0 min`,
+      `  ${'medium'.padEnd(18)}    1 firings  shipped 100%  reverted   0%  died   0%  $   2.00  per ship   $2.00  median 10.0 min`,
+    ]);
+  });
+
+  it('names a Codex/Gemini firing, or one recorded before the field existed, an unrecorded effort', () => {
+    const text = renderFleetReport([{ ...base, effort: null }], [], 'w').join('\n');
+    expect(text).toMatch(/^by effort\n {2}unrecorded +1 firings/m);
+  });
+
+  it('leaves out a firing the account quota killed, as the model sections do', () => {
+    const quota = { ...base, shipped: false, died: 'quota', costUsd: 0 };
+    const text = renderFleetReport([base, quota], [], 'w').join('\n');
+    expect(text).toMatch(/^by effort\n {2}xhigh +1 firings {2}shipped 100%/m);
   });
 });
 

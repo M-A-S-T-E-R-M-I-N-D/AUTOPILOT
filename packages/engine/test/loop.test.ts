@@ -91,6 +91,7 @@ interface Harness {
   setStopAfter(n: number): void;
   setPromptModel(model: string | undefined): void;
   setPromptBudget(budget: number | undefined): void;
+  setPromptEffort(effort: string | undefined): void;
 }
 
 function harness(outcomes: FiringOutcome[], startCount = 0): Harness {
@@ -105,6 +106,7 @@ function harness(outcomes: FiringOutcome[], startCount = 0): Harness {
   let stopChecks = 0;
   let promptModel: string | undefined;
   let promptBudget: number | undefined;
+  let promptEffort: string | undefined;
   const queue = [...outcomes];
 
   const deps: LoopDeps = {
@@ -126,6 +128,7 @@ function harness(outcomes: FiringOutcome[], startCount = 0): Harness {
         version: 'v',
         ...(promptModel !== undefined ? { primaryModel: promptModel } : {}),
         ...(promptBudget !== undefined ? { maxBudgetUsd: promptBudget } : {}),
+        ...(promptEffort !== undefined ? { effort: promptEffort } : {}),
       });
     },
     sleep: (m) => {
@@ -160,6 +163,9 @@ function harness(outcomes: FiringOutcome[], startCount = 0): Harness {
     },
     setPromptBudget: (b) => {
       promptBudget = b;
+    },
+    setPromptEffort: (e) => {
+      promptEffort = e;
     },
   };
 }
@@ -497,6 +503,32 @@ describe('runLoop', () => {
     it('is a no-op when buildPrompt repeats the budget already configured', async () => {
       const h = harness([outcome()]);
       h.setPromptBudget(DEFAULT_ENGINE_CONFIG.maxBudgetUsd);
+      await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
+      expect(h.firingConfigs[0]).toBe(DEFAULT_ENGINE_CONFIG);
+    });
+  });
+
+  describe('routed effort (EFFORT PER TIER, web-muutby8r-h4p0dw)', () => {
+    it('flies this one firing at the effort buildPrompt routes, beside its model', async () => {
+      const h = harness([outcome()]);
+      h.setPromptModel('opus');
+      h.setPromptEffort('medium');
+      await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
+      expect(h.firingConfigs[0]?.effort).toBe('medium');
+      expect(h.firingConfigs[0]?.primaryModel).toBe('opus');
+      expect(DEFAULT_ENGINE_CONFIG.effort).toBe('xhigh');
+    });
+
+    it('routes the effort on its own, leaving model and budget at the flight values', async () => {
+      const h = harness([outcome()]);
+      h.setPromptEffort('medium');
+      await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
+      expect(h.firingConfigs[0]).toEqual({ ...DEFAULT_ENGINE_CONFIG, effort: 'medium' });
+    });
+
+    it('is a no-op when buildPrompt repeats the effort already configured', async () => {
+      const h = harness([outcome()]);
+      h.setPromptEffort(DEFAULT_ENGINE_CONFIG.effort);
       await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
       expect(h.firingConfigs[0]).toBe(DEFAULT_ENGINE_CONFIG);
     });

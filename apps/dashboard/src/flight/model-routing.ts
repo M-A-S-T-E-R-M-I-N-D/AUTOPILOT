@@ -114,6 +114,30 @@ export function isDefaultOpusArm(taskId: string): boolean {
   return (taskHash(taskId) >>> 1) % DEFAULT_OPUS_ONE_IN === 0;
 }
 
+/**
+ * EFFORT PER TIER (web-muutby8r-h4p0dw, 2026-10-05): every firing flew at
+ * the engine's flight-wide `xhigh`, whatever its model. Anthropic ships
+ * Opus 5.5 with `medium` as its default effort and reports it matching
+ * Opus 5 at `high`, so the default tier's Opus firings are split again, by
+ * the same kind of stable task hash as the model arms: half fly at this
+ * effort, half keep the flight's. Each firing record names its effort, so
+ * the two halves can be compared on our own work. Every other tier and
+ * model keeps the flight's effort.
+ */
+export const DEFAULT_OPUS_ARM_EFFORT = 'medium';
+
+/** Whether a default-tier Opus task is in the {@link DEFAULT_OPUS_ARM_EFFORT}
+ *  half — bit 3 of the hash, clear of the bits the model splits read. */
+export function isDefaultOpusEffortArm(taskId: string): boolean {
+  return ((taskHash(taskId) >>> 3) & 1) === 1;
+}
+
+/** The effort one routed firing flies at, or `undefined` for the flight's. */
+export function effortForRoute(tier: ModelTier, model: string, taskId: string): string | undefined {
+  if (tier !== 'default' || modelFamily(model) !== 'opus') return undefined;
+  return isDefaultOpusEffortArm(taskId) ? DEFAULT_OPUS_ARM_EFFORT : undefined;
+}
+
 export function resolvePrimaryModelForTier(
   tier: ModelTier,
   env: NodeJS.ProcessEnv,

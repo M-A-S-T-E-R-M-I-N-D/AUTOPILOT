@@ -67,6 +67,8 @@ export function flightLogDisplayRows<T extends FlightLogSliceEntry>(
 export interface FlightGroupSummaryRow {
   readonly id: string;
   readonly cost?: number | null;
+  /** The slice's record carries no price (a Codex or Gemini run, epic 0036). */
+  readonly costUnpriced?: boolean;
 }
 
 /** The open task a group row's slices advanced — only the title matters here. */
@@ -81,7 +83,9 @@ export interface FlightGroupSummaryTask {
  *  `flightGroupRow` previously computed inline before building any DOM.
  *  Takes `verdictOf` via injection rather than importing `flightVerdictOf`
  *  from `shell.ts`, the same `heatmapDays`/`actMeta` pattern every module in
- *  this epic uses. */
+ *  this epic uses. A slice marked `costUnpriced` (epic 0036) is counted in
+ *  `unpriced` and left out of `totalCost`, never summed in as its metrics
+ *  column's $0. */
 export function flightGroupSummary<T extends FlightGroupSummaryRow>(
   entry: FlightLogGroupRow<T>,
   taskById: Readonly<Record<string, FlightGroupSummaryTask | undefined>>,
@@ -90,6 +94,7 @@ export function flightGroupSummary<T extends FlightGroupSummaryRow>(
   readonly newest: T;
   readonly taskTitle: string;
   readonly totalCost: number;
+  readonly unpriced: number;
   readonly groupId: string;
   readonly verdict: string;
   readonly headline: string;
@@ -98,11 +103,15 @@ export function flightGroupSummary<T extends FlightGroupSummaryRow>(
   const task = taskById[entry.item];
   const taskTitle = (task && task.title) || entry.item;
   let totalCost = 0;
-  for (const row of entry.rows) totalCost += row.cost || 0;
+  let unpriced = 0;
+  for (const row of entry.rows) {
+    if (row.costUnpriced === true) unpriced++;
+    else totalCost += row.cost || 0;
+  }
   const groupId = 'group:' + entry.item + ':' + newest.id;
   const verdict = verdictOf(newest);
   const headline = taskTitle + ' — ' + entry.rows.length + ' slices';
-  return { newest, taskTitle, totalCost, groupId, verdict, headline };
+  return { newest, taskTitle, totalCost, unpriced, groupId, verdict, headline };
 }
 
 /** A flight-log entry's fields {@link flightDetailLine} reads to build the
@@ -112,6 +121,8 @@ export interface FlightDetailEntry {
   readonly sha?: string | null;
   readonly turns?: number | null;
   readonly cost?: number | null;
+  /** The firing's record carries no price (a Codex or Gemini run, epic 0036). */
+  readonly costUnpriced?: boolean;
   readonly failedCheck?: string | null;
   readonly model?: string | null;
 }
@@ -198,6 +209,10 @@ export interface FlightGroupHeadMeta {
   readonly dotAriaLabel: string;
   readonly itemTip: string;
   readonly itemAriaLabel: string;
+  /** The cost chip's visible text: the priced total, the unpriced slices
+   *  named beside it (`$2.00 + 1 unpriced`), or `unpriced` alone when no
+   *  slice reported a price (epic 0036). */
+  readonly costText: string;
   readonly costTip: string;
   readonly costAriaLabel: string;
   readonly agoTip: string;
@@ -211,7 +226,9 @@ export interface FlightGroupHeadMeta {
  *  covers the group's expanded MEMBER rows only (the head summarizes across
  *  every slice in the run — "N firings advanced ... total $X" — while each
  *  member describes just its own slice). Takes `fmtCost`/`fmtAgo` via
- *  injection, the same `flightDetailLine` pattern used one function below. */
+ *  injection, the same `flightDetailLine` pattern used one function below.
+ *  `unpriced` is {@link flightGroupSummary}'s count of slices whose engine
+ *  reported no price (epic 0036), already left out of `totalCost`. */
 export function flightGroupHeadMeta(
   verdict: string,
   rowsCount: number,
@@ -221,15 +238,25 @@ export function flightGroupHeadMeta(
   newestAt: number,
   fmtCost: (n: number) => string,
   fmtAgo: (at: number) => string,
+  unpriced?: number,
 ): FlightGroupHeadMeta {
+  const unpricedCount = unpriced || 0;
+  const nonePriced = unpricedCount > 0 && unpricedCount >= rowsCount;
+  const costText = nonePriced
+    ? 'unpriced'
+    : fmtCost(totalCost) + (unpricedCount > 0 ? ' + ' + unpricedCount + ' unpriced' : '');
   return {
     dotTip: 'Most recent slice ended: ' + verdict,
     dotAriaLabel: 'verdict: ' + verdict,
-    itemTip:
-      rowsCount + ' firings advanced "' + taskTitle + '", still open — total ' + fmtCost(totalCost),
+    itemTip: rowsCount + ' firings advanced "' + taskTitle + '", still open — total ' + costText,
     itemAriaLabel: headline,
+    costText,
     costTip: 'Total spend across all ' + rowsCount + ' slices',
-    costAriaLabel: 'total cost: ' + fmtCost(totalCost),
+    costAriaLabel: nonePriced
+      ? 'total cost: unpriced, no price was reported'
+      : 'total cost: ' +
+        fmtCost(totalCost) +
+        (unpricedCount > 0 ? ', ' + unpricedCount + ' unpriced left out' : ''),
     agoTip: 'When the most recent slice happened',
     agoAriaLabel: 'happened ' + fmtAgo(newestAt),
   };
@@ -369,7 +396,8 @@ export function flightLogMoreMeta(
 }
 
 /** The expanded flight-log row's detail sentence — verdict, kind, sha, turns,
- *  cost, model (when recorded — MODEL MIX, backlog web-mssn106m-bqvxi8, first
+ *  cost (`unpriced` when `costUnpriced` says the engine reported no price,
+ *  epic 0036, never the metrics column's $0.00), model (when recorded — MODEL MIX, backlog web-mssn106m-bqvxi8, first
  *  slice: the model is already written per-firing but never left the store
  *  layer), plus a verdict-specific caveat clause explaining WHY a reverted/
  *  checkpointed/turn-capped/timed-out/errored/unverified firing ended the way it did —
@@ -387,7 +415,7 @@ export function flightDetailLine(
     f.kind || null,
     f.sha || null,
     (f.turns || 0) + ' turns',
-    fmtCost(f.cost || 0),
+    f.costUnpriced === true ? 'unpriced' : fmtCost(f.cost || 0),
     f.model || null,
   ];
   if (verdict === 'reverted' && f.failedCheck) bits.push(f.failedCheck + ' failed');

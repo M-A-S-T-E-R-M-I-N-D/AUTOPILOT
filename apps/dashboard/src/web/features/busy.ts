@@ -107,6 +107,10 @@ function ritualNodes() {
   var actions = el('div', 'ritual-actions');
   var action = el('button', 'ritual-minimize');
   action.type = 'button';
+  // Epic 0025: the paint swaps the icon with the words.
+  var actionText = el('span');
+  action.appendChild(iconEl('minimize'));
+  action.appendChild(actionText);
   action.addEventListener('click', function () {
     if (ritual && ritual.done) ritualClose();
     else ritualMinimize();
@@ -138,7 +142,7 @@ function ritualNodes() {
   document.body.appendChild(scrim);
   document.body.appendChild(pill);
   document.body.appendChild(toast);
-  ritualDom = { scrim: scrim, title: title, clock: clock, note: note, bar: bar, fill: fill, steps: steps, warning: warning, action: action, pill: pill, pillText: pillText, pillClock: pillClock, toast: toast };
+  ritualDom = { scrim: scrim, title: title, clock: clock, note: note, bar: bar, fill: fill, steps: steps, warning: warning, action: action, actionText: actionText, pill: pill, pillText: pillText, pillClock: pillClock, toast: toast };
   return ritualDom;
 }
 function ritualTitleText(r) {
@@ -247,7 +251,9 @@ function ritualPaint() {
     }
   }
   ritualSetText(d.warning, r.done ? '' : tr('ritualWarning'));
-  ritualSetText(d.action, r.done ? tr('ritualClose') : tr('ritualMinimize'));
+  var actionIcon = r.done ? 'x' : 'minimize';
+  if (d.action.firstChild.getAttribute('class') !== 'icon icon-' + actionIcon) d.action.replaceChild(iconEl(actionIcon), d.action.firstChild);
+  ritualSetText(d.actionText, r.done ? tr('ritualClose') : tr('ritualMinimize'));
   var scrimHidden = r.minimized && !r.done ? true : (r.done && r.closed);
   if (d.scrim.hidden !== scrimHidden) d.scrim.hidden = scrimHidden;
   var pillHidden = !(r.minimized && !r.closed);
