@@ -594,6 +594,13 @@ const PANELS_RAW_BUDGET = 255 * 1024;
 // that head /project.js. HEAD measured about 35826B, 14 bytes under the
 // 35840B line; the slice measured 35922B, 82 bytes over -- its 96 bytes
 // cannot fit 14. Raw (133076B) stays under PROJECT_RAW_BUDGET untouched.
+// The same 36KB line also carries a sibling lane's slice of that round
+// (2026-10-05, board web-mtpzzxw4-au1b6x, epic 0016 slice 5/6's remaining
+// gap; both lanes raised 35->36KB and were merged): the FLIGHT DEBRIEF panel's SOCIAL line
+// gains a mirror-preview chip -- flightDebriefSocialItems's new `mirror`
+// branch plus two English/Hebrew keys. Measured 36020B against the 35840B
+// line: 180 bytes over even after trimming the chip/tip text once already.
+// Raw (133600B) stays under PROJECT_RAW_BUDGET untouched.
 const PROJECT_GZIP_BUDGET = 36 * 1024;
 const PANELS_GZIP_BUDGET = 78 * 1024;
 // THE LOCALES CHUNK (2026-09-30, board ap-muo35gze-1): /locales.js carries

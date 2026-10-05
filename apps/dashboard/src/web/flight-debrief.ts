@@ -154,6 +154,8 @@ export type FlightDebriefStringKey =
   | 'flightDebriefSocialSkippedForeignTip'
   | 'flightDebriefSocialSkippedGh'
   | 'flightDebriefSocialSkippedGhTip'
+  | 'flightDebriefSocialMirrorPreview'
+  | 'flightDebriefSocialMirrorPreviewTip'
   | 'flightDebriefSocialReadOnly'
   | 'flightDebriefSocialReadOnlyTip';
 
@@ -239,10 +241,23 @@ export function flightDebriefNotableItems<F>(
   return items;
 }
 
+/** The standalone Fly GitHub flight's mirror-pass preview counts, the
+ *  panel's own restatement of `flight/social-flight-debrief.ts`'s
+ *  `SocialFlightMirrorDigest` — previewed, never applied. */
+export interface SocialFlightMirrorDigestLike {
+  readonly checked: number;
+  readonly toClose: number;
+  readonly toReopen: number;
+  readonly toNote: number;
+  readonly toSettle: number;
+  readonly inSync: number;
+}
+
 /** The served SOCIAL digest (`GET /api/landing`'s `socialDebrief`) — the
  *  panel's own restatement of `flight/social-flight-debrief.ts`'s
  *  `SocialFlightDebrief`, the `FixCommitProposalLike` route: no web module
- *  imports a flight one. */
+ *  imports a flight one. `mirror` is present only when a standalone Fly
+ *  GitHub flight's mirror preview ran that flight. */
 export interface SocialFlightDebriefLike {
   readonly passesRan: number;
   readonly skippedForeignTarget: number;
@@ -254,14 +269,16 @@ export interface SocialFlightDebriefLike {
   readonly queued: number;
   readonly duplicate: number;
   readonly refused: number;
+  readonly mirror?: SocialFlightMirrorDigestLike;
 }
 
 /** The FLIGHT DEBRIEF panel's SOCIAL line (epic 0016 slice 5/6) — the flight
  *  log's end-of-flight `SOCIAL debrief:` line as tip-bearing chips, in the
  *  same order and under the same rules: caps and verdict totals only when a
- *  pass ran (a 0/0 budget is not a reading), each refusal only when it
- *  happened, and an outright "nothing posted" while the passes stay
- *  read-only, never a said/filed/closed tally that could only read zero. */
+ *  pass ran (a 0/0 budget is not a reading), the mirror preview's counts
+ *  only when one ran, each refusal only when it happened, and an outright
+ *  "nothing posted" while the passes stay read-only, never a said/filed/
+ *  closed tally that could only read zero. */
 export function flightDebriefSocialItems(
   s: SocialFlightDebriefLike,
   tr: FlightDebriefTranslator,
@@ -284,6 +301,18 @@ export function flightDebriefSocialItems(
       refused: s.refused,
     });
     items.push([verdicts, tr('flightDebriefSocialVerdictsTip'), verdicts]);
+  }
+  if (s.mirror) {
+    const m = s.mirror;
+    const mirror = tr('flightDebriefSocialMirrorPreview', {
+      checked: m.checked,
+      toClose: m.toClose,
+      toReopen: m.toReopen,
+      toNote: m.toNote,
+      toSettle: m.toSettle,
+      inSync: m.inSync,
+    });
+    items.push([mirror, tr('flightDebriefSocialMirrorPreviewTip'), mirror]);
   }
   if (s.skippedForeignTarget > 0) {
     const text = tr('flightDebriefSocialSkippedForeign', { count: s.skippedForeignTarget });
