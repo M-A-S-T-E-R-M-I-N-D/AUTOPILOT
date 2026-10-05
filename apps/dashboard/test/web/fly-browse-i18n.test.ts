@@ -35,13 +35,15 @@ describe('the browse-folder modal reads its static text from STRINGS', () => {
 
   it('translates the error dialog body and its Close button', () => {
     expect(out).toContain("el('p', 'browse-path', tr('browseError'))");
-    expect(out).toContain("close.textContent = tr('close');");
+    // Each action leads with its icon (epic 0025,
+    // browse-dialog-action-icons.test.ts drives them in the DOM).
+    expect(out).toContain("close.appendChild(document.createTextNode(tr('close')));");
     expect(out).not.toContain("'Could not list that folder.'");
   });
 
   it('translates the Cancel and "Use this folder" actions', () => {
-    expect(out).toContain("cancel.textContent = tr('cancel');");
-    expect(out).toContain("use.textContent = tr('useThisFolder');");
+    expect(out).toContain("cancel.appendChild(document.createTextNode(tr('cancel')));");
+    expect(out).toContain("use.appendChild(document.createTextNode(tr('useThisFolder')));");
   });
 
   it('translates the empty-state line', () => {
