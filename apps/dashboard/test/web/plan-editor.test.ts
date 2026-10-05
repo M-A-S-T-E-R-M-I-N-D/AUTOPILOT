@@ -203,4 +203,29 @@ describe('validateGateSpec — the publish gate', () => {
       },
     });
   });
+
+  // The gate runs `install` first (gate-commands.ts). The editor never draws it, so
+  // `planSpecFromSteps` carries it through from the stored spec. The guard must keep it
+  // too, or a published plan's next landing judges a tree its node_modules do not match.
+  it('keeps the install step a published plan carries, validated like any step', () => {
+    const install = {
+      bin: 'pnpm',
+      args: ['install', '--frozen-lockfile'],
+      label: 'pnpm install --frozen-lockfile',
+    };
+    const stored = { ...SPEC, install };
+    const verdict = validateGateSpec(planSpecFromSteps(planStepsFromSpec(stored), stored));
+    expect(verdict.ok).toBe(true);
+    if (verdict.ok) expect(verdict.spec).toEqual(stored);
+    expect(validateGateSpec({ ...SPEC, install: { bin: '', args: [] } })).toEqual({
+      ok: false,
+      error: 'install: bin is required',
+    });
+  });
+
+  it('does not count install as a step: it syncs dependencies and judges nothing', () => {
+    expect(
+      validateGateSpec({ ecosystem: 'js', install: { bin: 'pnpm', args: ['install'] } }),
+    ).toEqual({ ok: false, error: 'a plan needs at least one enabled step' });
+  });
 });
