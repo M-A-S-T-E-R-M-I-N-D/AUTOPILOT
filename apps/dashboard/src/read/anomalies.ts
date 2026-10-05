@@ -203,6 +203,9 @@ export interface FamilyRunawayLike {
   readonly family: string;
   readonly spendUsd: number;
   readonly firings: number;
+  /** Firings counted in `firings` but left out of `spendUsd`, since their
+   *  record named no price (a Codex or Gemini run, epic 0036). */
+  readonly unpriced?: number;
 }
 
 /**
@@ -219,7 +222,8 @@ function familyRunaways(families: readonly FamilyRunawayLike[]): Anomaly[] {
     kind: 'family-runaway',
     evidence:
       `Recurring pattern "${f.family}" burned $${f.spendUsd.toFixed(0)} across ` +
-      `${f.firings} firings under many task ids — no single id ever crossed the per-task threshold.`,
+      `${f.firings} firings${f.unpriced ? ` (${f.unpriced} unpriced left out)` : ''} under many ` +
+      `task ids — no single id ever crossed the per-task threshold.`,
   }));
 }
 

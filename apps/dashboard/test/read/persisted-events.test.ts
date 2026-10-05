@@ -58,7 +58,20 @@ describe('parseFamilyRunaways', () => {
   it('parses a well-formed family-runaway payload', () => {
     insertEvent('family-runaway', '{"family":"fix: *","spendUsd":4.5,"firings":3}', 100);
     expect(parseFamilyRunaways(store, PROJECT_ID)).toEqual([
-      { family: 'fix: *', spendUsd: 4.5, firings: 3 },
+      { family: 'fix: *', spendUsd: 4.5, firings: 3, unpriced: 0 },
+    ]);
+  });
+
+  it('carries the firings the sweep could not price, and reads an older payload as none (epic 0036)', () => {
+    insertEvent('family-runaway', '{"family":"wire *","spendUsd":4.5,"firings":3}', 100);
+    insertEvent(
+      'family-runaway',
+      '{"family":"fix: *","spendUsd":60,"firings":14,"unpriced":2}',
+      200,
+    );
+    expect(parseFamilyRunaways(store, PROJECT_ID)).toEqual([
+      { family: 'fix: *', spendUsd: 60, firings: 14, unpriced: 2 },
+      { family: 'wire *', spendUsd: 4.5, firings: 3, unpriced: 0 },
     ]);
   });
 
@@ -68,7 +81,7 @@ describe('parseFamilyRunaways', () => {
     insertEvent('family-runaway', '{"family":"fix: *","spendUsd":4.5,"firings":3}', 100);
     insertEvent('family-runaway', '{"family":"fix: *","spendUsd":9,"firings":5}', 200);
     expect(parseFamilyRunaways(store, PROJECT_ID)).toEqual([
-      { family: 'fix: *', spendUsd: 9, firings: 5 },
+      { family: 'fix: *', spendUsd: 9, firings: 5, unpriced: 0 },
     ]);
   });
 

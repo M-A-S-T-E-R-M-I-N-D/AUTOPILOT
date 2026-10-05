@@ -32,6 +32,7 @@ interface RawFamilyRunaway {
   readonly family?: unknown;
   readonly spendUsd?: unknown;
   readonly firings?: unknown;
+  readonly unpriced?: unknown;
 }
 
 /**
@@ -39,15 +40,17 @@ interface RawFamilyRunaway {
  * web-mstxk2vm-g446is) from the store's `family-runaway` events. A
  * still-active pattern gets re-flagged every flight, so the same family
  * repeats across many rows — rows arrive newest first, so keeping the FIRST
- * occurrence per family keeps its newest spend/firings verdict. Defensive
+ * occurrence per family keeps its newest spend/firings verdict. `unpriced`
+ * counts the firings the spend left out for naming no price (epic 0036); a
+ * payload written before it was recorded reads as none. Defensive
  * like the other parsers here: a malformed payload is skipped, never thrown.
  */
 export function parseFamilyRunaways(
   store: Store,
   projectId: string,
-): { family: string; spendUsd: number; firings: number }[] {
+): { family: string; spendUsd: number; firings: number; unpriced: number }[] {
   const seen = new Set<string>();
-  const entries: { family: string; spendUsd: number; firings: number }[] = [];
+  const entries: { family: string; spendUsd: number; firings: number; unpriced: number }[] = [];
   for (const row of familyRunawayEvents(store.db, projectId)) {
     if (row.payload === null) continue;
     try {
@@ -59,7 +62,12 @@ export function parseFamilyRunaways(
         !seen.has(f.family)
       ) {
         seen.add(f.family);
-        entries.push({ family: f.family, spendUsd: f.spendUsd, firings: f.firings });
+        entries.push({
+          family: f.family,
+          spendUsd: f.spendUsd,
+          firings: f.firings,
+          unpriced: typeof f.unpriced === 'number' ? f.unpriced : 0,
+        });
       }
     } catch {
       /* skip a malformed family-runaway payload */

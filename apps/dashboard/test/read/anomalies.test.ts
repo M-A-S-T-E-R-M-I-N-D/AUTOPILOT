@@ -366,6 +366,22 @@ describe('familyRunaways (via detectAnomalies)', () => {
     ]);
   });
 
+  it("names the family's unpriced firings beside its spend, never folded in as $0 (epic 0036)", () => {
+    const anomalies = detectAnomalies(
+      [],
+      [],
+      [{ family: 'mutation testing widens to *', spendUsd: 62.4, firings: 45, unpriced: 20 }],
+    );
+    expect(anomalies).toEqual([
+      {
+        kind: 'family-runaway',
+        evidence:
+          'Recurring pattern "mutation testing widens to *" burned $62 across 45 firings ' +
+          '(20 unpriced left out) under many task ids — no single id ever crossed the per-task threshold.',
+      },
+    ]);
+  });
+
   it('stays quiet with no flagged families (and when the param is omitted)', () => {
     expect(detectAnomalies([], [], [])).toEqual([]);
     expect(detectAnomalies([])).toEqual([]);
