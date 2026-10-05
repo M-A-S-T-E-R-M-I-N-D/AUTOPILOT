@@ -546,6 +546,19 @@ digest machinery the 2026-09-26 afternoon and 2026-10-04 evening checks above al
 a digest content addition, not a new `gh` call or write path. Neither commit changes the four
 locks below or the acceptance criteria; all six slices remain unchanged and live in production.
 
+Freshness check (2026-10-05, evening): `fly.ts` gained one more commit since the "later" check
+above — `45435e97`, which makes a live sibling's declared intent hold a board row from the claim
+the same way a lease already does, closing a same-folder duplication gap (two lanes built epic
+0019 S4 twice, two minutes apart, because a claim only consulted the board's assignee column).
+The new matching lives in `flight/intent-claims.ts`
+(`siblingIntentNaming`/`withoutSiblingHeldTasks`/`flightBranchLane`), read before both the claim
+candidates and the rendered board are built. This is same-folder N-way fleet-lane
+anti-duplication mechanics — the intent-claims lifecycle this doc's opening note already tracks
+in `docs/RESEARCH-LIBRARY.md` ("Fleet anti-duplication"), not cross-project parallelism. It reads
+and writes only this project's own board rows and its own siblings' `.autopilot-intent` files;
+no board, SOUL or backlog row crosses projects because of it, and it opens no new write path.
+None of the four locks below changes; all six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
