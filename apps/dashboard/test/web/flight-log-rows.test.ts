@@ -157,6 +157,15 @@ describe('flightDetailLine', () => {
       'unverified · 7 turns · $0.00 · the gate crashed before it could judge the work — commit left in place',
     );
   });
+
+  it('says unpriced for a firing whose engine reported no price, never $0.00 (epic 0036)', () => {
+    const line = flightDetailLine(
+      { kind: 'fix', turns: 9, cost: 0, costUnpriced: true, model: 'gpt-5-codex' },
+      'shipped',
+      fmtCost,
+    );
+    expect(line).toBe('shipped · fix · 9 turns · unpriced · gpt-5-codex');
+  });
 });
 
 describe('flightGroupSummary', () => {
@@ -193,6 +202,19 @@ describe('flightGroupSummary', () => {
     const entry = { isGroup: true as const, item: 'epic1', rows };
     const summary = flightGroupSummary(entry, { epic1: { title: 'Epic' } }, verdictOf);
     expect(summary.totalCost).toBe(0.5);
+    expect(summary.unpriced).toBe(0);
+  });
+
+  it('counts an unpriced slice apart, leaving it out of the total (epic 0036)', () => {
+    const rows = [
+      { id: 'f3', cost: 0, costUnpriced: true, verdict: 'shipped' },
+      { id: 'f2', cost: 2, verdict: 'shipped' },
+      { id: 'f1', cost: 0, costUnpriced: true, verdict: 'shipped' },
+    ];
+    const entry = { isGroup: true as const, item: 'epic1', rows };
+    const summary = flightGroupSummary(entry, { epic1: { title: 'Epic' } }, verdictOf);
+    expect(summary.totalCost).toBe(2);
+    expect(summary.unpriced).toBe(2);
   });
 
   it('derives the verdict and groupId from the newest (first) row', () => {
@@ -281,7 +303,42 @@ describe('flightGroupHeadMeta', () => {
       fmtAgo,
     );
     expect(meta.costTip).toBe('Total spend across all 3 slices');
+    expect(meta.costText).toBe('$0.60');
     expect(meta.costAriaLabel).toBe('total cost: $0.60');
+  });
+
+  it('names the unpriced slices beside the priced total, never folding them in as $0 (epic 0036)', () => {
+    const meta = flightGroupHeadMeta(
+      'shipped',
+      3,
+      'Epic',
+      2,
+      'Epic — 3 slices',
+      1000,
+      fmtCost,
+      fmtAgo,
+      2,
+    );
+    expect(meta.costText).toBe('$2.00 + 2 unpriced');
+    expect(meta.costAriaLabel).toBe('total cost: $2.00, 2 unpriced left out');
+    expect(meta.itemTip).toBe('3 firings advanced "Epic", still open — total $2.00 + 2 unpriced');
+  });
+
+  it('reads unpriced, not $0.00, when no slice reported a price (epic 0036)', () => {
+    const meta = flightGroupHeadMeta(
+      'shipped',
+      2,
+      'Epic',
+      0,
+      'Epic — 2 slices',
+      1000,
+      fmtCost,
+      fmtAgo,
+      2,
+    );
+    expect(meta.costText).toBe('unpriced');
+    expect(meta.costAriaLabel).toBe('total cost: unpriced, no price was reported');
+    expect(meta.itemTip).toBe('2 firings advanced "Epic", still open — total unpriced');
   });
 
   it("builds the ago tip/aria-label via the injected fmtAgo applied to the newest slice's timestamp", () => {

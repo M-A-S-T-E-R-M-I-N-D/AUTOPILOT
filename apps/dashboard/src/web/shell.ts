@@ -341,7 +341,7 @@ function flightGroupRow(c, entry, taskById) {
   // button below is the disclosure control — same shape as flightLogNode's
   // flat row head, which explains why.
   var head = el('div', 'flight-head');
-  var headMeta = flightGroupHeadMeta(verdict, rows.length, taskTitle, totalCost, headline, newest.at, fmtCost, fmtAgo);
+  var headMeta = flightGroupHeadMeta(verdict, rows.length, taskTitle, totalCost, headline, newest.at, fmtCost, fmtAgo, summary.unpriced);
   var dotEl = el('span', 'flight-dot flight-' + verdict.split(' ')[0], '');
   // role="img": an empty span may not carry an aria-label as a generic
   // element — inside the old row <button> it was presentational and axe
@@ -362,7 +362,7 @@ function flightGroupRow(c, entry, taskById) {
   itemEl.setAttribute('data-tip', headMeta.itemTip);
   itemEl.setAttribute('aria-label', headMeta.itemAriaLabel);
   head.appendChild(itemEl);
-  var costEl = el('span', 'flight-cost muted', fmtCost(totalCost));
+  var costEl = el('span', 'flight-cost muted', headMeta.costText);
   costEl.setAttribute('tabindex', '0');
   costEl.setAttribute('data-tip', headMeta.costTip);
   // i18n (board web-msnsndki-dz3vn1): the cost tip wraps the live slice count

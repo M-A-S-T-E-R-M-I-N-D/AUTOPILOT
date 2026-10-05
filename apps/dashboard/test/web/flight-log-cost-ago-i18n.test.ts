@@ -292,4 +292,25 @@ describe('an unpriced firing in the flight log (epic 0036)', () => {
     const members = [...document.querySelectorAll<HTMLElement>(`${MEMBER} .flight-cost`)];
     expect(members.map((m) => m.textContent)).toEqual(['unpriced', '$0.10']);
   });
+
+  it("a slice group's head names its unpriced slice beside the priced total", async () => {
+    await render(UNPRICED_STATE);
+
+    const head = q(`${GROUP_HEAD} .flight-cost`);
+    expect(head.textContent).toBe('$0.10 + 1 unpriced');
+    expect(head.getAttribute('aria-label')).toBe('total cost: $0.10, 1 unpriced left out');
+    expect(q(`${GROUP_HEAD} .flight-item`).getAttribute('data-tip')).toBe(
+      '2 firings advanced "t1", still open — total $0.10 + 1 unpriced',
+    );
+  });
+
+  it("a flat row's opened detail line says unpriced, never $0.00", async () => {
+    await render(UNPRICED_STATE);
+    q(`${FLAT_ROW} .flight-item`).click();
+    await vi.advanceTimersByTimeAsync(100);
+
+    const line = q('.flight-detail p.muted').textContent ?? '';
+    expect(line).toContain('unpriced');
+    expect(line).not.toContain('$0.00');
+  });
 });
