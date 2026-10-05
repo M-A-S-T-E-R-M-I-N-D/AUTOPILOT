@@ -686,7 +686,20 @@ propagation, and the filled style does not match the nav.
    goes through `setSweptText()` now, so the words hold and the flag stays.
    Each icon is decorative, so a button's name stays its words, in Hebrew
    too (`apps/dashboard/test/web/connect-report-form-icons.test.ts`,
-   axe-clean).
+   axe-clean). **Ask answer's Confirm and try-Deep offer 2026-10-05 (slice
+   2):** the search bar's Search and Ask lead with icons, but the two buttons
+   an answer can add under itself were bare words: the ARCHITECT proposal
+   card's Confirm, which runs a proposed write, and the low-confidence "try
+   Deep?" offer, which re-asks with Deep on. Confirm leads with the `check`
+   the Plan editor's Publish and the SOUL card's ratify draw, the decision
+   over a proposal; "Confirm (destructive)" leads with the landing warnings'
+   `triangle-alert` instead, so the icon says what "(destructive)" does. The
+   offer leads with the search bar's `search`, since Deep is the read-only
+   agent that goes looking for the answer. Nothing is newly vendored. Each
+   icon is decorative, so Confirm's name stays its tip and the offer's its
+   words, and the locale sweep keeps a leading icon; a confirm only disables
+   the button, so the icon survives the run
+   (`apps/dashboard/test/web/ask-proposal-offer-icons.test.ts`, axe-clean).
 
 ## Related
 

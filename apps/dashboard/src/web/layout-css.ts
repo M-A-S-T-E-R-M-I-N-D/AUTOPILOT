@@ -1677,6 +1677,7 @@ body > .routing-console-panel { margin-inline: var(--page-inline); }
 .control-proposal-confirm:not(:disabled):hover, .control-proposal-confirm:not(:disabled):focus-visible { background: color-mix(in srgb, var(--color-needs-you) 15%, transparent); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 .control-proposal-confirm:not(:disabled):active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
 .control-proposal-confirm:disabled { opacity: 0.6; cursor: default; }
+.control-proposal-confirm > .icon, .ask-offer-btn > .icon { margin-inline-end: 0.35em; }
 .control-proposal-status { font-size: var(--text-xs); color: var(--color-text-muted); }
 
 .detail { margin-top: var(--space-1); }

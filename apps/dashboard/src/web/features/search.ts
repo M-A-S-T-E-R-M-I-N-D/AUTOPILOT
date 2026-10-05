@@ -645,6 +645,10 @@ function searchInit() {
     while (offerEl.firstChild) offerEl.removeChild(offerEl.firstChild);
     if (!lowConfidence || deep) return;
     var btn = el('button', 'ask-offer-btn', tr('askLowConfidenceOffer'));
+    // Epic 0025 slice 2: Deep is the agent that goes looking for the answer,
+    // so the offer leads with the search bar's search, decorative; the
+    // [data-i18n] sweep's setSweptText() keeps it.
+    btn.prepend(iconEl('search'));
     btn.setAttribute('type', 'button');
     btn.setAttribute('data-i18n', 'askLowConfidenceOffer');
     btn.setAttribute('data-tip', tr('askLowConfidenceOfferTip'));
@@ -724,6 +728,10 @@ function searchInit() {
       var tipKey = safety === 'destructive' ? 'proposalConfirmDestructiveTip' : 'proposalConfirmTip';
       var labelKey = safety === 'destructive' ? 'proposalConfirmDestructive' : 'proposalConfirm';
       var confirmBtn = el('button', 'control-proposal-confirm', tr(labelKey));
+      // Epic 0025 slice 2: the decision's check, or the landing warnings'
+      // triangle-alert when the proposal cannot be undone; decorative, so
+      // the tip stays the button's name.
+      confirmBtn.prepend(iconEl(safety === 'destructive' ? 'triangle-alert' : 'check'));
       confirmBtn.setAttribute('data-i18n', labelKey);
       confirmBtn.setAttribute('type', 'button');
       confirmBtn.setAttribute('data-tip', tr(tipKey));
