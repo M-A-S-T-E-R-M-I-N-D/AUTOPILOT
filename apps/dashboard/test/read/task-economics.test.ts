@@ -70,6 +70,36 @@ describe('readTaskEconomicsFromStore', () => {
     );
   });
 
+  it("counts each task's firings whose record carries no price beside its cost (epic 0036)", () => {
+    dir = mkdtempSync(join(tmpdir(), 'ap-dash-task-econ-'));
+    const dbPath = join(dir, 'db.sqlite');
+    const store = openStore(dbPath);
+    migrate(store);
+    project(store, 'fly-a');
+    // A $2.00 Claude firing and two Codex ones on web-t-1, whose runs report no
+    // price and whose column stores 0; web-t-2's record is silent on cost.
+    const record = store.db.prepare(
+      `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+       VALUES ('fly-a', ?, 'firing', ?, 1)`,
+    );
+    firing(store, 'fly-a', 'fly-a:firing-1', 'web-t-1', 2);
+    record.run('fly-a:firing-1', JSON.stringify({ costUsd: 2 }));
+    firing(store, 'fly-a', 'fly-a:firing-2', 'web-t-1', 0);
+    record.run('fly-a:firing-2', JSON.stringify({ costUsd: null }));
+    firing(store, 'fly-a', 'fly-a:firing-3', 'web-t-1', 0);
+    record.run('fly-a:firing-3', JSON.stringify({ costUsd: null }));
+    firing(store, 'fly-a', 'fly-a:firing-4', 'web-t-2', 0);
+    record.run('fly-a:firing-4', JSON.stringify({ firing: 4 }));
+    store.close();
+
+    expect(readTaskEconomicsFromStore(dbPath, 'fly-a')).toEqual(
+      new Map([
+        ['web-t-1', { firings: 3, usd: 2, unpriced: 2 }],
+        ['web-t-2', { firings: 1, usd: 0 }],
+      ]),
+    );
+  });
+
   it('returns an empty map when the store cannot be read (e.g. an unmigrated db)', () => {
     dir = mkdtempSync(join(tmpdir(), 'ap-dash-task-econ-'));
     const dbPath = join(dir, 'db.sqlite');

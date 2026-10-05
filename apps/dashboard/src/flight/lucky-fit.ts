@@ -41,8 +41,14 @@ export interface FitCandidate {
   readonly assignees: readonly string[];
   /** `'pool'` — an AUTOPILOT fleet can fly it; `'people'` — reserved for humans. */
   readonly source: FitSource;
-  /** Prior firings that worked this issue's board task, when it was boarded. */
-  readonly history?: { readonly firings: number; readonly usd: number };
+  /** Prior firings that worked this issue's board task, when it was boarded.
+   *  `unpriced` counts those whose run reported no price (epic 0036): `usd`
+   *  holds none of their cost, so the average leaves them out. */
+  readonly history?: {
+    readonly firings: number;
+    readonly usd: number;
+    readonly unpriced?: number;
+  };
 }
 
 export interface FitOperator {
@@ -147,9 +153,18 @@ export function luckyFitLine(c: FitCandidate, op: FitOperator): FitLine | undefi
   }
 
   if (c.history && c.history.firings > 0) {
-    const avg = c.history.usd / c.history.firings;
-    const spent = `${c.history.firings} prior firing(s) averaged $${avg.toFixed(2)}`;
-    if (avg <= CHEAP_FIRING_USD) {
+    // A Codex or Gemini run stores its unknown cost as 0, so averaged in it
+    // would make the issue read cheap; with none priced, cost says nothing.
+    const unpriced = Math.min(c.history.unpriced ?? 0, c.history.firings);
+    const priced = c.history.firings - unpriced;
+    const avg = priced > 0 ? c.history.usd / priced : 0;
+    const spent =
+      unpriced === 0
+        ? `${c.history.firings} prior firing(s) averaged $${avg.toFixed(2)}`
+        : `${priced} priced prior firing(s) averaged $${avg.toFixed(2)} (${unpriced} unpriced left out)`;
+    if (priced === 0) {
+      signals.push(`${c.history.firings} prior firing(s), unpriced — no price was reported`);
+    } else if (avg <= CHEAP_FIRING_USD) {
       score += 0.1;
       signals.push(`${spent} — fits ${attention}`);
     } else if (avg > DEAR_FIRING_USD && op.attention === 'evening') {

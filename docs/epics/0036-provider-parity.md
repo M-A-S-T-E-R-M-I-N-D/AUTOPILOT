@@ -355,7 +355,14 @@ commit THE PINNED EVAL SUITE took the metrics column's cost too: `verifiedKnownG
 (`packages/store/src/eval-gate.ts`), the pool `scripts/self-study/pin-eval-suite.mjs` freezes into
 the committed, immutable `docs/SELF-STUDY/eval-suite.json`, gave a verified Codex or Gemini ship
 `costUsd: 0`, a cost invented for good. It now reads such a firing's cost as `null`
-(`UNPRICED_FIRING_SQL`). Since
+(`UNPRICED_FIRING_SQL`). Until a later 2026-10-05 commit the Fly bar's 🍀 shortlist averaged them in
+too: `luckyFitLine` (`flight/lucky-fit.ts`) divided an issue's history cost by all its firings, so an
+issue flown only by Codex read `3 prior firing(s) averaged $0.00 — fits one evening` and scored a
+cheap bonus, and two $20.00 Claude firings beside two Codex ones averaged $10.00, below the dear
+mark. `readTaskEconomicsFromStore` now carries each task's `unpriced` count (`unpricedFiringsByTask`),
+the average divides by the priced firings alone and names the rest (`2 priced prior firing(s)
+averaged $20.00 (2 unpriced left out)`), and a history with none priced reads `3 prior firing(s),
+unpriced — no price was reported` and moves no score. Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
