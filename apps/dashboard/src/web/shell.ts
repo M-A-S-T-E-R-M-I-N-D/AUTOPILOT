@@ -4772,9 +4772,12 @@ function renderProjectPage(state, pid) {
   ghPrBody.className = 'github-pr-body';
   ghPrBody.rows = 3;
   ghPrForm.appendChild(ghPrBody);
-  var ghPrSubmit = document.createElement('button');
+  var ghPrSubmit = el('button', null, 'Open pull request');
   ghPrSubmit.type = 'submit';
-  ghPrSubmit.textContent = 'Open pull request';
+  // Epic 0025: leads with the summary's git-pull-request, decorative — it
+  // opens the pull request the summary names. A submit only disables it.
+  // el() + prepend() keeps core inside its raw budget.
+  ghPrSubmit.prepend(iconEl('git-pull-request'));
   ghPrSubmit.setAttribute('data-i18n', 'openPullRequest');
   var ghPrSubmitTip = githubPrSubmitTip(c.name);
   ghPrSubmit.setAttribute('data-tip', ghPrSubmitTip);
