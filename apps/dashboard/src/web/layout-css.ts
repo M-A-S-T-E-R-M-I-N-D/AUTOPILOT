@@ -2442,6 +2442,7 @@ body { padding-block-end: calc(var(--shell-nav-size) + env(safe-area-inset-botto
 .keeper-queue-open:hover, .keeper-queue-open:focus-visible { color: var(--color-accent); text-decoration: underline; outline: none; }
 .keeper-queue-why { grid-area: why; font-size: var(--text-xs); color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .keeper-queue-act { grid-area: act; }
+.keeper-queue-act > .icon { margin-inline-end: 0.35em; }
 /* KEEPER RITUALS (2026-09-30): the ritual panels, folded into one group under
    the queue so no item reads twice. The summary is the group's heading: a
    title, a one-line hint, and a chevron that turns when it opens. */

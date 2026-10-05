@@ -832,6 +832,20 @@ propagation, and the filled style does not match the nav.
    `.gh-auth` rule spaces them, apart from the Claude half's pinned rule
    (`apps/dashboard/test/web/connect-gh-auth-icons.test.ts`, axe-clean
    logged out and in). Every CONNECT popover button now leads with an icon.
+   **Keeper queue's act button 2026-10-05 (slice 2):** each queue row ends
+   with one exit action proxied to its panel's own button (a task's approve,
+   a PR's Apply, a pool issue's Claim, a backlog row's confirm done, the
+   wisdom banner's ratify), and every one of those leads with a stroke icon,
+   but the queue copied only the words, so the same action read as bare words
+   in the list that leads the Keeper subject. The act now leads with a copy of
+   the icon the button it presses leads with (`check`, `key-round`, `flag`),
+   so the two read as one action; a panel button with no leading icon still
+   gives bare words. Nothing is newly vendored, and `subject-nav.ts` rides
+   `/panels.js`, so core does not grow. The icon is decorative, so the act's
+   name stays its words; a locale switch rebuilds the row from the panel
+   button's swept words beside the same icon, and a click on the icon still
+   presses the panel's button. One `.keeper-queue-act > .icon` rule spaces it
+   (`apps/dashboard/test/web/keeper-queue-act-icon.test.ts`, axe-clean).
 
 ## Related
 
