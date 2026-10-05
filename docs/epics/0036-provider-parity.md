@@ -319,7 +319,12 @@ detail line printed `$0.00`. `flightGroupSummary` (`web/flight-log-rows.ts`) now
 slice in `unpriced` and leaves it out of the total, `flightGroupHeadMeta` names them beside it in
 the head's chip, tip and label (`$0.10 + 1 unpriced`, `total cost: $0.10, 1 unpriced left out`),
 or reads `unpriced` when no slice was priced, and `flightDetailLine` reads `costUnpriced` as the
-chip does. Since 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
+chip does. Until a later 2026-10-05 commit the project page's RECENTLY SHIPPED panel printed such a
+ship's cost chip `$0.00` too. `finishedFlightSummaries` (`shared/flight-summary.ts`) now carries the
+flight-log entry's `costUnpriced` onto each summary, and `flightSummaryLineMeta`
+(`web/flight-summary-panel.ts`) reads it as the flight log's chip does: `unpriced`, its label
+`cost: unpriced, no price was reported`, its tip `No price was reported for this firing`. Since
+2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
 firings `by engine` before `by model`, so a Codex lane's ship and revert rates read beside Claude's
