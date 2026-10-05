@@ -857,6 +857,20 @@ propagation, and the filled style does not match the nav.
    leading icon, so it survives a switch, a Hebrew page and every later tick.
    One `.board-view-toggle > .icon` rule spaces it
    (`apps/dashboard/test/web/board-view-toggle-icon.test.ts`, axe-clean).
+   **Getting started strip's social half 2026-10-05 (slice 2):** minimised,
+   the ladder keeps one strip line, and its head leads every control with an
+   icon, but the strip's "Go social: connect GitHub" button and its "GitHub
+   connected — social unlocked" line were bare words. The button leads with
+   the `key-round` the ladder's own Connect GitHub step draws, since it is
+   that step one press away; the line leads with `lock-open`, since it says
+   the social half is unlocked. Nothing is newly vendored. Each icon is
+   decorative, so the button's name stays its words. The ladder's client half
+   draws both once at init with the `obIcon()` its steps' marks use, and
+   `LADDER_ICONS` splices `lock-open` beside their shapes; the locale sweep
+   keeps a leading icon and the strip only toggles `hidden`, so a Hebrew
+   switch and a repaint keep both. One rule spaces both from their words
+   (`apps/dashboard/test/web/onboarding-strip-social-icons.test.ts`,
+   axe-clean with and without GitHub).
 
 ## Related
 

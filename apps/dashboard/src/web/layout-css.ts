@@ -2600,6 +2600,7 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 .ob-strip-social:hover, .ob-strip-social:focus-visible { background: var(--color-accent); color: var(--color-accent-text); }
 .ob-strip-social[hidden], .ob-strip-social-on[hidden] { display: none; }
 .ob-strip-social-on { color: var(--color-success); font-weight: 600; }
+.ob-strip-social > .icon, .ob-strip-social-on > .icon { margin-inline-end: 0.35em; }
 @media (min-width: 48rem) { .onboarding { padding: var(--space-5) var(--space-6); } }
 .onboarding[hidden] { display: none; }
 .ob-complete { margin: var(--space-3) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--shape-small); background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-raised)); font-size: var(--text-sm); }
