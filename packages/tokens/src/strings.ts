@@ -1714,6 +1714,10 @@ const EN_STRINGS = {
   tileShippedTip: 'Firings that passed the gate and committed',
   tileCost: 'cost',
   tileCostTip: 'Total spend across every firing',
+  // A firing whose record carries no price (a Codex or Gemini run, epic 0036)
+  // is named beside the fleet's priced cost, never summed into it as $0.
+  tileCostAllUnpriced: 'unpriced',
+  tileCostUnpricedTip: '{n} unpriced left out, no price was reported',
   tileOpenFindings: 'open findings',
   tileOpenFindingsTip: 'Unresolved review findings across all projects',
   tileNeedYou: 'need you',
@@ -3309,6 +3313,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     tileShippedTip: 'יריות שעברו את השער ובוצע להן commit',
     tileCost: 'עלות',
     tileCostTip: 'סך ההוצאה על כל הירי',
+    tileCostAllUnpriced: 'ללא מחיר',
+    tileCostUnpricedTip: 'לא נכללו {n} יריות ללא מחיר, לא דווח מחיר',
     tileOpenFindings: 'ממצאים פתוחים',
     tileOpenFindingsTip: 'ממצאי סקירה שלא נפתרו בכל הפרויקטים',
     tileNeedYou: 'צריכים אותך',
