@@ -19,7 +19,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ensureWorktree } from '@autopilot/engine';
+import { buildFiringPrompt, ensureWorktree } from '@autopilot/engine';
 import {
   INTENT_FILE_NAME,
   clearDeclaredIntent,
@@ -167,6 +167,21 @@ describe('siblingIntentNaming', () => {
 
   it('holds the task a sibling intent names by its board id', () => {
     const claim = claimOf('src/x.ts — [web-mtrh1hn3-8x9f0z] route an issue');
+    expect(siblingIntentNaming(routingConsole, [claim])).toBe(claim);
+  });
+
+  it('holds the row the firing prompt tells an agent to declare, by its id and by its slice', () => {
+    // The declare rule's example (firing-v18) is the shape agents copy: if it
+    // ever stops parsing as a hold here, the rule asks for an intent that
+    // protects nothing.
+    const prompt = buildFiringPrompt({ soul: '', firing: 1, retro: false, fleet: '- x' });
+    const example = /\("([^"]+)"\)/.exec(prompt.slice(prompt.indexOf('On a board task')))?.[1];
+    expect(example).toBe('src/x.ts — [web-abc123] EPIC 0019 S4: …');
+    const claim = claimOf(example as string);
+    expect(claim.primaryFile).toBe('src/x.ts');
+    expect(siblingIntentNaming({ id: 'web-abc123', title: 'tidy the parser' }, [claim])).toBe(
+      claim,
+    );
     expect(siblingIntentNaming(routingConsole, [claim])).toBe(claim);
   });
 

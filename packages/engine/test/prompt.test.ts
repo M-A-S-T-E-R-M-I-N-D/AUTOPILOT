@@ -51,6 +51,13 @@ describe('buildFiringPrompt', () => {
     expect(fleet).toContain('An "intent:" line is a sibling\'s DECLARED claim for the unit');
     expect(fleet).toContain('overwrite the');
     expect(fleet).toContain('git-ignored .autopilot-intent file at your repo root with ONE line,');
+    // A lane claiming its next task skips a row only when a live intent names
+    // it by id or epic slice (board web-muv09dbr-nb42u7: fleet-4 built epic
+    // 0019 S4 unclaimed under an intent naming neither, and fleet-5 claimed
+    // the same row) — so the declare rule asks a board unit to name both.
+    expect(fleet).toContain(
+      'On a board task, name its row in the goal: the bracketed id, plus the epic',
+    );
     // MACHINE BUDGET: five instances each starting a Stryker run starved the
     // box and killed the dashboard mid-round (2026-08-17) — the rule is part
     // of the fleet section, not a solo-flight rule.
@@ -170,7 +177,7 @@ describe('buildFiringPrompt', () => {
   });
 
   it('exposes a stable version tag for telemetry', () => {
-    expect(FIRING_PROMPT_VERSION).toBe('firing-v17');
+    expect(FIRING_PROMPT_VERSION).toBe('firing-v18');
   });
 
   it('splices a pre-rendered REPO-MAP digest in verbatim ahead of ORIENT', () => {
@@ -1080,7 +1087,7 @@ describe('buildFiringPrompt', () => {
       '4. GATE — ensure it passes the project gate (typecheck + test + build). If unsure, do less.',
       '5. COMMIT — stage and commit with a Conventional Commit message. Add provenance trailers',
       '   next to Signed-off-by so origin is repo-native, not siloed in telemetry:',
-      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v17`,',
+      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v18`,',
       '   and `Harness: claude-cli`. Then, on the FINAL line of your response, emit EXACTLY',
       '   one METRICS line and nothing after it:',
       '   METRICS:{"item":"<short-id>","outcome":"shipped","kind":"<feat|fix|docs|test|refactor|chore|perf>","sha":"<short-sha>","completion":"complete"}',
@@ -1403,7 +1410,7 @@ describe('buildFiringPrompt', () => {
       '4. GATE — ensure it passes the project gate (typecheck + test + build). If unsure, do less.',
       '5. COMMIT — stage and commit with a Conventional Commit message. Add provenance trailers',
       '   next to Signed-off-by so origin is repo-native, not siloed in telemetry:',
-      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v17`,',
+      '   `Model: <your exact model id>`, `Firing-Prompt-Version: firing-v18`,',
       '   and `Harness: claude-cli`. Then, on the FINAL line of your response, emit EXACTLY',
       '   one METRICS line and nothing after it:',
       '   METRICS:{"item":"<short-id>","outcome":"shipped","kind":"<feat|fix|docs|test|refactor|chore|perf>","sha":"<short-sha>","completion":"complete"}',
@@ -1572,6 +1579,10 @@ describe('buildFiringPrompt — the FLEET section, pinned whole (mutation debt c
       'Declare YOURS the same way BEFORE starting any unit: overwrite the',
       'git-ignored .autopilot-intent file at your repo root with ONE line,',
       '"<primary file> — <goal>", so siblings see your claim while you work.',
+      'On a board task, name its row in the goal: the bracketed id, plus the epic',
+      'slice when the title has one ("src/x.ts — [web-abc123] EPIC 0019 S4: …").',
+      'A sibling claiming its next task skips the rows a live intent names, and',
+      'only those.',
       'That declare rule has NO size exception: a "two-line quick fix" is exactly',
       'the unit class that three siblings once built in parallel — declare it or',
       'leave it.',
