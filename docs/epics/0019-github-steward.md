@@ -161,7 +161,25 @@ into a per-project ritual any instance can run on any repo it owns.
   origin, an unknown project id, and the home page read the repository `gh`
   acts on, as before (`test/flight/routing-console.test.ts`; written first,
   all 5 new checks failed).
-  _Still open:_ steering from the dashboard's side (the panel only reads).
+  **Steering from the dashboard's side 2026-10-05, the server half:** the
+  console's first write. `POST /api/routing-console/route` (body `{issue,
+  label, project?}`, `server/routing-console.ts`, CSRF-guarded JSON and
+  rate-limited) runs `flight/routing-console-execute.ts`'s
+  `createRoutingConsoleRouteApi`, which adds ONE house `priority:` label to
+  an open issue no priority label routes yet. A label outside the priority
+  group is refused before any read. A project page's route reads and edits
+  its checkout's own repository with `--repo` (`projectRepoOf`, the lookup
+  its console's read makes), and only that repository's owner routes; the home page acts on the repository `gh`
+  resolves, gated by `resolveSocialIdentity`'s role. The issue is re-read
+  when the route runs: an unreadable or closed issue, or one that carries a
+  priority label in any casing by now, is refused, never given a second
+  label. A refusal is a 200 with `refusedReason`, and a failed edit returns
+  `gh`'s own words (`test/flight/routing-console-execute.test.ts`,
+  `test/server/routing-console.test.ts`, `test/server/server.test.ts`). The
+  pr-review census flags the new module (`flight/routing-console-execute`).
+  _Still open:_ the panel's control for it — a priority picker on each "No
+  priority yet" issue, behind a confirm, maintainer-only — so the route has
+  no user-facing expression yet.
 - **S5 — steward for THEIR project:** the per-project page (any
   onboarded folder) gets the same steward actions against that
   project's own repo (GITHUB 2/5's `sync any project` is the

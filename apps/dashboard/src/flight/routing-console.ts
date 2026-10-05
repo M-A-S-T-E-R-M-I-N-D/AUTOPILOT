@@ -17,7 +17,8 @@
  * as they are; {@link fetchRoutingConsole} makes both reads behind
  * the one call `server/routing-console.ts` serves as `GET
  * /api/routing-console`. Read-only throughout: nothing here labels, assigns
- * or closes anything.
+ * or closes anything. The console's one write, routing an issue with a
+ * priority label, lives in `routing-console-execute.ts`.
  */
 
 import { listProjects, openStore } from '@autopilot/store';
@@ -105,9 +106,18 @@ export const ROUTING_QUEUE_LABELS: readonly string[] = [
   ...HOUSE_TAXONOMY_LABELS.filter((label) => label.name.startsWith(STATUS_PREFIX)),
 ].map((label) => label.name);
 
-const PRIORITY_LABELS = new Set(
-  ROUTING_QUEUE_LABELS.filter((label) => label.startsWith(PRIORITY_PREFIX)).map(normalizeLabel),
+/** The priority group alone, the labels that route an issue. */
+export const ROUTING_PRIORITY_LABELS: readonly string[] = ROUTING_QUEUE_LABELS.filter((label) =>
+  label.startsWith(PRIORITY_PREFIX),
 );
+
+const PRIORITY_LABELS = new Set(ROUTING_PRIORITY_LABELS.map(normalizeLabel));
+
+/** Whether any of `labels` is a house priority label, in any casing — what
+ *  keeps an issue out of the console's "no priority yet" list. */
+export function carriesPriorityLabel(labels: readonly string[]): boolean {
+  return labels.some((label) => PRIORITY_LABELS.has(normalizeLabel(label)));
+}
 
 function ascending(numbers: readonly number[]): readonly number[] {
   return [...numbers].sort((a, b) => a - b);
@@ -179,9 +189,7 @@ export function planRoutingConsole(
       label,
       issues: numbersWhere((issue) => carries(issue, normalizeLabel(label))),
     })),
-    unprioritized: numbersWhere(
-      (issue) => !(issue.labels ?? []).some((label) => PRIORITY_LABELS.has(normalizeLabel(label))),
-    ),
+    unprioritized: numbersWhere((issue) => !carriesPriorityLabel(issue.labels ?? [])),
     claims: claimsOf(issues),
     unclaimed: numbersWhere((issue) => holdersOf(issue).size === 0),
   };
@@ -322,6 +330,25 @@ export function createRoutingConsoleApi(
   };
 }
 
+/** The project's own GitHub repository, from its checkout's `origin`. Null
+ *  for an unknown project id or a checkout with no GitHub origin. The
+ *  console's read below and its one write, `routing-console-execute.ts`,
+ *  both act on this repository for a project page. */
+export async function projectRepoOf(
+  dbPath: string,
+  projectId: string,
+  exec: CliExec,
+): Promise<string | null> {
+  const store = openStore(dbPath, { readonly: true });
+  let rootPath: string | undefined;
+  try {
+    rootPath = listProjects(store.db).find((project) => project.id === projectId)?.root_path;
+  } finally {
+    store.close();
+  }
+  return rootPath === undefined ? null : fetchProjectRepo(exec, rootPath);
+}
+
 /**
  * Epic 0019 S4 on a project page: the console a project page shows is its
  * own repository's page. `gh` acts on the dashboard's own checkout whatever
@@ -336,14 +363,5 @@ export function readProjectRoutingConsole(
   dbPath: string,
   exec: CliExec = ghExec,
 ): RoutingConsoleApi {
-  return createRoutingConsoleApi(exec, async (projectId) => {
-    const store = openStore(dbPath, { readonly: true });
-    let rootPath: string | undefined;
-    try {
-      rootPath = listProjects(store.db).find((p) => p.id === projectId)?.root_path;
-    } finally {
-      store.close();
-    }
-    return rootPath === undefined ? null : fetchProjectRepo(exec, rootPath);
-  });
+  return createRoutingConsoleApi(exec, (projectId) => projectRepoOf(dbPath, projectId, exec));
 }

@@ -865,6 +865,13 @@ const SECURITY_SENSITIVE_PATH_MARKERS = [
   // above is flagged for, ending in neither `-execute.ts` nor any security
   // keyword.
   'flight/board-issue-export',
+  // The routing console's one write (epic 0019 S4, steering from the
+  // dashboard's side): decides AND runs a `gh issue edit --add-label` that
+  // routes an unprioritized issue, gated on the maintainer role and a fresh
+  // read of the issue — the same decide-and-execute class `flight/mirror-pass`
+  // above is flagged for. Its read half, `flight/routing-console.ts`, stays in
+  // the census's benign list, so this anchor carries the `-execute` suffix.
+  'flight/routing-console-execute',
   // Dispatches the ARCHITECT chat control tools' write/DESTRUCTIVE store
   // operations (tasks_create/set-status/reorder/delete, project_reset) and
   // owns their argument validation itself — server.ts leaves it only the
