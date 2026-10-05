@@ -1436,6 +1436,10 @@ const EN_STRINGS = {
   // aria-label, then its h3 (panelHeading(), compass icon).
   routingConsolePanel: 'Routing console',
   routingConsoleTitle: 'Routing console',
+  // A project page that is a checkout of another GitHub repository: the
+  // console refuses to show gh's page as its own (a two-value template).
+  routingConsoleRepoMismatch:
+    'Not read — this project is a checkout of {projectRepo}, but gh is acting on {ghRepo}.',
   // APP SHELL (epic 0021): the subject navigation — a bottom bar on a phone,
   // a rail from tablet width up. Each subject is a place in the app.
   subjectNav: 'Sections',
@@ -3062,6 +3066,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     collaborationTitle: 'שיתוף פעולה',
     routingConsolePanel: 'מסוף ניתוב',
     routingConsoleTitle: 'מסוף ניתוב',
+    routingConsoleRepoMismatch:
+      'לא נקרא — הפרויקט הזה הוא עותק של {projectRepo}, אבל gh פועל על {ghRepo}.',
     subjectNav: 'אזורים',
     subjectFleet: 'צי',
     subjectOverview: 'סקירה',
