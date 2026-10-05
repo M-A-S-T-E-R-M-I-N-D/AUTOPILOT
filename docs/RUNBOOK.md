@@ -501,22 +501,29 @@ deliverable-drift finding whose clause words `git grep -i` still finds at HEAD i
 tree would not produce it). The next flight defers it on its own unless you approved it; discard
 an approved one yourself.
 
-**MIRROR PASS previews (epic 0019 S3, on demand — not a per-flight sweep):** three read-only
-endpoints let you ask what the issues⇄board mirror WOULD do for one project before any execute
-path exists. Each takes `?project=<id>`, answers `null` for an unknown project id, 400 without
-one, and 404 when the dashboard was started without the preview wired in; none of them writes
-to GitHub or the store.
+**MIRROR PASS previews (epic 0019 S3, on demand — not a per-flight sweep):** five read-only
+endpoints let you ask what the issues⇄board mirror WOULD do for one project. Each takes
+`?project=<id>`, answers `null` for an unknown project id, 400 without one, and 404 when the
+dashboard was started without the preview wired in; the preview itself never writes to GitHub
+or the store. Each has a shipped mutating `POST .../execute` counterpart
+(`flight/mirror-pass-execute.ts`) that applies the change — CSRF-guarded JSON POST, separately
+rate-limited, with role gating handled inside the injected API (a non-maintainer identity gets
+a 200 with `skippedReason` set, never a 403).
 
 | Endpoint | Derivation | What it reports |
 |---|---|---|
 | `GET /api/mirror-pass` | reconcile | per `github-<n>` task: a done board task whose linked issue is still open ⇒ "close it with the landing SHA" |
 | `GET /api/mirror-pass/landing-note` | landing-note dedup | a task whose issue already closed some other way but whose landed commits have no landed-in comment yet |
 | `GET /api/mirror-pass/drift` | README/docs claims ↔ tree | the project's own `README.md` checked against `package.json` (version), `docs/THIRD-PARTY-LICENSES.md` (package count) and its internal links — no `gh` call at all |
+| `GET /api/mirror-pass/stale-claims` | stale-claim reaper | a claimed pool issue whose assignee has gone quiet past the shared stale threshold ⇒ free the claim for someone else |
+| `GET /api/mirror-pass/priority-follow` | priority follow (law 2) | a maintainer's `priority: <level>` label on the issue that the board's own priority hasn't followed yet |
 
 The drift preview is the on-demand cousin of DOC-FRESHNESS above: it answers "what does the
 README claim that the tree no longer backs?" for a single project right now, instead of
-proposing a task once per flight. The mutating execute counterpart and the stale-claim reaper
-derivation are separate slices and have not shipped.
+proposing a task once per flight. The stale-claim reaper's execute
+(`POST /api/mirror-pass/stale-claims/execute`) unassigns the stale claim and comments via `gh`;
+the priority-follow execute is the one mutation here that never touches GitHub — it writes the
+board's own `priority`/`priority_pinned` columns.
 
 ## 8. KEEPER review ritual (why a PR was merged, bounced, or held for you)
 
