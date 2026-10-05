@@ -336,7 +336,15 @@ panel summed them in as free too: its spend chip read the metrics column's total
 ship beside two Codex firings read `$2.00`, and a round flown on Codex alone read `$0.00`.
 `readRoundInfo` now counts every such firing in the round, shipped or not, in `unpriced`, and
 `roundStatItems` (`web/stat-tiles.ts`) names them beside the priced spend (`$2.00 + 2 unpriced`), or
-alone when none was priced (`2 unpriced`), its tip saying a Codex or Gemini run reports no price. Since
+alone when none was priced (`2 unpriced`), its tip saying a Codex or Gemini run reports no price.
+Until a later 2026-10-05 commit the FAMILY RUNAWAY guard read them as free too: the post-flight sweep
+summed each commit-subject family's metrics column, so a family of eleven $6.00 Claude slices and two
+Codex ones flagged `$66 across 13 firings`, as if all thirteen had been priced. `runFamilyRunawaySweep`
+(`flight/post-flight-sweeps.ts`) now reads such a firing's cost as NULL (`UNPRICED_FIRING_SQL`), and
+the `family-runaway` event carries `unpriced`, which its console line and the Health panel's chip
+(`familyRunaways`, `read/anomalies.ts`) name beside the spend (`$66 across 13 firings (2 unpriced
+left out)`); an event written before reads as none. The guard trips as before, since unpriced firings
+add nothing to the spend it checks. Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the

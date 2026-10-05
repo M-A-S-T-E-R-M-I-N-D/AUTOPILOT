@@ -24,6 +24,7 @@ import {
   pruneSnapshots,
   AUTO_APPROVED_EVENT,
   openStore,
+  UNPRICED_FIRING_SQL,
   type Store,
 } from '@autopilot/store';
 import type { GitVcs } from '@autopilot/engine';
@@ -37,7 +38,7 @@ import {
   verifyByIdPrefix,
   verifyByTaskId,
 } from './verify-by.js';
-import { familyEconomicsFromRows, isRunaway } from './triage-factors.js';
+import { familyEconomicsFromRows, isRunaway, type FamilyEconomicsRow } from './triage-factors.js';
 import {
   DOC_SUBJECTS,
   computeDocDrift,
@@ -215,15 +216,17 @@ export function runVerifyBySweep(
  */
 export function runFamilyRunawaySweep(store: Store, projectId: string, now: () => number): void {
   try {
+    // A firing whose record named no price (a Codex or Gemini run) stores 0 in
+    // the metrics column; read it as null so the family's spend leaves it out
+    // and its line names it, rather than counting it as a free firing (epic 0036).
     const familyRows = store.db
       .prepare(
-        'SELECT commit_subject AS commitSubject, cost_usd AS costUsd, completion FROM metrics WHERE project_id = ? ORDER BY id ASC',
+        `SELECT m.commit_subject AS commitSubject,
+                CASE WHEN ${UNPRICED_FIRING_SQL} THEN NULL ELSE m.cost_usd END AS costUsd,
+                m.completion
+           FROM metrics m WHERE m.project_id = ? ORDER BY m.id ASC`,
       )
-      .all(projectId) as {
-      commitSubject: string | null;
-      costUsd: number;
-      completion: string | null;
-    }[];
+      .all(projectId) as FamilyEconomicsRow[];
     for (const [family, econ] of familyEconomicsFromRows(familyRows)) {
       if (!isRunaway(econ)) continue;
       store.db
@@ -234,12 +237,18 @@ export function runFamilyRunawaySweep(store: Store, projectId: string, now: () =
           projectId,
           null,
           'family-runaway',
-          JSON.stringify({ family, spendUsd: econ.spendUsd, firings: econ.firings }),
+          JSON.stringify({
+            family,
+            spendUsd: econ.spendUsd,
+            firings: econ.firings,
+            unpriced: econ.unpriced,
+          }),
           now(),
         );
+      const unpriced = econ.unpriced > 0 ? ` (${econ.unpriced} unpriced left out)` : '';
       out(
         `  ⚠ recurring pattern burning real money across MANY task ids: "${family}" — ` +
-          `$${econ.spendUsd.toFixed(0)} across ${econ.firings} firings, no single id ever ` +
+          `$${econ.spendUsd.toFixed(0)} across ${econ.firings} firings${unpriced}, no single id ever ` +
           `crossed the per-task threshold. TASK ECONOMICS family guard (web-mstxk2vm-g446is).`,
       );
     }

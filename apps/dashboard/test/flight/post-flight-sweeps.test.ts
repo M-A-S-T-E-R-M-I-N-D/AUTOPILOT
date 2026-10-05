@@ -105,6 +105,48 @@ describe('runFamilyRunawaySweep', () => {
     expect(payload.spendUsd).toBeCloseTo(perFiringCost * firings);
   });
 
+  it("names a family's unpriced firings in its event and line, never as $0 spend (epic 0036)", () => {
+    // A Codex or Gemini run records `costUsd: null`, and the metrics column
+    // stores 0: the family's two such slices are firings, not free ones.
+    const perFiringCost = RUNAWAY_SPEND_USD / RUNAWAY_FIRINGS + 1;
+    const priced = RUNAWAY_FIRINGS + 1;
+    for (let i = 0; i < priced; i++) {
+      shipSlice(
+        `f-${i}`,
+        `feat(dashboard): mutation testing widens to widget-${i}.ts`,
+        perFiringCost,
+      );
+    }
+    const record = store.db.prepare(
+      `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+       VALUES ('p1', ?, 'firing', ?, 1)`,
+    );
+    for (const id of ['u-1', 'u-2']) {
+      shipSlice(id, `feat(dashboard): mutation testing widens to ${id}.ts`, 0);
+      record.run(id, JSON.stringify({ firingId: id, costUsd: null }));
+    }
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    try {
+      runFamilyRunawaySweep(store, 'p1', () => 12345);
+      const printed = write.mock.calls.map((c) => String(c[0])).join('');
+      expect(printed).toContain(`across ${priced + 2} firings (2 unpriced left out)`);
+    } finally {
+      write.mockRestore();
+    }
+
+    const rows = events().filter((r) => r.type === 'family-runaway');
+    expect(rows).toHaveLength(1);
+    const payload = JSON.parse(rows[0]?.payload ?? '{}') as {
+      spendUsd: number;
+      firings: number;
+      unpriced: number;
+    };
+    expect(payload.firings).toBe(priced + 2);
+    expect(payload.unpriced).toBe(2);
+    expect(payload.spendUsd).toBeCloseTo(perFiringCost * priced);
+  });
+
   it('writes no event when a family stays under the thresholds', () => {
     for (let i = 0; i < 3; i++) {
       shipSlice(`f-${i}`, `feat(dashboard): small fix to widget-${i}.ts`, 1);
