@@ -350,7 +350,12 @@ runaway chip read them as free too: a task flagged after eleven Codex firings sa
 `unpricedFiringsByTask` (`read/task-economics.ts`) now counts each task's firings whose record says
 `costUsd: null` (`UNPRICED_FIRING_SQL`) as `TaskEntry.unpricedFirings`, and `taskRunawayTip` and
 `taskRunawayAriaLabel` (`web/task-queue.ts`) name them beside the total (`Runaway: $55.00 + 2
-unpriced across 14 firings`), or read `unpriced` when none was priced. Since
+unpriced across 14 firings`), or read `unpriced` when none was priced. Until a later 2026-10-05
+commit THE PINNED EVAL SUITE took the metrics column's cost too: `verifiedKnownGoodFirings`
+(`packages/store/src/eval-gate.ts`), the pool `scripts/self-study/pin-eval-suite.mjs` freezes into
+the committed, immutable `docs/SELF-STUDY/eval-suite.json`, gave a verified Codex or Gemini ship
+`costUsd: 0`, a cost invented for good. It now reads such a firing's cost as `null`
+(`UNPRICED_FIRING_SQL`). Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the

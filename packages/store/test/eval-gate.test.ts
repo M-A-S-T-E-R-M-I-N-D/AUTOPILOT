@@ -212,6 +212,46 @@ describe('verifiedKnownGoodFirings', () => {
     // `clampLimit` (search.ts) and `clampOrientLengthsLimit` (orient.ts).
     expect(() => verifiedKnownGoodFirings(store.db, 'p1', NaN)).not.toThrow();
   });
+
+  // Epic 0036: a Codex or Gemini run reports no price, so its record says
+  // `costUsd: null` while the metrics column stores 0. The pinned eval suite
+  // is committed and immutable, so a $0 written into it is a cost invented
+  // for good.
+  it('reads a firing whose record reports no price as null, not $0', () => {
+    insertProject('p1', 'alpha', 'flying', 100);
+    insertVerifiedMetric('p1', 'claude', { costUsd: 2, createdAt: 100 });
+    insertVerifiedMetric('p1', 'codex', { costUsd: 0, createdAt: 200 });
+    const insertRecord = store.db.prepare(
+      `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+       VALUES ('p1', ?, 'firing', ?, 1)`,
+    );
+    insertRecord.run('claude', JSON.stringify({ costUsd: 2 }));
+    insertRecord.run('codex', JSON.stringify({ costUsd: null }));
+
+    const rows = verifiedKnownGoodFirings(store.db, 'p1');
+    expect(rows.map((r) => [r.firingId, r.costUsd])).toEqual([
+      ['codex', null],
+      ['claude', 2],
+    ]);
+  });
+
+  it('keeps the column cost when the record is missing or silent on cost', () => {
+    insertProject('p1', 'alpha', 'flying', 100);
+    insertVerifiedMetric('p1', 'no-record', { costUsd: 0.5, createdAt: 100 });
+    insertVerifiedMetric('p1', 'silent', { costUsd: 0.25, createdAt: 200 });
+    store.db
+      .prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES ('p1', 'silent', 'firing', '{}', 1)`,
+      )
+      .run();
+
+    const rows = verifiedKnownGoodFirings(store.db, 'p1');
+    expect(rows.map((r) => [r.firingId, r.costUsd])).toEqual([
+      ['silent', 0.25],
+      ['no-record', 0.5],
+    ]);
+  });
 });
 
 describe('evalRegressionOverPinnedSuite', () => {

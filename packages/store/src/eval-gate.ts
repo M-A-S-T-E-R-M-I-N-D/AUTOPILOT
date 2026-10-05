@@ -159,7 +159,8 @@ export interface KnownGoodFiring {
   readonly item: string | null;
   readonly kind: string | null;
   readonly sha: string | null;
-  readonly costUsd: number;
+  /** Null when the firing's record says no price was reported (epic 0036). */
+  readonly costUsd: number | null;
   readonly turns: number;
   readonly createdAt: number;
 }
@@ -172,14 +173,22 @@ export interface KnownGoodFiring {
  * "20-50 real tasks from your own repository with known-good outcomes" rule
  * draws from — `scripts/self-study/pin-eval-suite.mjs` freezes a slice of it
  * into `docs/SELF-STUDY/eval-suite.json` so the pool stops drifting once pinned.
+ *
+ * A firing whose record says its cost is unknown reads NULL, not the column's
+ * 0 (epic 0036): the pinned suite is committed and immutable, so a Codex or
+ * Gemini ship's $0 written into it would stand as an invented cost for good.
  */
 export function verifiedKnownGoodFirings(db: Db, projectId: string, limit = 50): KnownGoodFiring[] {
   const safeLimit = clampVerifiedKnownGoodFiringsLimit(limit);
   const rows = db
     .prepare(
-      `SELECT firing_id, item, kind, sha, cost_usd, turns, created_at FROM metrics
-        WHERE project_id = ? AND gate_result = 'passed' AND sha_verified = 1 AND head_advanced = 1
-        ORDER BY created_at DESC, id DESC
+      `SELECT m.firing_id, m.item, m.kind, m.sha,
+              CASE WHEN ${UNPRICED_FIRING_SQL} THEN NULL ELSE m.cost_usd END AS cost_usd,
+              m.turns, m.created_at
+         FROM metrics m
+        WHERE m.project_id = ? AND m.gate_result = 'passed' AND m.sha_verified = 1
+          AND m.head_advanced = 1
+        ORDER BY m.created_at DESC, m.id DESC
         LIMIT ?`,
     )
     .all(projectId, safeLimit) as {
@@ -187,7 +196,7 @@ export function verifiedKnownGoodFirings(db: Db, projectId: string, limit = 50):
     item: string | null;
     kind: string | null;
     sha: string | null;
-    cost_usd: number;
+    cost_usd: number | null;
     turns: number;
     created_at: number;
   }[];
