@@ -18,6 +18,9 @@
 export interface FlightSummaryLineInput {
   readonly headline: string;
   readonly cost: number;
+  /** No price was reported (a Codex or Gemini run, epic 0036): {@link cost}
+   *  is a stored 0, so the chip reads `unpriced` instead of $0.00. */
+  readonly costUnpriced?: boolean;
   /** Cost semantics v3 (epic 0013) — `null`/`undefined` when unconfigured or
    *  the firing predates this being tracked; {@link flightSummaryLineMeta}
    *  then leaves the real-cost chip fields null too. */
@@ -59,7 +62,8 @@ export function flightSummaryLineMeta(
   fmtCost: (n: number) => string,
   fmtAgo: (at: number) => string,
 ): FlightSummaryLineMeta {
-  const costText = fmtCost(s.cost);
+  const unpriced = s.costUnpriced === true;
+  const costText = unpriced ? 'unpriced' : fmtCost(s.cost);
   const agoText = fmtAgo(s.at);
   const realCostFormatted =
     s.realCostUsd === null || s.realCostUsd === undefined ? null : fmtCost(s.realCostUsd);
@@ -67,8 +71,8 @@ export function flightSummaryLineMeta(
     headlineTip: 'What this firing shipped',
     headlineAriaLabel: 'shipped: ' + s.headline,
     costText: costText,
-    costTip: 'Total spend for this firing',
-    costAriaLabel: 'cost: ' + costText,
+    costTip: unpriced ? 'No price was reported for this firing' : 'Total spend for this firing',
+    costAriaLabel: 'cost: ' + (unpriced ? 'unpriced, no price was reported' : costText),
     realCostText: realCostFormatted === null ? null : 'real ' + realCostFormatted,
     realCostTip:
       realCostFormatted === null

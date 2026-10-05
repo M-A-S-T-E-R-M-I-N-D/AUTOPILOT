@@ -157,6 +157,8 @@ describe('finishedFlightSummaries', () => {
         id: 'flight-9',
         headline: 'Fix the login',
         cost: 1.23,
+        // Epic 0036: a ship whose record carries a price reads priced.
+        costUnpriced: false,
         // Cost semantics v3 (epic 0013): summaries now always carry the
         // real-spend field; null when no firing recorded an apportioned cost.
         realCostUsd: null,
