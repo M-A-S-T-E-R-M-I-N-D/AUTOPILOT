@@ -52,9 +52,9 @@ export const HDD_FSYNC_MS = 3;
  *
  * `MediaType` is the reliable field: 3 = HDD, 4 = SSD, 5 = SCM. `BusType`
  * is NOT reliable — the SATA drive on the operator's machine reports bus
- * type 8 (RAID) because of the controller mode, so NVMe is read from the
- * friendly name and the bus type together, and a disagreement resolves
- * down to plain `ssd` rather than up.
+ * type 8 (RAID) because of the controller mode, so NVMe is read from
+ * `BusType` alone, and a missing or disagreeing bus resolves down to
+ * plain `ssd` rather than up on the friendly name.
  */
 export function classifyWindowsDisk(json: string): DiskClass {
   let row: { MediaType?: number; BusType?: number; FriendlyName?: string };
@@ -67,8 +67,9 @@ export function classifyWindowsDisk(json: string): DiskClass {
   if (row === null || typeof row !== 'object') return 'unknown';
   if (row.MediaType === 3) return 'hdd';
   if (row.MediaType === 4 || row.MediaType === 5) {
-    // 17 is NVMe. The friendly name is the corroborating signal, since a
-    // controller in RAID mode hides the real bus type behind 8.
+    // 17 is NVMe, read from BusType alone — a controller in RAID mode
+    // hides the real bus type behind 8, and the friendly name is never
+    // trusted to resolve that disagreement upward.
     return row.BusType === 17 ? 'nvme' : 'ssd';
   }
   return 'unknown';
