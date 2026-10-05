@@ -33,7 +33,7 @@ test.describe('app shell — the board as columns', () => {
     await expect(card).toHaveAttribute('data-board-view', 'list');
     await expect(page.locator('.board-columns')).toBeHidden();
     const toggle = page.locator('[data-board-view-toggle]');
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(toggle).not.toHaveAttribute('aria-pressed');
     await toggle.click();
     await expect(card).toHaveAttribute('data-board-view', 'columns');
     await expect(page.locator('.board-columns')).toBeVisible();
@@ -58,7 +58,7 @@ test.describe('app shell — the board as columns', () => {
     }
 
     // The toggle back: List, remembered across a reload.
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(toggle).not.toHaveAttribute('aria-pressed');
     await toggle.click();
     await expect(card).toHaveAttribute('data-board-view', 'list');
     await expect(page.locator('.board-columns')).toBeHidden();
