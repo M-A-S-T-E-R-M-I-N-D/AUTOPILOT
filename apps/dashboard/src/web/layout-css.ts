@@ -454,6 +454,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
 #fly-browse-btn { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: border-radius var(--duration-short2) var(--easing-standard), box-shadow var(--duration-short2) var(--easing-standard); }
 #fly-browse-btn:hover, #fly-browse-btn:focus-visible { color: var(--color-text); border-radius: var(--shape-extra-small-hover); box-shadow: var(--elevation-level-1); }
 #fly-browse-btn:active { border-radius: var(--shape-extra-small-pressed); box-shadow: none; }
+#fly-browse-btn > .icon { margin-inline-end: 0.35em; }
 .pill-paused { color: var(--color-sev-medium); border-color: var(--color-sev-medium); }
 .fly-status { order: 6; flex-basis: 100%; font-size: var(--text-sm); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
 .fly-status:empty { display: none; }
