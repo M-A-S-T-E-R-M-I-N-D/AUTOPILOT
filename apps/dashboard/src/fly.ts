@@ -342,9 +342,11 @@ async function main(): Promise<void> {
     return;
   }
   if (flyTarget === 'github') {
-    out(`Fly GitHub: ${target} — the social pass alone; no firings, no code-tree edits.`);
+    out(
+      `Fly GitHub: ${target} — the social and mirror passes alone; no firings, no code-tree edits.`,
+    );
     const outcome = await runGithubOnlyFlight({ target });
-    const debrief = socialFlightDebriefOf([outcome]);
+    const debrief = socialFlightDebriefOf([outcome], outcome.mirror);
     if (debrief) {
       out(`  🗣 ${socialFlightDebriefLine(debrief)}`);
       if (!recordGithubOnlyFlightDebrief(resolveDbPath(), target, debrief, Date.now)) {

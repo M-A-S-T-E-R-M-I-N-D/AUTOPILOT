@@ -17,8 +17,10 @@ import {
   socialFlightDebriefLine,
   socialFlightDebriefOf,
   type SocialFlightDebrief,
+  type SocialFlightMirrorDigest,
 } from '../../src/flight/social-flight-debrief.js';
 import type {
+  MirrorPreviewOutcome,
   SocialFlightPassOutcome,
   SocialFlightPassRan,
   SocialFlightSkipReason,
@@ -39,6 +41,15 @@ const COMMENT: SocialCandidateAction = {
   body: 'x',
 };
 const EMPTY: SocialProtocolVerdict = { allowed: [], queued: [], duplicate: [], refused: [] };
+const MIRROR: SocialFlightMirrorDigest = {
+  checked: 4,
+  toClose: 1,
+  toReopen: 1,
+  toNote: 0,
+  toSettle: 0,
+  inSync: 2,
+};
+const MIRROR_RAN: MirrorPreviewOutcome = { ran: true, ...MIRROR };
 
 function ran(
   phase: SocialFlightPhase,
@@ -102,6 +113,28 @@ describe('socialFlightDebriefOf — the whole flight in one digest', () => {
     });
   });
 
+  it("folds in the standalone flight's mirror-pass preview when it ran (epic 0016 4/6)", () => {
+    const digest = socialFlightDebriefOf([ran('start')], MIRROR_RAN);
+
+    expect(digest).toMatchObject({ passesRan: 1, mirror: MIRROR });
+  });
+
+  it('keeps no mirror reading when the preview skipped quietly — or a code flight had none', () => {
+    for (const mirror of [
+      { ran: false, reason: 'no-store' },
+      { ran: false, reason: 'project-unknown' },
+      { ran: false, reason: 'preview-error' },
+      undefined,
+    ] as const) {
+      const digest = socialFlightDebriefOf([ran('start')], mirror);
+      expect(digest && 'mirror' in digest, JSON.stringify(mirror)).toBe(false);
+    }
+  });
+
+  it('a mirror reading alone never breaks the silence of a flight whose passes all stayed off', () => {
+    expect(socialFlightDebriefOf([skipped('start', 'toggle-off')], MIRROR_RAN)).toBeNull();
+  });
+
   it('counts the refusals the pass already explained, and never the silent skips', () => {
     const digest = socialFlightDebriefOf([
       skipped('start', 'gh-disconnected'),
@@ -144,6 +177,17 @@ describe('socialFlightDebriefLine — the SOCIAL section of the flight log', () 
       'SOCIAL debrief: 1 pass(es) ran; caps consumed 0/1 new issue(s), 0/3 comment(s); ' +
         '0 queued, 0 duplicate, 0 refused; 1 skipped (foreign target); ' +
         '1 skipped (gh not connected); nothing posted (read-only passes).',
+    );
+  });
+
+  it("reads the mirror preview's counts after the verdict totals, as a preview — never as applied", () => {
+    const digest = socialFlightDebriefOf([ran('start')], MIRROR_RAN);
+
+    expect(digest && socialFlightDebriefLine(digest)).toBe(
+      'SOCIAL debrief: 1 pass(es) ran; caps consumed 0/1 new issue(s), 0/3 comment(s); ' +
+        '0 queued, 0 duplicate, 0 refused; mirror pass previewed 4 github-linked task(s) — ' +
+        '1 to close, 1 to reopen, 0 unverified note(s), 0 to settle, 2 in sync; ' +
+        'nothing posted (read-only passes).',
     );
   });
 
@@ -203,5 +247,24 @@ describe('parseSocialFlightDebrief — the persisted digest reads back whole, or
       const payload = JSON.stringify({ ...DIGEST, queued: bad });
       expect(parseSocialFlightDebrief(payload), JSON.stringify(bad)).toBeNull();
     }
+  });
+
+  it("round-trips a Fly GitHub flight's mirror reading, and a row without one keeps none", () => {
+    const withMirror: SocialFlightDebrief = { ...DIGEST, mirror: MIRROR };
+    expect(parseSocialFlightDebrief(JSON.stringify(withMirror))).toEqual(withMirror);
+    expect(parseSocialFlightDebrief(JSON.stringify(DIGEST))).not.toHaveProperty('mirror');
+  });
+
+  it('refuses a malformed or partial mirror reading rather than dropping it or reading a gap as zero', () => {
+    const { inSync: _dropped, ...partial } = MIRROR;
+    for (const mirror of [null, 7, 'x', [], partial, { ...MIRROR, toClose: -1 }]) {
+      const payload = JSON.stringify({ ...DIGEST, mirror });
+      expect(parseSocialFlightDebrief(payload), JSON.stringify(mirror)).toBeNull();
+    }
+  });
+
+  it('keeps only the mirror fields, never a stray key from the payload', () => {
+    const payload = JSON.stringify({ ...DIGEST, mirror: { ...MIRROR, closed: 3 } });
+    expect(parseSocialFlightDebrief(payload)).toEqual({ ...DIGEST, mirror: MIRROR });
   });
 });
