@@ -568,8 +568,29 @@ describe('operator-config isolation (2026-10-05: a firing inherited the whole ~/
   it('an operator whose gateway lives in user settings can opt out, and the argv is the old one', () => {
     const optOut = { ...DEFAULT_ENGINE_CONFIG, isolateOperatorConfig: false };
     const args = buildClaudeArgs('opus', 'p', optOut, '/work/sbx', 'json');
-    expect(args).not.toContain('--setting-sources');
-    expect(args).not.toContain('--strict-mcp-config');
+    // Exactly the pre-isolation argv — nothing missing, nothing extra.
+    expect(args).toEqual([
+      '--print',
+      '--model',
+      'opus',
+      '--fallback-model',
+      DEFAULT_ENGINE_CONFIG.fallbackModel,
+      '--effort',
+      DEFAULT_ENGINE_CONFIG.effort,
+      '--allowedTools',
+      DEFAULT_ENGINE_CONFIG.allowedTools.join(','),
+      '--disallowedTools',
+      DEFAULT_ENGINE_CONFIG.disallowedTools.join(','),
+      '--add-dir',
+      '/work/sbx',
+      '--max-turns',
+      String(DEFAULT_ENGINE_CONFIG.maxTurns),
+      '--max-budget-usd',
+      String(DEFAULT_ENGINE_CONFIG.maxBudgetUsd),
+      '--output-format',
+      'json',
+      'p',
+    ]);
   });
 
   it('the isolated env turns off auto-memory and claude.ai connectors, on a copy', () => {
@@ -871,6 +892,20 @@ describe('ClaudeCliModel', () => {
       stdin.emit('error', Object.assign(new Error('write EPIPE'), { code: 'EPIPE' })),
     ).not.toThrow();
     await expect(promise).resolves.toBeDefined();
+  });
+
+  it('an env passed in the options is the one the child gets, not process.env (a `&&` for `??` would swap them)', async () => {
+    mockExecFileResult(null, '');
+
+    const model = new ClaudeCliModel({
+      repo: '/work/sbx',
+      config: DEFAULT_ENGINE_CONFIG,
+      env: { ONLY_IN_THE_OPTIONS_ENV: 'yes' },
+    });
+    await model.invoke('sonnet', 'p');
+
+    const [, , options] = execFileMock.mock.calls[0] as [string, string[], Record<string, unknown>];
+    expect((options['env'] as Record<string, string>)['ONLY_IN_THE_OPTIONS_ENV']).toBe('yes');
   });
 
   it('derives execFile env from the real process.env (a `?? process.env` bug would spread an empty env)', async () => {
@@ -1849,6 +1884,23 @@ describe('StreamingClaudeCliModel', () => {
     child.emit('close', 0);
 
     await expect(promise).resolves.toBeDefined();
+  });
+
+  it('an env passed in the options is the one the streaming child gets, not process.env', async () => {
+    const child = fakeChild();
+    spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+
+    const model = new StreamingClaudeCliModel({
+      repo: '/work/sbx',
+      config: DEFAULT_ENGINE_CONFIG,
+      env: { ONLY_IN_THE_OPTIONS_ENV: 'yes' },
+    });
+    const promise = model.invoke('sonnet', 'p');
+    child.emit('close', 0);
+    await promise;
+
+    const options = spawnMock.mock.calls[0]?.[2] as { env?: Record<string, string> } | undefined;
+    expect(options?.env?.['ONLY_IN_THE_OPTIONS_ENV']).toBe('yes');
   });
 
   it('derives spawn env from the real process.env (a `?? process.env` bug would spread an empty env)', async () => {
