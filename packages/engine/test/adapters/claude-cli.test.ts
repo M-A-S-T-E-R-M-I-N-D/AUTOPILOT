@@ -19,6 +19,7 @@ import {
   DEATH_TAIL_CHARS,
   DEFAULT_CLI_IDLE_TIMEOUT_MS,
   capDeathNote,
+  isolatedCliEnv,
 } from '../../src/adapters/claude-cli.js';
 import { DEFAULT_ENGINE_CONFIG } from '../../src/config.js';
 
@@ -517,6 +518,9 @@ describe('buildClaudeArgs — full argv shape', () => {
       DEFAULT_ENGINE_CONFIG.disallowedTools.join(','),
       '--add-dir',
       '/work/sbx',
+      '--setting-sources',
+      'project,local',
+      '--strict-mcp-config',
       '--max-turns',
       String(DEFAULT_ENGINE_CONFIG.maxTurns),
       '--max-budget-usd',
@@ -525,6 +529,63 @@ describe('buildClaudeArgs — full argv shape', () => {
       'json',
       'the prompt',
     ]);
+  });
+});
+
+describe('operator-config isolation (2026-10-05: a firing inherited the whole ~/.claude)', () => {
+  // A firing spawned the CLI with the operator's own user settings, hooks,
+  // rules, skills, agents, plugins, auto-memory and claude.ai MCP connectors:
+  // ~30K tokens and ~2.7 minutes per firing, and a SessionStart summary of an
+  // unrelated session. The product's context is the repo and its prompt.
+  it('loads only the project and local setting sources and no MCP server by default', () => {
+    const args = buildClaudeArgs('opus', 'p', DEFAULT_ENGINE_CONFIG, '/work/sbx', 'stream-json');
+    const at = args.indexOf('--setting-sources');
+    expect(at).toBeGreaterThan(-1);
+    expect(args[at + 1]).toBe('project,local');
+    expect(args).toContain('--strict-mcp-config');
+    // The flight's own --settings (the containment guard) is a separate
+    // source the CLI loads regardless of --setting-sources.
+    const withGuard = buildClaudeArgs(
+      'opus',
+      'p',
+      DEFAULT_ENGINE_CONFIG,
+      '/work/sbx',
+      'stream-json',
+      '/tmp/guard.json',
+    );
+    expect(
+      withGuard.slice(withGuard.indexOf('--settings'), withGuard.indexOf('--settings') + 2),
+    ).toEqual(['--settings', '/tmp/guard.json']);
+    expect(withGuard).toContain('--strict-mcp-config');
+  });
+
+  it('never passes --bare: it skips the hooks --settings defines, the containment guard included', () => {
+    expect(buildClaudeArgs('opus', 'p', DEFAULT_ENGINE_CONFIG, '/r', 'json')).not.toContain(
+      '--bare',
+    );
+  });
+
+  it('an operator whose gateway lives in user settings can opt out, and the argv is the old one', () => {
+    const optOut = { ...DEFAULT_ENGINE_CONFIG, isolateOperatorConfig: false };
+    const args = buildClaudeArgs('opus', 'p', optOut, '/work/sbx', 'json');
+    expect(args).not.toContain('--setting-sources');
+    expect(args).not.toContain('--strict-mcp-config');
+  });
+
+  it('the isolated env turns off auto-memory and claude.ai connectors, on a copy', () => {
+    const base = { PATH: '/bin', ENABLE_CLAUDEAI_MCP_SERVERS: 'true' };
+    const env = isolatedCliEnv(base, DEFAULT_ENGINE_CONFIG);
+    expect(env['CLAUDE_CODE_DISABLE_AUTO_MEMORY']).toBe('1');
+    expect(env['ENABLE_CLAUDEAI_MCP_SERVERS']).toBe('false');
+    expect(env['PATH']).toBe('/bin');
+    expect(base.ENABLE_CLAUDEAI_MCP_SERVERS).toBe('true');
+    expect(env).not.toBe(base);
+  });
+
+  it('the opt-out leaves the env exactly as resolved', () => {
+    const base = { PATH: '/bin' };
+    const env = isolatedCliEnv(base, { ...DEFAULT_ENGINE_CONFIG, isolateOperatorConfig: false });
+    expect(env).toEqual({ PATH: '/bin' });
   });
 });
 

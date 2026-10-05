@@ -62,6 +62,17 @@ export interface EngineConfig {
    */
   readonly instanceId: string | null;
   /**
+   * Keep the operator's personal Claude Code setup out of every spawned CLI
+   * (`buildClaudeArgs` / `isolatedCliEnv` in adapters/claude-cli.ts). On
+   * 2026-10-05 a read of 44 firing transcripts found each firing loading the
+   * operator's whole `~/.claude` — user hooks, rule files, skills, agents,
+   * plugins, auto-memory and claude.ai MCP connectors, ~30K tokens and ~2.7
+   * minutes per firing — plus a SessionStart summary of an unrelated session.
+   * Unset or `true` isolates; `false` is for an operator whose gateway or
+   * credentials helper is configured in their user settings.
+   */
+  readonly isolateOperatorConfig?: boolean;
+  /**
    * The CLI this flight's firings fly on (`claude`, `codex` or `gemini`,
    * epic 0036), carried onto `FiringRecord.engine` so the fleet report
    * can judge each engine on its own firings. Absent when the launcher names
