@@ -151,6 +151,9 @@ export interface TaskHistoryLogEntry extends FlightVerdictEntry {
   readonly commitSubject: string | null;
   readonly completion: string | null;
   readonly at: number;
+  /** The firing record carries no price (`FlightEntry.costUnpriced`): a
+   *  Codex or Gemini run, epic 0036. */
+  readonly costUnpriced?: boolean;
 }
 
 /** The task fields {@link taskHistoryOf} reads — the store's lifetime tally
@@ -171,7 +174,8 @@ export interface TaskHistoryLine {
   readonly subject: string | null;
   /** The commit's short sha, or null when the firing left no commit. */
   readonly sha: string | null;
-  readonly cost: number;
+  /** Null when the firing's record carries no price, never $0. */
+  readonly cost: number | null;
   readonly at: number;
 }
 
@@ -182,6 +186,9 @@ export interface TaskHistory {
   readonly firings: number;
   /** What those firings cost, on the same larger-of rule. */
   readonly cost: number;
+  /** The loaded log's firings on the task whose record carries no price,
+   *  left out of {@link cost}. */
+  readonly unpriced: number;
   /** The newest firings on the task the loaded log holds, newest first. */
   readonly lines: readonly TaskHistoryLine[];
   /** Firings counted in {@link firings} that {@link lines} does not list —
@@ -197,6 +204,8 @@ export interface TaskHistory {
  * tally when it is larger, and `older` says how many the list leaves out. A
  * firing's subject shows only when it left a commit: `commitSubject` is HEAD's
  * subject, which for a firing that committed nothing is someone else's work.
+ * An unpriced firing (`costUnpriced`, epic 0036) has a null cost on its line
+ * and is counted in `unpriced`, never summed into `cost` as $0.
  */
 export function taskHistoryOf(
   task: TaskHistoryTask,
@@ -206,19 +215,23 @@ export function taskHistoryOf(
   const mine = (log || []).filter((entry) => entry.item === task.id);
   mine.sort((a, b) => b.at - a.at);
   let logCost = 0;
-  for (const entry of mine) logCost += entry.cost || 0;
+  let unpriced = 0;
+  for (const entry of mine) {
+    if (entry.costUnpriced === true) unpriced++;
+    else logCost += entry.cost || 0;
+  }
   const lines = mine.slice(0, Math.max(0, limit)).map((entry) => ({
     verdict: flightVerdictOf(entry),
     completion:
       entry.completion === 'slice' || entry.completion === 'complete' ? entry.completion : null,
     subject: entry.sha && entry.commitSubject ? entry.commitSubject : null,
     sha: entry.sha ? entry.sha.slice(0, 7) : null,
-    cost: entry.cost || 0,
+    cost: entry.costUnpriced === true ? null : entry.cost || 0,
     at: entry.at,
   }));
   const firings = Math.max(mine.length, task.firingCount || 0);
   const cost = Math.max(logCost, task.cumulativeCostUsd || 0);
-  return { firings, cost, lines, older: firings - lines.length };
+  return { firings, cost, unpriced, lines, older: firings - lines.length };
 }
 
 /** A task's fields {@link taskDimensionBudgetSignalOf} needs to find its

@@ -332,6 +332,46 @@ describe('task row detail (epic 0026 slice 1: Enter)', () => {
       expect(detailOf('t1').textContent).toContain(STRINGS.en.taskHistoryOlder.replace('{n}', '1'));
     });
 
+    // A Codex or Gemini firing reports no price, and the metrics column stores
+    // that null as 0 (epic 0036): its line read "$0.00", as if it were free.
+    function withUnpriced(priced: boolean) {
+      const state = makeState();
+      const project = state.projects[0]!;
+      const older = priced ? { cost: 2 } : { cost: 0, costUnpriced: true };
+      (project as { flightLog: unknown[] }).flightLog = [
+        flight('f2', 't1', { cost: 0, costUnpriced: true }),
+        flight('f1', 't1', { ...older, at: NOW - 3_600_000 }),
+      ];
+      return state;
+    }
+
+    it('reads an unpriced firing as unpriced, and the head names it beside the priced total', async () => {
+      await boot(withUnpriced(true));
+
+      titleOf('t1').click();
+
+      const head = detailOf('t1').querySelector('.task-detail-history > p') as HTMLElement;
+      expect(head.textContent).toBe(
+        STRINGS.en.taskHistoryMany.replace('{n}', '2').replace('{cost}', '$2.00 + 1 unpriced'),
+      );
+      const [newest, oldest] = lines('t1');
+      expect(newest!.querySelector('.task-history-meta')?.textContent).toMatch(/^unpriced · /);
+      expect(newest!.textContent).not.toContain('$0.00');
+      expect(oldest!.textContent).toContain('$2.00');
+    });
+
+    it('heads a task none of whose firings was priced as unpriced, never $0.00', async () => {
+      await boot(withUnpriced(false));
+
+      titleOf('t1').click();
+
+      const head = detailOf('t1').querySelector('.task-detail-history > p') as HTMLElement;
+      expect(head.textContent).toBe(
+        STRINGS.en.taskHistoryMany.replace('{n}', '2').replace('{cost}', 'unpriced'),
+      );
+      expect(detailOf('t1').textContent).not.toContain('$0.00');
+    });
+
     it('says so when no firing has worked the task, and draws no list', async () => {
       await boot(withHistory());
 

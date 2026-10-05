@@ -202,6 +202,7 @@ describe('taskHistoryOf', () => {
     expect(taskHistoryOf({ id: 't1' }, log, 5)).toEqual({
       firings: 2,
       cost: 1.75,
+      unpriced: 0,
       lines: [
         {
           verdict: 'reverted',
@@ -270,6 +271,30 @@ describe('taskHistoryOf', () => {
     expect(lines[1]!.cost).toBe(0);
   });
 
+  // A Codex or Gemini firing reports no price, and the metrics column stores
+  // that null as 0 (epic 0036), so its line read "$0.00" as if it were free.
+  it('reads an unpriced firing as unpriced, never $0, and counts it apart from the cost', () => {
+    const log = [
+      firing({ at: 1, cost: 2 }),
+      firing({ at: 2, cost: 0, costUnpriced: true }),
+      firing({ at: 3, cost: 0.4, costUnpriced: true }),
+    ];
+
+    const history = taskHistoryOf({ id: 't1' }, log, 5);
+
+    expect(history.lines.map((line) => line.cost)).toEqual([null, null, 2]);
+    expect(history).toMatchObject({ firings: 3, cost: 2, unpriced: 2, older: 0 });
+  });
+
+  it('counts an unpriced firing past the limit too, since the head names every one', () => {
+    const log = [firing({ at: 1, costUnpriced: true }), firing({ at: 2, cost: 1 })];
+
+    const history = taskHistoryOf({ id: 't1' }, log, 1);
+
+    expect(history.lines.map((line) => line.cost)).toEqual([1]);
+    expect(history).toMatchObject({ firings: 2, cost: 1, unpriced: 1, older: 1 });
+  });
+
   it('leaves the log in its own order and answers an empty history for no log', () => {
     const log = [firing({ at: 1 }), firing({ at: 2 })];
 
@@ -279,6 +304,7 @@ describe('taskHistoryOf', () => {
     expect(taskHistoryOf({ id: 't1' }, null, 5)).toEqual({
       firings: 0,
       cost: 0,
+      unpriced: 0,
       lines: [],
       older: 0,
     });
