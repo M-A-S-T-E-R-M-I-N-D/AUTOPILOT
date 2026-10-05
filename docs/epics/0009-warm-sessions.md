@@ -121,6 +121,18 @@ This reaches the same `avgCostPerTurn`/cost-delta figures item (1) above re-read
 table: the 2026-08-20 MEASURED VERDICT and any re-read since predate this fix and may have
 undercounted resumed cost wherever an unpriced firing landed in that group.
 
+**2026-10-05 operator-config isolation (unrelated to resume itself):** `163a341c` added
+`--setting-sources project,local` and `--strict-mcp-config` to `buildClaudeArgs` (plus
+`isolatedCliEnv`'s env vars) so a firing loads only the target repo's own settings, never the
+operator's `~/.claude` user setup — a canary run had been inheriting nine MCP servers, auto-memory,
+and a SessionStart hook, at ~$0.45/firing. Both new flags are pushed before `--max-turns`, ahead of
+where `--resume` is appended lower in the same function, so they land on a resumed invocation just
+as unconditionally as the pre-existing `--add-dir`/`--fallback-model` flags this epic's acceptance
+criterion already covers — no test yet pins them together with a `resumeSessionId` the way the
+`--settings` case does, but nothing about `buildClaudeArgs`'s `--resume` placement,
+`isResumeFailure`'s cold retry, or the cost/turn measurement changed, and the new flags fire
+identically on a resumed or a cold invocation.
+
 Original problem statement (historical, pre-2026-08-16): every firing spawned a
 brand-new `claude` process (`ClaudeCliModel`/`StreamingClaudeCliModel`
 in `packages/engine/src/adapters/claude-cli.ts`, via `buildClaudeArgs`) with no continuity from the

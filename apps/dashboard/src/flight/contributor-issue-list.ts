@@ -138,14 +138,18 @@ interface RawContributorFacingIssue {
  * Returns `[]` on a non-zero exit or unparseable/non-array stdout rather
  * than throwing. A non-object row (a `null`) and entries missing a numeric
  * `number`, string `title`, or string `url` are dropped rather than passed
- * through malformed.
+ * through malformed. `repo` (`owner/repo`) lists that repository's issues
+ * with `--repo`, the routing console's read for a project page; without it
+ * the list is the repository `gh` acts on.
  */
 export async function fetchContributorFacingIssues(
   exec: CliExec,
+  repo?: string,
 ): Promise<ContributorFacingIssue[]> {
   const { code, stdout } = await exec('gh', [
     'issue',
     'list',
+    ...(repo === undefined ? [] : ['--repo', repo]),
     '--state',
     'open',
     '--limit',

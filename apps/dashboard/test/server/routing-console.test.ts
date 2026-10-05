@@ -7,7 +7,6 @@ import {
   UNREADABLE_ROUTING_CONSOLE,
   type RoutingConsoleSnapshot,
 } from '../../src/flight/routing-console.js';
-import { MirrorPassRepoMismatchError } from '../../src/flight/mirror-pass-execute.js';
 
 /** Minimal `IncomingMessage` stand-in: the handler only touches `.method` and `.url`. */
 function fakeRequest(opts: { method?: string | undefined; url?: string }): {
@@ -117,26 +116,5 @@ describe('handleRoutingConsole', () => {
     );
 
     expect(api.mock.calls).toEqual([['p1'], [undefined], [undefined]]);
-  });
-
-  it('names both repositories, and no queues, when the project is a checkout of another repo', async () => {
-    const api: RoutingConsoleApi = vi
-      .fn()
-      .mockRejectedValue(new MirrorPassRepoMismatchError('someone/theirs', 'octocat/hello-world'));
-    const res = fakeResponse();
-
-    await handleRoutingConsole(
-      fakeRequest({ method: 'GET', url: '/api/routing-console?project=p1' }) as never,
-      res as never,
-      api,
-      {},
-    );
-
-    expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
-    expect(readBody(res)).toEqual({
-      skippedReason: 'repo-mismatch',
-      projectRepo: 'someone/theirs',
-      ghRepo: 'octocat/hello-world',
-    });
   });
 });

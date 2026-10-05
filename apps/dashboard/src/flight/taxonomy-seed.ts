@@ -290,15 +290,18 @@ export const MAX_MILESTONE_PAGES = 10;
 
 /** One page of the milestone list in `state` (every milestone by default),
  *  or `undefined` on a non-zero exit, unparseable stdout or a non-array
- *  payload. Exported for `routing-console.ts`'s open-milestone read. */
+ *  payload. Exported for `routing-console.ts`'s open-milestone read, which
+ *  names a project's own `owner/repo` as `repo`; without it the read is the
+ *  repository `gh` acts on. */
 export async function fetchMilestonePage(
   exec: CliExec,
   page: number,
   state: 'all' | 'open' = 'all',
+  repo = '{owner}/{repo}',
 ): Promise<unknown[] | undefined> {
   const { code, stdout } = await exec('gh', [
     'api',
-    `repos/{owner}/{repo}/milestones?state=${state}&per_page=${MILESTONE_PAGE_SIZE}&page=${page}`,
+    `repos/${repo}/milestones?state=${state}&per_page=${MILESTONE_PAGE_SIZE}&page=${page}`,
   ]);
   if (code !== 0) return undefined;
   let parsed: unknown;

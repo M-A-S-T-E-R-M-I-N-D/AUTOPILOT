@@ -739,6 +739,37 @@ propagation, and the filled style does not match the nav.
    so the button's name stays its words, in Hebrew too; `busy.ts` rides core,
    which grows for it inside its raw line
    (`apps/dashboard/test/web/ritual-action-icons.test.ts`, axe-clean).
+   **Checklist done tick 2026-10-05 (law 1):** each open step of the Getting
+   started checklist drew its vendored icon from the ladder's own splice of
+   `icons.ts`, but a done step's mark drew a hand-copied Feather check, a
+   `polyline` whose points `obTick()` typed out by hand. The hand-inlined
+   census matches server-printed `<svg viewBox=…>` markup only, so it never
+   saw a shape built with `createElementNS`. The mark draws the vendored
+   `check` the Docs editor's Save draws now, spliced beside the steps' icons,
+   and one CSS rule keeps the 20px and the 2.5 stroke the old tick's
+   attributes gave it, so it still reads bold on the filled mark. Each
+   step's icon is now classed `icon icon-<name>` like `iconEl()`'s. The tick
+   stays decorative; the step's "Done" status says the state in words.
+   `apps/dashboard/test/web/icons.test.ts` gained a second census, a
+   `setAttribute('d'|'points', '…')` literal anywhere in `web/` outside
+   `icons.ts`, pinned at zero; the charts and the QR code compute their
+   geometry, so they never match
+   (`apps/dashboard/test/web/onboarding-done-tick-icon.test.ts`, axe-clean).
+   **Fly bar's Fire, Pause and Stop 2026-10-05 (slice 2):** each Flight
+   console row's Pause and Stop lead with an icon and the Pool's Fly with the
+   `send` the rail's Fly link draws, but the fly bar's own Fire, the primary
+   launch on every page, was bare words, and so were the single-flight Pause
+   and Stop the Flight console paragraph above left bare. Fire leads with
+   that `send` and keeps it while it reads "Flying…", "Queued…" or "Resume",
+   since each still names a launch of the typed folder; Pause and Stop take
+   the Flight console's `circle-pause` and `circle-stop`. Nothing is newly
+   vendored, and each icon is decorative, so a button's name stays its words.
+   `setGoLabel()` used to replace Fire's whole `textContent` on every state
+   change; it goes through `setSweptText()` now, still guarded, so an idle
+   poll tick mutates nothing and the icon survives every swap and a locale
+   switch (`apps/dashboard/test/web/fly-bar-launch-icons.test.ts`,
+   axe-clean). The e2e baselines and README frames show a bare-word Fire
+   until the landing re-renders them.
 
 ## Related
 

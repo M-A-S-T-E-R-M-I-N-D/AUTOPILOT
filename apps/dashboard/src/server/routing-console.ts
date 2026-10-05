@@ -9,7 +9,6 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { sendJson } from './http-util.js';
-import { MirrorPassRepoMismatchError } from '../flight/mirror-pass-execute.js';
 import { UNREADABLE_ROUTING_CONSOLE, type RoutingConsoleApi } from '../flight/routing-console.js';
 
 export type { RoutingConsoleApi };
@@ -19,12 +18,10 @@ export type { RoutingConsoleApi };
  * milestone progress, the priority and status label queues, and claims, as
  * the GitHub page says them. Read-only — shells to `gh` fresh on every call,
  * the same on-demand-not-cached rationale `handleCollaboration` uses. A
- * project page names itself with `?project=`; when `main.ts`'s
- * `refuseRepoMismatchedRoutingConsole` refuses it as a checkout of another
- * GitHub repository, the answer is that refusal with both repository names
- * and no queues, since the queues `gh` could read are not that project's.
- * Any other thrown read answers {@link UNREADABLE_ROUTING_CONSOLE}
- * (milestones unknown) rather than a 500. 404 only for an unwired API.
+ * project page names itself with `?project=`, and `main.ts`'s
+ * `readProjectRoutingConsole` reads that project's own repository. A thrown
+ * read answers {@link UNREADABLE_ROUTING_CONSOLE} (milestones unknown)
+ * rather than a 500. 404 only for an unwired API.
  */
 export async function handleRoutingConsole(
   req: IncomingMessage,
@@ -44,15 +41,7 @@ export async function handleRoutingConsole(
   const project = new URL(req.url ?? '/', 'http://localhost').searchParams.get('project') ?? '';
   try {
     send(200, await api(project.length > 0 ? project : undefined));
-  } catch (error) {
-    if (error instanceof MirrorPassRepoMismatchError) {
-      send(200, {
-        skippedReason: error.skippedReason,
-        projectRepo: error.projectRepo,
-        ghRepo: error.ghRepo,
-      });
-      return;
-    }
+  } catch {
     send(200, UNREADABLE_ROUTING_CONSOLE);
   }
 }

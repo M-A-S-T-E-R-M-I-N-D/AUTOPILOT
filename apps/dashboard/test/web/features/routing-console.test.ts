@@ -77,12 +77,6 @@ function boot(answer: () => Answer, project?: string): void {
   new Function(clientJs())();
 }
 
-const REPO_MISMATCH = {
-  skippedReason: 'repo-mismatch',
-  projectRepo: 'someone-else/their-project',
-  ghRepo: 'octocat/hello-world',
-};
-
 function panel(): HTMLElement {
   return document.getElementById('routing-console-panel') as HTMLElement;
 }
@@ -195,33 +189,5 @@ describe('ROUTING CONSOLE panel (epic 0019 S4)', () => {
     boot(() => ({ ok: true, body: SNAPSHOT }));
     await vi.advanceTimersByTimeAsync(1);
     expect(consoleRequests).toEqual(['/api/routing-console']);
-  });
-
-  it("says a project page is a checkout of another repository, never that page's queues as its own", async () => {
-    boot(() => ({ ok: true, body: REPO_MISMATCH }), 'p1');
-    await vi.advanceTimersByTimeAsync(1);
-
-    expect(panel().hidden).toBe(false);
-    expect(panel().querySelector('.routing-console-title')?.textContent).toBe('Routing console');
-    const line = panel().querySelector('.routing-console-repo-mismatch');
-    expect(line?.textContent).toBe(
-      'Not read — this project is a checkout of someone-else/their-project, but gh is acting on octocat/hello-world.',
-    );
-    expect(line?.getAttribute('data-i18n-template')).toBe('routingConsoleRepoMismatch');
-    expect(JSON.parse(line?.getAttribute('data-i18n-args') ?? '{}')).toEqual({
-      projectRepo: 'someone-else/their-project',
-      ghRepo: 'octocat/hello-world',
-    });
-    expect(rowTexts()).toEqual([]);
-    expect(panel().textContent).not.toContain('Unclaimed');
-  });
-
-  it('is axe-clean saying the repository mismatch', async () => {
-    boot(() => ({ ok: true, body: REPO_MISMATCH }), 'p1');
-    await vi.advanceTimersByTimeAsync(1);
-    vi.useRealTimers();
-
-    const results = await axe.run(panel(), AXE_OPTIONS);
-    expect(results.violations).toEqual([]);
   });
 });

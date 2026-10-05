@@ -129,10 +129,7 @@ import { firingEngineEnv, firingEngineRequestFromEnv } from '../flight/firing-en
 import { createContributorIssueListPreviewApi } from '../flight/contributor-issue-list.js';
 import { createSocialIdentityApi } from '../flight/social-pass.js';
 import { createCollaborationApi } from '../flight/collaboration.js';
-import {
-  createRoutingConsoleApi,
-  refuseRepoMismatchedRoutingConsole,
-} from '../flight/routing-console.js';
+import { readProjectRoutingConsole } from '../flight/routing-console.js';
 import { createCiStatusApi, createGhRun } from '../control/ci-status.js';
 import { createWhatsNewApi, githubPulse } from '../read/whats-new.js';
 import { readBenchmarkAt } from '../read/benchmark.js';
@@ -942,9 +939,9 @@ const server = createServer({
   collaboration: createCollaborationApi(),
   // Operator routing console's read (epic 0019 S4, board web-mtrh1hn3-8x9f0z)
   // — open-milestone progress, the steering label queues and claims, beside
-  // the board. A project page that is a checkout of another GitHub repository
-  // is refused with both names rather than shown gh's page as its own.
-  routingConsole: refuseRepoMismatchedRoutingConsole(dbPath, createRoutingConsoleApi()),
+  // the board. A project page reads its own repository's page (its origin),
+  // never the page of the repository gh acts on.
+  routingConsole: readProjectRoutingConsole(dbPath),
   // CI-health surface (board web-mtq70abw-opouz8): the cached per-workflow
   // `gh run list` report `dashboard ci-status` already prints, surfaced for
   // the browser — see `control/ci-status.ts`'s `createCiStatusApi`.

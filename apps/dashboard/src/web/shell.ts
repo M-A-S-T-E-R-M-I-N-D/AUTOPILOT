@@ -5905,10 +5905,10 @@ ${contextRailHtml(project)}
           <fieldset class="fly-lane-engines" id="fly-lane-engines" hidden><legend data-i18n="laneEngines">Engine per lane</legend></fieldset>
       </div>
       <button type="button" id="fly-lucky" aria-label="I'm feeling lucky — probe this machine and fill a calibrated launch" data-i18n-aria="flyLuckyAria">${iconSvg('clover')}</button>
-      <button type="submit" id="fly-go" data-i18n="flyIt">Fire</button>
+      <button type="submit" id="fly-go" data-i18n="flyIt">${iconSvg('send')}Fire</button>
       <button type="button" class="fly-options-toggle" id="fly-options-toggle" aria-expanded="false" aria-controls="fly-options" aria-label="Show or hide the launch settings: browse, budget mode, firings, $ per firing, lanes, fly target, social pass, engine" data-i18n-aria="flyOptionsAria" data-tip="Show or hide the launch settings — browse, budget mode, firings, $ per firing, lanes, fly target, social pass, engine" data-i18n-tip="flyOptionsTip">${iconSvg('settings')}</button>
-      <button type="button" id="fly-pause" data-i18n="pause" hidden>Pause</button>
-      <button type="button" id="fly-stop" data-i18n="stop" hidden>Stop</button>
+      <button type="button" id="fly-pause" data-i18n="pause" hidden>${iconSvg('circle-pause')}Pause</button>
+      <button type="button" id="fly-stop" data-i18n="stop" hidden>${iconSvg('circle-stop')}Stop</button>
       <span class="fly-status" id="fly-status" role="status" aria-live="polite"></span>
       <p class="fly-hint" id="fly-hint"></p>
       <div class="fly-why" id="fly-why" hidden>

@@ -70,6 +70,10 @@ export interface FlightSummaryEntry extends FlightHeadlineEntry {
   readonly id: string;
   readonly shipped: boolean;
   readonly cost: number;
+  /** See `read/fleet.ts`'s `FlightEntry.costUnpriced`: the record carries no
+   *  price (a Codex or Gemini run), so {@link cost} is the metrics column's 0.
+   *  Optional for the same pre-existing-fixture reason as {@link realCostUsd}. */
+  readonly costUnpriced?: boolean;
   /** Cost semantics v3 (epic 0013) — see `read/fleet.ts`'s `FlightEntry.realCostUsd`
    *  for the field's full meaning. Optional for the same pre-existing-fixture
    *  reason as that field. */
@@ -84,6 +88,9 @@ export interface FlightSummary {
   /** What shipped — see {@link flightHeadlineOf}. */
   readonly headline: string;
   readonly cost: number;
+  /** True when no price was reported for this flight (epic 0036): its
+   *  {@link cost} is a stored 0, never a real $0.00. */
+  readonly costUnpriced: boolean;
   /** Cost semantics v3 (epic 0013) — this flight's cost apportioned by real
    *  subscription share instead of API list price. `null` when unconfigured
    *  or the firing predates this being tracked, never a fabricated number. */
@@ -129,6 +136,7 @@ export function finishedFlightSummaries(p: FlightSummaryProject): readonly Fligh
       id: f.id,
       headline: flightHeadlineOf(f, taskById),
       cost: f.cost,
+      costUnpriced: f.costUnpriced === true,
       realCostUsd: f.realCostUsd ?? null,
       sha: f.sha,
       closedTaskTitle,

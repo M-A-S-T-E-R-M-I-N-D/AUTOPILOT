@@ -254,6 +254,13 @@ export interface MirrorPreviewRan {
 
 export type MirrorPreviewOutcome = MirrorPreviewSkipped | MirrorPreviewRan;
 
+/** What {@link runGithubOnlyFlight} flew: its one social pass, plus the
+ *  mirror preview's outcome whenever that pass ran — absent when the pass
+ *  refused, since the preview never runs then. */
+export type GithubOnlyFlightOutcome = SocialFlightPassOutcome & {
+  readonly mirror?: MirrorPreviewOutcome;
+};
+
 function summarizeMirrorPlans(plans: readonly MirrorPassPlan[]): MirrorPreviewRan {
   let toClose = 0;
   let toReopen = 0;
@@ -344,19 +351,19 @@ export async function runGithubOnlyMirrorPreview(
  * {@link runGithubOnlyMirrorPreview}). Every other law still holds — the
  * self-target guard, the clean refusal when gh is not connected, the caps,
  * read-only (nothing posted, nothing applied) until the execute halves are
- * wired.
+ * wired. The preview's outcome comes back as `mirror` beside the pass's own,
+ * so `fly.ts` folds its counts into the SOCIAL debrief (epic 0016 slice 5/6).
  */
 export async function runGithubOnlyFlight(
   options: SocialFlightPassOptions = {},
-): Promise<SocialFlightPassOutcome> {
+): Promise<GithubOnlyFlightOutcome> {
   const outcome = await runSocialFlightPass('start', 'full', options);
-  if (outcome.ran) {
-    const target = options.target ?? options.engineRepo ?? process.cwd();
-    await runGithubOnlyMirrorPreview(
-      options.dbPath ?? resolveDbPath(),
-      target,
-      options.exec ?? ghExec,
-    );
-  }
-  return outcome;
+  if (!outcome.ran) return outcome;
+  const target = options.target ?? options.engineRepo ?? process.cwd();
+  const mirror = await runGithubOnlyMirrorPreview(
+    options.dbPath ?? resolveDbPath(),
+    target,
+    options.exec ?? ghExec,
+  );
+  return { ...outcome, mirror };
 }

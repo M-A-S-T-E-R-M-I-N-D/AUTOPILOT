@@ -32,10 +32,14 @@
 import { ONBOARDING_STEPS, computeOnboarding, isStepDone, LEVEL_META } from '../onboarding.js';
 import { ICON_SHAPES } from '../icons.js';
 
-/** The icon shapes this panel can draw — only the ladder's own, so the
- *  splice stays small instead of shipping the whole registry twice. */
+/** The icon shapes this panel can draw — only the ladder's own, plus the
+ *  `check` a done step's mark draws, so the splice stays small instead of
+ *  shipping the whole registry twice. */
 export const LADDER_ICONS = Object.fromEntries(
-  ONBOARDING_STEPS.map((step) => [step.icon, ICON_SHAPES[step.icon] ?? []]),
+  [...ONBOARDING_STEPS.map((step) => step.icon), 'check'].map((name) => [
+    name,
+    ICON_SHAPES[name] ?? [],
+  ]),
 );
 
 export function onboardingJs(): string {
@@ -95,7 +99,7 @@ function obIcon(name) {
   svg.setAttribute('stroke-linejoin', 'round');
   svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('focusable', 'false');
-  svg.className.baseVal = 'icon';
+  svg.setAttribute('class', 'icon icon-' + name);
   var shapes = OB_ICONS[name] || [];
   for (var i = 0; i < shapes.length; i++) {
     var node = document.createElementNS(OB_SVG_NS, shapes[i][0]);
@@ -250,9 +254,11 @@ function obStepItem(entry) {
   var mark = document.createElement('span');
   mark.className = 'ob-step-mark';
   if (entry.done) {
-    mark.appendChild(obTick());
-    // The tick is decorative; the state is announced in words below, so a
-    // screen reader hears "Done" rather than a glyph name.
+    // Epic 0025 law 1: the vendored check, which CSS draws at 20px and a
+    // bolder stroke so it reads on the filled mark. The tick is decorative;
+    // the state is announced in words below, so a screen reader hears "Done"
+    // rather than a glyph name.
+    mark.appendChild(obIcon('check'));
   } else {
     mark.appendChild(obIcon(step.icon));
   }
@@ -286,24 +292,6 @@ function obStepItem(entry) {
   }
   li.appendChild(body);
   return li;
-}
-
-function obTick() {
-  var svg = document.createElementNS(OB_SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('width', '20');
-  svg.setAttribute('height', '20');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', '2.5');
-  svg.setAttribute('stroke-linecap', 'round');
-  svg.setAttribute('stroke-linejoin', 'round');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('focusable', 'false');
-  var path = document.createElementNS(OB_SVG_NS, 'polyline');
-  path.setAttribute('points', '20 6 9 17 4 12');
-  svg.appendChild(path);
-  return svg;
 }
 
 // The two ticks: one per level, lit when that level is complete. These are

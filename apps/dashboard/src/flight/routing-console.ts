@@ -20,11 +20,12 @@
  * or closes anything.
  */
 
+import { listProjects, openStore } from '@autopilot/store';
 import type { CliExec } from '../connection/cli-probe.js';
 import type { PoolClaim } from './claim-ledger.js';
 import { fetchContributorFacingIssues } from './contributor-issue-list.js';
 import { ghExec } from './gh-exec.js';
-import { refuseRepoMismatchedPreview } from './mirror-pass-execute.js';
+import { fetchProjectRepo } from './mirror-pass-execute.js';
 import { normalizeLabel } from './pool-client.js';
 import {
   HOUSE_TAXONOMY_LABELS,
@@ -236,14 +237,17 @@ export function parseMilestoneRows(raw: unknown): readonly RoutingMilestone[] {
  * The repo's open milestones with their issue counts, paged the way
  * `taxonomy-seed.ts` pages its milestone read (until a short page, at most
  * {@link MAX_MILESTONE_PAGES}). `undefined` when any page fails: a console
- * that cannot read the page says so, never "no milestones".
+ * that cannot read the page says so, never "no milestones". `repo`
+ * (`owner/repo`) names the repository; without it the read is the one `gh`
+ * acts on.
  */
 export async function fetchOpenMilestones(
   exec: CliExec,
+  repo?: string,
 ): Promise<readonly RoutingMilestone[] | undefined> {
   const rows: unknown[] = [];
   for (let page = 1; page <= MAX_MILESTONE_PAGES; page += 1) {
-    const pageRows = await fetchMilestonePage(exec, page, 'open');
+    const pageRows = await fetchMilestonePage(exec, page, 'open', repo);
     if (pageRows === undefined) return undefined;
     rows.push(...pageRows);
     if (pageRows.length < MILESTONE_PAGE_SIZE) break;
@@ -263,8 +267,12 @@ export interface RoutingConsoleSnapshot extends Omit<RoutingConsole, 'milestones
 
 /** The routing console's read (injected) — see {@link createRoutingConsoleApi}.
  *  `projectId` names the project page asking, and is omitted for the home
- *  page; only {@link refuseRepoMismatchedRoutingConsole} consults it. */
+ *  page. */
 export type RoutingConsoleApi = (projectId?: string) => Promise<RoutingConsoleSnapshot>;
+
+/** Which GitHub repository a project page's console reads: the project's own
+ *  `owner/repo`, or `null` to read the one `gh` acts on. */
+export type RoutingConsoleRepoOf = (projectId: string) => Promise<string | null>;
 
 /** The answer when nothing could be read: milestones unknown, and every
  *  queue present but empty, the shape {@link planRoutingConsole} gives an
@@ -275,13 +283,17 @@ export const UNREADABLE_ROUTING_CONSOLE: RoutingConsoleSnapshot = {
 };
 
 /** One open-milestone read and one open-issue read, in parallel, derived
- *  into the console. Read-only: a milestone GET and an issue list. The issue
- *  list carries comments, the fields the pool's own read asks for, so a claim
- *  that landed only as its comment shows under Claims. */
-export async function fetchRoutingConsole(exec: CliExec): Promise<RoutingConsoleSnapshot> {
+ *  into the console. Read-only: a milestone GET and an issue list, both of
+ *  `repo` when given (`owner/repo`), else of the repository `gh` acts on. The
+ *  issue list carries comments, the fields the pool's own read asks for, so a
+ *  claim that landed only as its comment shows under Claims. */
+export async function fetchRoutingConsole(
+  exec: CliExec,
+  repo?: string,
+): Promise<RoutingConsoleSnapshot> {
   const [milestones, issues] = await Promise.all([
-    fetchOpenMilestones(exec),
-    fetchContributorFacingIssues(exec),
+    fetchOpenMilestones(exec, repo),
+    fetchContributorFacingIssues(exec, repo),
   ]);
   const plan = planRoutingConsole(milestones ?? [], issues);
   return { ...plan, milestones: milestones === undefined ? null : plan.milestones };
@@ -290,14 +302,20 @@ export async function fetchRoutingConsole(exec: CliExec): Promise<RoutingConsole
 /**
  * Builds the routing console's read, defaulting to the fleet's guarded `gh`
  * like every other on-demand panel read here (`collaboration.ts`'s
- * `createCollaborationApi`). Never rejects: a thrown `exec` answers
- * {@link UNREADABLE_ROUTING_CONSOLE}, so the route never 500s on a missing
- * or failing `gh`.
+ * `createCollaborationApi`). A project page reads the repository `repoOf`
+ * names for it, and the home page, or a project `repoOf` names none for, the
+ * repository `gh` acts on. Never rejects: a thrown `exec` or `repoOf`
+ * answers {@link UNREADABLE_ROUTING_CONSOLE}, so the route never 500s on a
+ * missing or failing `gh`.
  */
-export function createRoutingConsoleApi(exec: CliExec = ghExec): RoutingConsoleApi {
-  return async () => {
+export function createRoutingConsoleApi(
+  exec: CliExec = ghExec,
+  repoOf?: RoutingConsoleRepoOf,
+): RoutingConsoleApi {
+  return async (projectId) => {
     try {
-      return await fetchRoutingConsole(exec);
+      const repo = projectId === undefined || repoOf === undefined ? null : await repoOf(projectId);
+      return await fetchRoutingConsole(exec, repo ?? undefined);
     } catch {
       return UNREADABLE_ROUTING_CONSOLE;
     }
@@ -305,24 +323,27 @@ export function createRoutingConsoleApi(exec: CliExec = ghExec): RoutingConsoleA
 }
 
 /**
- * Epic 0019 S4 on a project page: `api` reads the repository `gh` acts on
- * whatever page asked, so a project that is a checkout of another GitHub
- * repository would show that repository's milestones, queues and claims as
- * its own. This puts S3's preview gate (`refuseRepoMismatchedPreview`) in
- * front of a project page's read: a KNOWN mismatch rejects with
- * `MirrorPassRepoMismatchError`, naming both repositories, before `api`
- * runs. An unknown project, an unresolved identity, or a project with no
- * GitHub origin reads as before, and the home page (no `projectId`) skips
- * the check entirely.
+ * Epic 0019 S4 on a project page: the console a project page shows is its
+ * own repository's page. `gh` acts on the dashboard's own checkout whatever
+ * page asks, so a project that is a checkout of another GitHub repository
+ * would otherwise show that one's milestones, queues and claims as its own.
+ * This reads the project's `origin` (`mirror-pass-execute.ts`'s
+ * `fetchProjectRepo`, S3's own check) and names that repository on both
+ * reads. A project with no GitHub origin, or a project id the store does not
+ * know, reads the repository `gh` acts on, as the home page does.
  */
-export function refuseRepoMismatchedRoutingConsole(
+export function readProjectRoutingConsole(
   dbPath: string,
-  api: RoutingConsoleApi,
   exec: CliExec = ghExec,
 ): RoutingConsoleApi {
-  const gated = refuseRepoMismatchedPreview(dbPath, api, exec);
-  return async (projectId) => {
-    if (projectId === undefined) return api();
-    return (await gated(projectId)) ?? UNREADABLE_ROUTING_CONSOLE;
-  };
+  return createRoutingConsoleApi(exec, async (projectId) => {
+    const store = openStore(dbPath, { readonly: true });
+    let rootPath: string | undefined;
+    try {
+      rootPath = listProjects(store.db).find((p) => p.id === projectId)?.root_path;
+    } finally {
+      store.close();
+    }
+    return rootPath === undefined ? null : fetchProjectRepo(exec, rootPath);
+  });
 }

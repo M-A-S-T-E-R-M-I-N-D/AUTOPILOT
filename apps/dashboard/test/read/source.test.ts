@@ -1077,6 +1077,34 @@ describe('gatherLiveState', () => {
       rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
     }
   });
+
+  it('names a firing whose record reports no price unpriced in recent firings, not $0.00 (epic 0036)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-live-'));
+    const dbPath = join(dir, 'a.db');
+    try {
+      const s = openStore(dbPath);
+      migrate(s);
+      project('p1', 'alpha', 'registered', null, s);
+      // A Codex ship, whose run reports no price (its metrics row stores 0),
+      // after a $0.40 Claude one.
+      firing('p1', 'p1:claude', 'AP-1', 1, 100, s);
+      firing('p1', 'p1:codex', 'AP-2', 1, 200, s);
+      s.db.prepare(`UPDATE metrics SET cost_usd = 0.4 WHERE firing_id = 'p1:claude'`).run();
+      const record = s.db.prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at) VALUES ('p1', ?, 'firing', ?, ?)`,
+      );
+      record.run('p1:claude', JSON.stringify({ engine: 'claude', costUsd: 0.4 }), 100);
+      record.run('p1:codex', JSON.stringify({ engine: 'codex', costUsd: null }), 200);
+      s.close();
+
+      const result = await gatherLiveState(dbPath, 'p1');
+      expect(result).toContain(
+        'Last firings: p1:codex — shipped (AP-2), unpriced (no price reported); p1:claude — shipped (AP-1), $0.40',
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
 });
 
 describe('readSearchFromStore', () => {
