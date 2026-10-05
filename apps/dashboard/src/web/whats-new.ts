@@ -46,6 +46,8 @@ const STRINGS = {
     shipped: 'Shipped',
     shipRate: 'Ship rate',
     perShipped: 'Cost per shipped',
+    unpriced: 'unpriced',
+    unpricedLeftOut: '{n} unpriced left out, no price was reported',
     github: 'On GitHub',
     issues: 'Open issues',
     prs: 'Open pull requests',
@@ -76,6 +78,8 @@ const STRINGS = {
     shipped: 'נשלחו',
     shipRate: 'שיעור שליחה',
     perShipped: 'עלות לשליחה',
+    unpriced: 'ללא מחיר',
+    unpricedLeftOut: '{n} ללא מחיר לא נכללו, לא דווח מחיר',
     github: 'ב-GitHub',
     issues: 'בעיות פתוחות',
     prs: 'בקשות משיכה פתוחות',
@@ -150,7 +154,7 @@ const WHATS_NEW_CSS = `
 .wn-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-inline-end: var(--space-1); }
 .wn-list { margin: 0; padding-inline-start: var(--space-4); display: flex; flex-direction: column; gap: var(--space-1); }
 .wn-scope { display: inline-block; font-size: 0.6875rem; font-weight: 700; padding: 0 var(--space-1); margin-inline-end: var(--space-1); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); color: var(--color-text-muted); }
-.wn-fail { display: block; font-size: var(--text-sm); font-weight: 400; }
+.wn-fail, .wn-note { display: block; font-size: var(--text-sm); font-weight: 400; }
 .wn-meter { height: 6px; border-radius: 3px; background: var(--color-surface-sunken); margin-top: var(--space-1); overflow: hidden; }
 .wn-meter span { display: block; height: 100%; background: var(--color-success); }
 .wn-ci { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-1); }
@@ -310,7 +314,13 @@ function roundSection(r) {
     rateTile.lastChild.appendChild(meter);
   }
   tiles.appendChild(rateTile);
-  tiles.appendChild(tile(wt('perShipped'), r.costPerShipped === null ? wt('unknown') : '$' + Number(r.costPerShipped).toFixed(2)));
+  // Priced ships alone: a Codex or Gemini run reports no price, so the tile
+  // names the ships it left out, and reads unpriced when none was priced (epic 0036).
+  var unpriced = r.unpricedShipped || 0;
+  var perShipped = r.costPerShipped !== null ? '$' + Number(r.costPerShipped).toFixed(2) : unpriced > 0 ? wt('unpriced') : wt('unknown');
+  var costTile = tile(wt('perShipped'), perShipped);
+  if (unpriced > 0) costTile.lastChild.appendChild(el('span', 'wn-sub wn-note', wt('unpricedLeftOut', { n: fmtNum(unpriced) })));
+  tiles.appendChild(costTile);
   sec.appendChild(tiles);
   return sec;
 }

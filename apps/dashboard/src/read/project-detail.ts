@@ -324,6 +324,10 @@ export interface RoundInfo {
   readonly cost: number;
   readonly shipRate: number | null;
   readonly costPerShipped: number | null;
+  /** The ships {@link costPerShipped} leaves out because their run reported
+   *  no price (epic 0036), so the What's new tile can name them. Optional
+   *  like `FleetTotals.unpricedShipped`: a hand-built round has none. */
+  readonly unpricedShipped?: number;
 }
 
 /**
@@ -352,6 +356,7 @@ export async function readRoundInfo(dbPath: string, projectId: string): Promise<
       shipRate: stats.firings > 0 ? stats.shipped / stats.firings : null,
       // Priced ships alone: an unpriced (Codex, Gemini) ship's 0 is no price (epic 0036).
       costPerShipped: stats.pricedShipped > 0 ? stats.cost / stats.pricedShipped : null,
+      unpricedShipped: stats.shipped - stats.pricedShipped,
     };
   } catch {
     return null;
