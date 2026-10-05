@@ -5722,8 +5722,8 @@ ${versionMenuHtml()}
         <div class="connect-body">
           <p class="connect-status" id="connect-status" role="status" aria-live="polite" data-i18n="connectCheckingConnection">checking connection…</p>
           <div class="connect-actions">
-            <button type="button" class="connect-login" id="connect-login" data-i18n="loginClaude">Log in with Claude</button>
-            <button type="button" class="connect-test" id="connect-test" data-i18n="testConnection">Test connection</button>
+            <button type="button" class="connect-login" id="connect-login" data-i18n="loginClaude">${iconSvg('square-terminal')}Log in with Claude</button>
+            <button type="button" class="connect-test" id="connect-test" data-i18n="testConnection">${iconSvg('activity')}Test connection</button>
           </div>
           <hr class="connect-sep" />
           <form class="connect-form" id="connect-form">
@@ -5754,7 +5754,7 @@ ${versionMenuHtml()}
               <label for="connect-gcp-region" data-i18n="connectGcpRegionLabel">Region (optional)</label>
               <input type="text" id="connect-gcp-region" name="gcpRegion" placeholder="us-east5" autocomplete="off" spellcheck="false" dir="ltr" />
             </fieldset>
-            <button type="submit" data-i18n="saveVerify">Save &amp; verify</button>
+            <button type="submit" data-i18n="saveVerify">${iconSvg('shield-check')}Save &amp; verify</button>
             <p class="connect-hint" id="connect-hint"></p>
           </form>
           <hr class="connect-sep" />
