@@ -5865,7 +5865,7 @@ ${contextRailHtml(project)}
       <input type="text" id="fly-folder" name="folder" list="fly-folder-options" placeholder="absolute path to a git repo" data-i18n-placeholder="flyFolderPlaceholder" autocomplete="off" spellcheck="false" />
       <datalist id="fly-folder-options"></datalist>
       <div class="fly-options" id="fly-options" hidden>
-          <button type="button" id="fly-browse-btn" aria-haspopup="dialog" data-tip="Browse the filesystem to pick a folder" data-i18n-tip="flyBrowseTip" data-i18n="browse">Browse…</button>
+          <button type="button" id="fly-browse-btn" aria-haspopup="dialog" data-tip="Browse the filesystem to pick a folder" data-i18n-tip="flyBrowseTip" data-i18n="browse">${iconSvg('folder-open')}Browse…</button>
           <label for="fly-mode" class="visually-hidden" data-i18n="budgetModeLabel">Budget mode</label>
           <select id="fly-mode" name="mode" aria-label="Budget mode: fixed firing count or total spend target" data-i18n-aria="budgetMode">
             <option value="firings" selected data-i18n="byCount">by count</option>

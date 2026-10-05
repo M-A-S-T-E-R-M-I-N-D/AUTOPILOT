@@ -769,7 +769,16 @@ propagation, and the filled style does not match the nav.
    poll tick mutates nothing and the icon survives every swap and a locale
    switch (`apps/dashboard/test/web/fly-bar-launch-icons.test.ts`,
    axe-clean). The e2e baselines and README frames show a bare-word Fire
-   until the landing re-renders them.
+   until the landing re-renders them. **Fly bar's Browse… 2026-10-05 (slice
+   2):** the "Browse a folder" dialog heads with `folder-open` and ends with
+   icon-led Cancel, Close and "Use this folder", but the button that opens
+   it, first in the launch settings, was bare words. It leads with that same
+   `folder-open`, since it opens the dialog that opens a folder; nothing is
+   newly vendored. The icon is decorative, so the button's name stays its
+   words, and it is server-printed markup the locale sweep keeps a leading
+   icon in, so a Hebrew switch rewrites only the words and core does not
+   grow (`apps/dashboard/test/web/fly-browse-opener-icon.test.ts`,
+   axe-clean).
 
 ## Related
 
