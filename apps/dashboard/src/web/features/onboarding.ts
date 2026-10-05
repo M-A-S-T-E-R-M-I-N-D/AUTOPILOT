@@ -33,10 +33,11 @@ import { ONBOARDING_STEPS, computeOnboarding, isStepDone, LEVEL_META } from '../
 import { ICON_SHAPES } from '../icons.js';
 
 /** The icon shapes this panel can draw — only the ladder's own, plus the
- *  `check` a done step's mark draws, so the splice stays small instead of
- *  shipping the whole registry twice. */
+ *  `check` a done step's mark draws and the `lock-open` the minimised
+ *  strip's social-unlocked line leads with, so the splice stays small
+ *  instead of shipping the whole registry twice. */
 export const LADDER_ICONS = Object.fromEntries(
-  [...ONBOARDING_STEPS.map((step) => step.icon), 'check'].map((name) => [
+  [...ONBOARDING_STEPS.map((step) => step.icon), 'check', 'lock-open'].map((name) => [
     name,
     ICON_SHAPES[name] ?? [],
   ]),
@@ -519,8 +520,18 @@ function onboardingInit() {
       obSetCollapsed(collapsed);
     });
   }
+  // Epic 0025 (board web-mtywp7zq-55f3o9): the strip's social half leads
+  // with icons like the head above it. Go social draws the key-round of the
+  // Connect GitHub step it stands for; the unlocked line draws lock-open.
+  // Both decorative; setSweptText() keeps a leading icon across the
+  // [data-i18n] sweep, and obPaintStrip() only toggles hidden.
   var social = document.getElementById('ob-strip-social');
-  if (social) social.addEventListener('click', obOpenConnect);
+  if (social) {
+    social.insertBefore(obIcon('key-round'), social.firstChild);
+    social.addEventListener('click', obOpenConnect);
+  }
+  var socialOn = document.getElementById('ob-strip-social-on');
+  if (socialOn) socialOn.insertBefore(obIcon('lock-open'), socialOn.firstChild);
   var later = document.getElementById('ob-snooze');
   if (later) later.addEventListener('click', function () { obSnooze(false); });
   // …and the way back: the ladder tells you what to DO, the tour tells you
