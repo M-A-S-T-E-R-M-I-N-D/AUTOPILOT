@@ -141,7 +141,8 @@ Per pass, mechanically derived — no guesses:
    (same gh-connected, self-target-checked precondition; never duplicated).
    No store at the resolved `dbPath`, a folder never onboarded as a project,
    or a read failure all skip quietly — best-effort, never failing the
-   flight (`test/flight/social-flight-pass.test.ts`).
+   flight (`test/flight/social-flight-pass.test.ts`; RUNBOOK §13 shows the
+   `🪞 mirror pass:` line).
    _Still open:_ only the execute half — applying a reconciled finding still
    requires the dashboard's own confirm-guarded mirror-pass button; the
    standalone flight only ever previews.
@@ -180,8 +181,13 @@ Per pass, mechanically derived — no guesses:
    `parseSocialFlightDebrief` reads a row without `mirror` as before and
    refuses a malformed one whole (`test/flight/social-flight-debrief.test.ts`,
    `test/flight/social-flight-pass.test.ts`).
+   The FLIGHT DEBRIEF panel reads them too: `flightDebriefSocialItems` adds
+   one tipped `mirror previewed …` chip after the verdicts when the digest
+   carries `mirror`, worded as a preview (en + he;
+   `test/web/landing-social-debrief.test.ts`), and RUNBOOK §13
+   shows the flight's `🪞 mirror pass:` line and where a finding is applied.
    _Still open:_ the said/filed/closed tally once the execute half posts
-   anything, and the FLIGHT DEBRIEF panel's chips for the mirror reading.
+   anything.
 6. **tests**: protocol red-team — duplicate-issue temptation fixture, cap
    overflow, role-confusion, answer-for-a-human refusal.
    _Shipped so far:_ all four fixtures pin the pure protocol engine
