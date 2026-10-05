@@ -1075,6 +1075,14 @@ GitHub-native — the pool IS the canonical repo's issue tracker:
    flagged for; a PR that fell back to an unguarded engine, or let an unknown
    `AUTOPILOT_ENGINE` fly instead of refusing, would change what runs in the
    target with no security keyword in its path; added in `c2d73137`),
+   the routing-console security marker (`flight/routing-console-execute` added
+   to `SECURITY_SENSITIVE_PATH_MARKERS` — the routing console's one write
+   (epic 0019 S4, steering from the dashboard's side): decides AND runs a `gh
+   issue edit --add-label` that routes an unprioritized issue, gated on the
+   maintainer role and a fresh read of the issue, the same decide-and-execute
+   class `flight/mirror-pass` above is flagged for; its read half,
+   `flight/routing-console.ts`, stays in the census's benign list, so this
+   anchor carries the `-execute` suffix; added in `bd3d01ee`),
    and the operator doc RUNBOOK §8. Open: the semantic half of "does it genuinely
    improve" (judging what readable changes actually do — the deleted-test
    guard above is a header-level fact, not a reading of the change), and
