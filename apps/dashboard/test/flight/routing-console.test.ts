@@ -20,12 +20,10 @@ import {
   fetchRoutingConsole,
   parseMilestoneRows,
   planRoutingConsole,
-  refuseRepoMismatchedRoutingConsole,
-  type RoutingConsoleApi,
+  readProjectRoutingConsole,
   type RoutingIssue,
   type RoutingMilestone,
 } from '../../src/flight/routing-console.js';
-import { MirrorPassRepoMismatchError } from '../../src/flight/mirror-pass-execute.js';
 import { MAX_MILESTONE_PAGES, MILESTONE_PAGE_SIZE } from '../../src/flight/taxonomy-seed.js';
 import {
   planClaimPoolIssue,
@@ -525,33 +523,37 @@ function seedProject(dir: string): string {
   return dbPath;
 }
 
-/** gh resolves `octocat` acting on `octocat/hello-world`; git answers
- *  `originUrl` for the project's origin, or fails when it is null. */
-function repoGateExec(originUrl: string | null): CliExec {
-  return vi.fn(async (bin: string, args: readonly string[]) => {
-    if (bin === 'git' && args[2] === 'remote' && args[3] === 'get-url') {
+/** git answers `originUrl` for the project's origin, or fails when it is
+ *  null; gh answers one milestone and one issue whichever repository it is
+ *  asked about. */
+function projectGh(originUrl: string | null) {
+  return vi.fn<CliExec>(async (bin: string, args: readonly string[]) => {
+    if (bin === 'git') {
       return originUrl === null ? { code: 2, stdout: '' } : { code: 0, stdout: `${originUrl}\n` };
     }
-    if (args[0] === 'api' && args[1] === 'user') {
-      return { code: 0, stdout: JSON.stringify({ login: 'octocat' }) };
-    }
-    if (args[0] === 'repo' && args[1] === 'view') {
+    if (args[0] === 'api') {
       return {
         code: 0,
-        stdout: JSON.stringify({
-          nameWithOwner: 'octocat/hello-world',
-          url: 'https://github.com/octocat/hello-world',
-          isPrivate: false,
-        }),
+        stdout: JSON.stringify([{ title: 'V1', open_issues: 1, closed_issues: 1, due_on: null }]),
       };
     }
-    return { code: 0, stdout: '' };
+    return { code: 0, stdout: JSON.stringify([ghIssue(9, ['priority: high'], ['amy'])]) };
   });
 }
 
-describe("refuseRepoMismatchedRoutingConsole — a project page reads only its own repository's page", () => {
+/** The repository each read named: the milestone path's `owner/repo`, and
+ *  the issue list's `--repo` (`undefined` when it named none). */
+function reposRead(exec: ReturnType<typeof projectGh>): readonly (string | undefined)[] {
+  const gh = exec.mock.calls.filter(([bin]) => bin === 'gh').map(([, args]) => args);
+  const milestones = gh.find((args) => args[0] === 'api')?.[1] ?? '';
+  const list = gh.find((args) => args[0] === 'issue') ?? [];
+  const at = list.indexOf('--repo');
+  return [/^repos\/(.+)\/milestones\?/.exec(milestones)?.[1], at === -1 ? undefined : list[at + 1]];
+}
+
+describe("readProjectRoutingConsole — a project page reads its own repository's page", () => {
   async function withProject(run: (dbPath: string) => Promise<void>): Promise<void> {
-    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-routing-console-gate-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-routing-console-repo-'));
     try {
       await run(seedProject(dir));
     } finally {
@@ -559,55 +561,65 @@ describe("refuseRepoMismatchedRoutingConsole — a project page reads only its o
     }
   }
 
-  it('refuses a checkout of another repository before reading, naming both repositories', async () => {
+  it("reads a checkout of another repository from that repository, never gh's own", async () => {
     await withProject(async (dbPath) => {
-      const read = vi.fn<RoutingConsoleApi>().mockResolvedValue(UNREADABLE_ROUTING_CONSOLE);
-      const api = refuseRepoMismatchedRoutingConsole(
-        dbPath,
-        read,
-        repoGateExec('https://github.com/someone-else/their-project.git'),
-      );
+      const exec = projectGh('https://github.com/someone-else/their-project.git');
 
-      const refusal = await api('p1').catch((error: unknown) => error);
+      const snapshot = await readProjectRoutingConsole(dbPath, exec)('p1');
 
-      expect(refusal).toBeInstanceOf(MirrorPassRepoMismatchError);
-      expect(refusal).toMatchObject({
-        skippedReason: 'repo-mismatch',
-        projectRepo: 'someone-else/their-project',
-        ghRepo: 'octocat/hello-world',
-      });
-      expect(read).not.toHaveBeenCalled();
+      expect(reposRead(exec)).toEqual(['someone-else/their-project', 'someone-else/their-project']);
+      expect(snapshot.milestones?.map((m) => m.title)).toEqual(['V1']);
+      expect(snapshot.claims).toEqual([{ login: 'amy', issues: [9] }]);
     });
   });
 
-  it('reads the page for a checkout of the repository gh acts on, or one with no GitHub origin', async () => {
+  it('names the repository even when it is the one gh acts on', async () => {
     await withProject(async (dbPath) => {
-      const snapshot = { ...UNREADABLE_ROUTING_CONSOLE, milestones: [] };
-      const read = vi.fn<RoutingConsoleApi>().mockResolvedValue(snapshot);
+      const exec = projectGh('git@github.com:octocat/hello-world.git');
 
-      const same = refuseRepoMismatchedRoutingConsole(
-        dbPath,
-        read,
-        repoGateExec('git@github.com:octocat/hello-world.git'),
-      );
-      const unbound = refuseRepoMismatchedRoutingConsole(dbPath, read, repoGateExec(null));
+      await readProjectRoutingConsole(dbPath, exec)('p1');
 
-      await expect(same('p1')).resolves.toEqual(snapshot);
-      await expect(unbound('p1')).resolves.toEqual(snapshot);
-      expect(read).toHaveBeenCalledTimes(2);
+      expect(reposRead(exec)).toEqual(['octocat/hello-world', 'octocat/hello-world']);
     });
   });
 
-  it('reads the home page without asking git or gh which repository a project is', async () => {
+  it('reads the repository gh acts on for a project with no GitHub origin, or an unknown one', async () => {
     await withProject(async (dbPath) => {
-      const read = vi.fn<RoutingConsoleApi>().mockResolvedValue(UNREADABLE_ROUTING_CONSOLE);
-      const exec = repoGateExec('https://github.com/someone-else/their-project.git');
+      const unbound = projectGh(null);
+      const unknown = projectGh('https://github.com/someone-else/their-project.git');
 
-      await expect(refuseRepoMismatchedRoutingConsole(dbPath, read, exec)()).resolves.toEqual(
+      await readProjectRoutingConsole(dbPath, unbound)('p1');
+      await readProjectRoutingConsole(dbPath, unknown)('nope');
+
+      expect(reposRead(unbound)).toEqual(['{owner}/{repo}', undefined]);
+      expect(reposRead(unknown)).toEqual(['{owner}/{repo}', undefined]);
+      expect(unknown.mock.calls.map(([bin]) => bin)).toEqual(['gh', 'gh']);
+    });
+  });
+
+  it('reads the home page without asking git which repository a project is', async () => {
+    await withProject(async (dbPath) => {
+      const exec = projectGh('https://github.com/someone-else/their-project.git');
+
+      await readProjectRoutingConsole(dbPath, exec)();
+
+      expect(exec.mock.calls.map(([bin]) => bin)).toEqual(['gh', 'gh']);
+      expect(reposRead(exec)).toEqual(['{owner}/{repo}', undefined]);
+    });
+  });
+
+  it('answers the unreadable console rather than rejecting when the store cannot be opened', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-routing-console-nostore-'));
+    try {
+      const exec = projectGh(null);
+      const missing = join(dir, 'no-such-dir', 'a.db');
+
+      await expect(readProjectRoutingConsole(missing, exec)('p1')).resolves.toEqual(
         UNREADABLE_ROUTING_CONSOLE,
       );
       expect(exec).not.toHaveBeenCalled();
-      expect(read).toHaveBeenCalledTimes(1);
-    });
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
   });
 });

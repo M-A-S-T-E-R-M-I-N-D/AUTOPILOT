@@ -150,10 +150,18 @@ into a per-project ritual any instance can run on any repo it owns.
   `test/server/routing-console.test.ts`,
   `test/web/features/routing-console.test.ts`, axe-clean; written first, 5
   of the server and gate checks failed).
-  _Still open:_ steering from the dashboard's side (the panel only reads); and
-  reading a project's own repository (`--repo`/`GH_REPO`) rather than
-  refusing it, since the read still runs only in the dashboard's
-  repository, the way the Collaboration panel does.
+  **A project page reads its own repository 2026-10-05:** the refusal is
+  replaced by the read it stood in for. `readProjectRoutingConsole` reads
+  the project's `origin` (`fetchProjectRepo`, S3's own check) and names that
+  `owner/repo` on both reads: the milestone path (`repos/<owner>/<repo>/…`
+  instead of gh's `{owner}/{repo}` placeholder) and the issue list
+  (`--repo`). A project page now shows its own milestones, queues and
+  claims, whichever repository `gh` acts on, so the "Not read" line, its
+  server branch and its two strings are gone. A project with no GitHub
+  origin, an unknown project id, and the home page read the repository `gh`
+  acts on, as before (`test/flight/routing-console.test.ts`; written first,
+  all 5 new checks failed).
+  _Still open:_ steering from the dashboard's side (the panel only reads).
 - **S5 — steward for THEIR project:** the per-project page (any
   onboarded folder) gets the same steward actions against that
   project's own repo (GITHUB 2/5's `sync any project` is the
