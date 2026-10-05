@@ -33,7 +33,10 @@ describe('tourJs', () => {
     // `isLast`, not `meta.isLast`: a stop whose target this page does not
     // have is stepped over, so "last" is about what the page can SHOW rather
     // than the fixed array's length (operator, 2026-09-15).
-    expect(out).toContain("skip.textContent = tr(isLast ? 'tourClose' : 'tourSkip');");
+    // Skip/Close's words follow a decorative x (epic 0025).
+    expect(out).toContain(
+      "skip.appendChild(document.createTextNode(tr(isLast ? 'tourClose' : 'tourSkip')));",
+    );
     expect(out).toContain(
       "skip.setAttribute('data-tip', tr(isLast ? 'tourSkipTipLast' : 'tourSkipTipMid'));",
     );

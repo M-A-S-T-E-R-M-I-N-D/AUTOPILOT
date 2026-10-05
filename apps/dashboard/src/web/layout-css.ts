@@ -2173,6 +2173,8 @@ html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .iss
 .tour-nav button > .icon:first-child { margin-inline-end: 0.25em; }
 .tour-nav button > .icon:last-child { margin-inline-start: 0.25em; }
 [dir='rtl'] .tour-nav button > .icon { transform: scaleX(-1); }
+/* Skip tour / Close lead with the x, symmetric, so it takes no mirror. */
+.tour-skip > .icon { margin-inline-end: 0.25em; }
 /* Tour CTA designed states (COCKPIT 6/6): the same MX shape-morph + elevation
    hover/active pair .fly-flight-actions button carries. Rest radius swaps
    --radius-sm for --shape-extra-small (both 4px) so the state tokens pair
