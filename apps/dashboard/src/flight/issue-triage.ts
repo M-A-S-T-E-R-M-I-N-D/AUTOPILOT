@@ -323,11 +323,18 @@ function templateKindOf(issue: IncomingIssue, headings: readonly string[]): Issu
 }
 
 /** What the repo template requires that this body does not carry — `null`
- *  when it conforms. Pure; the reply text and the label are built from it. */
+ *  when it conforms. A body that carries every section of either form
+ *  conforms, whatever it borrows from the other: `templateKindOf` asks the
+ *  feature form first, so a complete bug report with a "Proposed fix" heading
+ *  was held to the feature form (epic 0019's additive-only law). Pure; the
+ *  reply text and the label are built from it. */
 export function issueTemplateGaps(
   issue: IncomingIssue,
 ): { readonly kind: IssueTemplateKind; readonly missing: readonly string[] } | null {
   const headings = bodyHeadings(issue.body);
+  const fills = (kind: IssueTemplateKind): boolean =>
+    TEMPLATE_SECTIONS[kind].every((section) => headings.some((h) => section.matches.test(h)));
+  if (fills('bug') || fills('feature')) return null;
   const kind = templateKindOf(issue, headings);
   const missing = TEMPLATE_SECTIONS[kind]
     .filter((section) => !headings.some((h) => section.matches.test(h)))
