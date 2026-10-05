@@ -364,7 +364,10 @@ export class ClaudeCliModel implements ModelPort {
       undefined,
       resumeSessionId,
     );
-    const env = resolveClaudeEnv(this.opts.auth ?? DEFAULT_AUTH, this.opts.env ?? process.env);
+    const env = isolatedCliEnv(
+      resolveClaudeEnv(this.opts.auth ?? DEFAULT_AUTH, this.opts.env ?? process.env),
+      this.opts.config,
+    );
     const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
     const startedAt = Date.now();
     // `detached` is a spawn option execFile forwards through to spawn — its
@@ -435,6 +438,18 @@ export function applyInvokeCaps(config: EngineConfig, caps?: InvokeCaps): Engine
   };
 }
 
+/**
+ * The spawned CLI's environment with the operator's per-user features off:
+ * auto-memory (a firing must not read or write a memory folder outside the
+ * repo — it also leaked across firings) and the claude.ai connectors, which
+ * `--strict-mcp-config` may not cover. Returns a NEW env; the opt-out
+ * (`isolateOperatorConfig: false`) returns a copy unchanged.
+ */
+export function isolatedCliEnv(env: NodeJS.ProcessEnv, c: EngineConfig): NodeJS.ProcessEnv {
+  if (c.isolateOperatorConfig === false) return { ...env };
+  return { ...env, CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' };
+}
+
 /** Build the `claude -p` argv (shared by the buffered + streaming adapters). */
 export function buildClaudeArgs(
   model: string,
@@ -460,6 +475,14 @@ export function buildClaudeArgs(
     c.disallowedTools.join(','),
     '--add-dir',
     repo,
+    // Only the target repo's own settings (project, local) — never the
+    // operator's user settings, hooks, rules, skills, agents or plugins — and
+    // no MCP server at all. The flight's --settings (the containment guard)
+    // is its own source and still loads. Never --bare: it skips the hooks
+    // --settings defines, the guard among them, and never reads OAuth.
+    ...(c.isolateOperatorConfig === false
+      ? []
+      : ['--setting-sources', 'project,local', '--strict-mcp-config']),
     '--max-turns',
     String(c.maxTurns),
     '--max-budget-usd',
@@ -570,7 +593,10 @@ export class StreamingClaudeCliModel implements ModelPort {
       this.opts.onText !== undefined,
       resumeSessionId,
     );
-    const env = resolveClaudeEnv(this.opts.auth ?? DEFAULT_AUTH, this.opts.env ?? process.env);
+    const env = isolatedCliEnv(
+      resolveClaudeEnv(this.opts.auth ?? DEFAULT_AUTH, this.opts.env ?? process.env),
+      this.opts.config,
+    );
     const timeoutMs = this.opts.timeoutMs ?? DEFAULT_CLI_TIMEOUT_MS;
     const idleTimeoutMs = this.opts.idleTimeoutMs ?? DEFAULT_CLI_IDLE_TIMEOUT_MS;
     const startedAt = Date.now();
