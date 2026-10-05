@@ -14,76 +14,87 @@
  *
  * The rules, each one tested:
  * - only a recognised READ of the `gh` binary is cached (list/view/status
- *   shapes, and `gh api` without a body or a non-GET method);
+ *   shapes, and `gh api` with no body and no non-GET method);
  * - identical reads within the TTL reach GitHub once; concurrent identical
  *   reads share one call;
  * - a failed read is never stored, so a rate-limited answer is retried;
  * - every other `gh` call, and `git push`, counts as a write: it passes
  *   straight through and clears the whole cache, and a read that was in
- *   flight across a write is not stored — the dashboard never shows the
- *   before-state of its own action.
+ *   flight across a write is neither stored nor joined — the dashboard never
+ *   shows the before-state of its own action.
  */
 
 import type { CliExec, CliRun } from './cli-probe.js';
 
 /** `gh <noun> <verb>` pairs that only read. */
-const READ_VERBS: Readonly<Record<string, readonly string[]>> = {
-  issue: ['list', 'view', 'status'],
-  pr: ['list', 'view', 'checks', 'diff', 'status'],
-  run: ['list', 'view'],
-  workflow: ['list', 'view'],
-  repo: ['view'],
-  label: ['list'],
-  release: ['list', 'view'],
-  search: ['issues', 'prs', 'repos', 'code', 'commits'],
-  auth: ['status'],
-};
+const READ_PAIRS = new Set([
+  'issue list',
+  'issue view',
+  'issue status',
+  'pr list',
+  'pr view',
+  'pr checks',
+  'pr diff',
+  'pr status',
+  'run list',
+  'run view',
+  'workflow list',
+  'workflow view',
+  'repo view',
+  'label list',
+  'release list',
+  'release view',
+  'search issues',
+  'search prs',
+  'search repos',
+  'search code',
+  'search commits',
+  'auth status',
+]);
 
-/** `gh api` flags that give the request a body (and so default it to POST). */
-const BODY_FLAGS = new Set(['-f', '-F', '--field', '--raw-field', '--input']);
+/** A `gh api` argument that gives the request a body (and so defaults it to POST). */
+const BODY_ARG = /^(?:-f|-F|--field|--raw-field|--input)$|^--(?:raw-)?field=|^--input=/;
 
-function isGhBinary(bin: string): boolean {
-  const base = bin.replace(/\\/g, '/').split('/').pop() ?? '';
-  return base.toLowerCase() === 'gh' || base.toLowerCase() === 'gh.exe';
+/** The executable's own name, lower-cased, whichever separator its path uses. */
+function binName(bin: string): string {
+  return bin.slice(Math.max(bin.lastIndexOf('/'), bin.lastIndexOf('\\')) + 1).toLowerCase();
 }
 
-/** The method a `gh api` argv asks for, or null when none is named. */
-function apiMethod(args: readonly string[]): string | null {
-  for (let i = 0; i < args.length; i += 1) {
-    const a = args[i] ?? '';
-    if (a === '-X' || a === '--method') return (args[i + 1] ?? '').toUpperCase();
-    if (a.startsWith('-X') && a.length > 2) return a.slice(2).toUpperCase();
-    if (a.startsWith('--method=')) return a.slice('--method='.length).toUpperCase();
+function isGhBinary(bin: string): boolean {
+  const name = binName(bin);
+  return name === 'gh' || name === 'gh.exe';
+}
+
+/** True when a `gh api` argv names no method, or names GET. */
+function namesOnlyGet(args: readonly string[]): boolean {
+  for (const [i, arg] of args.entries()) {
+    if (arg === '-X' || arg === '--method') return args[i + 1]?.toUpperCase() === 'GET';
+    if (arg.startsWith('-X')) return arg.slice(2).toUpperCase() === 'GET';
+    if (arg.startsWith('--method=')) return arg.slice('--method='.length).toUpperCase() === 'GET';
   }
-  return null;
+  return true;
 }
 
 function isApiRead(args: readonly string[]): boolean {
-  if (args.length < 2) return false;
-  if (args.some((a) => BODY_FLAGS.has(a) || /^--(raw-)?field=|^--input=/.test(a))) return false;
-  const method = apiMethod(args);
-  return method === null || method === 'GET';
+  return args.length > 1 && !args.some((a) => BODY_ARG.test(a)) && namesOnlyGet(args);
 }
 
 /** True when this exec call only reads GitHub and may be served from cache. */
 export function isGhRead(bin: string, args: readonly string[]): boolean {
   if (!isGhBinary(bin)) return false;
-  const [noun, verb] = args;
-  if (noun === undefined) return false;
-  if (noun === 'api') return isApiRead(args);
-  const verbs = READ_VERBS[noun];
-  return verbs !== undefined && verb !== undefined && verbs.includes(verb);
+  if (args[0] === 'api') return isApiRead(args);
+  return READ_PAIRS.has(args.slice(0, 2).join(' '));
 }
 
 /** True for a call that changes what GitHub would answer. */
 function isWrite(bin: string, args: readonly string[]): boolean {
   if (isGhBinary(bin)) return !isGhRead(bin, args);
-  const base = bin.replace(/\\/g, '/').split('/').pop()?.toLowerCase() ?? '';
-  return (base === 'git' || base === 'git.exe') && args[0] === 'push';
+  const name = binName(bin);
+  return (name === 'git' || name === 'git.exe') && args[0] === 'push';
 }
 
 export interface GhReadCacheOptions {
-  /** How long a successful read is served from cache. 0 disables caching. */
+  /** How long a successful read is served from cache. 0 disables storing. */
   readonly ttlMs: number;
   /** Clock seam for tests. */
   readonly now?: () => number;
@@ -99,18 +110,18 @@ export function withGhReadCache(exec: CliExec, opts: GhReadCacheOptions): CliExe
   const now = opts.now ?? Date.now;
   const done = new Map<string, Entry>();
   const inFlight = new Map<string, Promise<CliRun>>();
-  // Bumped by every write; a read started under an older generation is
-  // returned to its caller but never stored.
-  let generation = 0;
+  // Replaced by every write; a read started under an older epoch is returned
+  // to its own caller but never stored, and nothing newer joins it.
+  let epoch: object = {};
 
   return async (bin, args) => {
     if (isWrite(bin, args)) {
-      generation += 1;
+      epoch = {};
       done.clear();
       inFlight.clear();
       return exec(bin, args);
     }
-    if (opts.ttlMs <= 0 || !isGhRead(bin, args)) return exec(bin, args);
+    if (!isGhRead(bin, args)) return exec(bin, args);
 
     const key = JSON.stringify([bin, ...args]);
     const hit = done.get(key);
@@ -119,12 +130,10 @@ export function withGhReadCache(exec: CliExec, opts: GhReadCacheOptions): CliExe
     const pending = inFlight.get(key);
     if (pending !== undefined) return pending;
 
-    const startedIn = generation;
+    const startedIn = epoch;
     const call = exec(bin, args).then((result) => {
       if (inFlight.get(key) === call) inFlight.delete(key);
-      if (result.code === 0 && startedIn === generation) {
-        done.set(key, { at: now(), result });
-      }
+      if (result.code === 0 && startedIn === epoch) done.set(key, { at: now(), result });
       return result;
     });
     inFlight.set(key, call);
