@@ -1,11 +1,12 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Worker } from 'node:worker_threads';
+import Database from 'better-sqlite3';
 import { openStore, resolveStorePath, withBusyRetry } from '../src/db.js';
 import { migrate } from '../src/migrate.js';
 
@@ -70,6 +71,60 @@ describe('openStore', () => {
     const dbPath = join(dir, 'never-created.db');
     try {
       expect(() => openStore(dbPath, { readonly: true })).toThrow();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('openStore when a pragma throws', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** The connection each `pragma` call ran on — the handle the constructor
+   *  opened, which the throwing constructor never hands back to its caller. */
+  function pragmaConnections(): Database.Database[] {
+    const spy = vi.spyOn(Database.prototype, 'pragma');
+    return spy.mock.contexts as Database.Database[];
+  }
+
+  it('closes the handle it opened when the file is not a SQLite database', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'autopilot-store-notadb-'));
+    const dbPath = join(dir, 'telemetry.db');
+    try {
+      writeFileSync(dbPath, 'not a sqlite database\n'.repeat(64));
+      const connections = pragmaConnections();
+
+      expect(() => openStore(dbPath)).toThrow(/not a database/i);
+
+      expect(connections.length).toBeGreaterThan(0);
+      expect(connections[0]!.open).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('closes the handle it opened when a later pragma throws on a reader', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'autopilot-store-pragma-'));
+    const dbPath = join(dir, 'telemetry.db');
+    try {
+      openStore(dbPath).close();
+      const original = Database.prototype.pragma;
+      const connections = pragmaConnections();
+      vi.mocked(Database.prototype.pragma).mockImplementation(function (
+        this: Database.Database,
+        source: string,
+        options?: Database.PragmaOptions,
+      ) {
+        if (source.startsWith('busy_timeout')) throw new Error('SQLITE_IOERR: pragma refused');
+        return original.call(this, source, options);
+      });
+
+      expect(() => openStore(dbPath, { readonly: true })).toThrow('SQLITE_IOERR');
+
+      expect(connections.length).toBe(2); // foreign_keys, then the throwing busy_timeout
+      expect(connections[1]!.open).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
