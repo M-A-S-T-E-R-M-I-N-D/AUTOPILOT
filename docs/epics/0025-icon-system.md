@@ -804,8 +804,18 @@ propagation, and the filled style does not match the nav.
    markup the locale sweep keeps a leading icon in, so core does not grow; a
    click only writes the status line, so the icons survive a run
    (`apps/dashboard/test/web/connect-claude-action-icons.test.ts`,
-   axe-clean). The GitHub group below it (Log in, Switch account, Log out,
-   Check for updates) is still bare words.
+   axe-clean). **CONNECT popover's Check for updates 2026-10-05 (slice 2):**
+   the GitHub group's "Check for updates" pulls the newest release from GitHub
+   and compares it with the version this dashboard runs, what the version
+   menu's "Check now" does, yet it was bare words. It leads with that button's
+   `refresh-cw` and takes its `version-check` class beside `connect-test`, so
+   the version menu's spacing rule covers it and no rule is added. Nothing is
+   newly vendored. The icon is decorative, so the button's name stays its
+   words, and it is server-printed markup the locale sweep keeps a leading
+   icon in, so core does not grow; a check only writes the update line beside
+   it, so the icon survives one
+   (`apps/dashboard/test/web/connect-gh-updates-icon.test.ts`, axe-clean).
+   The group's Log in, Switch account and Log out are still bare words.
 
 ## Related
 
