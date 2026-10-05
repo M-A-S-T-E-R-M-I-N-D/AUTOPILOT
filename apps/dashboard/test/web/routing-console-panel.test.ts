@@ -5,6 +5,9 @@ import { describe, it, expect } from 'vitest';
 import {
   routingIssueListText,
   routingMilestoneProgressText,
+  routingPriorityLabels,
+  routingRouteConfirmMessage,
+  routingRouteResultText,
 } from '../../src/web/routing-console-panel.js';
 
 describe('routingMilestoneProgressText', () => {
@@ -56,5 +59,79 @@ describe('routingIssueListText', () => {
   it('shows exactly twelve with no remainder', () => {
     const issues = Array.from({ length: 12 }, (_, i) => i + 1);
     expect(routingIssueListText(issues)).not.toContain('more');
+  });
+});
+
+describe('routingPriorityLabels', () => {
+  it("offers the console's priority queues in its own order, and no status queue", () => {
+    expect(
+      routingPriorityLabels([
+        { label: 'priority: critical', issues: [] },
+        { label: 'priority: high', issues: [4] },
+        { label: 'status: blocked', issues: [9] },
+      ]),
+    ).toEqual(['priority: critical', 'priority: high']);
+  });
+
+  it('offers nothing when the console sent no queues', () => {
+    expect(routingPriorityLabels([])).toEqual([]);
+  });
+});
+
+describe('routingRouteConfirmMessage', () => {
+  it('names the issue, the label and the write on GitHub', () => {
+    const message = routingRouteConfirmMessage(12, 'priority: high');
+    expect(message).toContain('#12');
+    expect(message).toContain('"priority: high"');
+    expect(message).toContain('GitHub');
+  });
+});
+
+describe('routingRouteResultText', () => {
+  it('reads a route that went through', () => {
+    expect(routingRouteResultText({ issue: 12, label: 'priority: high', routed: true })).toEqual({
+      text: 'Routed #12 as priority: high.',
+      failed: false,
+    });
+  });
+
+  it.each([
+    ['guest', "only the repository's maintainer routes issues"],
+    ['identity-unresolved', "couldn't tell who gh is signed in as"],
+    ['issue-unreadable', "couldn't read #12 on GitHub"],
+    ['issue-closed', '#12 is closed'],
+    ['already-prioritized', '#12 already carries a priority label'],
+    ['not-a-priority-label', '"priority: high" is not a priority label'],
+  ])('says why a %s refusal sent no label', (reason, words) => {
+    const result = routingRouteResultText({
+      issue: 12,
+      label: 'priority: high',
+      routed: false,
+      refusedReason: reason,
+    });
+    expect(result.failed).toBe(true);
+    expect(result.text).toBe('Not routed — ' + words + '.');
+  });
+
+  it("carries gh's own words when the label edit failed", () => {
+    expect(
+      routingRouteResultText({
+        issue: 12,
+        label: 'priority: high',
+        routed: false,
+        error: 'HTTP 403: Resource not accessible',
+      }),
+    ).toEqual({ text: 'Not routed — gh said: HTTP 403: Resource not accessible', failed: true });
+  });
+
+  it('reads a server error or an unknown answer as a failure, never as routed', () => {
+    expect(routingRouteResultText({ error: 'a label is required' })).toEqual({
+      text: 'Not routed — a label is required',
+      failed: true,
+    });
+    expect(routingRouteResultText(null)).toEqual({
+      text: "Not routed — the dashboard didn't answer.",
+      failed: true,
+    });
   });
 });

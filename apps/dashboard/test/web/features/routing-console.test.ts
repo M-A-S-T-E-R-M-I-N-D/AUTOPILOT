@@ -15,6 +15,9 @@ import { routingConsoleJs } from '../../../src/web/features/routing-console.js';
 import {
   routingIssueListText,
   routingMilestoneProgressText,
+  routingPriorityLabels,
+  routingRouteConfirmMessage,
+  routingRouteResultText,
 } from '../../../src/web/routing-console-panel.js';
 
 const AXE_OPTIONS: axe.RunOptions = {
@@ -60,21 +63,53 @@ const SNAPSHOT = {
 
 type Answer = { ok: boolean; body?: unknown };
 
-/** Every routing-console URL the panel asked for since the last boot. */
+/** Every routing-console read URL the panel asked for since the last boot. */
 const consoleRequests: string[] = [];
 
-function boot(answer: () => Answer, project?: string): void {
+/** Every route the panel POSTed since the last boot: its headers and body. */
+const routeRequests: { headers: Record<string, string>; body: unknown }[] = [];
+
+const ROUTED: Answer = { ok: true, body: { issue: 12, label: 'priority: high', routed: true } };
+
+function boot(
+  answer: () => Answer,
+  project?: string,
+  routeAnswer: () => Answer = () => ROUTED,
+): void {
   document.open();
   document.write(renderShell(project));
   document.close();
   consoleRequests.length = 0;
-  globalThis.fetch = vi.fn(async (url: string) => {
-    const isConsole = url.startsWith('/api/routing-console');
-    if (isConsole) consoleRequests.push(url);
-    const reply = isConsole ? answer() : { ok: true, body: FLEET_STATE };
+  routeRequests.length = 0;
+  globalThis.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+    let reply: Answer;
+    if (url === '/api/routing-console/route') {
+      routeRequests.push({
+        headers: (init?.headers ?? {}) as Record<string, string>,
+        body: JSON.parse(String(init?.body)),
+      });
+      reply = routeAnswer();
+    } else if (url.startsWith('/api/routing-console')) {
+      consoleRequests.push(url);
+      reply = answer();
+    } else {
+      reply = { ok: true, body: FLEET_STATE };
+    }
     return { ok: reply.ok, json: async () => reply.body } as unknown as Response;
   }) as unknown as typeof fetch;
   new Function(clientJs())();
+}
+
+function picker(issue: number): HTMLSelectElement {
+  return panel().querySelector(`[data-routing-console-pick="${issue}"]`) as HTMLSelectElement;
+}
+
+function routeButton(issue: number): HTMLButtonElement {
+  return panel().querySelector(`[data-routing-console-route="${issue}"]`) as HTMLButtonElement;
+}
+
+function routeNote(): HTMLElement {
+  return panel().querySelector('.routing-console-route-result') as HTMLElement;
 }
 
 function panel(): HTMLElement {
@@ -179,6 +214,140 @@ describe('ROUTING CONSOLE panel (epic 0019 S4)', () => {
 
     const results = await axe.run(panel(), AXE_OPTIONS);
     expect(results.violations).toEqual([]);
+  });
+
+  it('embeds the route formatters as their real compiled source', () => {
+    const out = routingConsoleJs();
+    expect(out).toContain(routingPriorityLabels.toString());
+    expect(out).toContain(routingRouteConfirmMessage.toString());
+    expect(out).toContain(routingRouteResultText.toString());
+  });
+
+  it('offers a priority picker and a Route button on each issue with no priority yet', async () => {
+    boot(() => ({ ok: true, body: { ...SNAPSHOT, unprioritized: [12, 15] } }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    const select = picker(12);
+    expect(select.getAttribute('aria-label')).toBe('Priority for #12');
+    // A placeholder first, so no priority is ever picked by default; then
+    // the priority queues alone, never a status label.
+    expect([...select.options].map((option) => [option.value, option.textContent])).toEqual([
+      ['', 'Choose a priority'],
+      ['priority: critical', 'priority: critical'],
+      ['priority: high', 'priority: high'],
+    ]);
+    expect(select.value).toBe('');
+    expect(routeButton(12).textContent).toBe('Route');
+    expect(routeButton(12).getAttribute('aria-label')).toBe('Route #12');
+    expect(picker(15)).not.toBeNull();
+    expect(routeNote().getAttribute('role')).toBe('status');
+  });
+
+  it('offers no picker when every open issue has a priority', async () => {
+    boot(() => ({ ok: true, body: { ...SNAPSHOT, unprioritized: [] } }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(panel().querySelector('[data-routing-console-pick]')).toBeNull();
+    expect(panel().querySelector('[data-routing-console-route]')).toBeNull();
+  });
+
+  it('asks for a priority before it routes, and sends nothing without one', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    boot(() => ({ ok: true, body: SNAPSHOT }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    routeButton(12).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(routeRequests).toEqual([]);
+    expect(routeNote().textContent).toBe('Choose a priority for #12 first.');
+    expect(document.activeElement).toBe(picker(12));
+  });
+
+  it('sends nothing when the operator declines the confirm', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    boot(() => ({ ok: true, body: SNAPSHOT }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    picker(12).value = 'priority: high';
+    routeButton(12).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(confirm).toHaveBeenCalledWith(routingRouteConfirmMessage(12, 'priority: high'));
+    expect(routeRequests).toEqual([]);
+  });
+
+  it('routes a confirmed pick as a JSON POST, says so, and re-reads the console', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    boot(() => ({ ok: true, body: SNAPSHOT }));
+    await vi.advanceTimersByTimeAsync(1);
+    expect(consoleRequests).toHaveLength(1);
+
+    picker(12).value = 'priority: high';
+    routeButton(12).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(routeRequests).toEqual([
+      {
+        headers: { 'content-type': 'application/json' },
+        body: { issue: 12, label: 'priority: high' },
+      },
+    ]);
+    // The route changed the page, so the console reads it again at once
+    // rather than waiting out the poll, and the outcome survives that render.
+    expect(consoleRequests).toHaveLength(2);
+    expect(routeNote().textContent).toBe('Routed #12 as priority: high.');
+    expect(routeNote().className).not.toContain('routing-console-route-result-fail');
+  });
+
+  it("names a project page's own id on its route", async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    boot(() => ({ ok: true, body: SNAPSHOT }), 'p 1');
+    await vi.advanceTimersByTimeAsync(1);
+
+    picker(12).value = 'priority: critical';
+    routeButton(12).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(routeRequests.map((request) => request.body)).toEqual([
+      { issue: 12, label: 'priority: critical', project: 'p 1' },
+    ]);
+  });
+
+  it('says why a refused route sent no label', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    boot(
+      () => ({ ok: true, body: SNAPSHOT }),
+      undefined,
+      () => ({
+        ok: true,
+        body: { issue: 12, label: 'priority: high', routed: false, refusedReason: 'guest' },
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(1);
+
+    picker(12).value = 'priority: high';
+    routeButton(12).click();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(routeNote().textContent).toBe(
+      "Not routed — only the repository's maintainer routes issues.",
+    );
+    expect(routeNote().className).toContain('routing-console-route-result-fail');
+  });
+
+  it("keeps the operator's pick and focus through a poll's re-render", async () => {
+    boot(() => ({ ok: true, body: SNAPSHOT }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    picker(12).value = 'priority: high';
+    picker(12).focus();
+    await vi.advanceTimersByTimeAsync(60000);
+
+    expect(consoleRequests).toHaveLength(2);
+    expect(picker(12).value).toBe('priority: high');
+    expect(document.activeElement).toBe(picker(12));
   });
 
   it("names a project page's own id on its read, and none on the home page", async () => {

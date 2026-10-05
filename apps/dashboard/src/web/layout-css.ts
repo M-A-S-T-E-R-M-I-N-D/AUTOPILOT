@@ -1327,6 +1327,15 @@ body > .routing-console-panel { margin-inline: var(--page-inline); }
 .routing-console-name { font-weight: 600; min-inline-size: 12ch; }
 .routing-console-issues { font-family: var(--font-mono); color: var(--color-text-muted); overflow-wrap: anywhere; }
 .routing-console-row progress { inline-size: 8rem; accent-color: var(--color-accent); }
+/* The route (steering from the dashboard's side): a "No priority yet" issue,
+   its priority picker and its Route CTA, then one status line for the result. */
+.routing-console-route-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; }
+.routing-console-priority { font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
+.routing-console-route { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
+.routing-console-route:disabled { opacity: 0.6; cursor: default; }
+.routing-console-route-result { margin: var(--space-1) 0 0; font-size: var(--text-sm); }
+.routing-console-route-result:empty { margin: 0; }
+.routing-console-route-result-fail { color: var(--color-sev-critical); }
 .collaboration-group-title:first-of-type { margin-top: var(--space-2); }
 .collaboration-item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) 0; border-top: 1px solid var(--color-border); }
 .collaboration-item:first-of-type { border-top: none; }
