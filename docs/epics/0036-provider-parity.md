@@ -323,7 +323,11 @@ chip does. Until a later 2026-10-05 commit the project page's RECENTLY SHIPPED p
 ship's cost chip `$0.00` too. `finishedFlightSummaries` (`shared/flight-summary.ts`) now carries the
 flight-log entry's `costUnpriced` onto each summary, and `flightSummaryLineMeta`
 (`web/flight-summary-panel.ts`) reads it as the flight log's chip does: `unpriced`, its label
-`cost: unpriced, no price was reported`, its tip `No price was reported for this firing`. Since
+`cost: unpriced, no price was reported`, its tip `No price was reported for this firing`. Until a
+later 2026-10-05 commit the project ask's LIVE STATE did the same in words: its `Last firings` line,
+which the model reads as the freshest telemetry, gave such a firing `$0.00`. `gatherLiveState`
+(`read/project-detail.ts`) now reads the flight-log entry's `costUnpriced` and writes `unpriced (no
+price reported)` there instead. Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the

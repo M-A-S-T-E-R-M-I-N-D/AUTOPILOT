@@ -832,11 +832,14 @@ export async function gatherLiveState(dbPath: string, projectId: string): Promis
         `${live.focusTask ? fenceTitle(live.focusTask) : '(none focused — working the open queue)'}. ${live.narrator}`
       : `Flight: not running right now (project status: ${p.status}).`;
 
+    // A Codex or Gemini run reports no price and its metrics row stores 0, so
+    // the record's costUnpriced keeps the model from reading it as free.
     const recent = flightLog
       .slice(0, LIVE_STATE_RECENT_FIRINGS)
       .map(
         (f) =>
-          `${f.id} — ${f.shipped ? 'shipped' : 'not shipped'}${f.item ? ` (${fenceTitle(f.item)})` : ''}, $${f.cost.toFixed(2)}`,
+          `${f.id} — ${f.shipped ? 'shipped' : 'not shipped'}${f.item ? ` (${fenceTitle(f.item)})` : ''}, ` +
+          (f.costUnpriced === true ? 'unpriced (no price reported)' : `$${f.cost.toFixed(2)}`),
       )
       .join('; ');
 
