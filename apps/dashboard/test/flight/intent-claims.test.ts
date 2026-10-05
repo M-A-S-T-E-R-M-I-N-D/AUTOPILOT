@@ -29,6 +29,9 @@ import {
   parseIntentPrimaryFile,
   readSiblingIntentClaims,
   detectIntentCollisions,
+  flightBranchLane,
+  siblingIntentNaming,
+  withoutSiblingHeldTasks,
 } from '../../src/flight/intent-claims.js';
 
 /** Mirrors the module-private MAX_INTENT_CHARS — the prompt-flood ceiling. */
@@ -133,6 +136,130 @@ describe('likelyPrimaryPathFromTitle', () => {
     expect(likelyPrimaryPathFromTitle('fix the migration in v1.2/module.ts')).toBe(
       'v1.2/module.ts',
     );
+  });
+});
+
+/**
+ * Board web-muv09dbr-nb42u7: two lanes built the same epic slice (0019 S4,
+ * 004c299d vs 41527639, two minutes apart). fleet-4 picked the task at rank 4
+ * without claiming it; fleet-5's firing then claimed the same unassigned row,
+ * because a claim only consulted the board's assignee column. A live sibling's
+ * declared intent that names the task — by board id or by its epic slice —
+ * now holds it.
+ */
+describe('siblingIntentNaming', () => {
+  const routingConsole = {
+    id: 'web-mtrh1hn3-8x9f0z',
+    title: 'EPIC 0019 S4 operator routing console',
+  };
+  const claimOf = (intent: string) => ({
+    branch: 'autopilot/flight-worktree-p1--fleet-4',
+    intent,
+    primaryFile: parseIntentPrimaryFile(intent),
+  });
+
+  it('holds the task whose epic slice a sibling intent names (the 0019 S4 incident)', () => {
+    const claim = claimOf(
+      'apps/dashboard/src/flight/routing-console.ts — routing console reads its own repository (epic 0019 S4)',
+    );
+    expect(siblingIntentNaming(routingConsole, [claim])).toBe(claim);
+  });
+
+  it('holds the task a sibling intent names by its board id', () => {
+    const claim = claimOf('src/x.ts — [web-mtrh1hn3-8x9f0z] route an issue');
+    expect(siblingIntentNaming(routingConsole, [claim])).toBe(claim);
+  });
+
+  it('reads a board id only as a whole token, never as the prefix of a longer id', () => {
+    const task = { id: 'web-abc-1', title: 'tidy the parser' };
+    expect(siblingIntentNaming(task, [claimOf('src/x.ts — [web-abc-12] other work')])).toBe(
+      undefined,
+    );
+  });
+
+  it('matches the epic slice case-insensitively', () => {
+    const claim = claimOf('src/x.ts — Epic 0019 s4: steering');
+    expect(siblingIntentNaming(routingConsole, [claim])).toBe(claim);
+  });
+
+  it('leaves the task free when the sibling names a different slice of the same epic', () => {
+    expect(
+      siblingIntentNaming(routingConsole, [claimOf('src/x.ts — epic 0019 S5 mirror pass')]),
+    ).toBe(undefined);
+  });
+
+  it('leaves the task free when the sibling names another epic', () => {
+    expect(siblingIntentNaming(routingConsole, [claimOf('src/x.ts — epic 0025 S4 icons')])).toBe(
+      undefined,
+    );
+  });
+
+  it('holds a whole-epic task while a sibling builds any one of its slices', () => {
+    const iconEpic = { id: 'web-icon-1', title: 'EPIC 0025 ICON SYSTEM: replace every UI emoji' };
+    const claim = claimOf('packages/tokens/src/icons.ts — epic 0025 S2 icon set');
+    expect(siblingIntentNaming(iconEpic, [claim])).toBe(claim);
+  });
+
+  it('holds a slice task while a sibling works its epic without naming a slice', () => {
+    const claim = claimOf('apps/dashboard/src/flight/routing-console.ts — epic 0019 steering');
+    expect(siblingIntentNaming(routingConsole, [claim])).toBe(claim);
+  });
+
+  it("does not read an epic's doc path as naming the epic", () => {
+    expect(
+      siblingIntentNaming(routingConsole, [
+        claimOf('docs/epics/0019-github-steward.md — DOC-FRESHNESS refresh'),
+      ]),
+    ).toBe(undefined);
+  });
+
+  it('holds nothing for a task whose title names no epic and whose id no intent carries', () => {
+    const task = { id: 'web-plain-1', title: 'fix quoting in src/parser.ts' };
+    expect(siblingIntentNaming(task, [claimOf('src/parser.ts — epic 0019 S4')])).toBe(undefined);
+  });
+});
+
+describe('withoutSiblingHeldTasks', () => {
+  const held = { id: 'web-mtrh1hn3-8x9f0z', title: 'EPIC 0019 S4 operator routing console' };
+  const free = { id: 'web-free-1', title: 'fix quoting in src/parser.ts' };
+  const claim = {
+    branch: 'autopilot/flight-worktree-p1--fleet-4',
+    intent: 'src/x.ts — epic 0019 S4 steering',
+    primaryFile: 'src/x.ts',
+  };
+
+  it('drops an unassigned task a sibling intent holds and keeps the rest in order', () => {
+    expect(
+      withoutSiblingHeldTasks(
+        [
+          { ...held, assignee: null },
+          { ...free, assignee: null },
+        ],
+        'fleet-5',
+        [claim],
+      ),
+    ).toEqual([{ ...free, assignee: null }]);
+  });
+
+  it("keeps a task this lane already holds the lease on — the sibling's deviation is the duplicate", () => {
+    expect(withoutSiblingHeldTasks([{ ...held, assignee: 'fleet-5' }], 'fleet-5', [claim])).toEqual(
+      [{ ...held, assignee: 'fleet-5' }],
+    );
+  });
+
+  it('returns the list unchanged when no sibling has declared anything', () => {
+    const tasks = [{ ...held, assignee: null }];
+    expect(withoutSiblingHeldTasks(tasks, 'fleet-5', [])).toEqual(tasks);
+  });
+});
+
+describe('flightBranchLane', () => {
+  it("names a fleet lane's instance id from its flight-worktree branch", () => {
+    expect(flightBranchLane('autopilot/flight-worktree-fly-autopilot--fleet-4')).toBe('fleet-4');
+  });
+
+  it('is undefined for the base lane, whose lock carries no instance id', () => {
+    expect(flightBranchLane('autopilot/flight-worktree-fly-autopilot')).toBe(undefined);
   });
 });
 

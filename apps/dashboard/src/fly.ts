@@ -221,6 +221,7 @@ import {
   geminiGuardSettingsFileName,
   guardSettingsFileName,
   isAnyFlightLockLive,
+  isFlightOwnerAlive,
   liveFlightLockPids,
 } from './flight/lock.js';
 import { verifyGuardSettings } from './flight/guard-verify.js';
@@ -242,8 +243,11 @@ import {
   claimSurvivesFiring,
   clearDeclaredIntent,
   detectIntentCollisions,
+  flightBranchLane,
   likelyPrimaryPathFromTitle,
   readSiblingIntentClaims,
+  siblingIntentNaming,
+  withoutSiblingHeldTasks,
   writeDeclaredIntent,
 } from './flight/fleet-digest.js';
 import { isFocusBoundHere, orderClaimCandidatesFocusFirst } from './flight/focus.js';
@@ -1556,10 +1560,21 @@ async function main(): Promise<void> {
         // no claim at all (2026-09-24). Narrowed BEFORE the scope decision
         // (2026-10-01): a slice whose last row was a sibling's claim, a bench
         // or a blocked verdict read as "still open" and idled its lane.
-        const scopedCandidates = scopeFilterCandidates(
-          claimableCandidates(openBefore, instanceKey, benchedTasks),
-          fleetTaskScope,
+        // A row a LIVE sibling's declared intent names is held too (board
+        // web-muv09dbr-nb42u7): a lease guards only a claimed row, and a
+        // sibling that deviated to an unclaimed one left it free to claim —
+        // epic 0019 S4 was built twice that way. A parked lane's checkpoint
+        // intent claims nothing, as its digest line already says.
+        const siblingIntents = readSiblingIntentClaims(target, worktreeRoot).filter((c) =>
+          isFlightOwnerAlive(dirname(dbPath), target, flightBranchLane(c.branch)),
         );
+        const claimable = claimableCandidates(openBefore, instanceKey, benchedTasks);
+        const unheld = withoutSiblingHeldTasks(claimable, instanceKey, siblingIntents);
+        for (const t of claimable.filter((c) => !unheld.includes(c))) {
+          const holder = siblingIntentNaming(t, siblingIntents);
+          out(`  ⚑ left ${t.id}: sibling ${holder?.branch ?? '?'}'s intent names it`);
+        }
+        const scopedCandidates = scopeFilterCandidates(unheld, fleetTaskScope);
         // FLEET-AWARE FOCUS (web-mswpsozf-oxf17b): focused-first ordering so
         // the first free instance CLAIMS the operator's focus target instead
         // of claiming the topmost task while locked onto another.
@@ -1599,13 +1614,18 @@ async function main(): Promise<void> {
         // per board row — one query, grouped by item, same shape prompt.ts's
         // taskLine expects.
         const shippedSlices = shippedSlicesByTask(store.db, projectId);
-        const board = scopeFilterCandidates(
-          recentTasks(store.db, projectId).filter(
-            (t) => t.status === 'queued' || t.status === 'in_progress',
-          ),
-          fleetTaskScope,
+        // A row a live sibling's intent holds stays off the board as well, so
+        // this firing cannot deviate into it either.
+        const board = withoutSiblingHeldTasks(
+          scopeFilterCandidates(
+            recentTasks(store.db, projectId).filter(
+              (t) => t.status === 'queued' || t.status === 'in_progress',
+            ),
+            fleetTaskScope,
+          ).filter((t) => t.assignee === null || t.assignee === instanceKey),
+          instanceKey,
+          siblingIntents,
         )
-          .filter((t) => t.assignee === null || t.assignee === instanceKey)
           // A blocked verdict waits on a person; on the board a firing would
           // only re-confirm it (seven of ten firings did, 2026-09-24).
           .filter((t) => !isBlockedVerdictTitle(t.title))
