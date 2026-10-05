@@ -672,6 +672,21 @@ propagation, and the filled style does not match the nav.
    words, in Hebrew too. The bar is rebuilt on every step and the locale sweep
    keeps a leading icon, so neither a step nor a switch drops it
    (`apps/dashboard/test/web/replay-exit-icon.test.ts`, axe-clean).
+   **CONNECT report form's Compose and submit 2026-10-05 (slice 2):** the
+   Connect popover's "Report a bug or request a feature upstream" form runs
+   the same composer as the right-click Report dialog, yet its Compose and
+   its submit were bare words. Compose leads with that dialog's `sparkles`,
+   since it hands the note to the same model; the submit leads with its
+   `flag`, since it files the report, and reads "Open GitHub issue" or the
+   dialog's "Execute" by target. Nothing is newly vendored, and both are
+   server-printed markup the locale sweep keeps a leading icon in. The
+   target swap used to replace the submit's whole `textContent` and left its
+   `data-i18n` on `openGithubIssue`, so the next sweep put "Open GitHub
+   issue" back over a non-issue target's "Execute"; it retags the key and
+   goes through `setSweptText()` now, so the words hold and the flag stays.
+   Each icon is decorative, so a button's name stays its words, in Hebrew
+   too (`apps/dashboard/test/web/connect-report-form-icons.test.ts`,
+   axe-clean).
 
 ## Related
 
