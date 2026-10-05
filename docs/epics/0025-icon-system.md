@@ -755,6 +755,21 @@ propagation, and the filled style does not match the nav.
    `icons.ts`, pinned at zero; the charts and the QR code compute their
    geometry, so they never match
    (`apps/dashboard/test/web/onboarding-done-tick-icon.test.ts`, axe-clean).
+   **Fly bar's Fire, Pause and Stop 2026-10-05 (slice 2):** each Flight
+   console row's Pause and Stop lead with an icon and the Pool's Fly with the
+   `send` the rail's Fly link draws, but the fly bar's own Fire, the primary
+   launch on every page, was bare words, and so were the single-flight Pause
+   and Stop the Flight console paragraph above left bare. Fire leads with
+   that `send` and keeps it while it reads "Flying…", "Queued…" or "Resume",
+   since each still names a launch of the typed folder; Pause and Stop take
+   the Flight console's `circle-pause` and `circle-stop`. Nothing is newly
+   vendored, and each icon is decorative, so a button's name stays its words.
+   `setGoLabel()` used to replace Fire's whole `textContent` on every state
+   change; it goes through `setSweptText()` now, still guarded, so an idle
+   poll tick mutates nothing and the icon survives every swap and a locale
+   switch (`apps/dashboard/test/web/fly-bar-launch-icons.test.ts`,
+   axe-clean). The e2e baselines and README frames show a bare-word Fire
+   until the landing re-renders them.
 
 ## Related
 

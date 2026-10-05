@@ -1055,7 +1055,8 @@ ${sessionFlightDataFor.toString()}
   // and a locale switch mid-flight retranslates the live label immediately
   // (board web-msnsndki-dz3vn1; this replaces the earlier drop-the-attribute
   // fix, whose dynamic texts stayed English literals until their keys
-  // existed in STRINGS).
+  // existed in STRINGS). The label leads with the vendored send (epic 0025),
+  // so the text goes through setSweptText(), which keeps that icon.
   function setGoLabel(dynamicKey) {
     if (!goEl) return;
     // Guarded writes: this runs every poll tick, and rewriting an identical
@@ -1064,7 +1065,7 @@ ${sessionFlightDataFor.toString()}
     var key = dynamicKey || 'flyIt';
     var goText = tr(key);
     if (goEl.dataset.i18n !== key) goEl.dataset.i18n = key;
-    if (goEl.textContent !== goText) goEl.textContent = goText;
+    if (goEl.textContent !== goText) setSweptText(goEl, goText);
   }
   function setMsg(text, kind) { lastMsg = text || ''; lastKind = kind || ''; paint(null); }
   function poll() {
