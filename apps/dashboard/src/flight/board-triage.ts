@@ -12,7 +12,7 @@
  * pure move, no behavior change.
  */
 
-import { recentTasks, reorderTasks, type Store } from '@autopilot/store';
+import { recentTasks, reorderTasks, UNPRICED_FIRING_SQL, type Store } from '@autopilot/store';
 import {
   DEFAULT_ENGINE_CONFIG,
   TOOL_LESS_ALLOWED_TOOLS,
@@ -39,6 +39,7 @@ import {
   isRunaway,
   factorSuffix,
   applyOperatorPins,
+  type EconomicsRow,
 } from './triage-factors.js';
 import { out } from './firing-hooks.js';
 
@@ -75,11 +76,16 @@ export async function runBoardTriage(deps: BoardTriageDeps, context: string): Pr
   const pinnedIdsInOrder = open.filter((t) => t.priority_pinned === 1).map((t) => t.id);
   const unpinned = open.filter((t) => t.priority_pinned !== 1);
   if (unpinned.length < 2) return;
+  // A firing whose record named no price (a Codex or Gemini run) stores 0 in
+  // the metrics column; read it as null so the evidence names it unpriced
+  // rather than telling the model the task was free (epic 0036).
   const econRows = store.db
     .prepare(
-      'SELECT item, cost_usd AS costUsd, completion FROM metrics WHERE project_id = ? ORDER BY created_at',
+      `SELECT m.item, CASE WHEN ${UNPRICED_FIRING_SQL} THEN NULL ELSE m.cost_usd END AS costUsd,
+              m.completion
+         FROM metrics m WHERE m.project_id = ? ORDER BY m.created_at`,
     )
-    .all(projectId) as { item: string | null; costUsd: number; completion: string | null }[];
+    .all(projectId) as EconomicsRow[];
   const economics = taskEconomicsFromRows(econRows);
   const nowMs = now();
   const queue = unpinned.map((t) => ({

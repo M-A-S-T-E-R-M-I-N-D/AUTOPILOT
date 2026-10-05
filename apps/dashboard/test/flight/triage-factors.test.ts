@@ -25,8 +25,20 @@ describe('taskEconomicsFromRows', () => {
       { item: 'b', costUsd: 1, completion: 'complete' },
     ]);
     expect(econ.size).toBe(2); // the itemless row never became a bogus third entry
-    expect(econ.get('a')).toEqual({ spendUsd: 5, firings: 2, sliceStreak: 2, streakSpendUsd: 5 });
-    expect(econ.get('b')).toEqual({ spendUsd: 1, firings: 1, sliceStreak: 0, streakSpendUsd: 0 });
+    expect(econ.get('a')).toEqual({
+      spendUsd: 5,
+      firings: 2,
+      sliceStreak: 2,
+      streakSpendUsd: 5,
+      unpriced: 0,
+    });
+    expect(econ.get('b')).toEqual({
+      spendUsd: 1,
+      firings: 1,
+      sliceStreak: 0,
+      streakSpendUsd: 0,
+      unpriced: 0,
+    });
   });
 
   it('a completion (or untagged ship) RESETS the trailing slice streak AND its spend', () => {
@@ -36,31 +48,63 @@ describe('taskEconomicsFromRows', () => {
       { item: 'a', costUsd: 1, completion: 'complete' },
       { item: 'a', costUsd: 1, completion: 'slice' },
     ]);
-    expect(econ.get('a')).toEqual({ spendUsd: 4, firings: 4, sliceStreak: 1, streakSpendUsd: 1 });
+    expect(econ.get('a')).toEqual({
+      spendUsd: 4,
+      firings: 4,
+      sliceStreak: 1,
+      streakSpendUsd: 1,
+      unpriced: 0,
+    });
+  });
+
+  it('counts a firing that reported no price as unpriced: still a firing and a slice, never $0 of spend (epic 0036)', () => {
+    const econ = taskEconomicsFromRows([
+      { item: 'a', costUsd: 2, completion: 'slice' },
+      { item: 'a', costUsd: null, completion: 'slice' },
+    ]);
+    expect(econ.get('a')).toEqual({
+      spendUsd: 2,
+      firings: 2,
+      sliceStreak: 2,
+      streakSpendUsd: 2,
+      unpriced: 1,
+    });
   });
 });
 
 describe('isRunaway', () => {
   it('requires BOTH trailing thresholds crossed', () => {
-    expect(isRunaway({ spendUsd: 51, firings: 11, sliceStreak: 11, streakSpendUsd: 51 })).toBe(
-      true,
-    );
+    expect(
+      isRunaway({ spendUsd: 51, firings: 11, sliceStreak: 11, streakSpendUsd: 51, unpriced: 0 }),
+    ).toBe(true);
   });
 
   it('exactly at the thresholds is NOT a runaway (strict >)', () => {
     expect(
-      isRunaway({ spendUsd: 51, firings: 11, sliceStreak: 11, streakSpendUsd: RUNAWAY_SPEND_USD }),
+      isRunaway({
+        spendUsd: 51,
+        firings: 11,
+        sliceStreak: 11,
+        streakSpendUsd: RUNAWAY_SPEND_USD,
+        unpriced: 0,
+      }),
     ).toBe(false);
     expect(
-      isRunaway({ spendUsd: 51, firings: 11, sliceStreak: RUNAWAY_FIRINGS, streakSpendUsd: 51 }),
+      isRunaway({
+        spendUsd: 51,
+        firings: 11,
+        sliceStreak: RUNAWAY_FIRINGS,
+        streakSpendUsd: 51,
+        unpriced: 0,
+      }),
     ).toBe(false);
   });
 
   it('a short trailing streak (something completed recently) is NOT a runaway, even with high lifetime spend', () => {
     // 11 lifetime firings but the trailing streak is shorter — something completed along the way.
-    expect(isRunaway({ spendUsd: 99, firings: 11, sliceStreak: 4, streakSpendUsd: 40 })).toBe(
-      false,
-    );
+    expect(
+      isRunaway({ spendUsd: 99, firings: 11, sliceStreak: 4, streakSpendUsd: 40, unpriced: 0 }),
+    ).toBe(false);
   });
 
   it('a task that completed once, then reopened and burned past both thresholds again, IS a runaway — one old completion must not buy permanent immunity (the "attribution to a CLOSED task" evasion, TASK ECONOMICS v2)', () => {
@@ -77,7 +121,7 @@ describe('factorSuffix', () => {
   it('renders severity, age, spend/firings, and a long slice streak', () => {
     expect(
       factorSuffix(
-        { spendUsd: 240, firings: 76, sliceStreak: 76, streakSpendUsd: 240 },
+        { spendUsd: 240, firings: 76, sliceStreak: 76, streakSpendUsd: 240, unpriced: 0 },
         3.9,
         'high',
       ),
@@ -90,7 +134,11 @@ describe('factorSuffix', () => {
 
   it('omits a short slice streak (noise below 3)', () => {
     expect(
-      factorSuffix({ spendUsd: 5, firings: 2, sliceStreak: 2, streakSpendUsd: 5 }, 0, null),
+      factorSuffix(
+        { spendUsd: 5, firings: 2, sliceStreak: 2, streakSpendUsd: 5, unpriced: 0 },
+        0,
+        null,
+      ),
     ).toBe(' ($5/2f)');
   });
 
@@ -100,14 +148,42 @@ describe('factorSuffix', () => {
 
   it('omits spend/firings when econ is present but firings is exactly 0', () => {
     expect(
-      factorSuffix({ spendUsd: 5, firings: 0, sliceStreak: 0, streakSpendUsd: 0 }, 0, null),
+      factorSuffix(
+        { spendUsd: 5, firings: 0, sliceStreak: 0, streakSpendUsd: 0, unpriced: 0 },
+        0,
+        null,
+      ),
     ).toBe('');
   });
 
   it('includes the slice streak at exactly 3 (boundary is >=, not >)', () => {
     expect(
-      factorSuffix({ spendUsd: 5, firings: 1, sliceStreak: 3, streakSpendUsd: 5 }, 0, null),
+      factorSuffix(
+        { spendUsd: 5, firings: 1, sliceStreak: 3, streakSpendUsd: 5, unpriced: 0 },
+        0,
+        null,
+      ),
     ).toBe(' ($5/1f · slice-streak:3)');
+  });
+
+  it('names the firings that reported no price beside the priced spend (epic 0036)', () => {
+    expect(
+      factorSuffix(
+        { spendUsd: 2, firings: 3, sliceStreak: 0, streakSpendUsd: 0, unpriced: 1 },
+        0,
+        null,
+      ),
+    ).toBe(' ($2/3f · unpriced:1)');
+  });
+
+  it('never reads a task no firing priced as $0: its spend is unknown (epic 0036)', () => {
+    expect(
+      factorSuffix(
+        { spendUsd: 0, firings: 2, sliceStreak: 0, streakSpendUsd: 0, unpriced: 2 },
+        0,
+        null,
+      ),
+    ).toBe(' ($?/2f · unpriced:2)');
   });
 });
 
@@ -214,6 +290,7 @@ describe('familyEconomicsFromRows', () => {
       firings: 2,
       sliceStreak: 2,
       streakSpendUsd: 10,
+      unpriced: 0,
     });
   });
 
