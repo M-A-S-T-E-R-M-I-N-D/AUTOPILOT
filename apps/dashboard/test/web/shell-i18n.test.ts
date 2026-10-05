@@ -217,7 +217,7 @@ describe('renderShell masthead i18n wiring', () => {
   it('tags the "Check for updates" button and fleet-wisdom section with data-i18n', () => {
     const html = renderShell();
     expect(html).toContain(
-      'id="gh-lts-check" data-i18n="checkForUpdates">Check for updates</button>',
+      `id="gh-lts-check" data-i18n="checkForUpdates">${iconSvg('refresh-cw')}Check for updates</button>`,
     );
     expect(html).toContain(
       'aria-label="Fleet wisdom proposal" data-i18n-aria="fleetWisdomProposal"',

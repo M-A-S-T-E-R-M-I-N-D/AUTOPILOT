@@ -5770,7 +5770,7 @@ ${versionMenuHtml()}
             </div>
             <div class="gh-group gh-updates">
               <p class="connect-status" id="gh-lts" role="status" aria-live="polite" data-i18n="ltsChecking">checking for updates…</p>
-              <button type="button" class="connect-test" id="gh-lts-check" data-i18n="checkForUpdates">Check for updates</button>
+              <button type="button" class="connect-test version-check" id="gh-lts-check" data-i18n="checkForUpdates">${iconSvg('refresh-cw')}Check for updates</button>
             </div>
             <details class="gh-report">
             <summary class="gh-report-summary">${iconSvg('chevron-right', 'gh-report-chevron')}<span data-i18n="reportBugLabel">Report a bug or request a feature upstream</span></summary>
