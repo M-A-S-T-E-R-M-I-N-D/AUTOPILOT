@@ -725,7 +725,20 @@ propagation, and the filled style does not match the nav.
    decorative, so a button's name stays its words, and `paintTour()` rebuilds
    both with `tr()` on every stop, so a Hebrew page paints its words beside
    the same icons (`apps/dashboard/test/web/tour-skip-handover-icons.test.ts`,
-   axe-clean).
+   axe-clean). **Ritual scrim's Minimize and Close 2026-10-05 (slice 2):**
+   the busy scrim leads each gate step with the PR check strip's circle
+   family, but its one button, "Minimize" while the write runs and "Close"
+   once it settles, was bare words. Minimize leads with the `minimize` the
+   Exit focus pill draws, the same four corners pulled in, since it folds the
+   scrim down to its corner pill; Close leads with the `x` the What's new
+   Close and the tour's Skip draw, since it puts the settled scrim away.
+   Nothing is newly vendored. The words used to replace the button's whole
+   `textContent`; they sit in their own span now, and the paint swaps the
+   icon with them, so the button never draws both or neither, and the next
+   ritual on the same scrim brings `minimize` back. The icon is decorative,
+   so the button's name stays its words, in Hebrew too; `busy.ts` rides core,
+   which grows for it inside its raw line
+   (`apps/dashboard/test/web/ritual-action-icons.test.ts`, axe-clean).
 
 ## Related
 
