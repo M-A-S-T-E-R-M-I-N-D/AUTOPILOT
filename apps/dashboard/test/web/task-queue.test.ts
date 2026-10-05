@@ -317,6 +317,26 @@ describe('taskBurnLabel', () => {
     expect(label.text).toBe('1 slice · $1.00');
     expect(label.tip).not.toContain('wall time');
   });
+
+  // epic 0036: a Codex or Gemini firing reports no price — the chip names
+  // the ones it could not price beside the priced total, never sums them as $0.
+  it('names the unpriced firings beside the priced total', () => {
+    expect(
+      taskBurnLabel({ slices: 3, cost: 2, wallMs: 0, unpriced: 2 }, fmtCost, fmtDuration),
+    ).toEqual({
+      text: '3 slices · $2.00 + 2 unpriced',
+      tip: '3 firings have worked this task — $2.00 total, 2 unpriced left out, no price was reported',
+    });
+  });
+
+  it('reads "unpriced" alone, never $0.00, when no firing on the task was priced', () => {
+    expect(
+      taskBurnLabel({ slices: 2, cost: 0, wallMs: 5000, unpriced: 2 }, fmtCost, fmtDuration),
+    ).toEqual({
+      text: '2 slices · unpriced · 5s',
+      tip: '2 firings have worked this task — cost unpriced, no price was reported, 5s wall time',
+    });
+  });
 });
 
 describe('taskRunawayTip', () => {
