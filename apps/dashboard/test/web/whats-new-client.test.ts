@@ -232,6 +232,92 @@ describe("what's new — what it shows", () => {
   });
 });
 
+// Epic 0036: a Codex or Gemini run reports no price, so the round's cost per
+// shipped divides by the priced ships alone. The tile said nothing of the
+// ships it left out, and read "unknown" when none was priced, as it does for
+// a round with no ships at all. The fleet's cost / shipped tile names them.
+describe("what's new — the round's cost per shipped names its unpriced ships (epic 0036)", () => {
+  beforeEach(() => {
+    localStorage.setItem('ap-tour-seen', '1');
+  });
+
+  function serve(round: Record<string, unknown>): void {
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ...PAYLOAD, round: { ...PAYLOAD.round, ...round } }),
+    })) as unknown as typeof fetch;
+  }
+
+  function perShippedTile(): HTMLElement {
+    const label = WHATS_NEW_STRINGS.en.perShipped;
+    const tile = [...document.querySelectorAll<HTMLElement>('.wn-tile')].find(
+      (t) => t.querySelector('dt')?.textContent === label,
+    );
+    expect(tile).toBeDefined();
+    return tile!;
+  }
+
+  it('names the unpriced ships beside the priced figure', async () => {
+    serve({ shipped: 3, cost: 2, costPerShipped: 2, unpricedShipped: 2 });
+    boot();
+    await painted();
+    const dd = perShippedTile().querySelector('dd')!;
+    expect(dd.firstChild?.textContent).toBe('$2.00');
+    expect(dd.querySelector('.wn-note')?.textContent).toBe(
+      '2 unpriced left out, no price was reported',
+    );
+  });
+
+  it('reads unpriced, not unknown, when no ship was priced', async () => {
+    serve({ shipped: 2, cost: 0, costPerShipped: null, unpricedShipped: 2 });
+    boot();
+    await painted();
+    const dd = perShippedTile().querySelector('dd')!;
+    expect(dd.firstChild?.textContent).toBe('unpriced');
+    expect(dd.querySelector('.wn-note')?.textContent).toBe(
+      '2 unpriced left out, no price was reported',
+    );
+  });
+
+  it('adds no note when every ship was priced, and reads unknown with no ships', async () => {
+    serve({ unpricedShipped: 0 });
+    boot();
+    await painted();
+    expect(perShippedTile().textContent).toBe('Cost per shipped$2.86');
+    document.querySelector<HTMLButtonElement>('.wn-close')!.click();
+    serve({ shipped: 0, cost: 0, costPerShipped: null, unpricedShipped: 0 });
+    document.querySelector<HTMLButtonElement>('.wn-menu-btn')!.click();
+    await painted();
+    expect(perShippedTile().textContent).toBe('Cost per shippedunknown');
+  });
+
+  it('speaks Hebrew when the interface does', async () => {
+    document.documentElement.lang = 'he';
+    serve({ shipped: 2, cost: 0, costPerShipped: null, unpricedShipped: 2 });
+    boot();
+    await painted();
+    const label = WHATS_NEW_STRINGS.he.perShipped;
+    const tile = [...document.querySelectorAll<HTMLElement>('.wn-tile')].find(
+      (t) => t.querySelector('dt')?.textContent === label,
+    )!;
+    expect(tile.querySelector('dd')?.firstChild?.textContent).toBe(WHATS_NEW_STRINGS.he.unpriced);
+    expect(tile.querySelector('.wn-note')?.textContent).toBe(
+      WHATS_NEW_STRINGS.he.unpricedLeftOut.split('{n}').join('2'),
+    );
+  });
+
+  it('is axe-clean with the note shown', async () => {
+    serve({ shipped: 3, cost: 2, costPerShipped: 2, unpricedShipped: 2 });
+    boot();
+    await painted();
+    const result = await axe.run(document, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
+      rules: { 'color-contrast': { enabled: false } },
+    });
+    expect(result.violations.map((v) => v.id)).toEqual([]);
+  });
+});
+
 // Epic 0025 (icon system): the dialog headed with bare words while every
 // panel heading beside it leads with a stroke icon. The title takes the
 // release panel's rocket, "What you can do now" the sparkles of something

@@ -2377,6 +2377,8 @@ describe('readRoundInfo', () => {
       expect(round?.shipped).toBe(3);
       expect(round?.cost).toBe(2);
       expect(round?.costPerShipped).toBe(2);
+      // ...and names the ships it left out, as the fleet's cost / shipped tile does.
+      expect(round?.unpricedShipped).toBe(2);
     } finally {
       cleanupDir(repo);
       cleanupDir(dbDir);
