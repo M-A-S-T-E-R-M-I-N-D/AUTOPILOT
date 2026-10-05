@@ -267,7 +267,11 @@ beside two Codex ships read $0.67. `firingStats` (`packages/store/src/read.ts`) 
 `pricedShipped`, the ships whose record carries a price (`UNPRICED_FIRING_SQL`, the predicate the
 warm-sessions averages read), `buildFleetView` (`read/fleet.ts`) and `readRoundInfo`
 (`read/project-detail.ts`) divide by it, a fleet with no priced ship reads `—`, and the tile's tip
-and label name the ships left out (`2 unpriced left out, no price was reported`). Until a later
+and label name the ships left out (`2 unpriced left out, no price was reported`). Until a
+2026-10-05 commit the What's new page's round tile still named none of them, and read `unknown`
+when no ship was priced, as for a round with no ships; `readRoundInfo` now counts them in
+`unpricedShipped`, and the tile (`web/whats-new.ts`) names them under its figure (`2 unpriced left
+out, no price was reported`) and reads `unpriced` when none was priced. Until a later
 2026-10-04 commit THE PROMPT-VERSION GATE did the same: `aggregateEvalRows`
 (`packages/store/src/eval-gate.ts`) left an unpriced firing's cost out of the total but divided it
 by every ship, so one $2.00 Claude ship beside two Codex ships read $0.67 per solve, and a costlier

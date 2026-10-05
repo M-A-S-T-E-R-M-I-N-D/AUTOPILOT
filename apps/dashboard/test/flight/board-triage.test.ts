@@ -263,6 +263,39 @@ describe('runBoardTriage', () => {
     expect(prompt).not.toContain('Proposal awaiting approval');
   });
 
+  it("tells the model a firing whose record names no price is unpriced, never the column's $0 (epic 0036)", async () => {
+    // A Codex or Gemini run records `costUsd: null`, and the metrics column
+    // stores 0: 'u' flew twice on such an engine, 'm' once on each kind.
+    createTask(store, { id: 'u', projectId: 'p1', title: 'Codex-only task', createdAt: 1000 });
+    createTask(store, { id: 'm', projectId: 'p1', title: 'Mixed task', createdAt: 1000 });
+    const metric = store.db.prepare(
+      `INSERT INTO metrics (project_id, firing_id, item, cost_usd, completion, created_at)
+       VALUES ('p1', ?, ?, ?, 'slice', ?)`,
+    );
+    const record = store.db.prepare(
+      `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+       VALUES ('p1', ?, 'firing', ?, ?)`,
+    );
+    const firings: [string, string, number | null][] = [
+      ['f-1', 'u', null],
+      ['f-2', 'u', null],
+      ['f-3', 'm', 2],
+      ['f-4', 'm', null],
+    ];
+    firings.forEach(([firingId, item, costUsd], i) => {
+      metric.run(firingId, item, costUsd ?? 0, i);
+      record.run(firingId, JSON.stringify({ costUsd }), i);
+    });
+    invokeMock.mockResolvedValue(triageEnvelope('TRIAGE:["u","m"]'));
+
+    await runBoardTriage(deps, 'takeoff');
+
+    const [, prompt] = invokeMock.mock.calls[0] ?? [];
+    expect(prompt).toContain('[u] Codex-only task ($?/2f · unpriced:2)');
+    expect(prompt).toContain('[m] Mixed task ($2/2f · unpriced:1)');
+    expect(prompt).not.toContain('$0/');
+  });
+
   it('records the model-free factors of every open task, pinned ones included, before a model call that fails', async () => {
     const threeDaysMs = 3 * 86_400_000;
     deps = { ...deps, now: () => 1000 + threeDaysMs };

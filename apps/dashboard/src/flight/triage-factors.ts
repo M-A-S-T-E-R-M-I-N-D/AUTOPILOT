@@ -35,12 +35,17 @@ export interface TaskEconomics {
    *  completion can't launder dollars spent AFTER it: {@link isRunaway}
    *  checks this trailing figure, not the lifetime total. */
   readonly streakSpendUsd: number;
+  /** Lifetime firings whose record named no price (a Codex or Gemini run, or
+   *  one killed before its envelope, epic 0036): counted in {@link firings},
+   *  left out of {@link spendUsd}, since their 0 is not a price. */
+  readonly unpriced: number;
 }
 
-/** One metrics row's slice relevant to economics (ordered oldest→newest). */
+/** One metrics row's slice relevant to economics (ordered oldest→newest).
+ *  `costUsd` is null for a firing whose record named no price. */
 export interface EconomicsRow {
   readonly item: string | null;
-  readonly costUsd: number;
+  readonly costUsd: number | null;
   readonly completion: string | null;
 }
 
@@ -54,10 +59,10 @@ export const RUNAWAY_FIRINGS = 10;
  *  the two aggregations can never drift apart on what "trailing" means. */
 function foldEconomics(
   prev: TaskEconomics | undefined,
-  costUsd: number,
+  costUsd: number | null,
   completion: string | null,
 ): TaskEconomics {
-  const base = prev ?? { spendUsd: 0, firings: 0, sliceStreak: 0, streakSpendUsd: 0 };
+  const base = prev ?? { spendUsd: 0, firings: 0, sliceStreak: 0, streakSpendUsd: 0, unpriced: 0 };
   // CONSERVATIVE by design: only an explicit 'slice' continues the streak —
   // an untagged (`null`) completion resets it, unlike the sibling predicate
   // `taskEconomics` (packages/store/src/read.ts) which treats null as
@@ -74,6 +79,7 @@ function foldEconomics(
     firings: base.firings + 1,
     sliceStreak: isSlice ? base.sliceStreak + 1 : 0,
     streakSpendUsd: isSlice ? base.streakSpendUsd + (costUsd || 0) : 0,
+    unpriced: base.unpriced + (costUsd === null ? 1 : 0),
   };
 }
 
@@ -162,7 +168,9 @@ export function familyEconomicsFromRows(
 }
 
 /** The evidence suffix for one task's prompt line — empty when nothing is
- *  known (a never-worked task carries no history worth model attention). */
+ *  known (a never-worked task carries no history worth model attention).
+ *  Firings that named no price are counted as `unpriced:N`, and a task none
+ *  of whose firings was priced spends `$?`, never `$0` (epic 0036). */
 export function factorSuffix(
   econ: TaskEconomics | undefined,
   ageDays: number,
@@ -172,7 +180,9 @@ export function factorSuffix(
   if (severity) parts.push(`sev:${severity}`);
   if (ageDays >= 1) parts.push(`age:${Math.floor(ageDays)}d`);
   if (econ && econ.firings > 0) {
-    parts.push(`$${econ.spendUsd.toFixed(0)}/${econ.firings}f`);
+    const spend = econ.unpriced >= econ.firings ? '?' : econ.spendUsd.toFixed(0);
+    parts.push(`$${spend}/${econ.firings}f`);
+    if (econ.unpriced > 0) parts.push(`unpriced:${econ.unpriced}`);
     if (econ.sliceStreak >= 3) parts.push(`slice-streak:${econ.sliceStreak}`);
   }
   return parts.length > 0 ? ` (${parts.join(' · ')})` : '';

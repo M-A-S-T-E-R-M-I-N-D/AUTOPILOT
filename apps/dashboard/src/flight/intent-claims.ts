@@ -256,3 +256,73 @@ export function detectIntentCollisions(
   }
   return collisions;
 }
+
+/**
+ * A sibling lane's instance id off its flight-worktree branch — the
+ * `--fleet-N` suffix the digest reads to check a lane's lock. The base lane's
+ * branch carries no suffix and its lock no instance id: `undefined`.
+ */
+export function flightBranchLane(branch: string): string | undefined {
+  const at = branch.lastIndexOf('--');
+  return at < 0 ? undefined : branch.slice(at + 2);
+}
+
+/** "EPIC 0019 S4" in a board title, "(epic 0019 S4: …)" in an intent: the
+ *  epic's number and, when given, its slice. The word "epic" is required, so
+ *  a doc path ("docs/epics/0019-…") never reads as naming the epic. */
+const EPIC_SLICE_RE = /\bepic\s+(\d{4})(?:\s+(S\d+[a-z]?)\b)?/i;
+
+function epicSliceOf(text: string): { epic: string; slice: string | undefined } | null {
+  const match = EPIC_SLICE_RE.exec(text);
+  if (match === null) return null;
+  return { epic: match[1] as string, slice: match[2]?.toUpperCase() };
+}
+
+function namesTaskId(intent: string, id: string): boolean {
+  const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`, 'i').test(intent);
+}
+
+/**
+ * The sibling claim whose declared intent names `task`, if any (board
+ * web-muv09dbr-nb42u7). A lease guards only the task a firing CLAIMED; a
+ * firing that deviates to another row works it unclaimed, and on 2026-10-05
+ * fleet-4 built epic 0019 S4 off its board's rank 4 while fleet-5 claimed the
+ * same unassigned row — one slice paid for twice (004c299d, 41527639). An
+ * intent names a task by its board id, or by the epic it belongs to when the
+ * two slices don't contradict: "epic 0019 S5" leaves "EPIC 0019 S4" free, but
+ * a whole-epic row is held by work on any of its slices, as a slice row is by
+ * work on its epic that names no slice.
+ */
+export function siblingIntentNaming(
+  task: { readonly id: string; readonly title: string },
+  claims: readonly SiblingIntentClaim[],
+): SiblingIntentClaim | undefined {
+  const taskEpic = epicSliceOf(task.title);
+  return claims.find((claim) => {
+    if (namesTaskId(claim.intent, task.id)) return true;
+    if (taskEpic === null) return false;
+    const intentEpic = epicSliceOf(claim.intent);
+    if (intentEpic === null || intentEpic.epic !== taskEpic.epic) return false;
+    return (
+      taskEpic.slice === undefined ||
+      intentEpic.slice === undefined ||
+      intentEpic.slice === taskEpic.slice
+    );
+  });
+}
+
+/**
+ * `tasks` less every row a sibling's declared intent holds — what fly.ts may
+ * claim and render on the board. A row this lane already holds the lease on
+ * stays: the lease came first, and the sibling working it unclaimed is the
+ * duplicate.
+ */
+export function withoutSiblingHeldTasks<
+  T extends { readonly id: string; readonly title: string; readonly assignee: string | null },
+>(tasks: readonly T[], instanceKey: string, claims: readonly SiblingIntentClaim[]): readonly T[] {
+  if (claims.length === 0) return tasks;
+  return tasks.filter(
+    (t) => t.assignee === instanceKey || siblingIntentNaming(t, claims) === undefined,
+  );
+}

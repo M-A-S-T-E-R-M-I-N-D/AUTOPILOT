@@ -21,10 +21,13 @@ export {
   claimSurvivesFiring,
   clearDeclaredIntent,
   detectIntentCollisions,
+  flightBranchLane,
   INTENT_FILE_NAME,
   likelyPrimaryPathFromTitle,
   parseIntentPrimaryFile,
   readSiblingIntentClaims,
+  siblingIntentNaming,
+  withoutSiblingHeldTasks,
   writeDeclaredIntent,
 } from './intent-claims.js';
 
