@@ -348,6 +348,8 @@ describe('runGithubOnlyFlight — the standalone "Fly GitHub" flight (epic 0016 
       identity: { login: 'octocat', role: 'maintainer' },
       caps: SOCIAL_FLIGHT_PASS_CAPS,
       verdict: { allowed: [], queued: [], duplicate: [], refused: [] },
+      // The quiet skip comes back too, so the SOCIAL debrief can leave it out.
+      mirror: { ran: false, reason: 'no-store' },
     });
     // Read-only like every pass today: inventories read, nothing written.
     expect(calls.filter(isListRead)).toHaveLength(4);
@@ -409,7 +411,19 @@ describe('runGithubOnlyFlight — the standalone "Fly GitHub" flight (epic 0016 
 
       const outcome = await runGithubOnlyFlight({ exec, target: dir, engineRepo: dir, dbPath });
 
-      expect(outcome).toMatchObject({ ran: true });
+      // The preview's counts come back with the pass, for the SOCIAL debrief.
+      expect(outcome).toMatchObject({
+        ran: true,
+        mirror: {
+          ran: true,
+          checked: 1,
+          toClose: 0,
+          toReopen: 1,
+          toNote: 0,
+          toSettle: 0,
+          inSync: 0,
+        },
+      });
       const log = write.mock.calls.map((c) => String(c[0])).join('');
       expect(log).toContain('🗣');
       expect(log).toContain(
@@ -446,6 +460,7 @@ describe('runGithubOnlyFlight — the standalone "Fly GitHub" flight (epic 0016 
       });
 
       expect(outcome).toMatchObject({ ran: false, reason: 'foreign-target' });
+      expect(outcome).not.toHaveProperty('mirror');
       expect(write.mock.calls.map((c) => String(c[0])).join('')).not.toContain('mirror pass');
     } finally {
       cleanupDir(dir);
@@ -579,6 +594,8 @@ describe('fly.ts flies the GitHub target before anything can touch the code tree
   it('the github branch runs the standalone pass, prints its SOCIAL debrief and returns — no firing, no onboarding', () => {
     const branch = blockOf(fly(), "flyTarget === 'github'");
     expect(branch).toContain('await runGithubOnlyFlight({ target })');
+    // The mirror preview's counts fold into the same digest (epic 0016 5/6).
+    expect(branch).toContain('socialFlightDebriefOf([outcome], outcome.mirror)');
     expect(branch).toContain('socialFlightDebriefLine(');
     expect(branch).toContain('return;');
     for (const codeTreeStep of ['onboard(', 'runLoop(', 'deriveWorktreePlan(', 'openStore(']) {

@@ -171,8 +171,17 @@ Per pass, mechanically derived — no guesses:
    caps, verdicts, refusals and "nothing posted". A flight that fired
    nothing still gets its line (`test/web/landing-social-debrief.test.ts`,
    axe-clean; `test/read/social-debrief-read.test.ts`).
+   The standalone Fly GitHub flight's mirror preview joins the digest:
+   `runGithubOnlyFlight` returns the preview's outcome as `mirror`,
+   `socialFlightDebriefOf` folds a preview that ran into the digest (a quiet
+   skip, or a code flight, adds none), and the SOCIAL line reads its counts
+   as previewed — to close, to reopen, unverified notes, to settle, in sync —
+   never as applied. The persisted row carries them too;
+   `parseSocialFlightDebrief` reads a row without `mirror` as before and
+   refuses a malformed one whole (`test/flight/social-flight-debrief.test.ts`,
+   `test/flight/social-flight-pass.test.ts`).
    _Still open:_ the said/filed/closed tally once the execute half posts
-   anything.
+   anything, and the FLIGHT DEBRIEF panel's chips for the mirror reading.
 6. **tests**: protocol red-team — duplicate-issue temptation fixture, cap
    overflow, role-confusion, answer-for-a-human refusal.
    _Shipped so far:_ all four fixtures pin the pure protocol engine
