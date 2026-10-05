@@ -436,6 +436,18 @@ firing's `FiringRecord`. The change sits entirely inside the existing `routedMod
 `ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's snapshot/audit calls: no new
 path into `target`, no worktree wiring change.
 
+Freshness check (2026-10-05, yet again): `fly.ts` gained two more commits since the check above —
+`316ba899` (epic 0016), which lets the Fly GitHub flight's SOCIAL debrief carry the mirror-pass
+preview (folded into `socialFlightDebriefOf`'s digest, inside the `'github'` branch that already
+returns before `deriveWorktreePlan` is ever reached, per the 2026-10-05 check above), and
+`45435e97` (board `web-muv09dbr-nb42u7`), which holds a board row out of the claim and off the
+rendered board when a live sibling's declared intent names it (`siblingIntentNaming`,
+`withoutSiblingHeldTasks`, `flight/fleet-digest.ts`), closing a gap where a lease guards only a
+row a sibling already claimed, not one its agent deviated onto unclaimed. Both are board-triage
+and social-digest logic, well above the worktree seam: neither touches `deriveWorktreePlan`,
+`ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's snapshot/audit calls — no new
+path into `target`, no worktree wiring change.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a

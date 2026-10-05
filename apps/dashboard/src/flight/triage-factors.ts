@@ -107,10 +107,11 @@ export function isRunaway(econ: TaskEconomics): boolean {
 /** One metrics row's slice relevant to FAMILY economics (ordered
  *  oldest→newest) — same shape as {@link EconomicsRow} but keyed by the raw
  *  commit subject instead of the self-reported item id, since the whole
- *  point is to catch a pattern that keeps changing item ids. */
+ *  point is to catch a pattern that keeps changing item ids. `costUsd` is
+ *  null for a firing whose record named no price, as there. */
 export interface FamilyEconomicsRow {
   readonly commitSubject: string | null;
-  readonly costUsd: number;
+  readonly costUsd: number | null;
   readonly completion: string | null;
 }
 

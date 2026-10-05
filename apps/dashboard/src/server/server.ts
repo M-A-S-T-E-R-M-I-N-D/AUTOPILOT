@@ -128,8 +128,15 @@ import { handleSocialIdentity, type SocialIdentityApi } from './social-identity.
 export type { SocialIdentityApi };
 import { handleCollaboration, type CollaborationApi } from './collaboration.js';
 export type { CollaborationApi };
-import { handleRoutingConsole, type RoutingConsoleApi } from './routing-console.js';
-export type { RoutingConsoleApi };
+import {
+  handleRoutingConsole,
+  handleRoutingConsoleRoute,
+  ROUTING_CONSOLE_ROUTE_RATE_LIMIT,
+  ROUTING_CONSOLE_ROUTE_RATE_WINDOW_MS,
+  type RoutingConsoleApi,
+  type RoutingConsoleRouteApi,
+} from './routing-console.js';
+export type { RoutingConsoleApi, RoutingConsoleRouteApi };
 import { handleCiStatus } from './ci-status-route.js';
 import { handleWhatsNew } from './whats-new-route.js';
 import { handleBenchmark, type BenchmarkApi } from './benchmark-route.js';
@@ -993,6 +1000,11 @@ export interface ServerDeps extends RouteDeps {
    *  `fetchRoutingConsole`. A building block ahead of its panel beside the
    *  board, the same stance `collaboration` above shipped with. */
   readonly routingConsole?: RoutingConsoleApi;
+  /** The routing console's one write (epic 0019 S4, steering from the
+   *  dashboard's side): adds one house priority label to an open issue no
+   *  priority label routes yet — see `flight/routing-console-execute.ts`'s
+   *  `createRoutingConsoleRouteApi`. */
+  readonly routingConsoleRoute?: RoutingConsoleRouteApi;
   /** CI-health surface (board web-mtq70abw-opouz8): the cached per-workflow
    *  `gh run list` report `control/ci-status.ts`'s `ci-status` CLI command
    *  already prints, surfaced for the browser — see `createCiStatusApi`. */
@@ -4130,6 +4142,10 @@ export function createServer(deps: ServerDeps = {}): Server {
     MIRROR_PASS_PRIORITY_FOLLOW_EXECUTE_RATE_LIMIT,
     MIRROR_PASS_PRIORITY_FOLLOW_EXECUTE_RATE_WINDOW_MS,
   );
+  const routingConsoleRouteLimiter = createRateLimiter(
+    ROUTING_CONSOLE_ROUTE_RATE_LIMIT,
+    ROUTING_CONSOLE_ROUTE_RATE_WINDOW_MS,
+  );
   const reportFromHereLimiter = createRateLimiter(
     REPORT_FROM_HERE_RATE_LIMIT,
     REPORT_FROM_HERE_RATE_WINDOW_MS,
@@ -4458,6 +4474,17 @@ export function createServer(deps: ServerDeps = {}): Server {
 
     if (path === '/api/routing-console') {
       void handleRoutingConsole(req, res, deps.routingConsole, headers);
+      return;
+    }
+
+    if (path === '/api/routing-console/route') {
+      void handleRoutingConsoleRoute(
+        req,
+        res,
+        deps.routingConsoleRoute,
+        headers,
+        routingConsoleRouteLimiter,
+      );
       return;
     }
 

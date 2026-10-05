@@ -790,6 +790,32 @@ propagation, and the filled style does not match the nav.
    survives a run. One rule spaces it from its words, beside the form's own
    `.github-pr` rule, so the CONNECT form's pinned spacing rule is untouched
    (`apps/dashboard/test/web/github-pr-submit-icon.test.ts`, axe-clean).
+   **CONNECT popover's Claude actions 2026-10-05 (slice 2):** the popover's
+   report form leads Compose and its submit with icons, and the version menu
+   beside it leads Run the latest and Check now with `rocket` and
+   `refresh-cw`, but the three buttons that sign Claude in were bare words.
+   "Log in with Claude" leads with `square-terminal`, since it opens a
+   terminal running Claude login, the shape the activity feed draws for a
+   command; "Test connection" leads with `activity`, the pulse the CI status
+   and process-health headings draw, since it makes one real call to see the
+   line is alive; "Save & verify" leads with `shield-check`, since it stores
+   the credential and verifies it. Nothing is newly vendored. Each icon is
+   decorative, so a button's name stays its words, and each is server-printed
+   markup the locale sweep keeps a leading icon in, so core does not grow; a
+   click only writes the status line, so the icons survive a run
+   (`apps/dashboard/test/web/connect-claude-action-icons.test.ts`,
+   axe-clean). **CONNECT popover's Check for updates 2026-10-05 (slice 2):**
+   the GitHub group's "Check for updates" pulls the newest release from GitHub
+   and compares it with the version this dashboard runs, what the version
+   menu's "Check now" does, yet it was bare words. It leads with that button's
+   `refresh-cw` and takes its `version-check` class beside `connect-test`, so
+   the version menu's spacing rule covers it and no rule is added. Nothing is
+   newly vendored. The icon is decorative, so the button's name stays its
+   words, and it is server-printed markup the locale sweep keeps a leading
+   icon in, so core does not grow; a check only writes the update line beside
+   it, so the icon survives one
+   (`apps/dashboard/test/web/connect-gh-updates-icon.test.ts`, axe-clean).
+   The group's Log in, Switch account and Log out are still bare words.
 
 ## Related
 

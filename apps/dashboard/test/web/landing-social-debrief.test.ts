@@ -40,6 +40,11 @@ const DIGEST: SocialFlightDebriefLike = {
   refused: 2,
 };
 
+const MIRROR_DIGEST: SocialFlightDebriefLike = {
+  ...DIGEST,
+  mirror: { checked: 5, toClose: 2, toReopen: 1, toNote: 1, toSettle: 0, inSync: 1 },
+};
+
 const SILENT_PASSES: SocialFlightDebriefLike = {
   ...DIGEST,
   passesRan: 0,
@@ -92,6 +97,23 @@ describe('flightDebriefSocialItems', () => {
     );
   });
 
+  it('inserts the mirror preview chip after the verdicts, when one ran', () => {
+    const items = flightDebriefSocialItems(MIRROR_DIGEST, trFor('en'));
+    expect(items.map((i) => i[0])).toEqual([
+      '2 social passes',
+      'caps: 1/4 new issues, 0/10 comments',
+      '1 queued, 0 duplicate, 2 refused',
+      'mirror previewed 5 task(s): 2 close, 1 reopen, 1 unverified, 0 settle, 1 synced',
+      '1 skipped (gh not connected)',
+      'nothing posted',
+    ]);
+  });
+
+  it('omits the mirror chip when no mirror preview ran', () => {
+    const items = flightDebriefSocialItems(DIGEST, trFor('en'));
+    expect(items.some((i) => i[0].startsWith('mirror previewed'))).toBe(false);
+  });
+
   it('every SOCIAL key is translated in Hebrew, placeholders kept', () => {
     const keys = [
       'landingDebriefSocialLabel',
@@ -106,6 +128,8 @@ describe('flightDebriefSocialItems', () => {
       'flightDebriefSocialSkippedForeignTip',
       'flightDebriefSocialSkippedGh',
       'flightDebriefSocialSkippedGhTip',
+      'flightDebriefSocialMirrorPreview',
+      'flightDebriefSocialMirrorPreviewTip',
       'flightDebriefSocialReadOnly',
       'flightDebriefSocialReadOnlyTip',
     ] as const;
@@ -225,6 +249,15 @@ describe('FLIGHT DEBRIEF SOCIAL line, rendered', () => {
     );
     // One roving tab stop for the whole line, like the debrief's other chip rows.
     expect(chips.filter((c) => c.getAttribute('tabindex') === '0')).toHaveLength(1);
+  });
+
+  it('renders the mirror preview chip when the served digest carries one', async () => {
+    boot({ landing: LANDING, socialDebrief: MIRROR_DIGEST });
+    await waitFor(() => socialLine());
+    const chips = [...socialLine().querySelectorAll<HTMLElement>('.chip')];
+    expect(chips.map((c) => c.textContent)).toContain(
+      'mirror previewed 5 task(s): 2 close, 1 reopen, 1 unverified, 0 settle, 1 synced',
+    );
   });
 
   it('renders no SOCIAL line when the flight served no digest', async () => {

@@ -212,6 +212,7 @@ h2 > .icon, h3 > .icon, summary > .icon:not(:only-child) { margin-inline-end: va
 .connect-form label { font-size: var(--text-xs); color: var(--color-text-muted); }
 .connect-form select, .connect-form input { font: inherit; font-size: var(--text-sm); padding: var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
 .connect-form button { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); position: relative; overflow: hidden; box-shadow: var(--elevation-level-1); transition: box-shadow var(--duration-short4) var(--easing-standard); }
+#connect-login > .icon, #connect-test > .icon, #connect-form > button > .icon { margin-inline-end: 0.35em; }
 .connect-hint { margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
 /* The endpoint/Bedrock/Vertex field groups (epic 0036) sit in the form's own
    column, without the UA fieldset's border and padding. display:flex would
@@ -1327,6 +1328,15 @@ body > .routing-console-panel { margin-inline: var(--page-inline); }
 .routing-console-name { font-weight: 600; min-inline-size: 12ch; }
 .routing-console-issues { font-family: var(--font-mono); color: var(--color-text-muted); overflow-wrap: anywhere; }
 .routing-console-row progress { inline-size: 8rem; accent-color: var(--color-accent); }
+/* The route (steering from the dashboard's side): a "No priority yet" issue,
+   its priority picker and its Route CTA, then one status line for the result. */
+.routing-console-route-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; }
+.routing-console-priority { font: inherit; font-size: var(--text-sm); padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
+.routing-console-route { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-accent-text); }
+.routing-console-route:disabled { opacity: 0.6; cursor: default; }
+.routing-console-route-result { margin: var(--space-1) 0 0; font-size: var(--text-sm); }
+.routing-console-route-result:empty { margin: 0; }
+.routing-console-route-result-fail { color: var(--color-sev-critical); }
 .collaboration-group-title:first-of-type { margin-top: var(--space-2); }
 .collaboration-item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) 0; border-top: 1px solid var(--color-border); }
 .collaboration-item:first-of-type { border-top: none; }
