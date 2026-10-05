@@ -43,16 +43,21 @@ function sourceOutsideIconData(): string {
  *  charts and the QR code draw other viewBoxes. */
 const HAND_INLINED_ICON = /<svg viewBox="0 0 24 24"/g;
 
-/** Each web/ file that still prints its own 24-unit icon markup, as
- *  `file: count` with `/` separators, so the list reads the same on every disk. */
-function handInlinedIconSites(): string[] {
+/** A shape a client builds with `createElementNS` whose geometry is typed out
+ *  as a literal: an icon drawn by hand where the markup census cannot see it.
+ *  The charts and the QR code compute their geometry, so they never match. */
+const HAND_DRAWN_SHAPE = /setAttribute\(\s*['"](?:d|points)['"],\s*['"]/g;
+
+/** Each web/ file that still matches `pattern`, as `file: count` with `/`
+ *  separators, so the list reads the same on every disk. */
+function handInlinedIconSites(pattern: RegExp = HAND_INLINED_ICON): string[] {
   const webDir = join(SRC_DIR, 'web');
   const sites: string[] = [];
   for (const entry of readdirSync(webDir, { recursive: true })) {
     const file = String(entry).replaceAll('\\', '/');
     if (!file.endsWith('.ts') || file === 'icons.ts') continue;
     const code = stripComments(readFileSync(join(webDir, file), 'utf8'));
-    const count = code.match(HAND_INLINED_ICON)?.length ?? 0;
+    const count = code.match(pattern)?.length ?? 0;
     if (count > 0) sites.push(`${file}: ${count}`);
   }
   return sites.sort();
@@ -267,6 +272,13 @@ describe('server-printed chrome draws vendored icons (law 1)', () => {
   // Every web/ file draws its icons through the vendored set now.
   it('hand-inlines no 24-unit icon outside the vendored set', () => {
     expect(handInlinedIconSites()).toEqual([]);
+  });
+
+  // The Getting started checklist's done tick built a hand-copied check
+  // polyline with createElementNS, which the markup census above never saw;
+  // it draws the vendored check now.
+  it('hand-draws no icon shape on the client outside the vendored set', () => {
+    expect(handInlinedIconSites(HAND_DRAWN_SHAPE)).toEqual([]);
   });
 });
 

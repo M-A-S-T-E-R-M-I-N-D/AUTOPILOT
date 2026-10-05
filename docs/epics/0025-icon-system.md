@@ -739,6 +739,22 @@ propagation, and the filled style does not match the nav.
    so the button's name stays its words, in Hebrew too; `busy.ts` rides core,
    which grows for it inside its raw line
    (`apps/dashboard/test/web/ritual-action-icons.test.ts`, axe-clean).
+   **Checklist done tick 2026-10-05 (law 1):** each open step of the Getting
+   started checklist drew its vendored icon from the ladder's own splice of
+   `icons.ts`, but a done step's mark drew a hand-copied Feather check, a
+   `polyline` whose points `obTick()` typed out by hand. The hand-inlined
+   census matches server-printed `<svg viewBox=…>` markup only, so it never
+   saw a shape built with `createElementNS`. The mark draws the vendored
+   `check` the Docs editor's Save draws now, spliced beside the steps' icons,
+   and one CSS rule keeps the 20px and the 2.5 stroke the old tick's
+   attributes gave it, so it still reads bold on the filled mark. Each
+   step's icon is now classed `icon icon-<name>` like `iconEl()`'s. The tick
+   stays decorative; the step's "Done" status says the state in words.
+   `apps/dashboard/test/web/icons.test.ts` gained a second census, a
+   `setAttribute('d'|'points', '…')` literal anywhere in `web/` outside
+   `icons.ts`, pinned at zero; the charts and the QR code compute their
+   geometry, so they never match
+   (`apps/dashboard/test/web/onboarding-done-tick-icon.test.ts`, axe-clean).
 
 ## Related
 

@@ -2636,6 +2636,7 @@ body[data-focus="on"] { padding-block-end: 0; padding-inline-start: 0; }
 /* Done recedes — legible, never invisible (it still has to pass contrast). */
 .ob-step.is-done .ob-step-title { font-weight: 500; }
 .ob-step.is-done .ob-step-mark { border-color: var(--color-accent); color: var(--color-accent-text); background: var(--color-accent); }
+.ob-step-mark > .icon-check { inline-size: 1.25rem; block-size: 1.25rem; stroke-width: 2.5; }
 
 @media (prefers-reduced-motion: reduce) {
   .ob-progress-fill, .ob-step, .ob-step-action { transition: none; }
