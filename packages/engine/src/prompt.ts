@@ -153,7 +153,7 @@ export interface BoardTaskRef {
   readonly note?: string | null;
 }
 
-export const FIRING_PROMPT_VERSION = 'firing-v17';
+export const FIRING_PROMPT_VERSION = 'firing-v18';
 
 /** The adapter that runs the agent unless the caller names another
  *  (`FiringPromptInput.harness`) — cited in commit provenance trailers (SOTA-MAP D1). */
@@ -291,6 +291,14 @@ function fleetSection(fleet: string): string {
     'Declare YOURS the same way BEFORE starting any unit: overwrite the',
     'git-ignored .autopilot-intent file at your repo root with ONE line,',
     '"<primary file> — <goal>", so siblings see your claim while you work.',
+    // firing-v18 (board web-muv09dbr-nb42u7): a lane claiming its next task
+    // skips a row only when a live intent names it by id or epic slice
+    // (intent-claims.ts's siblingIntentNaming) — a goal naming neither left
+    // epic 0019 S4 claimable while a sibling built it unclaimed.
+    'On a board task, name its row in the goal: the bracketed id, plus the epic',
+    'slice when the title has one ("src/x.ts — [web-abc123] EPIC 0019 S4: …").',
+    'A sibling claiming its next task skips the rows a live intent names, and',
+    'only those.',
     'That declare rule has NO size exception: a "two-line quick fix" is exactly',
     'the unit class that three siblings once built in parallel — declare it or',
     'leave it.',
