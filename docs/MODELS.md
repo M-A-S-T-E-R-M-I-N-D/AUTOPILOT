@@ -57,6 +57,27 @@ version is recognised before anyone edits this repo.
 A registry that *gated* would turn every model launch into a release
 blocker for us. That trade is never worth it.
 
+## Effort — one level for every model, until an arm says otherwise
+
+Every firing passes the CLI `--effort xhigh` (`DEFAULT_ENGINE_CONFIG.effort`),
+whatever model it flies. That fits Fable and Sonnet, but Anthropic ships
+Opus 5.5 with `medium` as its default effort and reports it matching
+Opus 5 at `high`. Whether it holds up on our own work is for our own
+firings to say, so the default tier's Opus firings are split
+(`effortForRoute` in `apps/dashboard/src/flight/model-routing.ts`):
+
+| Default-tier Opus task | Effort |
+| --- | --- |
+| Half, by a stable hash of the task id | `medium` |
+| The other half | the flight's own (`xhigh`) |
+
+A task keeps its half across slices, like the model arms. Every other
+tier and model keeps the flight's effort. The flight log's routing line
+names the effort when it is not the flight's (`default → opus at medium
+effort`), and every Claude firing's record carries the `effort` it ran
+at, so the two halves can be compared on ship rate and cost per ship. A
+Codex or Gemini firing's record names none: their CLIs take no effort.
+
 ## Keeping up: `pnpm ci:model-freshness`
 
 Two kinds of staleness, checked two different ways. A whole new **family**

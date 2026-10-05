@@ -681,6 +681,14 @@ export interface FiringRecord {
    * existed, so a reader never takes an absent engine for Claude's.
    */
   readonly engine?: string;
+  /**
+   * The `--effort` this firing's Claude CLI ran at (`EngineConfig.effort`,
+   * which a routing arm may set per firing — web-muutby8r-h4p0dw), so the
+   * fleet report can judge an effort arm on its own firings. Absent on a
+   * Codex or Gemini firing, whose CLI takes no effort, and on every record
+   * written before the field existed.
+   */
+  readonly effort?: string;
 }
 
 /**

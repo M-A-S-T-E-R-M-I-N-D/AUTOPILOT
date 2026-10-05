@@ -315,6 +315,32 @@ describe('runFiring', () => {
 
     expect(out.record.engine).toBe('codex');
     expect(store.records[0]).toMatchObject({ engine: 'codex' });
+    // Codex's CLI takes no `--effort`, so its record claims none.
+    expect(out.record).not.toHaveProperty('effort');
+  });
+
+  // EFFORT PER TIER (web-muutby8r-h4p0dw): a routing arm may fly one firing
+  // below the flight's effort, and the record is where the report reads it.
+  it.each([
+    ['names no engine', {}],
+    ['names claude', { engine: 'claude' }],
+  ])('records the effort its Claude CLI ran at when the config %s', async (_, extra) => {
+    const model = new FakeModel([shippedResponse('AP-1', 'abc')]);
+    const vcs = new FakeVcs({
+      heads: ['h0', 'h1'],
+      last: { subject: 'feat: AP-1', shortSha: 'abc' },
+      existing: new Set(['abc']),
+    });
+    const store = new FakeStore();
+
+    const out = await runFiring(
+      deps(model, vcs, new FakeGate(true), store),
+      { ...DEFAULT_ENGINE_CONFIG, ...extra, effort: 'medium' },
+      { ...baseInput, state: INITIAL_RESILIENCE_STATE },
+    );
+
+    expect(out.record.effort).toBe('medium');
+    expect(store.records[0]).toMatchObject({ effort: 'medium' });
   });
 
   it('DIFF-SIZE GATE (BACKLOG-999 C4): a warn-tier oversize LANDS with a loud check label', async () => {
