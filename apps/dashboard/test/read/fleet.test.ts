@@ -1431,6 +1431,17 @@ describe('buildFleetView', () => {
     expect(view.totals.unpricedShipped).toBe(0);
   });
 
+  it('sums every project’s unpriced firings, which the summed cost reads as $0 (epic 0036)', () => {
+    const view = buildFleetView(1, [
+      aggregate({ id: 'claude', firings: 2, cost: 2, unpriced: 0 }),
+      aggregate({ id: 'codex', firings: 3, cost: 0, unpriced: 3 }),
+      // A project whose aggregate names no count leaves none out.
+      aggregate({ id: 'older', firings: 1, cost: 1 }),
+    ]);
+    expect(view.totals.cost).toBeCloseTo(3);
+    expect(view.totals.unpriced).toBe(3);
+  });
+
   it('reports null rate/average totals (not 0) with no firings anywhere', () => {
     const view = buildFleetView(1, [
       aggregate({
