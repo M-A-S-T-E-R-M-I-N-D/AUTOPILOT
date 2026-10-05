@@ -815,7 +815,23 @@ propagation, and the filled style does not match the nav.
    icon in, so core does not grow; a check only writes the update line beside
    it, so the icon survives one
    (`apps/dashboard/test/web/connect-gh-updates-icon.test.ts`, axe-clean).
-   The group's Log in, Switch account and Log out are still bare words.
+   **CONNECT popover's GitHub sign-in 2026-10-05 (slice 2):** the group's
+   Log in with GitHub, Switch account and Log out, each of which opens a
+   terminal running a `gh auth` command, were bare words beside the iconed
+   Claude half. Log in leads with the `square-terminal` "Log in with Claude"
+   draws, since both open a terminal running that CLI's login; Switch account
+   leads with the `users` the rail's Community link draws, the accounts gh
+   already holds, one of which the terminal asks for; Log out leads with the
+   `lock` the SOUL editor's Unlock to edit draws, since it shuts the
+   dashboard's GitHub-backed actions until someone logs in again. Nothing is
+   newly vendored: core sat 21 bytes under its raw line, so Lucide's
+   `log-out` was out of reach. Each icon is decorative, so a button's name
+   stays its words, and each is server-printed markup the locale sweep keeps
+   a leading icon in, so core does not grow; a click only writes the status
+   line and a login only toggles `hidden`, so the icons survive both. One
+   `.gh-auth` rule spaces them, apart from the Claude half's pinned rule
+   (`apps/dashboard/test/web/connect-gh-auth-icons.test.ts`, axe-clean
+   logged out and in). Every CONNECT popover button now leads with an icon.
 
 ## Related
 
