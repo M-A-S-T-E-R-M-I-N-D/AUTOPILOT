@@ -2710,7 +2710,11 @@ function boardFlowGroups(tasks) {
 function boardViewToggleLabel(btn, view) {
   var effective = boardViewEffective(view);
   var key = effective === 'columns' ? 'boardViewList' : 'boardViewColumns';
-  btn.textContent = tr(key);
+  // Epic 0025: the label leads with the view it offers, a list or the Board
+  // tab's square-kanban columns; decorative, so the name stays the words.
+  btn.textContent = '';
+  btn.appendChild(iconEl(effective === 'columns' ? 'list' : 'square-kanban'));
+  btn.appendChild(document.createTextNode(tr(key)));
   btn.setAttribute('data-i18n', key);
   btn.setAttribute('aria-pressed', String(effective === 'columns'));
 }

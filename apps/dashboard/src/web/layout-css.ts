@@ -1481,6 +1481,8 @@ body > .routing-console-panel { margin-inline: var(--page-inline); }
 /* Each action leads with its icon (epic 0025); Undo and Redo point the way
    the row reads, like the SOUL card's un-ratify chip. */
 .plan-actions button > .icon { margin-inline-end: 0.35em; }
+/* The board toggle leads with the view it offers (epic 0025). */
+.board-view-toggle > .icon { margin-inline-end: 0.35em; }
 [dir='rtl'] .plan-undo > .icon, [dir='rtl'] .plan-redo > .icon { transform: scaleX(-1); }
 .board-columns { display: none; margin: 0 0 var(--space-1); font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 .board-column-head { display: flex; justify-content: space-between; gap: var(--space-2); padding-inline: var(--space-2); }

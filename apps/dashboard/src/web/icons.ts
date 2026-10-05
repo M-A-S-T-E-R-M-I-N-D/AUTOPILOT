@@ -830,6 +830,16 @@ export const ICON_SHAPES: Readonly<Record<string, readonly IconShape[]>> = {
     ['path', { d: 'M13 6h3a2 2 0 0 1 2 2v7' }],
     ['path', { d: 'M11 18H8a2 2 0 0 1-2-2V9' }],
   ],
+  // Epic 0025 slice 2: the task board's toggle while it offers the list view
+  // (lucide-static 1.51.0).
+  list: [
+    ['path', { d: 'M3 5h.01' }],
+    ['path', { d: 'M3 12h.01' }],
+    ['path', { d: 'M3 19h.01' }],
+    ['path', { d: 'M8 5h13' }],
+    ['path', { d: 'M8 12h13' }],
+    ['path', { d: 'M8 19h13' }],
+  ],
 };
 
 export type IconName = keyof typeof ICON_SHAPES;
