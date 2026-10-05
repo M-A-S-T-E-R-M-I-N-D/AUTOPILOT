@@ -526,6 +526,14 @@ describe('runLoop', () => {
       expect(h.firingConfigs[0]).toEqual({ ...DEFAULT_ENGINE_CONFIG, effort: 'medium' });
     });
 
+    it('a routed MODEL alone keeps the flight effort — the override never writes effort: undefined', async () => {
+      const h = harness([outcome()]);
+      h.setPromptModel('opus');
+      await runLoop(h.deps, DEFAULT_ENGINE_CONFIG, { maxIterations: 1 });
+      expect(h.firingConfigs[0]?.effort).toBe(DEFAULT_ENGINE_CONFIG.effort);
+      expect(Object.hasOwn(h.firingConfigs[0] ?? {}, 'effort')).toBe(true);
+    });
+
     it('is a no-op when buildPrompt repeats the effort already configured', async () => {
       const h = harness([outcome()]);
       h.setPromptEffort(DEFAULT_ENGINE_CONFIG.effort);
