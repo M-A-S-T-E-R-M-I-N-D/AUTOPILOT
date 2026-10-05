@@ -2207,6 +2207,10 @@ const EN_STRINGS = {
   flightDebriefSocialSkippedGh: '{count} skipped (gh not connected)',
   flightDebriefSocialSkippedGhTip:
     'Passes refused because gh could not resolve an authenticated identity for this repo',
+  flightDebriefSocialMirrorPreview:
+    'mirror previewed {checked} task(s): {toClose} close, {toReopen} reopen, {toNote} unverified, {toSettle} settle, {inSync} synced',
+  flightDebriefSocialMirrorPreviewTip:
+    'What the mirror-pass button would close, reopen, note or settle — previewed only, never applied',
   flightDebriefSocialReadOnly: 'nothing posted',
   flightDebriefSocialReadOnlyTip:
     'The passes only read and plan today — nothing was said, filed or closed on GitHub',
@@ -3684,6 +3688,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
       'מעברים שנדחו כי התיקייה הנטוסה אינה העותק של המנוע הזה — מעבר מדבר רק בשם המאגר שלו',
     flightDebriefSocialSkippedGh: '{count} דולגו (gh לא מחובר)',
     flightDebriefSocialSkippedGhTip: 'מעברים שנדחו כי gh לא הצליח לזהות זהות מאומתת למאגר הזה',
+    flightDebriefSocialMirrorPreview:
+      'מעבר-מראה תצפה ב-{checked} משימות: {toClose} לסגירה, {toReopen} לפתיחה, {toNote} לא מאומתות, {toSettle} להתאמה, {inSync} בסנכרון',
+    flightDebriefSocialMirrorPreviewTip:
+      'מה שכפתור מעבר-המראה היה סוגר, פותח, מעיר עליו או מתאים — נצפה מראש בלבד, לעולם לא מיושם',
     flightDebriefSocialReadOnly: 'שום דבר לא פורסם',
     flightDebriefSocialReadOnlyTip:
       'המעברים רק קוראים ומתכננים כרגע — שום דבר לא נאמר, הוגש או נסגר ב־GitHub',

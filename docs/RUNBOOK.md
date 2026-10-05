@@ -915,16 +915,32 @@ line — both are reads, so nothing is said twice on GitHub.
 
 **Fly GitHub alone (`AUTOPILOT_FLY_TARGET=github`):** a flight that flies the GitHub surface
 and never the code tree — `AUTOPILOT_FLY_TARGET=github pnpm dashboard:fly <folder>` runs ONE
-social pass and stops. No onboarding (its backup writes git refs), no worktree, no firings, no
-lock. Choosing this target is the opt-in, so `AUTOPILOT_SOCIAL_FLIGHT` is not
-consulted. The self-target guard and the gh check still apply. The log prints the pass line and
-then the `🗣 SOCIAL debrief:` line. That digest is also stored, so the project's FLIGHT DEBRIEF
+social pass, then a read-only mirror-pass preview, and stops. No onboarding (its backup writes
+git refs), no worktree, no firings, no lock. Choosing this target is the opt-in, so
+`AUTOPILOT_SOCIAL_FLIGHT` is not consulted. The self-target guard and the gh check still apply.
+The log prints the pass line, then the mirror preview line, then the `🗣 SOCIAL debrief:` line.
+That digest is also stored, so the project's FLIGHT DEBRIEF
 panel shows its **Social:** line like a code flight's — but only into a store that already
 exists, under a folder it already knows as a project. This mode never creates a store or
 registers a project; when it cannot store the digest, the log says so on the next line. The
 process exits 1 when the pass was refused, since the flight did nothing. Unset or empty means `code`, which is every ordinary flight. Any other value,
 including a wrong case, refuses to take off: a misspelt `github` must not turn into a flight that
 edits the tree.
+
+The mirror preview is the reconcile plan `GET /api/mirror-pass` shows (§7), counted over the
+project's `github-<n>` board tasks:
+
+```
+  🪞 mirror pass: 9 github-linked board task(s) checked — 2 to close, 0 to reopen, 1 unverified note(s), 0 to settle, 6 already in sync (read-only — apply from the dashboard's mirror-pass button).
+```
+
+Nothing is closed, reopened or commented on. Applying a finding still takes the project page's
+**Mirror pass** panel and its confirm-guarded **Run mirror pass** button. The preview runs only
+after the social pass itself ran, so a refused pass prints no mirror line. A missing store, a
+folder never onboarded as a project, or a failed store or `gh` read also prints none. These are
+quiet skips and never fail the flight. When the preview ran, its counts join the debrief line as
+`mirror pass previewed …` and the FLIGHT DEBRIEF panel's **Social:** line as a
+`mirror previewed …` chip, worded as a preview, never as applied.
 
 **Per flight, from the fly bar:** the gear's launch settings carry a **Fly target** select —
 `default`, `the code tree` (`code`), `GitHub only` (`github`). Anything but `default` sets

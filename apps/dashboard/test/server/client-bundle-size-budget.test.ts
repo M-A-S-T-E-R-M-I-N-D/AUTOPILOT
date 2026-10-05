@@ -699,6 +699,9 @@ const PANELS_RAW_BUDGET = 255 * 1024;
 // buttons — measured 34886B against the old 34816B budget.
 // Then project gzip 35→36KB (2026-10-05), epic 0036's CURRENT ROUND spend
 // chip over unpriced firings — measured 35922B against the old 35840B budget.
+// Then project gzip 35→36KB (2026-10-05), epic 0016 slice 5/6's remaining
+// gap — the FLIGHT DEBRIEF panel's SOCIAL line gains a mirror-preview chip —
+// measured 36020B against the old 35840B budget.
 const PROJECT_GZIP_BUDGET = 36 * 1024;
 const PANELS_GZIP_BUDGET = 78 * 1024;
 // THE LOCALES CHUNK (2026-09-30, board ap-muo35gze-1): /locales.js carries
