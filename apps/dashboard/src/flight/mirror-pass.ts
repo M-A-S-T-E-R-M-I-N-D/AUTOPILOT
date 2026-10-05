@@ -76,7 +76,8 @@
  */
 
 import { readFileSync, existsSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, join, relative } from 'node:path';
+import { localLinkPaths } from '@autopilot/docs-links';
 import type { CliExec } from '../connection/cli-probe.js';
 import { STALE_TASK_DAYS } from '../web/task-queue.js';
 import { claimLedger } from './claim-ledger.js';
@@ -910,27 +911,23 @@ export function readMirrorPassCountsDrift(
 }
 
 /**
- * Extracts every relative internal link target from markdown `content` —
- * both `[text](path)` links and `![alt](path)` images share the same
- * `](...)` shape, so both are caught. Excludes a pure in-page anchor
- * (`#section`, nothing to check on disk) and any target carrying a URL
- * scheme (`https://`, `mailto:`, etc. — not this repo's tree to verify). A
- * trailing `#fragment` on an otherwise-relative link (e.g.
- * `docs/PAPER.md#6-threats-to-validity`) is stripped before returning, since
- * only the file's existence is checked — not the fragment's own validity.
- * Deduplicated and sorted for a deterministic result.
+ * Every relative internal link in markdown `content` written at `fromFile`
+ * (repo-relative), resolved to the repo-relative path it names — both
+ * `[text](path)` links and `![alt](path)` images. Read through
+ * `@autopilot/docs-links`, the rules the CI link check and the docs reader
+ * already share: a pure `#anchor`, a URL scheme, and a link written as an
+ * example inside code are skipped; a `"title"`, a `#fragment` and a `?query`
+ * are not part of the path, and percent-escapes are decoded. This used to be
+ * its own `](...)` scan, which read `[guide](docs/guide.md "The guide")` as
+ * the path `docs/guide.md "The guide"` — a working link the pass would have
+ * filed as broken, as a public issue. Deduplicated and sorted for a
+ * deterministic result.
  */
-export function extractInternalDocLinks(content: string): readonly string[] {
-  const linkPattern = /\]\(([^)]+)\)/g;
-  const targets = new Set<string>();
-  for (const match of content.matchAll(linkPattern)) {
-    const raw = match[1]?.trim();
-    if (!raw || raw.startsWith('#')) continue;
-    if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) continue;
-    const withoutFragment = raw.split('#')[0]!.trim();
-    if (withoutFragment) targets.add(withoutFragment);
-  }
-  return [...targets].sort();
+export function extractInternalDocLinks(
+  content: string,
+  fromFile = 'README.md',
+): readonly string[] {
+  return [...new Set(localLinkPaths(content, fromFile))].sort();
 }
 
 /** Derivation 3/4's link-drift finding: one or more internal links in a doc
@@ -992,9 +989,10 @@ export function planMirrorPassLinkDriftCommand(
 
 /**
  * Reads `docPath` and runs {@link planMirrorPassLinkDrift} against its
- * internal links, resolving each one relative to `repoRoot` (the same root a
- * rendered markdown link on GitHub resolves against, since these docs live
- * at or under the repo root) — the read wiring a caller composes with
+ * internal links, resolving each one the way GitHub renders it: against the
+ * doc's own folder, or `repoRoot` for a `/`-rooted link, so a
+ * `../CONTRIBUTING.md` written in `docs/` is checked where it points — the
+ * read wiring a caller composes with
  * {@link planMirrorPassLinkDriftCommand}, same division of labor
  * {@link readMirrorPassCountsDrift} has with {@link planMirrorPassCountsDrift}.
  * A missing/unreadable doc means nothing to check — `null`, never a guess.
@@ -1009,7 +1007,7 @@ export function readMirrorPassLinkDrift(
   } catch {
     return null;
   }
-  const links = extractInternalDocLinks(content);
+  const links = extractInternalDocLinks(content, relative(repoRoot, docPath));
   return planMirrorPassLinkDrift(
     links,
     (link) => existsSync(join(repoRoot, link)),
