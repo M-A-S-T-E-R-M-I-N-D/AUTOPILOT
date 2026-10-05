@@ -68,6 +68,7 @@ export function readReportFirings(db: Db, baseProjectId: string, sinceMs: number
     durationMs: r.duration_ms,
     model: r.model,
     engine: recordedEngine(r.payload),
+    effort: recordedEffort(r.payload),
   }));
 }
 
@@ -93,6 +94,14 @@ function integerOrNull(value: unknown): number | null {
 function recordedEngine(payload: string | null): string | null {
   const engine = payloadFieldsOf(payload)?.['engine'];
   return typeof engine === 'string' ? engine : null;
+}
+
+/** The `--effort` a Claude firing's record says it ran at (web-muutby8r-h4p0dw).
+ *  No metrics column holds it, so a missing, unreadable or Codex/Gemini record
+ *  (whose CLI takes no effort) names none. */
+function recordedEffort(payload: string | null): string | null {
+  const effort = payloadFieldsOf(payload)?.['effort'];
+  return typeof effort === 'string' ? effort : null;
 }
 
 /** How a firing died: a quota death when the account-wide quota killed it

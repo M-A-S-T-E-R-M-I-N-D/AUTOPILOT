@@ -35,6 +35,10 @@ export interface ReportFiring {
   /** The CLI the firing flew on (`claude`, `codex`, `gemini`), or `null` for
    *  a record that names none: one written before the field existed. */
   readonly engine: string | null;
+  /** The `--effort` a Claude firing ran at (web-muutby8r-h4p0dw's routing
+   *  arm, or the flight's own), or `null` for a Codex/Gemini record, whose
+   *  CLI takes no effort, and for one written before the field existed. */
+  readonly effort: string | null;
 }
 
 /** One convergence gate verdict after a sync-back. */
@@ -326,6 +330,10 @@ export function renderFleetReport(
     (f) => `${f.model ?? 'unrecorded'} · ${taskClass(f.title, f.subject)}`,
     judged,
   );
+  // EFFORT PER TIER (web-muutby8r-h4p0dw): default-tier Opus firings split
+  // between `medium` and the flight's own effort by task hash. A Codex or
+  // Gemini firing, or one written before the field existed, names none.
+  section('effort', (f) => f.effort ?? 'unrecorded', judged);
   const c = summarizeConvergence(convergence);
   lines.push(
     '',
