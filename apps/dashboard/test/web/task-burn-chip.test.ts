@@ -185,4 +185,34 @@ describe('TASK BURN chips', () => {
     expect(chip!.textContent).toBe('1 slice · $0.50');
     expect(chip!.querySelector('svg.icon-flame')).not.toBeNull();
   });
+
+  // epic 0036: a Codex or Gemini firing's record carries no price; the
+  // metrics column stores it as 0, so the chip once summed it in as free.
+  it('names the unpriced firings beside the priced total, never sums them as $0', async () => {
+    const tasks = [
+      {
+        id: 't4',
+        title: 'Mixed engines',
+        status: 'in_progress',
+        severity: null,
+        dimension: null,
+        focus: false,
+        priority: null,
+        source: 'dashboard',
+        at: 1,
+      },
+    ];
+    const log = [
+      firing({ item: 't4', cost: 2, durationMs: null }),
+      firing({ item: 't4', cost: 0, durationMs: null, costUnpriced: true }),
+      firing({ item: 't4', cost: 0, durationMs: null, costUnpriced: true }),
+    ];
+    boot(log, tasks);
+    await vi.advanceTimersByTimeAsync(1);
+
+    const chip = document.querySelector('.chip-burn');
+    expect(chip!.textContent).toBe('3 slices · $2.00 + 2 unpriced');
+    expect(chip!.getAttribute('aria-label')).toBe('Burn: 3 slices · $2.00 + 2 unpriced');
+    expect(chip!.getAttribute('data-tip')).toContain('2 unpriced left out, no price was reported');
+  });
 });

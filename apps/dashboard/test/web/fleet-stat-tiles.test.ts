@@ -269,4 +269,32 @@ describe('fleet stat tiles (bento grid)', () => {
     expect(cacheBars[0]!.getAttribute('data-tip-cost')).toBe('60% cached');
     expect(cacheBars[1]!.getAttribute('data-tip-cost')).toBe('0% cached');
   });
+
+  // Epic 0036: a Codex or Gemini firing reports no price and the metrics
+  // column stores that null as 0. The cost tile's spark read it as free.
+  it("captions the cost spark's unpriced bar unpriced, and its label names the firings left out (epic 0036)", async () => {
+    const unpriced = { ...SAMPLE_FIRINGS[1], id: 'f3', cost: 0, costUnpriced: true, at: NOW - 500 };
+    boot({}, [...SAMPLE_FIRINGS, unpriced]);
+    await vi.advanceTimersByTimeAsync(1);
+
+    const spark = document.querySelector('#stat-tiles .stat-tile .spark')!;
+    expect(spark.getAttribute('aria-label')).toBe(
+      'Cost per firing across the fleet, last 3 firings, total $0.40, 1 unpriced left out — tab through bars for detail',
+    );
+    const bars = spark.querySelectorAll('.spark-bar');
+    expect(bars[0]!.getAttribute('data-tip-cost')).toBe('$0.10');
+    expect(bars[2]!.getAttribute('data-tip-cost')).toBe('unpriced');
+    expect(bars[2]!.getAttribute('aria-label')).not.toContain('$0.00');
+  });
+
+  it("keeps the cost spark's label as it was when every firing is priced", async () => {
+    boot({}, SAMPLE_FIRINGS);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(
+      document.querySelector('#stat-tiles .stat-tile .spark')!.getAttribute('aria-label'),
+    ).toBe(
+      'Cost per firing across the fleet, last 2 firings, total $0.40 — tab through bars for detail',
+    );
+  });
 });

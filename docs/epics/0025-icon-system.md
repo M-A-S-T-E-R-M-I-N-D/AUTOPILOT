@@ -700,6 +700,18 @@ propagation, and the filled style does not match the nav.
    words, and the locale sweep keeps a leading icon; a confirm only disables
    the button, so the icon survives the run
    (`apps/dashboard/test/web/ask-proposal-offer-icons.test.ts`, axe-clean).
+   **Browse dialog's actions 2026-10-05 (slice 2):** the Fly bar's "Browse a
+   folder" modal heads with `folder-open`, but the buttons that end it were
+   bare words: Cancel and "Use this folder" under a listing, Close under the
+   error paint. Cancel and Close lead with the `x` the Docs editor's Cancel
+   and the replay's Exit draw, since each puts the dialog away and changes
+   nothing; "Use this folder" leads with the `check` the Docs editor's Save
+   draws, since it accepts the folder into the Fly bar. Nothing is newly
+   vendored. Each icon is decorative, so a button's name stays its words, and
+   every paint builds them fresh with `tr()`, so a Hebrew page paints Hebrew
+   words beside the same icons
+   (`apps/dashboard/test/web/browse-dialog-action-icons.test.ts`, axe-clean).
+   The listing's ".. (up)" row stays path notation, named by its aria-label.
 
 ## Related
 

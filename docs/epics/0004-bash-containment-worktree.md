@@ -414,6 +414,19 @@ shape as the onboarding/backup carve-out (see Out of scope), just opt-in via an 
 unconditional. The isolation boundary for the `'code'` target, the one this epic covers, is
 unchanged.
 
+Freshness check (2026-10-05): `fly.ts` gained one more commit since the check above — `09b3ce05`
+(epic 0016), which lets the GitHub-only flight's SOCIAL digest reach the FLIGHT DEBRIEF panel.
+Inside the `'github'` branch, after it prints the digest line and before it returns,
+`recordGithubOnlyFlightDebrief` (`flight/post-flight-sweeps.ts`) opens the store solely to write
+that one `social-debrief` row. It writes only into a store that already exists, for a project
+whose root `findByRoot` already knows — it never creates a store or registers a project — and is
+best-effort: a failure prints one more flight-log line instead of throwing. The code flight's
+inline INSERT moves into the shared `recordSocialFlightDebrief` helper both modes now call, at the
+same end-of-flight call site. The GitHub mode's write still runs before `deriveWorktreePlan` is
+ever reached, in the branch that returns without it; the code mode's write sits where it already
+did. Neither touches `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, nor the
+containment guard's snapshot/audit calls — no new path into `target`, no worktree wiring change.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a

@@ -163,6 +163,8 @@ export interface TaskBurnAmount {
   readonly slices: number;
   readonly cost: number;
   readonly wallMs: number;
+  /** Firings whose record carries no price, left out of `cost` (epic 0036). */
+  readonly unpriced?: number;
 }
 
 /** {@link taskBurnLabel}'s result: the TASK BURN chip's visible text and its
@@ -175,20 +177,33 @@ export interface TaskBurnLabel {
 /** The TASK BURN chip's text+tip for a task at least one firing has worked
  *  (`burn.slices > 0` — callers skip rendering the chip otherwise).
  *  `fmtCost`/`fmtDuration` are caller-injected rather than imported from
- *  `./format.ts`, the same `flightProgressOf`/`actMeta` pattern. */
+ *  `./format.ts`, the same `flightProgressOf`/`actMeta` pattern. Unpriced
+ *  firings (a Codex or Gemini run, epic 0036) are named beside the priced
+ *  total (`$2.00 + 2 unpriced`), and a task none of whose firings was
+ *  priced reads `unpriced`, never `$0.00`. */
 export function taskBurnLabel(
   burn: TaskBurnAmount,
   fmtCost: (n: number) => string,
   fmtDuration: (ms: number) => string,
 ): TaskBurnLabel {
-  let text = burn.slices + (burn.slices === 1 ? ' slice' : ' slices') + ' · ' + fmtCost(burn.cost);
+  const unpriced = burn.unpriced || 0;
+  const nonePriced = unpriced > 0 && unpriced >= burn.slices;
+  let costText = fmtCost(burn.cost);
+  let costTip = fmtCost(burn.cost) + ' total';
+  if (nonePriced) {
+    costText = 'unpriced';
+    costTip = 'cost unpriced, no price was reported';
+  } else if (unpriced > 0) {
+    costText += ' + ' + unpriced + ' unpriced';
+    costTip += ', ' + unpriced + ' unpriced left out, no price was reported';
+  }
+  let text = burn.slices + (burn.slices === 1 ? ' slice' : ' slices') + ' · ' + costText;
   if (burn.wallMs > 0) text += ' · ' + fmtDuration(burn.wallMs);
   const tip =
     burn.slices +
     (burn.slices === 1 ? ' firing has' : ' firings have') +
     ' worked this task — ' +
-    fmtCost(burn.cost) +
-    ' total' +
+    costTip +
     (burn.wallMs > 0 ? ', ' + fmtDuration(burn.wallMs) + ' wall time' : '');
   return { text, tip };
 }
