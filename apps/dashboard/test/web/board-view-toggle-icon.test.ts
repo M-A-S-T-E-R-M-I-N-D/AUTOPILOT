@@ -167,11 +167,20 @@ describe('the board’s Columns/List toggle leads with a vendored icon (epic 002
 
     toggle().click();
     expectIconed('list', 'boardViewList');
-    expect(toggle().getAttribute('aria-pressed')).toBe('true');
 
     toggle().click();
     expectIconed('square-kanban', 'boardViewColumns');
-    expect(toggle().getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('carries no aria-pressed: the label already names the view it offers, not the one showing, so a stale "List, pressed" while columns are on screen never reaches a screen reader (board ap-muvciftc-0)', async () => {
+    await boot();
+    expect(toggle().hasAttribute('aria-pressed')).toBe(false);
+
+    toggle().click();
+    expect(toggle().hasAttribute('aria-pressed')).toBe(false);
+
+    toggle().click();
+    expect(toggle().hasAttribute('aria-pressed')).toBe(false);
   });
 
   it('a click on the icon itself still toggles the view', async () => {
