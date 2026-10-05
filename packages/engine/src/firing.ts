@@ -549,6 +549,8 @@ export async function runFiring(
     ...(timedOut ? { timedOut: true } : {}),
     ...(review !== null ? { review } : {}),
     ...(config.engine !== undefined ? { engine: config.engine } : {}),
+    // Only Claude's CLI takes `--effort`; a Codex or Gemini record names none.
+    ...(config.engine === undefined || config.engine === 'claude' ? { effort: config.effort } : {}),
   };
   // Same reasoning as the gate port's catch above: loop.ts has no try/catch
   // around runFiring, and this save runs after the model has been paid for.

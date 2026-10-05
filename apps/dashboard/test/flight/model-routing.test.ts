@@ -10,6 +10,9 @@ import {
   resolvePrimaryModelForTier,
   escalationBucket,
   isDefaultOpusArm,
+  isDefaultOpusEffortArm,
+  effortForRoute,
+  DEFAULT_OPUS_ARM_EFFORT,
   ESCALATION_SPLIT,
   DEFAULT_OPUS_ONE_IN,
   SLICE_STREAK_ESCALATION_THRESHOLD,
@@ -203,5 +206,44 @@ describe('the model benchmark: Opus 5.5 against Fable 5.1 and Sonnet 5 (2026-09-
   it('buckets by FNV-1a: fixed answers for fixed ids', () => {
     expect(escalationBucket('')).toBe(1);
     expect([escalationBucket('a'), escalationBucket('b')]).toEqual([0, 1]);
+  });
+});
+
+describe('effort per tier: default-tier Opus 5.5 at medium against the flight effort', () => {
+  const ids = Array.from({ length: 400 }, (_, i) => `web-task-${i}`);
+
+  it('flies about half the default-tier Opus tasks at medium, stably per task', () => {
+    const efforts = ids.map((id) => effortForRoute('default', 'opus', id));
+    expect(new Set(efforts)).toEqual(new Set([DEFAULT_OPUS_ARM_EFFORT, undefined]));
+    const medium = efforts.filter((e) => e === 'medium').length;
+    expect(medium).toBeGreaterThan(150);
+    expect(medium).toBeLessThan(250);
+    for (const [i, id] of ids.entries()) {
+      expect(effortForRoute('default', 'opus', id)).toBe(efforts[i]);
+      expect(efforts[i] === 'medium').toBe(isDefaultOpusEffortArm(id));
+    }
+  });
+
+  it('splits the Opus-arm tasks the fixed model split picks, not only some other subset', () => {
+    // The effort bit sits clear of the model split's bits, so the tasks the
+    // fallback split sends to Opus still divide between the two efforts.
+    const opusTasks = ids.filter((id) => isDefaultOpusArm(id));
+    const medium = opusTasks.filter((id) => isDefaultOpusEffortArm(id)).length;
+    expect(medium).toBeGreaterThan(opusTasks.length / 4);
+    expect(medium).toBeLessThan((opusTasks.length * 3) / 4);
+  });
+
+  it('reads the model family, so a full Opus id is in the experiment too', () => {
+    const arm = ids.find((id) => isDefaultOpusEffortArm(id))!;
+    expect(effortForRoute('default', 'claude-opus-5-5', arm)).toBe('medium');
+  });
+
+  it('leaves every other tier and model at the flight effort', () => {
+    const arm = ids.find((id) => isDefaultOpusEffortArm(id))!;
+    expect(effortForRoute('escalated', 'opus', arm)).toBeUndefined();
+    expect(effortForRoute('mechanical', 'opus', arm)).toBeUndefined();
+    for (const model of ['sonnet', 'fable', 'haiku', 'claude-sonnet-5']) {
+      expect(effortForRoute('default', model, arm)).toBeUndefined();
+    }
   });
 });
