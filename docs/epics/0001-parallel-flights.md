@@ -531,6 +531,21 @@ lock 3's shared store gains no new connection or writer. `flight/runner.ts` and
 `flight/registry.ts` are unchanged since the 2026-10-04 "still later" check above. None of the
 four locks below changes; all six slices remain unchanged and live in production.
 
+Freshness check (2026-10-05, later): `fly.ts` gained two more commits since the check above.
+`b36a7a5e` (board web-muutby8r-h4p0dw) splits the default tier's Opus 5.5 firings by a stable
+task hash: half fly at `medium` effort, half keep the flight's `xhigh`, carried through
+`effortForRoute` (`flight/model-routing.ts`) into the routing log line and the firing record.
+This is per-firing model/effort selection — the same same-folder N-way fleet-lane mechanics this
+doc's 2026-09-25 and 2026-09-26 checks above already scoped out — no board, SOUL or backlog row
+crosses projects because of it, and it opens no new write path. `316ba899` (epic 0016 slice 3)
+folds the standalone GitHub-only flight's mirror-pass preview into its SOCIAL debrief:
+`runGithubOnlyFlight` returns the preview's outcome beside the pass's own, `socialFlightDebriefOf`
+reads it into the digest line and the persisted row, and `parseSocialFlightDebrief` reads an
+older row without it unchanged. It extends the same self-target-guarded `runSocialFlightPass`/
+digest machinery the 2026-09-26 afternoon and 2026-10-04 evening checks above already verified —
+a digest content addition, not a new `gh` call or write path. Neither commit changes the four
+locks below or the acceptance criteria; all six slices remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this
