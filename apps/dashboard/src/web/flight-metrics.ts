@@ -67,19 +67,27 @@ export interface TaskBurnLogEntry {
   readonly item: string | null;
   readonly cost: number | null;
   readonly durationMs: number | null;
+  /** The firing record carries no price (`FlightEntry.costUnpriced`): a
+   *  Codex or Gemini run, epic 0036. */
+  readonly costUnpriced?: boolean;
 }
 
 /** A task's accumulated burn: how many slices worked it, how much it cost, and how long it took. */
 export interface TaskBurn {
   readonly slices: number;
+  /** Summed over the priced firings alone. */
   readonly cost: number;
   readonly wallMs: number;
+  /** The claiming firings whose record carries no price, left out of `cost`. */
+  readonly unpriced: number;
 }
 
 /** A task card's accumulated cost across every firing that claimed it
  *  (FlightEntry.item === task id) — epics stop being bottomless. Counts
  *  every claiming firing, not just 'slice'-tagged ones, so a task closed in
- *  one firing still shows what it cost to get there. */
+ *  one firing still shows what it cost to get there. An unpriced firing
+ *  (`costUnpriced`, epic 0036) still counts as a slice with its wall time,
+ *  but is counted in `unpriced` rather than summed into `cost` as $0. */
 export function taskBurnOf(
   taskId: string,
   log: readonly TaskBurnLogEntry[] | null | undefined,
@@ -87,13 +95,15 @@ export function taskBurnOf(
   let slices = 0;
   let cost = 0;
   let wallMs = 0;
+  let unpriced = 0;
   for (const entry of log || []) {
     if (entry.item !== taskId) continue;
     slices++;
-    cost += entry.cost || 0;
+    if (entry.costUnpriced === true) unpriced++;
+    else cost += entry.cost || 0;
     wallMs += entry.durationMs || 0;
   }
-  return { slices, cost, wallMs };
+  return { slices, cost, wallMs, unpriced };
 }
 
 /** A flight-log entry's fields {@link taskBudgetSignalOf} reads to detect
