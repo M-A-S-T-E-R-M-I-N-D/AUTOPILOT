@@ -45,7 +45,11 @@
  * social pass can never fail the flight it is woven into.
  */
 
+import { existsSync } from 'node:fs';
+import { openStore, type Store } from '@autopilot/store';
+import { SqliteProjectStore } from '@autopilot/onboarding';
 import type { CliExec } from '../connection/cli-probe.js';
+import { resolveDbPath } from '../read/config.js';
 import { ghExec } from './gh-exec.js';
 import { out } from './firing-hooks.js';
 import {
@@ -64,6 +68,8 @@ import {
   type SocialProtocolCaps,
   type SocialProtocolVerdict,
 } from './social-pass.js';
+import { createMirrorPassPreviewApi } from './mirror-pass-execute.js';
+import type { MirrorPassPlan } from './mirror-pass.js';
 
 /** Per-pass caps for the woven-in pass (epic law 4, "budgeted voice"):
  *  deliberately tight for a pass nobody is watching live — one new issue
@@ -115,6 +121,11 @@ export interface SocialFlightPassOptions {
    *  doc); a later slice derives them from mirror-pass findings. */
   readonly candidates?: readonly SocialCandidateAction[];
   readonly caps?: SocialProtocolCaps;
+  /** The dashboard store path the standalone Fly GitHub flight reads its
+   *  mirror-pass preview from ({@link runGithubOnlyMirrorPreview}); defaults
+   *  to {@link resolveDbPath}'s own env + cwd resolution. Tests inject a
+   *  fixture store path. */
+  readonly dbPath?: string;
 }
 
 function capsText(caps: SocialProtocolCaps): string {
@@ -214,19 +225,138 @@ export async function runSocialFlightPass(
   }
 }
 
+/** Why {@link runGithubOnlyMirrorPreview} printed nothing this flight — all
+ *  best-effort, never a reason to fail the flight. `'no-store'`: the
+ *  dashboard store does not exist at the resolved path at all.
+ *  `'project-unknown'`: the store exists but never onboarded this folder, so
+ *  it has no board to reconcile. `'preview-error'`: the store or `gh` read
+ *  itself threw. */
+export type MirrorPreviewSkipReason = 'no-store' | 'project-unknown' | 'preview-error';
+
+export interface MirrorPreviewSkipped {
+  readonly ran: false;
+  readonly reason: MirrorPreviewSkipReason;
+}
+
+/** How many of the project's `github-<n>` board tasks {@link
+ *  createMirrorPassPreviewApi}'s reconcile derivation would act on — never
+ *  applied here, only counted, so the standalone flight's own log line can
+ *  say what the dashboard's mirror-pass button would do without doing it. */
+export interface MirrorPreviewRan {
+  readonly ran: true;
+  readonly checked: number;
+  readonly toClose: number;
+  readonly toReopen: number;
+  readonly toNote: number;
+  readonly toSettle: number;
+  readonly inSync: number;
+}
+
+export type MirrorPreviewOutcome = MirrorPreviewSkipped | MirrorPreviewRan;
+
+function summarizeMirrorPlans(plans: readonly MirrorPassPlan[]): MirrorPreviewRan {
+  let toClose = 0;
+  let toReopen = 0;
+  let toNote = 0;
+  let toSettle = 0;
+  let inSync = 0;
+  for (const plan of plans) {
+    switch (plan.finding?.action) {
+      case 'close-with-landing-note':
+      case 'close-by-assignee':
+        toClose++;
+        break;
+      case 'reopen-honestly':
+        toReopen++;
+        break;
+      case 'note-unverified':
+        toNote++;
+        break;
+      case 'settle-claimed':
+        toSettle++;
+        break;
+      default:
+        inSync++;
+    }
+  }
+  return { ran: true, checked: plans.length, toClose, toReopen, toNote, toSettle, inSync };
+}
+
+function mirrorPreviewText(summary: MirrorPreviewRan): string {
+  return (
+    `${summary.checked} github-linked board task(s) checked — ${summary.toClose} to close, ` +
+    `${summary.toReopen} to reopen, ${summary.toNote} unverified note(s), ` +
+    `${summary.toSettle} to settle, ${summary.inSync} already in sync ` +
+    `(read-only — apply from the dashboard's mirror-pass button).`
+  );
+}
+
+/**
+ * The standalone Fly GitHub flight's mirror-pass half (epic 0016 slice 4/6,
+ * "still open: the mirror pass beside the social pass — this mode runs the
+ * social pass alone today"). A read-only preview of `mirror-pass.ts`'s
+ * reconcile derivation (board task done ⇄ linked issue state actually
+ * closed) over the flown project's own board, printed in the flight log
+ * beside the social pass's own line — never mutates anything, the same
+ * read-only-first posture the social pass itself still has until its own
+ * execute half is wired. Composes `mirror-pass-execute.ts`'s
+ * {@link createMirrorPassPreviewApi} exactly as the dashboard's own preview
+ * route does, so this is the same plan an operator would see there, not a
+ * second implementation of it. Best-effort like every other sweep woven into
+ * this flight: no store at `dbPath`, a folder never onboarded as a project,
+ * or a read failure all skip quietly rather than failing the flight.
+ */
+export async function runGithubOnlyMirrorPreview(
+  dbPath: string,
+  target: string,
+  exec: CliExec = ghExec,
+): Promise<MirrorPreviewOutcome> {
+  if (!existsSync(dbPath)) return { ran: false, reason: 'no-store' };
+  let store: Store | undefined;
+  try {
+    store = openStore(dbPath, { readonly: true });
+    const project = new SqliteProjectStore(store).findByRoot(target);
+    if (!project) return { ran: false, reason: 'project-unknown' };
+    const plans = await createMirrorPassPreviewApi(dbPath, exec)(project.id);
+    if (!plans) return { ran: false, reason: 'project-unknown' };
+    const summary = summarizeMirrorPlans(plans);
+    out(`  🪞 mirror pass: ${mirrorPreviewText(summary)}`);
+    return summary;
+  } catch {
+    return { ran: false, reason: 'preview-error' };
+  } finally {
+    store?.close();
+  }
+}
+
 /**
  * The standalone "Fly GitHub" flight (epic 0016 slice 4/6): what `fly.ts`
- * runs INSTEAD of a code flight when `AUTOPILOT_FLY_TARGET=github` — one
- * social pass and nothing else. Choosing the GitHub target is itself the
- * operator's opt-in, so `AUTOPILOT_SOCIAL_FLIGHT` is never consulted: the
- * pass runs as `'full'`, the whole social flight, and with no firings to be
- * between, that is exactly one takeoff (`'start'`) pass. Every other law
- * still holds — the self-target guard, the clean refusal when gh is not
- * connected, the caps, read-only (nothing posted) until the execute half is
+ * runs INSTEAD of a code flight when `AUTOPILOT_FLY_TARGET=github` — the
+ * social pass, now joined by the mirror pass's own read-only preview (board
+ * `web-mtpzzxn4-69csqx`), "social+mirror passes only". Choosing the GitHub
+ * target is itself the operator's opt-in, so `AUTOPILOT_SOCIAL_FLIGHT` is
+ * never consulted: the social pass runs as `'full'`, the whole social
+ * flight, and with no firings to be between, that is exactly one takeoff
+ * (`'start'`) pass. The mirror preview only runs once the social pass
+ * actually ran — gh connected, this engine's own checkout — since it needs
+ * the same two preconditions and would refuse identically otherwise; its own
+ * read/store failures never fail the flight (see
+ * {@link runGithubOnlyMirrorPreview}). Every other law still holds — the
+ * self-target guard, the clean refusal when gh is not connected, the caps,
+ * read-only (nothing posted, nothing applied) until the execute halves are
  * wired.
  */
-export function runGithubOnlyFlight(
+export async function runGithubOnlyFlight(
   options: SocialFlightPassOptions = {},
 ): Promise<SocialFlightPassOutcome> {
-  return runSocialFlightPass('start', 'full', options);
+  const outcome = await runSocialFlightPass('start', 'full', options);
+  if (outcome.ran) {
+    const target = options.target ?? options.engineRepo ?? process.cwd();
+    await runGithubOnlyMirrorPreview(
+      options.dbPath ?? resolveDbPath(),
+      target,
+      options.exec ?? ghExec,
+    );
+  }
+  return outcome;
 }
