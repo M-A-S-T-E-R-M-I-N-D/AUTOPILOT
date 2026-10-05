@@ -268,7 +268,8 @@ ${flyHintText.toString()}
     var actions = el('div', 'browse-actions');
     var close = document.createElement('button');
     close.type = 'button';
-    close.textContent = tr('close');
+    close.appendChild(iconEl('x'));
+    close.appendChild(document.createTextNode(tr('close')));
     close.setAttribute('data-tip', tr('browseCloseTip'));
     close.addEventListener('click', closeBrowseModal);
     actions.appendChild(close);
@@ -326,17 +327,21 @@ ${flyHintText.toString()}
       list.appendChild(el('p', 'muted browse-empty', tr('noSubfolders')));
     }
     dialog.appendChild(list);
+    // The actions lead with decorative icons (epic 0025): Cancel the x that
+    // puts the dialog away, Use this folder the check that accepts it.
     var actions = el('div', 'browse-actions');
     var cancel = document.createElement('button');
     cancel.type = 'button';
-    cancel.textContent = tr('cancel');
+    cancel.appendChild(iconEl('x'));
+    cancel.appendChild(document.createTextNode(tr('cancel')));
     cancel.setAttribute('data-tip', tr('browseCloseTip'));
     cancel.addEventListener('click', closeBrowseModal);
     actions.appendChild(cancel);
     var use = document.createElement('button');
     use.type = 'button';
     use.className = 'browse-use';
-    use.textContent = tr('useThisFolder');
+    use.appendChild(iconEl('check'));
+    use.appendChild(document.createTextNode(tr('useThisFolder')));
     use.setAttribute('data-tip', tr('browseUseTip', { path: data.path }));
     use.addEventListener('click', function () {
       if (folderEl) {

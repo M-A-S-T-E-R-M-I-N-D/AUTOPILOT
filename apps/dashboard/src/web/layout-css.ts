@@ -2229,6 +2229,7 @@ html[data-busy] :is(.landing-execute, .release-execute, .pr-review-execute, .iss
 .browse-up { color: var(--color-text-muted); }
 .browse-empty { margin: 0; }
 .browse-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.browse-actions button > .icon { margin-inline-end: 0.35em; }
 /* Browse CTA designed states (COCKPIT 6/6): same pair as .tour-actions button
    above; radius + shadow reach the filled .browse-use through its !important
    border/background overrides. */
