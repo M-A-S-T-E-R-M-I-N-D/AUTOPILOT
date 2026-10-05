@@ -427,6 +427,15 @@ ever reached, in the branch that returns without it; the code mode's write sits 
 did. Neither touches `deriveWorktreePlan`, `ensureWorktree`/`syncWorktreeBranch`, nor the
 containment guard's snapshot/audit calls — no new path into `target`, no worktree wiring change.
 
+Freshness check (2026-10-05, later): `fly.ts` gained one more commit since the check above —
+`b36a7a5e` (board `web-muutby8r-h4p0dw`), which splits the default tier's Opus 5.5 tasks between
+`medium` and the flight's own effort by a stable task hash (`effortForRoute`,
+`dashboard/model-routing.ts`) and threads the chosen effort into the routing log line and the
+firing's `FiringRecord`. The change sits entirely inside the existing `routedModel` block — it adds
+`routedEffort` beside it and passes both through — and touches neither `deriveWorktreePlan`,
+`ensureWorktree`/`syncWorktreeBranch`, nor the containment guard's snapshot/audit calls: no new
+path into `target`, no worktree wiring change.
+
 The isolation boundary itself is unchanged. Bash still runs in `flightRoot`, `target` is still a
 guarded path, and the per-firing sync-back, the flight-end sync-back, and now the round-evaluation
 commit (when this lane is the one that wins it) all re-snapshot the guard baseline after a
