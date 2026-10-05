@@ -259,6 +259,37 @@ describe('fleet stat tiles (bento grid)', () => {
     expect(shipRateBars[1]!.getAttribute('class')).toContain('spark-reverted');
   });
 
+  it("captions the cost tile spark's unpriced bar unpriced and names it in the label, never $0.00 (epic 0036)", async () => {
+    // Oldest → newest: a $2.00 Claude firing, then a Codex one with no price.
+    const mixed = [
+      { ...SAMPLE_FIRINGS[0], id: 'claude1', cost: 2 },
+      { ...SAMPLE_FIRINGS[1], id: 'codex1', cost: 0, costUnpriced: true },
+    ];
+    boot({}, mixed);
+    await vi.advanceTimersByTimeAsync(1);
+
+    const spark = document.querySelector('#stat-tiles .stat-tile .spark')!;
+    expect(spark.getAttribute('aria-label')).toBe(
+      'Cost per firing across the fleet, last 2 firings, total $2.00, 1 unpriced left out — tab through bars for detail',
+    );
+    const [claude, codex] = Array.from(spark.querySelectorAll('.spark-bar'));
+    expect(claude!.getAttribute('data-tip-cost')).toBe('$2.00');
+    expect(codex!.getAttribute('data-tip-cost')).toBe('unpriced');
+    expect(codex!.getAttribute('aria-label')).toContain('unpriced');
+    expect(codex!.getAttribute('aria-label')).not.toContain('$0.00');
+  });
+
+  it("keeps the cost tile spark's label as it was when every firing is priced", async () => {
+    boot({}, SAMPLE_FIRINGS);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(
+      document.querySelector('#stat-tiles .stat-tile .spark')!.getAttribute('aria-label'),
+    ).toBe(
+      'Cost per firing across the fleet, last 2 firings, total $0.40 — tab through bars for detail',
+    );
+  });
+
   it('computes the cache-read-share spark from the real per-firing cache tokens, not a guess', async () => {
     boot({}, SAMPLE_FIRINGS);
     await vi.advanceTimersByTimeAsync(1);

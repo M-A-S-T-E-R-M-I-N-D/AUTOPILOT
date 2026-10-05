@@ -519,13 +519,17 @@ ${sharedMetricSparkline.toString()}
 // Fleet-wide stat-tile sparks: all four read the same merged, capped,
 // oldest→newest firing series (FleetView.recentFirings, see read/fleet.ts's
 // fleetChronoLog) so every tile's trend is real telemetry, never invented.
+// An unpriced firing (costUnpriced, a Codex or Gemini run, epic 0036) reads
+// unpriced, as costSparkline's bar does, and the label names the ones left out.
 function fleetCostSpark(log, tasks) {
+  var unpriced = 0;
+  for (var i = 0; i < log.length; i++) if (log[i].costUnpriced === true) unpriced++;
   return metricSparkline(
     log,
     tasks,
-    function (f) { return f.cost || 0; },
-    function (f) { return fmtCost(f.cost || 0); },
-    function (n, total) { return 'Cost per firing across the fleet, last ' + n + ' firings, total ' + fmtCost(total) + ' — tab through bars for detail'; },
+    function (f) { return f.costUnpriced === true ? 0 : f.cost || 0; },
+    function (f) { return f.costUnpriced === true ? 'unpriced' : fmtCost(f.cost || 0); },
+    function (n, total) { return 'Cost per firing across the fleet, last ' + n + ' firings, total ' + fmtCost(total) + (unpriced > 0 ? ', ' + unpriced + ' unpriced left out' : '') + ' — tab through bars for detail'; },
     svgNode, sparkBars, taskMap, flightBarMeta, flightHeadlineOf,
   );
 }
