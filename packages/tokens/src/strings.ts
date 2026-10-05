@@ -916,6 +916,12 @@ const EN_STRINGS = {
   roundShippedAria: '{n} shipped this round',
   roundSpendTip: 'Spend this round',
   roundSpendAria: 'cost this round: {cost}',
+  // A firing whose record carries no price (a Codex or Gemini run, epic 0036)
+  // is counted beside the round's priced spend, never summed into it as $0.
+  roundSpendPartlyUnpriced: '{cost} + {n} unpriced',
+  roundSpendAllUnpriced: '{n} unpriced',
+  roundSpendUnpricedTip:
+    'Spend of the priced firings this round. A Codex or Gemini run reports no price, so it is counted, not summed as $0',
   roundShipRateTip: 'Ship rate this round',
   roundShipRateAria: 'ship rate this round: {pct}',
   budgetMode: 'Budget mode: fixed firing count or total spend target',
@@ -2749,6 +2755,10 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     roundShippedAria: '{n} שוחררו בסבב הזה',
     roundSpendTip: 'הוצאה בסבב הזה',
     roundSpendAria: 'עלות בסבב הזה: {cost}',
+    roundSpendPartlyUnpriced: '{cost} + {n} ללא מחיר',
+    roundSpendAllUnpriced: '{n} ללא מחיר',
+    roundSpendUnpricedTip:
+      'הוצאת ההפעלות המתומחרות בסבב הזה. הפעלת Codex או Gemini אינה מדווחת מחיר, ולכן נספרת ולא נסכמת כ-$0',
     roundShipRateTip: 'שיעור שילוח בסבב הזה',
     roundShipRateAria: 'שיעור שילוח בסבב הזה: {pct}',
     budgetMode: 'מצב תקציב: מספר הפעלות קבוע או יעד הוצאה כולל',

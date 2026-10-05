@@ -438,6 +438,9 @@ export interface RoundStatsLike {
   readonly shipped: number;
   readonly cost: number;
   readonly shipRate: number | null;
+  /** `RoundInfo.unpriced`: the firings whose run reported no price (epic
+   *  0036), which {@link cost} sums as 0. Optional: a hand-built round has none. */
+  readonly unpriced?: number;
 }
 
 /** The STRINGS keys {@link roundSinceLabel}/{@link roundStatItems} compose
@@ -454,6 +457,9 @@ export type RoundKey =
   | 'roundShippedAria'
   | 'roundSpendTip'
   | 'roundSpendAria'
+  | 'roundSpendPartlyUnpriced'
+  | 'roundSpendAllUnpriced'
+  | 'roundSpendUnpricedTip'
   | 'roundShipRateTip'
   | 'roundShipRateAria';
 
@@ -502,16 +508,29 @@ export type RoundStatItem = readonly [text: string, tip: string, ariaLabel: stri
  *  injection rather than importing it from `./format.ts`, the same
  *  `doraTileItems`/`gateParallelTileItems` pattern; `tr` rides the same
  *  route (board web-msnsndki-dz3vn1) so each locale's grammar decides where
- *  `{n}`/`{cost}`/`{pct}` land. */
+ *  `{n}`/`{cost}`/`{pct}` land. The spend chip names a round's unpriced
+ *  firings beside its priced spend (`$2.00 + 2 unpriced`), or alone when none
+ *  was priced (`2 unpriced`), never summed in as $0 (epic 0036). */
 export function roundStatItems(
   round: RoundStatsLike,
   fmtCost: (n: number) => string,
   tr: RoundTranslator,
 ): readonly RoundStatItem[] {
+  const unpriced = round.unpriced || 0;
+  const spend =
+    unpriced === 0
+      ? fmtCost(round.cost)
+      : unpriced >= round.firings
+        ? tr('roundSpendAllUnpriced', { n: unpriced })
+        : tr('roundSpendPartlyUnpriced', { cost: fmtCost(round.cost), n: unpriced });
   const items: RoundStatItem[] = [
     [String(round.firings), tr('roundFiringsTip'), tr('roundFiringsAria', { n: round.firings })],
     [String(round.shipped), tr('roundShippedTip'), tr('roundShippedAria', { n: round.shipped })],
-    [fmtCost(round.cost), tr('roundSpendTip'), tr('roundSpendAria', { cost: fmtCost(round.cost) })],
+    [
+      spend,
+      tr(unpriced === 0 ? 'roundSpendTip' : 'roundSpendUnpricedTip'),
+      tr('roundSpendAria', { cost: spend }),
+    ],
   ];
   if (round.shipRate !== null) {
     const pct = Math.round(round.shipRate * 100) + '%';

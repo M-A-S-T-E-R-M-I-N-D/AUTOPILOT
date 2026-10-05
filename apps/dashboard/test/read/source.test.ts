@@ -2385,6 +2385,45 @@ describe('readRoundInfo', () => {
     }
   });
 
+  it("counts the round's unpriced firings, shipped or not, that its cost sums as 0 (epic 0036)", async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'ap-dash-round-unpriced-firings-'));
+    const dbDir = mkdtempSync(join(tmpdir(), 'ap-dash-round-db-'));
+    try {
+      initRepo(repo);
+      const dbPath = join(dbDir, 'a.db');
+      const s = openStore(dbPath);
+      migrate(s);
+      project('p1', 'alpha', 'flying', null, s);
+      s.db.prepare('UPDATE projects SET root_path = ? WHERE id = ?').run(repo, 'p1');
+      const metric = s.db.prepare(
+        `INSERT INTO metrics (project_id, firing_id, shipped, gate_result, cost_usd, created_at)
+         VALUES ('p1', ?, ?, 'passed', ?, 1)`,
+      );
+      const record = s.db.prepare(
+        `INSERT INTO events (project_id, firing_id, type, payload, created_at)
+         VALUES ('p1', ?, 'firing', ?, 1)`,
+      );
+      // A $2.00 Claude ship, a Codex ship, and a Codex firing that died: both
+      // Codex records say costUsd null, and the metrics column stores 0.
+      metric.run('claude', 1, 2);
+      record.run('claude', JSON.stringify({ firing: 1, costUsd: 2 }));
+      metric.run('codex-ship', 1, 0);
+      record.run('codex-ship', JSON.stringify({ firing: 2, costUsd: null }));
+      metric.run('codex-died', 0, 0);
+      record.run('codex-died', JSON.stringify({ firing: 3, costUsd: null }));
+      s.close();
+
+      const round = await readRoundInfo(dbPath, 'p1');
+      expect(round?.firings).toBe(3);
+      expect(round?.cost).toBe(2);
+      expect(round?.unpricedShipped).toBe(1);
+      expect(round?.unpriced).toBe(2);
+    } finally {
+      cleanupDir(repo);
+      cleanupDir(dbDir);
+    }
+  });
+
   it('returns null for an unknown project id', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'ap-dash-round-unknown-'));
     const dbPath = join(dir, 'a.db');

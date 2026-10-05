@@ -588,7 +588,13 @@ const PANELS_RAW_BUDGET = 255 * 1024;
 // child-node restore (-17B). Measured 34886B against the 34816B line: 70
 // bytes over, from 26 under before the slice -- the margin every entry above
 // refuses. Raw (129756B) stays under PROJECT_RAW_BUDGET untouched.
-const PROJECT_GZIP_BUDGET = 35 * 1024;
+// Then project gzip 35->36KB (2026-10-05), epic 0036's CURRENT ROUND spend
+// chip: roundStatItems, embedded from web/stat-tiles.ts, names the round's
+// unpriced firings beside its priced spend or alone, with three English keys
+// that head /project.js. HEAD measured about 35826B, 14 bytes under the
+// 35840B line; the slice measured 35922B, 82 bytes over -- its 96 bytes
+// cannot fit 14. Raw (133076B) stays under PROJECT_RAW_BUDGET untouched.
+const PROJECT_GZIP_BUDGET = 36 * 1024;
 const PANELS_GZIP_BUDGET = 78 * 1024;
 // THE LOCALES CHUNK (2026-09-30, board ap-muo35gze-1): /locales.js carries
 // every non-English STRINGS table (features/locale-data.ts), and core loads
