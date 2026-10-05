@@ -8,6 +8,7 @@
  */
 
 import { execFile } from 'node:child_process';
+import { withGhReadCache } from './gh-read-cache.js';
 
 export interface CliRun {
   readonly code: number;
@@ -81,5 +82,13 @@ export function makeCliExec(env?: NodeJS.ProcessEnv, timeoutMs = 15_000): CliExe
     });
 }
 
-/** Default exec for the cheap `--version` presence probe. */
-export const realCliExec: CliExec = makeCliExec();
+/** How long the shared exec serves an identical `gh` read from cache. A
+ *  panel's view of GitHub may lag by up to this much; a write through the
+ *  same exec clears it at once (connection/gh-read-cache.ts). */
+export const GH_READ_TTL_MS = 60_000;
+
+/** The default exec every caller shares: the cheap `--version` probes and
+ *  every `gh` call. Identical `gh` reads within {@link GH_READ_TTL_MS} reach
+ *  GitHub once — on 2026-10-05 the panels' polling drained the hourly
+ *  GraphQL quota and the landing ritual's `gh pr create` failed on it. */
+export const realCliExec: CliExec = withGhReadCache(makeCliExec(), { ttlMs: GH_READ_TTL_MS });
