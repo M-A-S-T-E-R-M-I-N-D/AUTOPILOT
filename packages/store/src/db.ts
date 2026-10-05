@@ -139,10 +139,17 @@ export class Store {
   constructor(path: string, options: StoreOptions = {}) {
     const readonly = options.readonly === true;
     this.db = new Database(resolveStorePath(path), { readonly, fileMustExist: readonly });
-    if (!readonly) this.db.pragma('journal_mode = WAL');
-    this.db.pragma('foreign_keys = ON');
-    this.db.pragma('busy_timeout = 5000');
-    if (!readonly) this.db.pragma('synchronous = NORMAL');
+    // A throwing constructor never hands `this` back, so nobody else can close
+    // this handle — and on Windows an open handle keeps the file locked.
+    try {
+      if (!readonly) this.db.pragma('journal_mode = WAL');
+      this.db.pragma('foreign_keys = ON');
+      this.db.pragma('busy_timeout = 5000');
+      if (!readonly) this.db.pragma('synchronous = NORMAL');
+    } catch (err) {
+      this.db.close();
+      throw err;
+    }
     if (!readonly) hardenWriterAgainstBusy(this.db);
   }
 
