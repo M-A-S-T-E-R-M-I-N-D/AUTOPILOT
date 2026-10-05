@@ -333,7 +333,11 @@ function renderKeeperQueue() {
       var act = document.createElement('button');
       act.type = 'button';
       act.className = 'keeper-queue-act';
-      act.textContent = (it.action.textContent || '').trim();
+      // Epic 0025: the act leads with the icon of the button it presses, so
+      // the two read as one action; decorative, so its name stays the words.
+      var ico = it.action.firstElementChild;
+      if (ico && ico.matches('svg.icon')) act.appendChild(ico.cloneNode(true));
+      act.appendChild(document.createTextNode((it.action.textContent || '').trim()));
       act.setAttribute('data-keeper-act', String(i));
       act.setAttribute('tabindex', '-1');
       act.disabled = !!it.action.disabled;
