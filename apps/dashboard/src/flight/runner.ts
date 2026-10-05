@@ -385,6 +385,9 @@ function engineStatus(
  *  and anything else is `null` — a refusal, never a guess at either target. */
 function flyTargetFromRequest(raw: unknown): FlyTarget | undefined | null {
   if (raw === undefined) return undefined;
+  // Stryker disable next-line ConditionalExpression: equivalent — parseFlyTarget
+  // already answers null for every non-string (FLY_TARGETS holds strings only and
+  // `.includes()` compares strictly); the typeof narrows `unknown` for the compiler.
   return typeof raw === 'string' ? parseFlyTarget(raw) : null;
 }
 

@@ -17,6 +17,10 @@ import { defineConfig } from 'vitest/config';
  * to just that one test file sidesteps the root config's jsdom env-matching
  * and the rest of the dashboard suite entirely, keeping every mutant's
  * rerun fast.
+ *
+ * The module's own test file (test/shared/flight-summary.test.ts) joined the
+ * scope on 2026-10-05: epic 0036's costUnpriced line survived four mutants
+ * because only fleet.test.ts ran here, and it never looks at that field.
  */
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -25,6 +29,9 @@ export default defineConfig({
   test: {
     globals: false,
     environment: 'node',
-    include: ['apps/dashboard/test/read/fleet.test.ts'],
+    include: [
+      'apps/dashboard/test/read/fleet.test.ts',
+      'apps/dashboard/test/shared/flight-summary.test.ts',
+    ],
   },
 });

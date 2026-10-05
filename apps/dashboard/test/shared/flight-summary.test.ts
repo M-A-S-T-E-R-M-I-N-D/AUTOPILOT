@@ -169,6 +169,16 @@ describe('finishedFlightSummaries', () => {
     ]);
   });
 
+  it('carries an unpriced ship as unpriced, and only a literal true counts (epic 0036)', () => {
+    const flightLog = [
+      summaryEntry({ id: 'codex', costUnpriced: true }),
+      summaryEntry({ id: 'claude' }),
+    ];
+    const result = finishedFlightSummaries({ tasks: Object.values(TASKS), flightLog });
+    expect(result.find((s) => s.id === 'codex')?.costUnpriced).toBe(true);
+    expect(result.find((s) => s.id === 'claude')?.costUnpriced).toBe(false);
+  });
+
   it('returns an empty array when the flight log is empty', () => {
     expect(finishedFlightSummaries({ tasks: Object.values(TASKS), flightLog: [] })).toEqual([]);
   });
