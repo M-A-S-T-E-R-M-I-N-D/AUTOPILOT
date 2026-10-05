@@ -161,7 +161,8 @@ describe('flyJs', () => {
     // mutates nothing (cockpit epic 0015, D2 dedup renders).
     expect(out).toContain("var key = dynamicKey || 'flyIt';");
     expect(out).toContain('if (goEl.dataset.i18n !== key) goEl.dataset.i18n = key;');
-    expect(out).toContain('if (goEl.textContent !== goText) goEl.textContent = goText;');
+    // setSweptText() keeps the leading send icon (epic 0025).
+    expect(out).toContain('if (goEl.textContent !== goText) setSweptText(goEl, goText);');
     // Both paint paths pass STRINGS keys, not English literals.
     expect(out).toContain(
       "setGoLabel(status.activeHere ? 'flying' : (status.queuedHere ? 'queued' : null));",

@@ -462,6 +462,7 @@ textarea { field-sizing: content; min-block-size: 3lh; max-block-size: 40vh; res
    heights beside a full-height input — the "weird" the operator saw. */
 #fly-lucky, #fly-go, .fly-options-toggle, #fly-pause, #fly-stop { min-block-size: 2.25rem; }
 #fly-lucky, #fly-go { display: inline-flex; align-items: center; justify-content: center; }
+#fly-go > .icon, #fly-pause > .icon, #fly-stop > .icon { margin-inline-end: 0.35em; }
 .fly-status.fly-ok { color: var(--color-success); font-weight: 600; }
 .fly-status.fly-err { color: var(--color-sev-high); font-weight: 600; }
 .fly-hint { flex-basis: 100%; margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
