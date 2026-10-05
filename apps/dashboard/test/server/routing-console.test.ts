@@ -1,8 +1,15 @@
 // SPDX-FileCopyrightText: 2026 1337 · REL AZEUS · MΔSTERMIND
 // SPDX-License-Identifier: Apache-2.0
 
+import { EventEmitter } from 'node:events';
 import { describe, it, expect, vi } from 'vitest';
-import { handleRoutingConsole, type RoutingConsoleApi } from '../../src/server/routing-console.js';
+import {
+  handleRoutingConsole,
+  handleRoutingConsoleRoute,
+  type RoutingConsoleApi,
+  type RoutingConsoleRouteApi,
+} from '../../src/server/routing-console.js';
+import type { RateLimiter } from '../../src/server/rate-limit.js';
 import {
   UNREADABLE_ROUTING_CONSOLE,
   type RoutingConsoleSnapshot,
@@ -116,5 +123,152 @@ describe('handleRoutingConsole', () => {
     );
 
     expect(api.mock.calls).toEqual([['p1'], [undefined], [undefined]]);
+  });
+});
+
+/** A POST `IncomingMessage` stand-in: `readBody` listens on it and
+ *  `clientKey` reads its socket. */
+function fakePost(contentType: string | undefined = 'application/json') {
+  const emitter = new EventEmitter();
+  return Object.assign(emitter, {
+    method: 'POST',
+    headers: contentType === undefined ? {} : { 'content-type': contentType },
+    socket: { remoteAddress: '203.0.113.7' },
+  });
+}
+
+function fakeLimiter(allow: boolean): RateLimiter {
+  return { allow: vi.fn().mockReturnValue(allow) };
+}
+
+/** Runs the route handler with `body` sent as the request's one chunk. */
+async function postRoute(
+  api: RoutingConsoleRouteApi | undefined,
+  body: unknown,
+  opts: { limiter?: RateLimiter; contentType?: string } = {},
+): Promise<ReturnType<typeof fakeResponse>> {
+  const req = fakePost(opts.contentType);
+  const res = fakeResponse();
+  const pending = handleRoutingConsoleRoute(
+    req as never,
+    res as never,
+    api,
+    {},
+    opts.limiter ?? fakeLimiter(true),
+  );
+  req.emit('data', Buffer.from(typeof body === 'string' ? body : JSON.stringify(body)));
+  req.emit('end');
+  await pending;
+  return res;
+}
+
+describe('handleRoutingConsoleRoute — the console steers', () => {
+  const routed = { issue: 7, label: 'priority: high', routed: true };
+
+  it('hands the issue, label and project to the route and answers what it did', async () => {
+    const api = vi.fn<RoutingConsoleRouteApi>().mockResolvedValue(routed);
+
+    const res = await postRoute(api, { issue: 7, label: 'priority: high', project: 'p1' });
+
+    expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+    expect(readBody(res)).toEqual(routed);
+    expect(api.mock.calls).toEqual([[7, 'priority: high', 'p1']]);
+  });
+
+  it('routes for the home page when no project is named', async () => {
+    const api = vi.fn<RoutingConsoleRouteApi>().mockResolvedValue(routed);
+
+    await postRoute(api, { issue: 7, label: 'priority: high', project: '' });
+
+    expect(api.mock.calls).toEqual([[7, 'priority: high', undefined]]);
+  });
+
+  it('answers a refusal as a 200 carrying its reason, never a 403', async () => {
+    const refused = { issue: 7, label: 'priority: high', routed: false, refusedReason: 'guest' };
+    const api = vi.fn<RoutingConsoleRouteApi>().mockResolvedValue(refused as never);
+
+    const res = await postRoute(api, { issue: 7, label: 'priority: high' });
+
+    expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
+    expect(readBody(res)).toEqual(refused);
+  });
+
+  it('returns 404 when the route is unwired', async () => {
+    const res = await postRoute(undefined, { issue: 7, label: 'priority: high' });
+
+    expect(res.writeHead).toHaveBeenCalledWith(404, expect.any(Object));
+    expect(readBody(res)).toEqual({ error: 'routing console route unavailable' });
+  });
+
+  it('returns 405 for a GET and never routes', async () => {
+    const api = vi.fn<RoutingConsoleRouteApi>();
+    const res = fakeResponse();
+
+    await handleRoutingConsoleRoute(
+      fakeRequest({ method: 'GET' }) as never,
+      res as never,
+      api,
+      {},
+      fakeLimiter(true),
+    );
+
+    expect(res.writeHead).toHaveBeenCalledWith(405, expect.any(Object));
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it('refuses a cross-site form post (415) before the limiter or the route', async () => {
+    const api = vi.fn<RoutingConsoleRouteApi>();
+    const limiter = fakeLimiter(true);
+
+    const res = await postRoute(api, 'issue=7', {
+      limiter,
+      contentType: 'application/x-www-form-urlencoded',
+    });
+
+    expect(res.writeHead).toHaveBeenCalledWith(415, expect.any(Object));
+    expect(limiter.allow).not.toHaveBeenCalled();
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it('returns 429 when rate-limited', async () => {
+    const api = vi.fn<RoutingConsoleRouteApi>();
+
+    const res = await postRoute(
+      api,
+      { issue: 7, label: 'priority: high' },
+      { limiter: fakeLimiter(false) },
+    );
+
+    expect(res.writeHead).toHaveBeenCalledWith(429, expect.any(Object));
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for invalid JSON, a missing or non-positive issue, or no label', async () => {
+    const api = vi.fn<RoutingConsoleRouteApi>();
+    const bodies: unknown[] = [
+      '{not json',
+      'null',
+      { label: 'priority: high' },
+      { issue: '7', label: 'priority: high' },
+      { issue: 0, label: 'priority: high' },
+      { issue: 1.5, label: 'priority: high' },
+      { issue: 7 },
+      { issue: 7, label: '' },
+    ];
+
+    for (const body of bodies) {
+      const res = await postRoute(api, body);
+      expect(res.writeHead).toHaveBeenCalledWith(400, expect.any(Object));
+    }
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 with the error message when the route throws', async () => {
+    const api = vi.fn<RoutingConsoleRouteApi>().mockRejectedValue(new Error('store gone'));
+
+    const res = await postRoute(api, { issue: 7, label: 'priority: high' });
+
+    expect(res.writeHead).toHaveBeenCalledWith(500, expect.any(Object));
+    expect(readBody(res)).toEqual({ error: 'store gone' });
   });
 });

@@ -3164,6 +3164,31 @@ describe('createServer (live loopback)', () => {
     expect(res.status).toBe(405);
   });
 
+  it('POST /api/routing-console/route steers through the injected route (CSRF-guarded)', async () => {
+    const seen: unknown[] = [];
+    const base = await start({
+      routingConsoleRoute: async (issue, label, projectId) => {
+        seen.push([issue, label, projectId]);
+        return { issue, label, routed: true };
+      },
+    });
+    const res = await fetch(`${base}/api/routing-console/route`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ issue: 7, label: 'priority: high', project: 'p1' }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ issue: 7, label: 'priority: high', routed: true });
+    expect(seen).toEqual([[7, 'priority: high', 'p1']]);
+    const crossSite = await fetch(`${base}/api/routing-console/route`, {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ issue: 7, label: 'priority: high' }),
+    });
+    expect(crossSite.status).toBe(415);
+    expect(seen).toHaveLength(1);
+  });
+
   it('POST /api/issue-triage/execute runs the ritual for a known project (CSRF-guarded)', async () => {
     const seen: string[] = [];
     const base = await start({

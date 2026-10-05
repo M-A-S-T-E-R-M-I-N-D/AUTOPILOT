@@ -481,11 +481,14 @@ function parseCloseReason(value: unknown): MirrorPassCloseReason | undefined {
  * never as a signal to act on. The labels and the close reason ride the same
  * call, so reading the maintainer's marks costs no extra `gh` call; a payload
  * without a `labels` list leaves the field absent, and so does an open issue
- * or an unread reason for `closedAs`.
+ * or an unread reason for `closedAs`. `repo` (`owner/repo`) reads that
+ * repository's issue with `--repo`, the routing console's route for a project
+ * page; without it the read is the repository `gh` acts on.
  */
 export async function fetchIssueState(
   exec: CliExec,
   issueNumber: number,
+  repo?: string,
 ): Promise<MirrorPassIssueState | null> {
   const { code, stdout } = await exec('gh', [
     'issue',
@@ -493,6 +496,7 @@ export async function fetchIssueState(
     String(issueNumber),
     '--json',
     'number,state,assignees,labels,stateReason',
+    ...(repo === undefined ? [] : ['--repo', repo]),
   ]);
   if (code !== 0) return null;
 

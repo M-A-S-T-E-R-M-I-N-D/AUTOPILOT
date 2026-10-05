@@ -130,6 +130,7 @@ import { createContributorIssueListPreviewApi } from '../flight/contributor-issu
 import { createSocialIdentityApi } from '../flight/social-pass.js';
 import { createCollaborationApi } from '../flight/collaboration.js';
 import { readProjectRoutingConsole } from '../flight/routing-console.js';
+import { createRoutingConsoleRouteApi } from '../flight/routing-console-execute.js';
 import { createCiStatusApi, createGhRun } from '../control/ci-status.js';
 import { createWhatsNewApi, githubPulse } from '../read/whats-new.js';
 import { readBenchmarkAt } from '../read/benchmark.js';
@@ -942,6 +943,9 @@ const server = createServer({
   // the board. A project page reads its own repository's page (its origin),
   // never the page of the repository gh acts on.
   routingConsole: readProjectRoutingConsole(dbPath),
+  // ...and its one write: routing an unprioritized issue with a house
+  // priority label, maintainer-only, on the repository the console read.
+  routingConsoleRoute: createRoutingConsoleRouteApi(dbPath),
   // CI-health surface (board web-mtq70abw-opouz8): the cached per-workflow
   // `gh run list` report `dashboard ci-status` already prints, surfaced for
   // the browser — see `control/ci-status.ts`'s `createCiStatusApi`.
