@@ -290,7 +290,11 @@ export interface FiringSeriesPoint {
   /** From `events.payload.promptVersion` — null when unresolvable, same
    *  tolerance as {@link evalRegressionByPromptVersion}. */
   readonly promptVersion: string | null;
-  readonly costUsd: number;
+  /** `null` when the firing's record says its cost is unknown
+   *  ({@link UNPRICED_FIRING_SQL}, epic 0036): a Codex or Gemini run reports
+   *  no price and the column stores its 0, which a per-day sum or a cost
+   *  variance would read as a free firing. */
+  readonly costUsd: number | null;
   readonly turns: number;
   readonly createdAt: number;
 }
@@ -302,7 +306,7 @@ interface FiringSeriesRow {
   readonly kind: string | null;
   readonly shipped: 0 | 1;
   readonly completion: string | null;
-  readonly costUsd: number;
+  readonly costUsd: number | null;
   readonly turns: number;
   readonly createdAt: number;
   readonly payload: string | null;
@@ -323,7 +327,8 @@ export function firingSeries(db: Db, projectId: string): FiringSeriesPoint[] {
       `SELECT m.firing_id AS firingId,
               date(m.created_at / 1000, 'unixepoch') AS day,
               m.sha, m.kind, m.shipped, m.completion,
-              m.cost_usd AS costUsd, m.turns, m.created_at AS createdAt,
+              CASE WHEN ${UNPRICED_FIRING_SQL} THEN NULL ELSE m.cost_usd END AS costUsd,
+              m.turns, m.created_at AS createdAt,
               e.payload
          FROM metrics m
          LEFT JOIN events e ON e.firing_id = m.firing_id AND e.type = 'firing'
