@@ -158,7 +158,10 @@ export function parseFleetCliArgs(
   const laneCount = Number(laneCountRaw ?? 3);
   const firings = Number(firingsRaw ?? 1);
   const budgetUsd = Number(budgetUsdRaw ?? defaultBudgetUsd);
-  const folderOk = folder !== undefined && folder.trim().length > 0;
+  // A dash-led first argument is an option (`--help`, `-h`, a stray `--`),
+  // never a folder: `dashboard fleet --help` once passed as folder '--help'
+  // and POSTed a real three-lane launch.
+  const folderOk = folder !== undefined && folder.trim().length > 0 && !folder.startsWith('-');
   const laneCountOk = Number.isInteger(laneCount) && laneCount >= 1;
   const firingsOk = Number.isInteger(firings) && firings >= 1;
   const budgetUsdOk = Number.isFinite(budgetUsd) && budgetUsd > 0;
