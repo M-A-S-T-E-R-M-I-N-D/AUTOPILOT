@@ -96,7 +96,7 @@ describe('flightProgressOf', () => {
     );
 
     expect(result?.pct).toBe(20);
-    expect(result?.progressBit).toBe('$2.00 of $10 total');
+    expect(result?.progressBit).toBe('$2.00 + 2 unpriced of $10 total');
     // avg $2 per priced firing, $8 remaining -> 4 more firings * 60s avg = 4m 0s
     expect(result?.etaBit).toBe(' · ETA ~4m 0s');
   });
@@ -111,8 +111,56 @@ describe('flightProgressOf', () => {
       enTr,
     );
 
-    expect(result?.progressBit).toBe('$0.00 of $10 total');
+    // The $0.00 stays: it is what the budget counted against its $ target.
+    expect(result?.progressBit).toBe('$0.00 + 1 unpriced of $10 total');
     expect(result?.etaBit).toBe('');
+  });
+
+  it('names the unpriced firings beside the fixed-firings spend, never summed in as $0 (epic 0036)', () => {
+    // Two Codex firings beside one $2.00 Claude firing read "$2.00 so far"
+    // with no word of them.
+    const mixed = flightProgressOf(
+      { firings: 5 },
+      [
+        { cost: 0, costUnpriced: true, durationMs: 60_000 },
+        { cost: 0, costUnpriced: true, durationMs: 60_000 },
+        { cost: 2, durationMs: 60_000 },
+      ],
+      null,
+      fmtCost,
+      fmtDuration,
+      enTr,
+    );
+    expect(mixed?.progressBit).toBe('3 / 5 firing(s) · $2.00 + 2 unpriced so far');
+
+    // A lane flown on Codex alone read "$0.00 so far".
+    const nonePriced = flightProgressOf(
+      { firings: 5 },
+      [
+        { cost: 0, costUnpriced: true, durationMs: 60_000 },
+        { cost: 0, costUnpriced: true, durationMs: 60_000 },
+      ],
+      null,
+      fmtCost,
+      fmtDuration,
+      enTr,
+    );
+    expect(nonePriced?.progressBit).toBe('2 / 5 firing(s) · 2 unpriced so far');
+  });
+
+  it('names the unpriced firings in Hebrew too', () => {
+    const result = flightProgressOf(
+      { firings: 5 },
+      [
+        { cost: 0, costUnpriced: true, durationMs: 60_000 },
+        { cost: 2, durationMs: 60_000 },
+      ],
+      null,
+      fmtCost,
+      fmtDuration,
+      translatorFor('he'),
+    );
+    expect(result?.progressBit).toBe('2 / 5 הפעלות · $2.00 + 1 ללא מחיר עד כה');
   });
 
   it('falls back to the historical average duration before any firing lands this session', () => {

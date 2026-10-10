@@ -298,7 +298,11 @@ bar paced its total-spend ETA the same way: a lane's spend divided by every firi
 two unpriced firings beside one $2.00 Claude firing read $0.67 per firing, and the $8 left of a $10
 total looked like 12 more firings, not 4. `flightProgressOf` (`web/flight-progress.ts`) now reads
 the flight-log entry's `costUnpriced`, averages cost over the priced firings alone, still counts an
-unpriced firing's duration, and shows no ETA until a firing reports a price. Until a later
+unpriced firing's duration, and shows no ETA until a firing reports a price. Until a 2026-10-10
+commit its spend clause still gave the priced figure with no word of them, so a fixed-firings lane
+flown on Codex alone read `2 / 5 firing(s) · $0.00 so far`. It now names them beside the priced
+spend (`$2.00 + 2 unpriced so far`), or alone when none was priced (`2 unpriced so far`); a
+total-spend bar keeps the `$0.00` its target counted (`$0.00 + 1 unpriced of $10 total`). Until a later
 2026-10-04 commit the project page's METRICS panel captioned such a firing `$0.00` too: the cost
 sparkline's bar and the flight timeline strip's segment said so in their tips and labels, and the
 sparkline's label gave a total with no word of the firings it could not price. `costSparkline` and

@@ -47,6 +47,8 @@ export interface FlightProgress {
 export type FlightProgressKey =
   | 'flightProgressSpentOfTotal'
   | 'flightProgressFiringsSoFar'
+  | 'flightProgressSpentPartlyUnpriced'
+  | 'flightProgressSpentAllUnpriced'
   | 'flightProgressEta'
   | 'flightProgressFinishingUp';
 
@@ -107,7 +109,10 @@ export interface SessionFlightData {
  *  (ap-muh80db4-0). The total-spend ETA paces by the priced firings alone:
  *  an unpriced one (`costUnpriced`, epic 0036) still counts toward the
  *  duration average but not the $/firing one, and with none priced there is
- *  no ETA. These notes live up here, outside the body, because
+ *  no ETA. The `{spent}` clause names such firings beside the priced spend
+ *  (`$2.00 + 2 unpriced`), or alone in fixed-firings mode when none was
+ *  priced (`2 unpriced`); total-spend mode keeps the `$0.00` its target
+ *  counted. These notes live up here, outside the body, because
  *  `.toString()` ships the body into `/app.js` against its size budget. */
 export function flightProgressOf(
   s: FlightProgressTarget,
@@ -125,6 +130,13 @@ export function flightProgressOf(
     spentSoFar += f.cost || 0;
   }
   const firingsCompleted = sessionFirings.length;
+  const unpriced = firingsCompleted - priced;
+  const spentText = (usd: number): string =>
+    unpriced === 0
+      ? fmtCost(usd)
+      : priced === 0 && !s.totalBudgetUsd
+        ? tr('flightProgressSpentAllUnpriced', { n: unpriced })
+        : tr('flightProgressSpentPartlyUnpriced', { cost: fmtCost(usd), n: unpriced });
 
   let pct: number | null = null;
   let progressBit = '';
@@ -132,7 +144,7 @@ export function flightProgressOf(
     pct = Math.min(100, Math.round((spentSoFar / s.totalBudgetUsd) * 100));
     // Clamped like pct: spend past this lane's total is siblings' (see below).
     progressBit = tr('flightProgressSpentOfTotal', {
-      spent: fmtCost(Math.min(spentSoFar, s.totalBudgetUsd)),
+      spent: spentText(Math.min(spentSoFar, s.totalBudgetUsd)),
       total: s.totalBudgetUsd,
     });
   } else if (s.firings) {
@@ -142,7 +154,7 @@ export function flightProgressOf(
     progressBit = tr('flightProgressFiringsSoFar', {
       done: firingsCompleted,
       count: s.firings,
-      spent: fmtCost(spentSoFar),
+      spent: spentText(spentSoFar),
     });
   }
   if (pct === null) return null;

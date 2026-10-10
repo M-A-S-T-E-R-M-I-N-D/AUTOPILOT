@@ -353,7 +353,11 @@ describe('the fly bar TOTAL flight progress bar', () => {
     await vi.advanceTimersByTimeAsync(1);
 
     const label = document.getElementById('fly-progress-label');
-    expect(label?.textContent).toContain('$2.00 of $10 total');
+    // The spend clause names the two unpriced firings it left out.
+    expect(label?.textContent).toContain('$2.00 + 2 unpriced of $10 total');
+    expect(document.getElementById('fly-progress-bar')?.getAttribute('aria-label')).toContain(
+      '$2.00 + 2 unpriced of $10 total',
+    );
     // avg $2 per priced firing, $8 remaining -> 4 more firings * 60s avg = 4m 0s
     expect(label?.textContent).toContain('ETA ~4m 0s');
   });
