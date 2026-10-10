@@ -1848,7 +1848,9 @@ body > .routing-console-panel { margin-inline: var(--page-inline); }
 .phase-detail-title { margin: 0 0 var(--space-1); font-size: var(--text-xs); font-variant-numeric: tabular-nums; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); }
 .phase-acts { max-height: 14rem; overflow-y: auto; }
 .phase-on { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
-.phase-name { text-transform: uppercase; letter-spacing: 0.04em; font-size: 9px; }
+.phase-name { display: inline-flex; align-items: center; gap: 3px; text-transform: uppercase; letter-spacing: 0.04em; font-size: 9px; }
+/* Epic 0025: each segment's word leads with its live phase pill's icon. */
+.phase-name > .icon { inline-size: 1.25em; block-size: 1.25em; }
 .phase-count { font-weight: 700; font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--color-text); }
 .phase-on .phase-count { color: var(--color-accent-text); }
 .phase-arrow { display: flex; color: var(--color-text-muted); }
