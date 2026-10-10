@@ -566,6 +566,26 @@ describe('firingSeries', () => {
     expect(point).toMatchObject({ promptVersion: null, outcome: null });
   });
 
+  it('reads a firing whose record says costUsd null as unpriced, not as the column’s 0 (epic 0036)', () => {
+    insertProject('p1', 'alpha', 'flying', 100);
+    insertFiringMetric('p1', 'priced', DAY_1, { costUsd: 1.5 });
+    insertFiringMetric('p1', 'free', DAY_1, { costUsd: 0 });
+    insertFiringMetric('p1', 'codex', DAY_1, { costUsd: 0 });
+    insertFiringMetric('p1', 'silent', DAY_1, { costUsd: 0.25 });
+    insertFiringPayload('p1', 'priced', JSON.stringify({ costUsd: 1.5 }), DAY_1);
+    insertFiringPayload('p1', 'free', JSON.stringify({ costUsd: 0 }), DAY_1);
+    insertFiringPayload('p1', 'codex', JSON.stringify({ costUsd: null }), DAY_1);
+    insertFiringPayload('p1', 'silent', JSON.stringify({ outcome: 'shipped' }), DAY_1);
+
+    const byId = new Map(firingSeries(store.db, 'p1').map((p) => [p.firingId, p.costUsd]));
+    expect(byId.get('priced')).toBe(1.5);
+    // A recorded zero is a price; only `null` in the record is "no price".
+    expect(byId.get('free')).toBe(0);
+    expect(byId.get('codex')).toBeNull();
+    // A record silent on cost leaves the column's figure standing.
+    expect(byId.get('silent')).toBe(0.25);
+  });
+
   it('returns an empty array for a project with no firings', () => {
     insertProject('p1', 'alpha', 'registered', 100);
     expect(firingSeries(store.db, 'p1')).toEqual([]);

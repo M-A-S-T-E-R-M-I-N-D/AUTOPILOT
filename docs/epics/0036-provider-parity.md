@@ -372,7 +372,15 @@ cheap bonus, and two $20.00 Claude firings beside two Codex ones averaged $10.00
 mark. `readTaskEconomicsFromStore` now carries each task's `unpriced` count (`unpricedFiringsByTask`),
 the average divides by the priced firings alone and names the rest (`2 priced prior firing(s)
 averaged $20.00 (2 unpriced left out)`), and a history with none priced reads `3 prior firing(s),
-unpriced — no price was reported` and moves no score. Since
+unpriced — no price was reported` and moves no score. Until a later 2026-10-10 commit the
+SELF-STUDY paper's data read them as free too: `firingSeries` (`packages/store/src/read.ts`), the
+per-firing series `scripts/self-study/generate-data.mjs` rolls up, gave a Codex or Gemini firing the
+column's `costUsd: 0`, so the `DATA:SUMMARY` Total cost row, the cost-per-day chart and the
+committed `DATA:SERIES` block's per-day sums counted it as a free firing. It now reads such a
+firing's cost as `null` (`UNPRICED_FIRING_SQL`), and the generator leaves it out of the day's spend,
+counts it in that day's `unpriced` (absent on a day with none, so an all-Claude series serializes as
+before), and names it beside the total, in the summary row and in the cost chart's tips and text
+description (`$2.00 + 2 unpriced`, or `unpriced` alone when none was priced). Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
