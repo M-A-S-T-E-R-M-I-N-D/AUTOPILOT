@@ -37,7 +37,7 @@ export declare function wasScored(report: string | null, root?: string): boolean
  *  reads as a config or setup error. */
 export declare function mutationFailureReason(error: unknown, scored?: boolean): string;
 
-/** Whether a failed `stryker run` was killed (a signal, or exit 137) before
+/** Whether a failed `stryker run` was SIGKILLed (or exited 137) before
  *  it scored — the one failure the sweep retries once; a survivor never is. */
 export declare function diedBeforeScoring(error: unknown): boolean;
 
