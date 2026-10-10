@@ -314,13 +314,18 @@ describe('mutationFailureReason', () => {
 });
 
 describe('diedBeforeScoring (the one failure the sweep retries, 2026-10-10)', () => {
-  it('is true for a run killed by a signal, whatever the exit code reads', () => {
+  it('is true for a run SIGKILLed, whatever the exit code reads', () => {
     expect(diedBeforeScoring({ status: null, signal: 'SIGKILL' })).toBe(true);
     expect(diedBeforeScoring({ status: 137, signal: 'SIGKILL' })).toBe(true);
   });
 
   it('is true for exit 137, a SIGKILL reported through a shell', () => {
     expect(diedBeforeScoring({ status: 137, signal: null })).toBe(true);
+  });
+
+  it('is false for a cancelled job (SIGTERM, SIGINT), which is not a death to re-run', () => {
+    expect(diedBeforeScoring({ status: null, signal: 'SIGTERM' })).toBe(false);
+    expect(diedBeforeScoring({ status: null, signal: 'SIGINT' })).toBe(false);
   });
 
   it('is false for a surviving mutant, so a survivor is never re-rolled', () => {

@@ -219,7 +219,9 @@ export function mutationFailureReason(error, scored = true) {
 }
 
 /** Whether a failed `stryker run` died to something outside it (a signal,
- *  or exit 137 — SIGKILL through a shell) before any mutant was scored.
+ *  SIGKILL — the OOM killer's — or exit 137, the same through a shell)
+ *  before any mutant was scored. A SIGTERM or SIGINT is a cancelled job,
+ *  not a death to re-run.
  *  Such a run has no verdict to hide, so the sweep retries it once.
  *  Anything else — above all exit 1, a survivor — is never retried:
  *  running it again could only turn a real survivor into a lucky pass.
@@ -229,7 +231,7 @@ export function mutationFailureReason(error, scored = true) {
  *  passed the nights between, and the heap cap added after 09-24 did not
  *  stop it; locally the same config scores 100% with node under 0.5 GB. */
 export function diedBeforeScoring(error) {
-  return (error?.signal ?? null) !== null || error?.status === SIGKILL_EXIT;
+  return error?.signal === 'SIGKILL' || error?.status === SIGKILL_EXIT;
 }
 
 /** The runner's closing lines: the tally, then every failure BY NAME with
