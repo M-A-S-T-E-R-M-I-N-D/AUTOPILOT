@@ -798,6 +798,7 @@ describe('createServer (live loopback)', () => {
       ['a non-string instanceId', JSON.stringify({ instanceId: 2 })],
       ['a non-string folder', JSON.stringify({ folder: ['/work/a'] })],
       ['a JSON array', '["fleet-2"]'],
+      ['a bare JSON null', 'null'],
     ] as const) {
       it(`POST /api/fly/${action} refuses ${what} with a 400 and touches no flight`, async () => {
         let called = false;
@@ -826,6 +827,28 @@ describe('createServer (live loopback)', () => {
       });
     }
   }
+
+  it('POST /api/fly/stop reads null fields as not named, the same as absent ones', async () => {
+    let received: [string | undefined, string | undefined] | 'unset' = 'unset';
+    const base = await start({
+      flight: {
+        status: () => IDLE_FLIGHT,
+        start: () => ({ started: false, message: 'no', status: IDLE_FLIGHT }),
+        stop: (folder, instanceId) => {
+          received = [folder, instanceId];
+          return STOP_IDLE;
+        },
+        pause: noopPause,
+      },
+    });
+    const res = await fetch(`${base}/api/fly/stop`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ folder: null, instanceId: null }),
+    });
+    expect(res.status).toBe(200);
+    expect(received).toEqual([undefined, undefined]);
+  });
 
   it('POST /api/fly/stop with a blank folder and no instanceId still means "no target", as before', async () => {
     let received: string | undefined = 'unset';

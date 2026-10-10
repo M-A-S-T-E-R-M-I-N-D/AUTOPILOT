@@ -1041,7 +1041,7 @@ const SEARCH_LIMIT = 12;
 
 /** Read an optional `{ folder?, instanceId? }` body (POST /api/fly/stop|pause).
  *  An absent or empty body — the fly bar's own Stop/Pause sends none — and a
- *  blank field read as "not named", so the API falls back to its default
+ *  blank or null field read as "not named", so the API falls back to its default
  *  target exactly as before. A body that is present but unreadable (not
  *  JSON, not an object, a field that is not a string) is REFUSED, never read
  *  as "not named": with a fleet flying, the default is the first running
@@ -1070,12 +1070,15 @@ async function readOptionalStopTarget(
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
     return refuse('the body is not a JSON object');
   const body = parsed as { folder?: unknown; instanceId?: unknown };
-  if (body.folder !== undefined && typeof body.folder !== 'string')
-    return refuse('folder is not a string');
-  if (body.instanceId !== undefined && typeof body.instanceId !== 'string')
-    return refuse('instanceId is not a string');
-  const folder = body.folder?.trim() ? body.folder : undefined;
-  const instanceId = body.instanceId?.trim() || undefined;
+  // null names nothing, like an absent field; any other non-string is refused.
+  const named = (v: unknown): string | undefined | false =>
+    v === undefined || v === null ? undefined : typeof v === 'string' ? v : false;
+  const folderRaw = named(body.folder);
+  if (folderRaw === false) return refuse('folder is not a string');
+  const instanceIdRaw = named(body.instanceId);
+  if (instanceIdRaw === false) return refuse('instanceId is not a string');
+  const folder = folderRaw?.trim() ? folderRaw : undefined;
+  const instanceId = instanceIdRaw?.trim() || undefined;
   return {
     ...(folder !== undefined ? { folder } : {}),
     ...(instanceId !== undefined ? { instanceId } : {}),
