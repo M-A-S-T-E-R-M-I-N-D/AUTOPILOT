@@ -240,7 +240,8 @@
       "js-yaml": "^4.3.2",
       "hono": "^4.13.5",
       "ip-address": "^10.5.1",
-      "qs": "^6.16.0"
+      "qs": "^6.16.0",
+      "proxy-addr": "^2.0.8"
     }
   },
   "devDependencies": {
