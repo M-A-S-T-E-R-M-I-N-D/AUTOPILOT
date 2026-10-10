@@ -314,7 +314,13 @@ const CORE_RAW_BUDGET = 257 * 1024;
 // -- measured 76750B, 50 bytes UNDER the old 76800B line, bumped for the
 // reason the 73KB entry gives, with sibling lanes flying beside it. Raw
 // (258727B) stays 345 bytes under its line.
-const CORE_GZIP_BUDGET = 76 * 1024;
+// Then core gzip 76->77KB (2026-10-10), epic 0036's fly bar over unpriced
+// firings: flightProgressOf, embedded from web/flight-progress.ts, names the
+// firings its spend clause left out instead of summing them in as $0, and two
+// English STRINGS keys carry the wording -- measured 77829B against the old
+// 77824B line, 5 bytes over, bumped for the reason the 73KB entry gives, with
+// sibling lanes flying beside it. Raw (262150B) stays 1018 bytes under its line.
+const CORE_GZIP_BUDGET = 77 * 1024;
 // board), then raw-only 184→188KB (2026-09-09) for the report-menu copy
 // toolkit's i18n slice (same board) — see the matching comment in
 // apps/dashboard/test/server/client-bundle-size-budget.test.ts for the
