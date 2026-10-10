@@ -210,6 +210,7 @@ import {
   LANE_DEMOTED_EVENT,
   NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES,
   firingConfigForEngine,
+  firingEngineBudgetLine,
   firingEngineFromEnv,
   firingEngineLine,
   firingEngineTurnCap,
@@ -1291,6 +1292,11 @@ async function main(): Promise<void> {
     const firingConfig = firingConfigForEngine(config, engineRoute);
     const engineLine = firingEngineLine(engineRoute);
     if (engineLine !== null) out(engineLine);
+    const budgetLine = firingEngineBudgetLine(engineRoute, {
+      perFiringUsd: firingBudgetUsd,
+      totalUsd: totalBudgetUsd,
+    });
+    if (budgetLine !== null) out(budgetLine);
     const promptTurnCap = firingEngineTurnCap(engineRoute, maxTurns);
 
     const sink = new SqliteFiringStore(store, projectId, now, instanceId);
