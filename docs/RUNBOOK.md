@@ -513,7 +513,7 @@ a 200 with `skippedReason` set, never a 403).
 | Endpoint | Derivation | What it reports |
 |---|---|---|
 | `GET /api/mirror-pass` | reconcile | per `github-<n>` task: a done board task whose linked issue is still open ⇒ "close it with the landing SHA" |
-| `GET /api/mirror-pass/landing-note` | landing-note dedup | a task whose issue already closed some other way but whose landed commits have no landed-in comment yet |
+| `GET /api/mirror-pass/landing-note` | landing-note dedup | a task whose issue already closed some other way but whose landed commits have no landed-in comment yet — a landing commit the checkout no longer has (rebased or squashed away) is never cited |
 | `GET /api/mirror-pass/drift` | README/docs claims ↔ tree | the project's own `README.md` checked against `package.json` (version), `docs/THIRD-PARTY-LICENSES.md` (package count) and its internal links — no `gh` call at all |
 | `GET /api/mirror-pass/stale-claims` | stale-claim reaper | a claimed pool issue whose assignee has gone quiet past the shared stale threshold ⇒ free the claim for someone else |
 | `GET /api/mirror-pass/priority-follow` | priority follow (law 2) | a maintainer's `priority: <level>` label on the issue that the board's own priority hasn't followed yet |

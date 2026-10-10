@@ -396,6 +396,26 @@ describe('planMirrorPassLandingNote', () => {
     ).toBeNull();
   });
 
+  it('never cites a landing sha the checkout no longer has (#40: a wrong public statement)', () => {
+    expect(
+      planMirrorPassLandingNote(
+        task({ status: 'done', landedSha: 'abc1234', landedShaExists: false }),
+        closed,
+        [],
+      ),
+    ).toBeNull();
+  });
+
+  it('still notes a landing sha the checkout confirmed', () => {
+    expect(
+      planMirrorPassLandingNote(
+        task({ status: 'done', landedSha: 'abc1234', landedShaExists: true }),
+        closed,
+        [],
+      ),
+    ).toMatchObject({ action: 'note-landing-sha', sha: 'abc1234' });
+  });
+
   it('returns null when the task is not done', () => {
     expect(
       planMirrorPassLandingNote(task({ status: 'in_progress', landedSha: 'abc1234' }), closed, []),

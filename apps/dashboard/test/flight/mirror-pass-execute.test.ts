@@ -1026,8 +1026,10 @@ describe('createMirrorPassLandingNotePreviewApi', () => {
       const plans = await createMirrorPassLandingNotePreviewApi(dbPath, exec)('p1');
 
       expect(plans?.[0]?.finding).toBeNull();
-      // Read-only, and no comments fetch needed for a still-open issue.
-      expect(exec).toHaveBeenCalledTimes(1);
+      // Read-only, and no comments fetch needed for a still-open issue: the one
+      // `gh` call is the issue's state (the `git` call is the SHA check).
+      const ghCalls = vi.mocked(exec).mock.calls.filter(([bin]) => bin === 'gh');
+      expect(ghCalls).toHaveLength(1);
     } finally {
       cleanupDir(dir);
     }
@@ -2109,6 +2111,56 @@ describe('#40 — unverified claims are noted, never closed on', () => {
         action: 'close-with-landing-note',
         sha: 'abc1234',
       });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('a closed issue is not told "Landed in" a commit the checkout no longer has — asking git first', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-40-landing-note-sha-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      doneTask(dbPath, dir, true);
+      const calls: Array<readonly string[]> = [];
+      const plans = await createMirrorPassLandingNotePreviewApi(
+        dbPath,
+        gitAwareExec({ 42: 'closed' }, { shaExists: false }, calls),
+      )('p1');
+      expect(calls).toContainEqual(['git', '-C', dir, 'cat-file', '-e', 'abc1234^{commit}']);
+      expect(plans?.[0]?.finding).toBeNull();
+      expect(plans?.[0]?.command).toBeNull();
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('a closed issue whose landing commit exists still gets its landing note', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-40-landing-note-ok-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      doneTask(dbPath, dir, true);
+      const plans = await createMirrorPassLandingNotePreviewApi(
+        dbPath,
+        gitAwareExec({ 42: 'closed' }, { shaExists: true }),
+      )('p1');
+      expect(plans?.[0]?.finding).toMatchObject({ action: 'note-landing-sha', sha: 'abc1234' });
+    } finally {
+      cleanupDir(dir);
+    }
+  });
+
+  it('the landing-note execute sends no comment for a commit the checkout no longer has', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ap-dash-mirror-pass-40-landing-note-exec-'));
+    try {
+      const dbPath = join(dir, 'a.db');
+      doneTask(dbPath, dir, true);
+      const calls: Array<readonly string[]> = [];
+      const report = await createMirrorPassLandingNoteExecuteApi(
+        dbPath,
+        gitAwareExec({ 42: 'closed' }, { shaExists: false }, calls),
+      )('p1');
+      expect(report?.outcomes).toEqual([]);
+      expect(calls.some((c) => c[1] === 'issue' && c[2] === 'comment')).toBe(false);
     } finally {
       cleanupDir(dir);
     }
