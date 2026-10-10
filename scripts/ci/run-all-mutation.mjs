@@ -218,6 +218,22 @@ export function mutationFailureReason(error, scored = true) {
   return 'no exit code and no signal — stryker never ran';
 }
 
+/** Whether a failed `stryker run` died to something outside it (a signal,
+ *  SIGKILL — the OOM killer's — or exit 137, the same through a shell)
+ *  before any mutant was scored. A SIGTERM or SIGINT is a cancelled job,
+ *  not a death to re-run.
+ *  Such a run has no verdict to hide, so the sweep retries it once.
+ *  Anything else — above all exit 1, a survivor — is never retried:
+ *  running it again could only turn a real survivor into a lucky pass.
+ *
+ *  Why a retry and not only headroom: `engine-claude-cli` was OOM-killed
+ *  on 2026-09-21, 09-24 and 10-09 (shard 1, between mutants ~80 and ~150),
+ *  passed the nights between, and the heap cap added after 09-24 did not
+ *  stop it; locally the same config scores 100% with node under 0.5 GB. */
+export function diedBeforeScoring(error) {
+  return error?.signal === 'SIGKILL' || error?.status === SIGKILL_EXIT;
+}
+
 /** The runner's closing lines: the tally, then every failure BY NAME with
  *  its reason. The tally alone was never enough — `104/110 passed` does not
  *  say which six, and the sweep prints tens of thousands of lines above it. */
@@ -268,12 +284,21 @@ function main() {
     const report = reportOf.get(cfg) ?? null;
     // An earlier run's report would read as this run having scored.
     if (report !== null) rmSync(join(ROOT, report), { force: true });
-    try {
+    const run = () =>
       execSync(`npx stryker run ${join('config', 'mutation', cfg)}`, {
         windowsHide: true,
         cwd: ROOT,
         stdio: 'inherit',
       });
+    try {
+      try {
+        run();
+      } catch (first) {
+        if (!diedBeforeScoring(first)) throw first;
+        console.error(`run-all-mutation: ${cfg}: ${mutationFailureReason(first)} — retrying once`);
+        if (report !== null) rmSync(join(ROOT, report), { force: true });
+        run();
+      }
     } catch (error) {
       const reason = mutationFailureReason(error, wasScored(report));
       failures.push({ file: cfg, reason });
