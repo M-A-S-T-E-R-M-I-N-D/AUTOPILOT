@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import {
+  diedBeforeScoring,
   discoverConfigs,
   formatFailureSummary,
   mutationFailureReason,
@@ -308,6 +309,43 @@ describe('mutationFailureReason', () => {
       {},
     ]) {
       expect(mutationFailureReason(error, false)).toBe(mutationFailureReason(error, true));
+    }
+  });
+});
+
+describe('diedBeforeScoring (the one failure the sweep retries, 2026-10-10)', () => {
+  it('is true for a run killed by a signal, whatever the exit code reads', () => {
+    expect(diedBeforeScoring({ status: null, signal: 'SIGKILL' })).toBe(true);
+    expect(diedBeforeScoring({ status: 137, signal: 'SIGKILL' })).toBe(true);
+  });
+
+  it('is true for exit 137, a SIGKILL reported through a shell', () => {
+    expect(diedBeforeScoring({ status: 137, signal: null })).toBe(true);
+  });
+
+  it('is false for a surviving mutant, so a survivor is never re-rolled', () => {
+    expect(diedBeforeScoring({ status: 1, signal: null })).toBe(false);
+  });
+
+  it('is false for any other exit code or a throw with neither', () => {
+    expect(diedBeforeScoring({ status: 136, signal: null })).toBe(false);
+    expect(diedBeforeScoring({ status: 2, signal: null })).toBe(false);
+    expect(diedBeforeScoring({})).toBe(false);
+    expect(diedBeforeScoring(undefined)).toBe(false);
+  });
+
+  it('agrees with mutationFailureReason on which failures are the environment', () => {
+    for (const error of [
+      { status: null, signal: 'SIGKILL' },
+      { status: 137, signal: null },
+      { status: 1, signal: null },
+      { status: 2, signal: null },
+      {},
+    ]) {
+      expect(diedBeforeScoring(error)).toBe(
+        mutationFailureReason(error).includes('not a surviving mutant') &&
+          mutationFailureReason(error).includes('environment'),
+      );
     }
   });
 });
