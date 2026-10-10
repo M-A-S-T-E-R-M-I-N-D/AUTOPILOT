@@ -72,8 +72,11 @@ async function boot(calls: RecordedCall[], flyStatus: unknown = IDLE): Promise<v
   document.write(renderShell());
   document.close();
   new Function(clientJs())();
+  // Wait for the bar to show, not just exist: it stays `hidden` until the
+  // first /api/fly read lands, and since jsdom 30.1.2 (as in a browser) a
+  // field under a display:none ancestor refuses focus().
   await vi.waitFor(() => {
-    expect(document.getElementById('fly-go')).not.toBeNull();
+    expect(document.getElementById('flightbar')?.hidden).toBe(false);
   });
 }
 
