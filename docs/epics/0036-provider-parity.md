@@ -770,7 +770,14 @@ disconnected reference doc that can drift out of sync with it.
 
 - Never invent a cost. An adapter with no priced figure from its own tool reports `null`
   (`ports.ts`, `firing.ts` §3.6) — this is non-negotiable per existing doctrine, not a per-adapter
-  judgment call.
+  judgment call. A dollar cap therefore cannot bind such a lane, and since 2026-10-10 the flight
+  log says so. Neither CLI takes a spend cap (`caps.maxBudgetUsd` is ignored), and `fly.ts`'s
+  TOTAL-SPEND tally adds a firing's `costUsd ?? 0`, so an unpriced firing adds nothing and the
+  total never trips. Before, the log's banner promised "$5 PER firing, up to $50 TOTAL" and the
+  engine line said only "no cost is recorded". `firingEngineBudgetLine`
+  (`flight/firing-engine.ts`) now follows the engine line with `Budget: Codex reports no price,
+  so the $5 per-firing cap is not passed to it …`, naming the total cap when the flight set one.
+  The firing count, the wall clock and the demotion rule are the lane's only limits.
 - `ModelPort.invoke` never rejects (existing contract, `ollama.ts`) — every new adapter captures a
   dead/unreachable/malformed-response case as a failed `ModelResponse`, never a thrown error the
   caller must catch.

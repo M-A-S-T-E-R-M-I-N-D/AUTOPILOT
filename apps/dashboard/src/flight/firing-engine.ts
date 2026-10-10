@@ -266,6 +266,28 @@ const GUARD_LINES: Readonly<Record<NonClaudeEngine, string>> = {
     'with the worktree trusted for this session',
 };
 
+/** The flight-log line telling a non-Claude lane's operator that the flight's
+ *  dollar caps cannot hold it (epic 0036): the CLI takes no spend cap, and a
+ *  firing it reports no price for adds nothing to the total's tally, so the
+ *  total never trips. Says so instead of leaving the banner's "$N PER firing,
+ *  up to $M TOTAL" to read as kept; `null` for Claude, whose caps hold. */
+export function firingEngineBudgetLine(
+  route: FiringEngineRoute,
+  caps: { readonly perFiringUsd: number; readonly totalUsd: number | undefined },
+): string | null {
+  if (route.engine === 'claude') return null;
+  const cli = firingEngineCli(route.engine);
+  const total =
+    caps.totalUsd === undefined
+      ? ''
+      : ` — the $${caps.totalUsd} total cap counts none of them and cannot stop this flight`;
+  return (
+    `Budget: ${cli} reports no price, so the $${caps.perFiringUsd} per-firing cap is not passed ` +
+    `to it and every firing reads unpriced, not $0${total}; the firing count, wall clock and ` +
+    `the demotion rule are this lane's only limits.`
+  );
+}
+
 /** The flight-log line naming a non-Claude lane's engine and what changes
  *  with it; `null` for Claude, whose flight log stays as it was. */
 export function firingEngineLine(route: FiringEngineRoute): string | null {
