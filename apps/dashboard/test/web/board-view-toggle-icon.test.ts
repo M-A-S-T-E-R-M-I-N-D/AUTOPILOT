@@ -97,13 +97,13 @@ function trackDocumentListeners(): void {
   };
 }
 
-async function boot(): Promise<void> {
+async function boot(state: unknown = STATE): Promise<void> {
   document.open();
   document.write(renderShell('p1'));
   document.close();
   localStorage.setItem('ap-tour-seen', '1');
   globalThis.fetch = vi.fn(
-    async () => ({ ok: true, json: async () => STATE }) as unknown as Response,
+    async () => ({ ok: true, json: async () => state }) as unknown as Response,
   );
   new Function(clientJs())();
   await vi.advanceTimersByTimeAsync(1);
@@ -181,6 +181,52 @@ describe('the board’s Columns/List toggle leads with a vendored icon (epic 002
 
     toggle().click();
     expect(toggle().hasAttribute('aria-pressed')).toBe(false);
+  });
+
+  it('an "auto" board relabels the toggle when the window crosses the columns breakpoint, not only on the next data tick (board ap-muvciftc-0)', async () => {
+    // Two flow groups (queued + in flight) keep "auto" as "auto", so the CSS
+    // alone decides columns or list at 64rem and the label must follow it.
+    const flowing = {
+      ...STATE,
+      projects: [
+        {
+          ...PROJECT,
+          tasks: [
+            { id: 't1', title: 'ship it', status: 'queued' },
+            { id: 't2', title: 'in the air', status: 'in_progress' },
+          ],
+        },
+      ],
+    };
+    let wide = true;
+    const listeners = new Map<string, Array<() => void>>();
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      get matches() {
+        return query === '(min-width: 64rem)' ? wide : false;
+      },
+      media: query,
+      addEventListener: (_type: string, fn: () => void) => {
+        listeners.set(query, [...(listeners.get(query) ?? []), fn]);
+      },
+      removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+    try {
+      await boot(flowing);
+      const card = document.querySelector('[data-board-view]') as HTMLElement;
+      expect(card.getAttribute('data-board-view')).toBe('auto');
+      expectIconed('list', 'boardViewList');
+
+      wide = false;
+      for (const fn of listeners.get('(min-width: 64rem)') ?? []) fn();
+      expectIconed('square-kanban', 'boardViewColumns');
+
+      wide = true;
+      for (const fn of listeners.get('(min-width: 64rem)') ?? []) fn();
+      expectIconed('list', 'boardViewList');
+    } finally {
+      window.matchMedia = original;
+    }
   });
 
   it('a click on the icon itself still toggles the view', async () => {
