@@ -2688,10 +2688,9 @@ function boardViewStored() {
     return v === 'columns' || v === 'list' ? v : 'auto';
   } catch (e) { return 'auto'; }
 }
-var BOARD_COLUMNS_MQ = '(min-width: 64rem)';
 function boardViewEffective(view) {
   if (view !== 'auto') return view;
-  return typeof window.matchMedia === 'function' && window.matchMedia(BOARD_COLUMNS_MQ).matches ? 'columns' : 'list';
+  return typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 64rem)').matches ? 'columns' : 'list';
 }
 // How many of the three columns would have rows: Queued · In flight & needs
 // you · Done. Columns exist to show FLOW; thirty queued rows beside two
@@ -3807,22 +3806,6 @@ if (typeof window.matchMedia === 'function') {
     taskPaneMq.addEventListener('change', function () {
       var cards = document.querySelectorAll('[data-board-view]');
       for (var i = 0; i < cards.length; i++) syncTaskPane(cards[i]);
-    });
-  }
-}
-// An "auto" board moves between columns and list with the window alone, so
-// its toggle, which names the view a click would switch to, is relabelled on
-// the lg breakpoint too (board ap-muvciftc-0). A forced view only moves on a
-// click, which relabels it there.
-if (typeof window.matchMedia === 'function') {
-  var boardColumnsMq = window.matchMedia(BOARD_COLUMNS_MQ);
-  if (boardColumnsMq.addEventListener) {
-    boardColumnsMq.addEventListener('change', function () {
-      var autoCards = document.querySelectorAll('[data-board-view="auto"]');
-      for (var i = 0; i < autoCards.length; i++) {
-        var autoToggle = autoCards[i].querySelector('[data-board-view-toggle]');
-        if (autoToggle) boardViewToggleLabel(autoToggle, 'auto');
-      }
     });
   }
 }
