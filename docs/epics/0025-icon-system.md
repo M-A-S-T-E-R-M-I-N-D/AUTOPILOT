@@ -884,7 +884,19 @@ propagation, and the filled style does not match the nav.
    the box on every Diagnose, so a later proposal draws the same icons. One
    rule spaces both from their words
    (`apps/dashboard/test/web/pr-fix-proposal-action-icons.test.ts`,
-   axe-clean).
+   axe-clean). **Activity phase rail 2026-10-10 (slice 2):** the live cards'
+   phase pill, the office map's zones and the activity feed's phase rows draw
+   orient, DO, gate and commit with one shape each (`LIVE_PHASE_ICONS`), and
+   the rail's separators draw `chevron-right`, yet the rail's four segment
+   buttons, the same four phases, were bare words over a count. Each
+   segment's word leads with its phase's icon now: `compass`, `pencil`,
+   `shield-check` and `git-commit-horizontal`; nothing is newly vendored. The
+   icon sits inside the small uppercase word, sized at 1.25em of it, so the
+   segment keeps its two lines. It is decorative, so a segment's name stays its
+   phase word and count; the rail is rebuilt on every render, so a later tick
+   draws the same icons (`apps/dashboard/test/web/phase-rail-icons.test.ts`,
+   axe-clean). The populated e2e baselines and README frames show the bare
+   segments until the landing re-renders them.
 
 ## Related
 
