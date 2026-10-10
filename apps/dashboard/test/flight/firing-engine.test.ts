@@ -9,6 +9,7 @@ import {
   firingEngineEnv,
   firingEngineFromEnv,
   firingEngineFromRequest,
+  firingEngineBudgetLine,
   firingEngineLine,
   firingEngineRequestFields,
   firingEngineRequestFromEnv,
@@ -436,5 +437,45 @@ describe('firingEngineLine', () => {
 
   it('demotes after the two reverts epic 0036 names', () => {
     expect(NON_CLAUDE_DEMOTE_AFTER_GATE_FAILURES).toBe(2);
+  });
+});
+
+// The flight banner promises "$5 PER firing, up to $50 TOTAL", and a Codex or
+// Gemini lane can keep neither: neither CLI takes a spend cap, and a firing with
+// no price adds nothing to the total's tally (`costUsd ?? 0`), so the total
+// never trips. The flight log said only "no cost is recorded".
+describe('firingEngineBudgetLine', () => {
+  const codex = { engine: 'codex', model: 'gpt-5-codex' } as const;
+
+  it('adds nothing to a Claude flight log, whose caps hold', () => {
+    expect(
+      firingEngineBudgetLine({ engine: 'claude' }, { perFiringUsd: 5, totalUsd: 50 }),
+    ).toBeNull();
+  });
+
+  it('tells a Codex lane its per-firing and total caps cannot hold', () => {
+    const line = firingEngineBudgetLine(codex, { perFiringUsd: 5, totalUsd: 50 });
+    expect(line).toContain('Codex reports no price');
+    expect(line).toContain('$5 per-firing cap is not passed to it');
+    expect(line).toContain('reads unpriced, not $0');
+    expect(line).toContain('$50 total cap counts none of them and cannot stop this flight');
+    expect(line).toContain('firing count, wall clock and the demotion rule');
+  });
+
+  it('names no total cap when the flight set none', () => {
+    const line = firingEngineBudgetLine(codex, { perFiringUsd: 5, totalUsd: undefined });
+    expect(line).toContain('$5 per-firing cap is not passed to it');
+    expect(line).not.toContain('total cap');
+    expect(line).toContain('firing count, wall clock and the demotion rule');
+  });
+
+  it('names a Gemini lane by its own CLI', () => {
+    const line = firingEngineBudgetLine(
+      { engine: 'gemini', model: 'gemini-2.5-pro' },
+      { perFiringUsd: 2.5, totalUsd: 20 },
+    );
+    expect(line).toContain('Gemini reports no price');
+    expect(line).toContain('$2.5 per-firing cap');
+    expect(line).toContain('$20 total cap');
   });
 });

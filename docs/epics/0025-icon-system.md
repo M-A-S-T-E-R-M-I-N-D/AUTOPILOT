@@ -871,6 +871,32 @@ propagation, and the filled style does not match the nav.
    switch and a repaint keep both. One rule spaces both from their words
    (`apps/dashboard/test/web/onboarding-strip-social-icons.test.ts`,
    axe-clean with and without GitHub).
+   **PR fix proposal's Approve and Discard 2026-10-10 (slice 2):** a
+   `defect` verdict's Diagnose can lay a proposed fix commit under a KEEPER
+   PR review card, whose Apply, Merge as maintainer, Re-run failed, Diagnose
+   and Update branch each lead with a stroke icon, yet the proposal's own
+   Approve and Discard were bare words. They are the decision over a proposed
+   commit that the SOUL card's ratify and dismiss are over a proposal, so they
+   take that pair's `check` and `x`, as the Plan editor's Publish and Discard
+   draft do; nothing is newly vendored. Each icon is decorative, so a
+   button's name stays its tip (the disabled Approve's reason, Discard's), and
+   a click on the `x` itself still discards. `renderFixProposal()` rebuilds
+   the box on every Diagnose, so a later proposal draws the same icons. One
+   rule spaces both from their words
+   (`apps/dashboard/test/web/pr-fix-proposal-action-icons.test.ts`,
+   axe-clean). **Activity phase rail 2026-10-10 (slice 2):** the live cards'
+   phase pill, the office map's zones and the activity feed's phase rows draw
+   orient, DO, gate and commit with one shape each (`LIVE_PHASE_ICONS`), and
+   the rail's separators draw `chevron-right`, yet the rail's four segment
+   buttons, the same four phases, were bare words over a count. Each
+   segment's word leads with its phase's icon now: `compass`, `pencil`,
+   `shield-check` and `git-commit-horizontal`; nothing is newly vendored. The
+   icon sits inside the small uppercase word, sized at 1.25em of it, so the
+   segment keeps its two lines. It is decorative, so a segment's name stays its
+   phase word and count; the rail is rebuilt on every render, so a later tick
+   draws the same icons (`apps/dashboard/test/web/phase-rail-icons.test.ts`,
+   axe-clean). The populated e2e baselines and README frames show the bare
+   segments until the landing re-renders them.
 
 ## Related
 

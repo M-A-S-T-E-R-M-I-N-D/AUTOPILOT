@@ -103,13 +103,35 @@ hand-maintained._
 | Pointer | Value |
 |---|---|
 | Engine/package version | `0.58.0` (`package.json`) |
-| Firing-Prompt-Version (current) | `firing-v17` |
+| Firing-Prompt-Version (current) | `firing-v18` |
 | Evaluation data | `docs/SELF-STUDY/PAPER.md` §4 `DATA:SUMMARY` — regenerate with `pnpm self-study:update` |
 | Prompt-version regression gate | `pnpm self-study:gate` (§2) — pass/fail against the pinned suite before bumping `Firing-Prompt-Version` |
 | Containment posture | `docs/FLIGHT-CONTAINMENT.md` — detection (done) + CLI prevention (done) + OS sandbox
   (platform-gated, not native Windows) |
 | Verification boundary (🟢 autonomous vs. 🟣 human-required) | `docs/MASTER-PLAN.md` §17 |
-| This card last reviewed against the above | 2026-10-04 |
+| This card last reviewed against the above | 2026-10-10 |
+
+**2026-10-10 review (DOC-FRESHNESS flag against `eval-gate.ts` and `prompt.ts`):** two
+commits landed after the 2026-10-04 review. `127d55ab` (2026-10-05) bumped
+`FIRING_PROMPT_VERSION` to `'firing-v18'`: the FLEET section's declare rule now asks a
+board unit to name its row in its `.autopilot-intent` goal (the bracketed id, plus the epic
+slice when the title has one) so a sibling claiming its next task can skip it. That is the
+one real drift: §6's `Firing-Prompt-Version (current)` row still read `firing-v17`, and it
+now reads `firing-v18`. `331d2ab5` (2026-10-05) makes `verifiedKnownGoodFirings` — the pool
+`scripts/self-study/pin-eval-suite.mjs` freezes into the committed, immutable
+`docs/SELF-STUDY/eval-suite.json` — read an unpriced firing's cost as SQL `NULL` through
+`UNPRICED_FIRING_SQL` instead of the column's stored `0`, so a Codex or Gemini ship is no
+longer pinned at an invented $0.00 (epic 0036); `KnownGoodFiring.costUsd` is now
+`number | null`. It does not touch `pickDisciplineAudit` or `boardDiversityAudit`, the two
+functions §5 names by exact behavior, and no §1–§5 claim describes the pinned suite's cost
+field or the intent-declaration rule, so no narrative changed. The pinned
+`docs/SELF-STUDY/eval-suite.json` holds no `firing-v18` firing, so §2's provisional pass
+applies to the new version. Re-checked:
+`package.json` version is still `0.58.0` and `pnpm self-study:gate` is still wired to
+`check-prompt-gate.mjs`. All still true. The parked `fleet-7` checkpoint (a
+`wip(autopilot): checkpoint` of 2026-09-19, not on this branch) that edited this same §6 block (`firing-v12` → `firing-v15`, review date
+`2026-09-03` → `2026-09-19`) is superseded by this card's history since, and it already
+conflicted textually with every review above before this one.
 
 **2026-10-04 review (DOC-FRESHNESS flag against `eval-gate.ts`):** the flagged commit
 (`3a6a733b`, 2026-10-04) fixes `aggregateEvalRows` and `evalRegressionByPickSource`'s

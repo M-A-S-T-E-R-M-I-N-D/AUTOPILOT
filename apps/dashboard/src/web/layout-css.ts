@@ -1141,6 +1141,7 @@ a.pr-review-check:hover, a.pr-review-check:focus-visible { border-color: current
 .pr-fix-approve, .pr-fix-discard { font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-1) var(--space-3); border-radius: var(--shape-extra-small); border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); }
 .pr-fix-approve:hover:not(:disabled), .pr-fix-approve:focus-visible:not(:disabled), .pr-fix-discard:hover, .pr-fix-discard:focus-visible { border-color: currentColor; color: var(--color-text); }
 .pr-fix-approve:disabled { opacity: 0.5; cursor: default; }
+.pr-fix-approve > .icon, .pr-fix-discard > .icon { margin-inline-end: 0.35em; }
 .issue-triage-panel { background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--shape-medium); padding: var(--space-3) var(--space-4); box-shadow: var(--elevation-level-1); }
 .issue-triage-title { margin: 0 0 var(--space-2); font-size: var(--text-base); }
 .issue-triage-list { display: flex; flex-direction: column; }
@@ -1847,7 +1848,9 @@ body > .routing-console-panel { margin-inline: var(--page-inline); }
 .phase-detail-title { margin: 0 0 var(--space-1); font-size: var(--text-xs); font-variant-numeric: tabular-nums; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); }
 .phase-acts { max-height: 14rem; overflow-y: auto; }
 .phase-on { color: var(--color-accent-text); background: var(--color-accent); border-color: var(--color-accent); }
-.phase-name { text-transform: uppercase; letter-spacing: 0.04em; font-size: 9px; }
+.phase-name { display: inline-flex; align-items: center; gap: 3px; text-transform: uppercase; letter-spacing: 0.04em; font-size: 9px; }
+/* Epic 0025: each segment's word leads with its live phase pill's icon. */
+.phase-name > .icon { inline-size: 1.25em; block-size: 1.25em; }
 .phase-count { font-weight: 700; font-variant-numeric: tabular-nums; font-size: var(--text-sm); color: var(--color-text); }
 .phase-on .phase-count { color: var(--color-accent-text); }
 .phase-arrow { display: flex; color: var(--color-text-muted); }

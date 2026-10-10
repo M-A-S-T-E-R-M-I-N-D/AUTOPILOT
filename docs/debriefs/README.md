@@ -12,6 +12,7 @@ hand-edited.
 
 | Date | Debrief |
 | --- | --- |
+| 2026-10-10 | [Processing `ap-mv2mq1f4-0`: fleet-7's 09bb4f47 MODEL-CARD checkpoint is stale, and no hand move retires it — only the lane's next launch does](2026-10-10-ap-mv2mq1f4-0-fleet-7-model-card-checkpoint-cannot-be-retired-by-hand.md) |
 | 2026-10-05 | [VERDICT split `web-mtwp0w74-qrxsb8`: the remaining Plan canvas work is two separable things, one gated on an operator decision](2026-10-05-verdict-web-mtwp0w74-qrxsb8-plan-canvas-reorder-needs-scope.md) |
 | 2026-10-05 | [Processing `ap-muv2rhjx-0` and `docfresh-docs-model-card-md-1791193730000`: `docs/MODEL-CARD.md` §6 really is one version behind, but a parked lane's unlanded head blocks the edit this firing](2026-10-05-verdict-ap-muv2rhjx-0-model-card-v18-blocked-by-fleet7.md) |
 | 2026-10-04 | [VERDICT blocked `ap-muszt3qy-0`: the hook that blocks `eslint.config.js` is the operator's own Claude Code hook, outside every flight's containment — the allowlist/override is an operator decision, not a repo change](2026-10-04-verdict-ap-muszt3qy-0-config-protection-hook-operator-owned.md) |

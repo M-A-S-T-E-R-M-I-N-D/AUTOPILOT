@@ -578,7 +578,11 @@ export interface MirrorPassLandingNoteFinding {
  * containing the SHA means the note was posted before, so `null` is
  * returned rather than posting a duplicate. An issue the maintainer declined
  * or put on hold ({@link isHeldByMaintainer}) gets no note either, the same
- * as {@link planMirrorPassReconcile} gives it no close.
+ * as {@link planMirrorPassReconcile} gives it no close. Nor does a SHA the
+ * checkout no longer has ({@link MirrorPassTaskCandidate.landedShaExists}
+ * `false`, a rebase or squash dropped it): "Landed in <that commit>" on a
+ * public issue would be the same wrong statement #40 keeps the close from
+ * making.
  */
 export function planMirrorPassLandingNote(
   task: MirrorPassTaskCandidate,
@@ -589,6 +593,7 @@ export function planMirrorPassLandingNote(
   if (issueNumber === null || !issue || issue.state !== 'closed') return null;
   if (isHeldByMaintainer(issue)) return null;
   if (task.status !== 'done' || !task.landedSha) return null;
+  if (task.landedShaExists === false) return null;
   const sha = task.landedSha;
   if (existingComments.some((body) => body.includes(sha))) return null;
 
@@ -702,7 +707,7 @@ export async function fetchMirrorPassIssueComments(
 ): Promise<ReadonlyMap<number, readonly string[]>> {
   const numbers = new Set<number>();
   for (const task of tasks) {
-    if (task.status !== 'done' || !task.landedSha) continue;
+    if (task.status !== 'done' || !task.landedSha || task.landedShaExists === false) continue;
     const issueNumber = issueNumberFromTaskId(task.id);
     if (issueNumber === null) continue;
     const issue = issuesByNumber.get(issueNumber);

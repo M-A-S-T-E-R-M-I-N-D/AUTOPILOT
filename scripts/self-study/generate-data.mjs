@@ -184,6 +184,18 @@ function money(n) {
   return n === null ? 'n/a' : `$${n.toFixed(2)}`;
 }
 
+/** A priced total beside the firings that could not be priced (epic 0036),
+ *  worded as the dashboard words it: `$2.00 + 2 unpriced`. A Codex or Gemini
+ *  run reports no price and the metrics column stores its 0, so a bare total
+ *  would read those firings as free. The bare total when none was unpriced
+ *  (an all-Claude store renders exactly as before), `unpriced` alone when
+ *  every one of the `firings` was. */
+function moneyBesideUnpriced(cost, unpriced, firings) {
+  if (!unpriced) return money(cost);
+  if (unpriced >= firings) return 'unpriced';
+  return `${money(cost)} + ${unpriced} unpriced`;
+}
+
 function renderEvalRegression(rows) {
   if (rows.length === 0) return [];
   const lines = [
@@ -490,6 +502,7 @@ function renderSummary(
   warmSessions,
   extendedFirings,
   unverifiableCauses,
+  unpricedFirings,
 ) {
   const generatedAt = new Date().toISOString();
   const lines = [
@@ -505,7 +518,7 @@ function renderSummary(
     `| Completion (self-reported) | ${formatDistribution(completion, stats.firings, 'untagged')} |`,
     `| Commit kind | ${formatDistribution(kind, stats.firings, 'untagged')} |`,
     `| Firing-Prompt-Version (shipped commits, from git trailers) | ${formatDistribution(promptVersion, shippedCount, 'pre-trailer')} |`,
-    `| Total cost (USD, self-reported) | $${stats.cost.toFixed(2)} |`,
+    `| Total cost (USD, self-reported) | ${moneyBesideUnpriced(stats.cost, unpricedFirings, stats.firings)} |`,
     `| Total tokens, in / out | ${stats.tokensIn.toLocaleString('en-US')} / ${stats.tokensOut.toLocaleString('en-US')} |`,
     `| Cache read / write tokens | ${stats.cacheReadTokens.toLocaleString('en-US')} / ${stats.cacheWriteTokens.toLocaleString('en-US')} |`,
     `| Total turns | ${stats.turns.toLocaleString('en-US')} |`,
@@ -551,7 +564,11 @@ function perDayAggregates(series) {
     const day = byDay.get(p.day) ?? { day: p.day, firings: 0, shipped: 0, costUsd: 0, turns: 0 };
     day.firings += 1;
     day.shipped += p.shipped;
-    day.costUsd += p.costUsd;
+    // An unpriced firing (`costUsd: null`, epic 0036) adds nothing to the
+    // day's spend and is counted beside it; the key stays absent on a day
+    // with none, so an all-priced series serializes as it always has.
+    if (p.costUsd === null) day.unpriced = (day.unpriced ?? 0) + 1;
+    else day.costUsd += p.costUsd;
     day.turns += p.turns;
     byDay.set(p.day, day);
   }
@@ -903,7 +920,7 @@ function renderCostTimelineChartSvg(perDay) {
     .map(
       (p) =>
         `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${COLOR_COST}">` +
-        `<title>${escapeXml(p.d.day)}: ${escapeXml(money(p.d.costUsd))}</title></circle>`,
+        `<title>${escapeXml(p.d.day)}: ${escapeXml(moneyBesideUnpriced(p.d.costUsd, p.d.unpriced, p.d.firings))}</title></circle>`,
     )
     .join('');
 
@@ -930,7 +947,9 @@ function renderCostTimelineChartSvg(perDay) {
   const title = 'Cost per day (USD)';
   const desc =
     `Line chart, ${perDay.length} day(s) from ${first} to ${last}. ` +
-    perDay.map((d) => `${d.day}: ${money(d.costUsd)}`).join('; ') +
+    perDay
+      .map((d) => `${d.day}: ${moneyBesideUnpriced(d.costUsd, d.unpriced, d.firings)}`)
+      .join('; ') +
     '. Exact values are in DATA-SERIES.md (the machine appendix).';
 
   return (
@@ -1444,6 +1463,7 @@ function main() {
       warmSessions,
       extendedFirings,
       unverifiableCauses,
+      series.filter((p) => p.costUsd === null).length,
     );
     const seriesBlock = renderSeries(project, series, evalRows);
     const chartBlock = renderChart(

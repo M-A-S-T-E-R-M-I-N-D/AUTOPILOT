@@ -559,6 +559,17 @@ and writes only this project's own board rows and its own siblings' `.autopilot-
 no board, SOUL or backlog row crosses projects because of it, and it opens no new write path.
 None of the four locks below changes; all six slices remain unchanged and live in production.
 
+Freshness check (2026-10-10): `flight/runner.ts` gained one commit since the 2026-10-05 evening
+check above — `8b148f41` (2026-10-05 19:28), a nightly-mutation follow-up. Its whole `runner.ts`
+change is a three-line Stryker disable comment on `flyTargetFromRequest`, marking
+`typeof raw === 'string' ? parseFlyTarget(raw) : null` an equivalent mutant (`parseFlyTarget`
+already answers `null` for every non-string, since `FLY_TARGETS` holds strings only and
+`.includes()` compares strictly). No behavior changes: the singleton `FlightRunner` of Lock 2,
+the `POST /api/fly` 409, and the Fly GitHub target plumbing the 2026-10-04 check above verified
+are exactly as they were. The rest of that commit is test and mutation-config scope in other
+modules, none of which this doc tracks. None of the four locks below changes; all six slices
+remain unchanged and live in production.
+
 Founder directive (2026-08-13): _"כל פרויקט לא יהיה תלוי באחר — שיוכלו לרוץ במקביל, כל
 אחד עם תכנית העבודה שלו"_ — no project depends on another; each flies in parallel with
 its own board. Today the fleet is serial by construction, at four distinct layers; this

@@ -87,7 +87,10 @@ function phaseRail(acts, pid) {
     // into the button's content-computed accessible name.
     var phaseDescId = 'phase-desc-' + pid + '-' + phases[j];
     seg.setAttribute('aria-describedby', phaseDescId);
-    seg.appendChild(el('span', 'phase-name', phases[j]));
+    // Epic 0025: the live phase pill's icon, decorative beside the word.
+    var phaseName = el('span', 'phase-name', phases[j]);
+    phaseName.insertBefore(iconEl(LIVE_PHASE_ICONS[phases[j]]), phaseName.firstChild);
+    seg.appendChild(phaseName);
     seg.appendChild(el('span', 'phase-count', String(counts[phases[j]])));
     rail.appendChild(seg);
     var phaseDesc = el('span', 'sr-only', phaseTip);

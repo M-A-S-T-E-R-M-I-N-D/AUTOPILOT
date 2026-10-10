@@ -1922,6 +1922,9 @@ const EN_STRINGS = {
   flightProgressLabel: '{elapsed} elapsed · {progress} ({pct}%){eta}',
   flightProgressSpentOfTotal: '{spent} of ${total} total',
   flightProgressFiringsSoFar: '{done} / {count} firing(s) · {spent} so far',
+  // {spent} when a Codex or Gemini firing reported no price (epic 0036).
+  flightProgressSpentPartlyUnpriced: '{cost} + {n} unpriced',
+  flightProgressSpentAllUnpriced: '{n} unpriced',
   flightProgressEta: ' · ETA ~{eta}',
   flightProgressFinishingUp: ' · finishing up',
   // web/fly-hint.ts's spliced flyHintText() (board web-msnsndki-dz3vn1) — the
@@ -3494,6 +3497,8 @@ export const STRINGS: Readonly<Record<LocaleName, Readonly<Record<StringKey, str
     flightProgressLabel: 'חלפו {elapsed} · {progress} ({pct}%){eta}',
     flightProgressSpentOfTotal: '{spent} מתוך ${total} בסך הכול',
     flightProgressFiringsSoFar: '{done} / {count} הפעלות · {spent} עד כה',
+    flightProgressSpentPartlyUnpriced: '{cost} + {n} ללא מחיר',
+    flightProgressSpentAllUnpriced: '{n} ללא מחיר',
     flightProgressEta: ' · הערכת סיום ~{eta}',
     flightProgressFinishingUp: ' · לקראת סיום',
     flyHintFixedMode: '{count} הפעלות × ${perFiring} כל אחת — מוציא עד ${ceiling} בסך הכול{caps}.',

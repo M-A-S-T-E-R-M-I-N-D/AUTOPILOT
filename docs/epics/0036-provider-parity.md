@@ -298,7 +298,11 @@ bar paced its total-spend ETA the same way: a lane's spend divided by every firi
 two unpriced firings beside one $2.00 Claude firing read $0.67 per firing, and the $8 left of a $10
 total looked like 12 more firings, not 4. `flightProgressOf` (`web/flight-progress.ts`) now reads
 the flight-log entry's `costUnpriced`, averages cost over the priced firings alone, still counts an
-unpriced firing's duration, and shows no ETA until a firing reports a price. Until a later
+unpriced firing's duration, and shows no ETA until a firing reports a price. Until a 2026-10-10
+commit its spend clause still gave the priced figure with no word of them, so a fixed-firings lane
+flown on Codex alone read `2 / 5 firing(s) · $0.00 so far`. It now names them beside the priced
+spend (`$2.00 + 2 unpriced so far`), or alone when none was priced (`2 unpriced so far`); a
+total-spend bar keeps the `$0.00` its target counted (`$0.00 + 1 unpriced of $10 total`). Until a later
 2026-10-04 commit the project page's METRICS panel captioned such a firing `$0.00` too: the cost
 sparkline's bar and the flight timeline strip's segment said so in their tips and labels, and the
 sparkline's label gave a total with no word of the firings it could not price. `costSparkline` and
@@ -368,7 +372,15 @@ cheap bonus, and two $20.00 Claude firings beside two Codex ones averaged $10.00
 mark. `readTaskEconomicsFromStore` now carries each task's `unpriced` count (`unpricedFiringsByTask`),
 the average divides by the priced firings alone and names the rest (`2 priced prior firing(s)
 averaged $20.00 (2 unpriced left out)`), and a history with none priced reads `3 prior firing(s),
-unpriced — no price was reported` and moves no score. Since
+unpriced — no price was reported` and moves no score. Until a later 2026-10-10 commit the
+SELF-STUDY paper's data read them as free too: `firingSeries` (`packages/store/src/read.ts`), the
+per-firing series `scripts/self-study/generate-data.mjs` rolls up, gave a Codex or Gemini firing the
+column's `costUsd: 0`, so the `DATA:SUMMARY` Total cost row, the cost-per-day chart and the
+committed `DATA:SERIES` block's per-day sums counted it as a free firing. It now reads such a
+firing's cost as `null` (`UNPRICED_FIRING_SQL`), and the generator leaves it out of the day's spend,
+counts it in that day's `unpriced` (absent on a day with none, so an all-Claude series serializes as
+before), and names it beside the total, in the summary row and in the cost chart's tips and text
+description (`$2.00 + 2 unpriced`, or `unpriced` alone when none was priced). Since
 2026-10-04 the report also compares engines, GitHub #21's per-provider quality telemetry: each
 firing's record names the CLI it flew on (`FiringRecord.engine`, from `EngineConfig.engine`, which
 `firingConfigForEngine` sets on every lane, Claude's included), and `renderFleetReport` groups the
@@ -758,7 +770,14 @@ disconnected reference doc that can drift out of sync with it.
 
 - Never invent a cost. An adapter with no priced figure from its own tool reports `null`
   (`ports.ts`, `firing.ts` §3.6) — this is non-negotiable per existing doctrine, not a per-adapter
-  judgment call.
+  judgment call. A dollar cap therefore cannot bind such a lane, and since 2026-10-10 the flight
+  log says so. Neither CLI takes a spend cap (`caps.maxBudgetUsd` is ignored), and `fly.ts`'s
+  TOTAL-SPEND tally adds a firing's `costUsd ?? 0`, so an unpriced firing adds nothing and the
+  total never trips. Before, the log's banner promised "$5 PER firing, up to $50 TOTAL" and the
+  engine line said only "no cost is recorded". `firingEngineBudgetLine`
+  (`flight/firing-engine.ts`) now follows the engine line with `Budget: Codex reports no price,
+  so the $5 per-firing cap is not passed to it …`, naming the total cap when the flight set one.
+  The firing count, the wall clock and the demotion rule are the lane's only limits.
 - `ModelPort.invoke` never rejects (existing contract, `ollama.ts`) — every new adapter captures a
   dead/unreachable/malformed-response case as a failed `ModelResponse`, never a thrown error the
   caller must catch.

@@ -532,7 +532,11 @@ export function createMirrorPassLandingNotePreviewApi(
     try {
       const project = listProjects(store.db).find((p) => p.id === projectId);
       if (!project) return null;
-      const tasks = mirrorPassTaskCandidates(store, projectId);
+      const tasks = await assessLandedShas(
+        exec,
+        project.root_path,
+        mirrorPassTaskCandidates(store, projectId),
+      );
       const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
       const commentsByIssueNumber = await fetchMirrorPassIssueComments(exec, tasks, issuesByNumber);
       return planMirrorPassLandingNoteBatch(tasks, issuesByNumber, commentsByIssueNumber);
@@ -592,7 +596,11 @@ export function createMirrorPassLandingNoteExecuteApi(
         return { identity: gate.identity, outcomes: [], skippedReason: gate.skippedReason };
       }
       const { identity } = gate;
-      const tasks = mirrorPassTaskCandidates(store, projectId);
+      const tasks = await assessLandedShas(
+        exec,
+        project.root_path,
+        mirrorPassTaskCandidates(store, projectId),
+      );
       const issuesByNumber = await fetchMirrorPassIssueStates(exec, tasks);
       const commentsByIssueNumber = await fetchMirrorPassIssueComments(exec, tasks, issuesByNumber);
       const plans = planMirrorPassLandingNoteBatch(tasks, issuesByNumber, commentsByIssueNumber);
