@@ -783,7 +783,74 @@ describe('createServer (live loopback)', () => {
     expect(received).toBeUndefined();
   });
 
-  it('POST /api/fly/stop with a malformed JSON body degrades to no folder, not a 400', async () => {
+  // A body that names a target but cannot be read must be refused, never
+  // read as "no target": with a fleet flying, no target means the first
+  // running folder's base lane, so a garbled stop for fleet-2 stopped base
+  // instead (2026-10-10, a JSON body with unescaped Windows backslashes).
+  // An absent or empty body — the fly bar's own Stop/Pause — is unchanged.
+  for (const action of ['stop', 'pause'] as const) {
+    for (const [what, body] of [
+      ['malformed JSON', '{not json'],
+      [
+        'unescaped Windows backslashes',
+        '{"folder":"C:\\Users\\operator\\repo","instanceId":"fleet-2"}',
+      ],
+      ['a non-string instanceId', JSON.stringify({ instanceId: 2 })],
+      ['a non-string folder', JSON.stringify({ folder: ['/work/a'] })],
+      ['a JSON array', '["fleet-2"]'],
+      ['a bare JSON null', 'null'],
+    ] as const) {
+      it(`POST /api/fly/${action} refuses ${what} with a 400 and touches no flight`, async () => {
+        let called = false;
+        const base = await start({
+          flight: {
+            status: () => IDLE_FLIGHT,
+            start: () => ({ started: false, message: 'no', status: IDLE_FLIGHT }),
+            stop: () => {
+              called = true;
+              return STOP_IDLE;
+            },
+            pause: () => {
+              called = true;
+              return { pausing: false, message: 'no', status: IDLE_FLIGHT };
+            },
+          },
+        });
+        const res = await fetch(`${base}/api/fly/${action}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body,
+        });
+        expect(res.status).toBe(400);
+        expect(((await res.json()) as { error?: string }).error).toMatch(/stop|pause|target/i);
+        expect(called).toBe(false);
+      });
+    }
+  }
+
+  it('POST /api/fly/stop reads null fields as not named, the same as absent ones', async () => {
+    let received: [string | undefined, string | undefined] | 'unset' = 'unset';
+    const base = await start({
+      flight: {
+        status: () => IDLE_FLIGHT,
+        start: () => ({ started: false, message: 'no', status: IDLE_FLIGHT }),
+        stop: (folder, instanceId) => {
+          received = [folder, instanceId];
+          return STOP_IDLE;
+        },
+        pause: noopPause,
+      },
+    });
+    const res = await fetch(`${base}/api/fly/stop`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ folder: null, instanceId: null }),
+    });
+    expect(res.status).toBe(200);
+    expect(received).toEqual([undefined, undefined]);
+  });
+
+  it('POST /api/fly/stop with a blank folder and no instanceId still means "no target", as before', async () => {
     let received: string | undefined = 'unset';
     const base = await start({
       flight: {
@@ -799,7 +866,7 @@ describe('createServer (live loopback)', () => {
     const res = await fetch(`${base}/api/fly/stop`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: '{not json',
+      body: JSON.stringify({ folder: '   ' }),
     });
     expect(res.status).toBe(200);
     expect(received).toBeUndefined();

@@ -137,6 +137,22 @@ describe('parseFleetCliArgs', () => {
     expect(parseFleetCliArgs(['  ', '3'], 10).ok).toBe(false);
   });
 
+  // `dashboard fleet --help` used to pass as folder '--help' with three lanes
+  // and POST a real, paid launch (2026-10-10; the server refused it only
+  // because no such folder existed). An option is never a folder.
+  it('reads --help, -h or any dash-led first argument as a request for usage, never a folder', () => {
+    for (const arg of ['--help', '-h', '--', '-x']) {
+      expect(parseFleetCliArgs([arg], 10)).toEqual({
+        ok: false,
+        usage: expect.stringContaining('usage: dashboard fleet'),
+      });
+    }
+  });
+
+  it('still accepts a folder whose name merely contains a dash', () => {
+    expect(parseFleetCliArgs(['./my-repo', '2'], 10).ok).toBe(true);
+  });
+
   it('rejects a non-integer or non-positive lane count', () => {
     expect(parseFleetCliArgs(['./repo', '1.5'], 10).ok).toBe(false);
     expect(parseFleetCliArgs(['./repo', '0'], 10).ok).toBe(false);
