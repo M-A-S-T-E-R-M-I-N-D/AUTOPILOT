@@ -207,13 +207,15 @@ function renderFixProposal(item, proposal, number) {
   }
   box.appendChild(pre);
   var actions = el('div', 'pr-fix-proposal-actions');
+  // Epic 0025 slice 2: the decision over a proposed commit takes the SOUL
+  // card's ratify/dismiss pair, check and x.
   var approveReason = fixProposalApproveDisabledReason();
   var approveBtn = prPanelButton('pr-fix-approve', 'Approve', 'data-pr-fix-approve',
-    number, approveReason, true);
+    number, approveReason, true, 'check');
   actions.appendChild(approveBtn);
   var discardTip = fixProposalDiscardTip(proposal);
   var discardBtn = prPanelButton('pr-fix-discard', 'Discard', 'data-pr-fix-discard',
-    number, discardTip, false);
+    number, discardTip, false, 'x');
   actions.appendChild(discardBtn);
   box.appendChild(actions);
   var resultEl = item.querySelector('.pr-review-result');
