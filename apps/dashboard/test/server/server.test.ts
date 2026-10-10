@@ -793,7 +793,7 @@ describe('createServer (live loopback)', () => {
       ['malformed JSON', '{not json'],
       [
         'unescaped Windows backslashes',
-        '{"folder":"Z:\\Claude\\AUTOPILOT","instanceId":"fleet-2"}',
+        '{"folder":"C:\\Users\\operator\\repo","instanceId":"fleet-2"}',
       ],
       ['a non-string instanceId', JSON.stringify({ instanceId: 2 })],
       ['a non-string folder', JSON.stringify({ folder: ['/work/a'] })],
