@@ -1039,37 +1039,47 @@ export interface ServerDeps extends RouteDeps {
 
 const SEARCH_LIMIT = 12;
 
-/** Read an optional `{ folder: string }` body (POST /api/fly/stop|pause) —
- *  a missing body, empty body, malformed JSON, or a non-string/blank `folder`
- *  field all resolve to `undefined` rather than reject the request, since the
- *  fly bar today sends no body at all and that must keep working unchanged. */
+/** Read an optional `{ folder?, instanceId? }` body (POST /api/fly/stop|pause).
+ *  An absent or empty body — the fly bar's own Stop/Pause sends none — and a
+ *  blank field read as "not named", so the API falls back to its default
+ *  target exactly as before. A body that is present but unreadable (not
+ *  JSON, not an object, a field that is not a string) is REFUSED, never read
+ *  as "not named": with a fleet flying, the default is the first running
+ *  folder's base lane, so a garbled stop meant for fleet-2 used to stop base
+ *  instead (2026-10-10). */
 async function readOptionalStopTarget(
   req: IncomingMessage,
-): Promise<{ folder?: string; instanceId?: string }> {
+): Promise<{ folder?: string; instanceId?: string } | { error: string; status: number }> {
   let raw: string;
   try {
     raw = await readBody(req, MAX_BODY_BYTES);
   } catch {
-    return {};
+    return { error: 'request body too large', status: 413 };
   }
   if (raw.trim().length === 0) return {};
+  const refuse = (why: string) => ({
+    error: `refused: ${why} — send {"folder"?: string, "instanceId"?: string} to name the flight to stop or pause, or no body for the default`,
+    status: 400,
+  });
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return {};
-    const body = parsed as { folder?: unknown; instanceId?: unknown };
-    const folder =
-      typeof body.folder === 'string' && body.folder.trim().length > 0 ? body.folder : undefined;
-    const instanceId =
-      typeof body.instanceId === 'string' && body.instanceId.trim().length > 0
-        ? body.instanceId.trim()
-        : undefined;
-    return {
-      ...(folder !== undefined ? { folder } : {}),
-      ...(instanceId !== undefined ? { instanceId } : {}),
-    };
+    parsed = JSON.parse(raw);
   } catch {
-    return {};
+    return refuse('the body is not valid JSON (a Windows path needs its backslashes escaped)');
   }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    return refuse('the body is not a JSON object');
+  const body = parsed as { folder?: unknown; instanceId?: unknown };
+  if (body.folder !== undefined && typeof body.folder !== 'string')
+    return refuse('folder is not a string');
+  if (body.instanceId !== undefined && typeof body.instanceId !== 'string')
+    return refuse('instanceId is not a string');
+  const folder = body.folder?.trim() ? body.folder : undefined;
+  const instanceId = body.instanceId?.trim() || undefined;
+  return {
+    ...(folder !== undefined ? { folder } : {}),
+    ...(instanceId !== undefined ? { instanceId } : {}),
+  };
 }
 
 /**
@@ -1199,18 +1209,22 @@ async function handleFly(
     return;
   }
 
-  // POST /api/fly/stop and /api/fly/pause — an optional `{ folder }` body picks
-  // which flight in a multi-flight registry to target; the fly bar today sends
-  // no body at all (single-flight UI, epic slice 4/6 lands the folder-aware
-  // one), so a missing/empty/malformed body is read as "no folder" rather than
-  // rejected — the implementation then falls back to its own single-flight
-  // default, exactly like today's no-body request.
+  // POST /api/fly/stop and /api/fly/pause — an optional `{ folder, instanceId }`
+  // body picks which flight in a multi-flight registry to target; the fly bar
+  // sends no body at all, so a missing/empty body is read as "no target" and
+  // the implementation falls back to its own default. An unreadable body is
+  // refused instead — see readOptionalStopTarget.
   if (action === 'stop' || action === 'pause') {
     // PARALLEL UNLOCK C follow-up: a same-folder fleet member is addressable
     // only by its instanceId — without it, stopping one instance was
     // impossible through the API (2026-08-17: a runaway instance had to be
     // killed with taskkill).
-    const { folder, instanceId } = await readOptionalStopTarget(req);
+    const target = await readOptionalStopTarget(req);
+    if ('error' in target) {
+      send(target.status, { error: target.error });
+      return;
+    }
+    const { folder, instanceId } = target;
     send(200, action === 'stop' ? api.stop(folder, instanceId) : api.pause(folder, instanceId));
     return;
   }
