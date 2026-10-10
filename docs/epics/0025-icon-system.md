@@ -871,6 +871,20 @@ propagation, and the filled style does not match the nav.
    switch and a repaint keep both. One rule spaces both from their words
    (`apps/dashboard/test/web/onboarding-strip-social-icons.test.ts`,
    axe-clean with and without GitHub).
+   **PR fix proposal's Approve and Discard 2026-10-10 (slice 2):** a
+   `defect` verdict's Diagnose can lay a proposed fix commit under a KEEPER
+   PR review card, whose Apply, Merge as maintainer, Re-run failed, Diagnose
+   and Update branch each lead with a stroke icon, yet the proposal's own
+   Approve and Discard were bare words. They are the decision over a proposed
+   commit that the SOUL card's ratify and dismiss are over a proposal, so they
+   take that pair's `check` and `x`, as the Plan editor's Publish and Discard
+   draft do; nothing is newly vendored. Each icon is decorative, so a
+   button's name stays its tip (the disabled Approve's reason, Discard's), and
+   a click on the `x` itself still discards. `renderFixProposal()` rebuilds
+   the box on every Diagnose, so a later proposal draws the same icons. One
+   rule spaces both from their words
+   (`apps/dashboard/test/web/pr-fix-proposal-action-icons.test.ts`,
+   axe-clean).
 
 ## Related
 
